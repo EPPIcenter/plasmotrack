@@ -1,0 +1,24 @@
+cmake_minimum_required(VERSION 3.15)
+project(transmission_networks_app)
+
+# App Compile Settings
+set(transmission_networks_VERSION_MAJOR 1)
+set(transmission_networks_VERSION_MINOR 0)
+
+
+set(CMAKE_CXX_STANDARD 17)
+
+set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
+
+set(TRANSMISSION_NETWORKS_INSTALL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
+set(TRANSMISSION_NETWORKS_INSTALL_BIN_DIR ${PROJECT_SOURCE_DIR}/bin)
+set(TRANSMISSION_NETWORKS_LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
+
+set(TRANSMISSION_NETWORK_HEADERS_DIR ${PROJECT_SOURCE_DIR}/src)
+
+include_directories(${TRANSMISSION_NETWORKS_INSTALL_INCLUDE_DIR})
+include_directories(${TRANSMISSION_NETWORK_MODEL_HEADERS_DIR})
+include_directories(${PROJECT_BINARY_DIR})
+
+add_subdirectory(src)
+add_subdirectory(test)

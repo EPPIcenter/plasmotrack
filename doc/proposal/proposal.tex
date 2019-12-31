@@ -1,0 +1,132 @@
+\documentclass{article}
+
+\input{head}
+\input{commands}
+
+\begin{document}
+
+\fancyhead[C]{}
+\hrule \medskip % Upper rule
+\begin{minipage}{0.295\textwidth} 
+\raggedright
+\footnotesize
+Maxwell Murphy \hfill\\
+murphy2122@berkeley.edu \hfill\\
+\end{minipage}
+\begin{minipage}{0.4\textwidth} 
+\centering 
+\large 
+Transmission Network Bayesian Inference\\ 
+\end{minipage}
+\begin{minipage}{0.295\textwidth} 
+\raggedleft
+\today\hfill\\
+\end{minipage}
+\medskip\hrule 
+\bigskip
+
+\section{Defining the Question}
+
+We are interested in estimating epidemiological parameters or features that depend on the transmission graph $G$. We do not directly observe the transmission graph, but instead observe genetic data from spatially and temporally explicit cases, implying a probabilistic interpretation of a graph $\tilde{G}$. To evaluate the probability of a feature or expectation of a epidemiological parameter given the observed data $X$, we must marginalize over possible graphs $\mathcal{G}$.
+
+For some feature $f$ of the graph $G$, such as $R_0$, number of outbreaks, or the existence of edges between nodes, we say the expectation of that feature given the data is defined
+
+\begin{align*}
+    \E(f | X) &= \sum_{Y \in \mathcal{Y}} \sum_{G \in \mathcal{G}} f(G) P(G | Y) P(Y | X)
+\end{align*}
+
+For example, the feature $Y_i \rightarrow Y_j$ would be a function that returns $1$ if the edge between $Y_i$ and $Y_j$ exists and 0 otherwise. The resulting expectation then would be the probability of that feature given the data and the model. This is an impossible integral to calculate explicitly in relevant cases as the cardinality of $\mathcal{G}$ is super exponential in $n$ the number of observed cases. We may slightly moderate this by restricting ourselves to the class of graphs with limited maximum number of parents, though this remains super exponential in the number of observed cases. We resort then to MCMC based techniques to estimate $f$ and other parameters of interest.
+
+\section{Model}
+We propose the following formulations for estimating the expectation of some function $f$ over graphs given the observed data by estimating the marginal posterior distribution of graphs given the observed data and some model.
+
+\subsection{Graph Sampling}
+A straightforward approach would be to estimate the joint density
+\begin{align*}
+    P(Y, G, \boldsymbol{\theta}_{X}, \boldsymbol{\theta}_{Y} | X) & \propto P(X | Y, G, \boldsymbol{\theta}_{X}, \boldsymbol{\theta}_{Y}) P(Y, G, \boldsymbol{\theta}_{X}, \boldsymbol{\theta}_{Y}) \\
+    & = P(X | Y, \boldsymbol{\theta}_{X}) P(Y | G, \boldsymbol{\theta}_{Y}) P(G) P(\boldsymbol{\theta}_{X})P(\boldsymbol{\theta}_{Y}) \\
+    P(X | Y, \boldsymbol{\theta}_{X}) & = \prod_{i = 1}^n P(X_i | Y_i, \boldsymbol{\theta}_{X}) \\
+    P(Y | G, \boldsymbol{\theta}_{Y}) & = \prod_{i = 1}^n P(Y_i | Pa(Y_i), \boldsymbol{\theta}_{Y})
+\end{align*}
+Where $Pa(Y_i)$ is the parent set of node $Y_i$. Sampling during MCMC would then involve sampling graphs $G$, which may be challenging in practice due to the discrete nature of the likelihood and may require exotic proposal mechanisms to adequately explore the graph space.
+
+\subsection{Order Sampling}
+Because $\mathcal{G}$ is restricted to directed acyclic graphs (DAGs), an alternative formulation would be to introduce an auxiliary variable $\nodeord$ representing the topological ordering of nodes, resulting in the following joint density factorization
+
+\begin{align*}
+    P(Y, \nodeord, \boldsymbol{\theta}_{X}, \boldsymbol{\theta}_{Y}, \boldsymbol{\theta}_{\nodeord} | X) & \propto P(X | Y, \nodeord, \boldsymbol{\theta}_{X}, \boldsymbol{\theta}_{Y}, \boldsymbol{\theta}_{\nodeord}) P(Y, \nodeord, \boldsymbol{\theta}_{X}, \boldsymbol{\theta}_{Y}, \boldsymbol{\theta}_{\nodeord}) \\
+    & = P(X | Y, \boldsymbol{\theta}_{X}) P(Y | \nodeord, \boldsymbol{\theta}_{Y}) P(\nodeord | \boldsymbol{\theta}_{\nodeord}) P(\boldsymbol{\theta}_{X}) P(\boldsymbol{\theta}_{Y}) P(\boldsymbol{\theta}_{\nodeord}) \\
+    P(X | Y, \boldsymbol{\theta}_{X}) & = \prod_{i = 1}^n P(X_i | Y_i, \boldsymbol{\theta}_{X}) \\
+    P(Y | \nodeord, \boldsymbol{\theta}_{Y}) & = \sum_{G \in G_{\nodeord}} \prod_{i = 1}^n P(Y_i | Pa(Y_i), \boldsymbol{\theta}_{Y}) \\
+    & = \prod_{i = 1}^n \sum_{\mathbf{U} \in \mathcal{U}_{i, \nodeord}} P(Y_i | \mathbf{U}, \boldsymbol{\theta}_{Y})
+\end{align*}
+Where $G_{\nodeord}$ is the set of graph structures compatible with ordering $\nodeord$ and $\mathcal{U}_{i, \nodeord}$ is the set of parent sets for node $i$ compatible with ordering $\nodeord$. This parameterization sidesteps the issue of sampling the space of graphs by instead sampling the space of node orderings. This is a much smaller space with a much smoother likelihood between adjacent orderings that can be rapidly calculated, and easily accommodates relevant constraints over graphs such as restricting the cardinality of the parent set of a given node. Interestingly, the uniform prior over node orderings does not result in a uniform prior over graphs. However, as we have node observation time available to us, we have a natural premise for a non-uniform prior over node orderings, so this is of little concern, and in fact offers up a more natural prior over structures.
+
+\subsection{Observation and Transmission}
+Under either factorization, we must calculate two quantities which can be understood as two different processes at work, an \textbf{Observation Mechanism} and a \textbf{Transmission Mechanism}. 
+
+\subsubsection{Observation Mechanism}
+For a given node $i$, we have some observed data $X_i$ that is a noisy representation of the latent true underlying genetic state $Y_i$. Therefore, we must calculate the following quantity
+\begin{align*}
+    P(X_i | Y_i, \boldsymbol{\theta}_{X})
+\end{align*}
+
+\textbf{Presence/Absence}: The observed data available are vectors of presence/absence data, indicating the detection of specific alleles at genetic loci. We represent the latent true underlying genetic state also as vectors of presence/absence data, indicating the true presence or absence of that allele in the individual. We assume a detection mechanism that operates independently on each allele, parameterized by $\boldsymbol{\theta}_{X} = \{\fpr, \fnr\}$, representing false positive and false negative rates respectively. Our observation mechanism model then can be specified as
+
+\[
+    P(X_i | Y_i, \fpr, \fnr) = \prod_{j = 1}^{l}\prod_{k = 1}^{a_j} 
+    \begin{cases}
+        1 - \fnr & \text{ if } X_{i, j, k} = 1 \text{ and } Y_{i, j, k} = 1 \\
+        1 - \fpr & \text{ if } X_{i, j, k} = 0 \text{ and } Y_{i, j, k} = 0 \\
+        \fnr & \text{ if } X_{i, j, k} = 0 \text{ and } Y_{i, j, k} = 1 \\
+        \fpr & \text{ if } X_{i, j, k} = 1 \text{ and } Y_{i, j, k} = 0 \\
+    \end{cases}
+\]
+
+where $l$ is the number of genetic loci and $a_j$ is the number of alleles at locus $j$
+
+\textbf{Read Counts}: Observed data may consist of read counts of a particular allele. This suggests a different type of model, perhaps one that is not independent across loci.
+
+\subsubsection{Transmission Mechanism}
+
+For a given node i, we have a true underlying genetic state that resulted from the transmission of genetic material from some parent set of other nodes $Pa(Y_i)$. An independent collection of sets of parent sets is implied by a graph $G$, or a topological node ordering $\nodeord$, so all we must specify is the following
+
+\begin{align*}
+    P(Y_i | Pa(Y_i), \boldsymbol{\theta}_{Y})
+\end{align*}
+
+\textbf{No Super Infection}: Under this model, we assume that the cardinality of the parent set of any node is exactly $1$, implying that an individual was either directly infected by one other observed node, or has been directly infected by some unobserved individual. 
+
+For a direct transmission event to be observed between two individuals, we assume that the number of alleles that are transmitted between a parent node to a child node depends on the number of intervening unobserved direct transmissions, and a model of retention of alleles. We model the number of alleles retained at a particular locus over a single transmission event as a draw from a zero-truncated multiplicative binomial, thus the probability of a particular transmission event occurring between two individuals is the sum of the probability of the sequences of multiplicative binomial events with length equal to the given number of generations resulting in the observed number of alleles at a given locus. For example, say 5 alleles are observed in a parent node and 3 are observed in a child node. The probability of this occurring given 2 transmission events would be $P(5|5)P(3|5) + P(4|5)P(3|4) + P(3|5)P(3|3)$
+
+\textbf{Single Observed Transmission Event at a Single Locus}
+
+Let $A_p$ be the number of observed alleles in the parent and $A_c$ be the number of alleles in the child that are shared by the parent. We express the probability of going from $A_p$ to $A_c$ as a draw from a multiplicative binomial distribution.
+
+\begin{align*}
+    P(A_c | A_p, p, s) = c \binom{A_p}{A_c} p^{A_c} (1 - p)^{A_p - A_c} s^{A_c(A_p - A_c)}
+\end{align*}
+ 
+Given we can calculate any one transition and the possible number of alleles has a fixed maximum, it is trivial to construct a markov chain representation from one allele state to another over some fixed number of transmissions through a transition matrix.
+
+\textbf{Unexplained Alleles from Parent}
+
+It may be that there are some alleles in a child node that are not present in a parent node. As this is the true underlying genetic state, it is not a consequence of observation error. Instead, this is attributable to some underlying mutation rate $\mutr$. We assume the following probability independent across alleles and loci where $\tau_{i, j}$ is the number of transmission events separating $Y_i$ and $Y_j$
+
+\[
+    P(Y_c | Y_p, \mutr, \tau_{i, j}) = \prod_{j = 1}^{l}\prod_{k = 1}^{a_j} 
+    \begin{cases}
+        (1 - \mutr)^{\tau_{i,j}} & \text{ if } Y_{p, j, k} = 0 \text{ and } Y_{c, j, k} = 0 \\
+        \mutr^{\tau_{i, j}} & \text{ if } Y_{p, j, k} = 0 \text{ and } Y_{c, j, k} = 1 \\
+    \end{cases}
+\]
+
+\textbf{Transmission from an Unobserved Source Population}
+
+To accommodate the fact that there will always be at least one unobserved infection, we define a "Source Population" that reflects the underlying population of unobserved infections. We say then that a node that does not have an observed ancestor is a random draw from this unobserved population. This population is parameterized by a set of vectors $\pi$ where $\pi_j$ is the vector of allele frequencies in the population at locus $j$. While we do not know the underlying complexity of infection (COI), we can bound the minimum complexity of infection of a sample as the maximum number of alleles. Furthermore, for a fixed COI, say $c$, we can calculate the probability of a particular presence/absence vector at a given locus $j$ as the probability that exactly one of each observed allele is drawn, times the probability that the remaining alleles are drawn from the realized set of alleles.
+
+% \begin{align*}
+%     P(Y_i | \pi, c) & = \prod_{j = 1}^l (\sum_{k = 1}^{a_j} \mathbf{1}(Y_{i, j, k}))!
+% \end{align*}
+
+\end{document}
