@@ -5,8 +5,11 @@ project(transmission_networks_app)
 set(transmission_networks_VERSION_MAJOR 1)
 set(transmission_networks_VERSION_MINOR 0)
 
-
 set(CMAKE_CXX_STANDARD 17)
+
+#if ( CMAKE_COMPILER_IS_GNUCC )
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+#endif()
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
 
@@ -18,7 +21,17 @@ set(TRANSMISSION_NETWORK_HEADERS_DIR ${PROJECT_SOURCE_DIR}/src)
 
 include_directories(${TRANSMISSION_NETWORKS_INSTALL_INCLUDE_DIR})
 include_directories(${TRANSMISSION_NETWORK_MODEL_HEADERS_DIR})
+include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
 include_directories(${PROJECT_BINARY_DIR})
+
+include_directories(${Boost_INCLUDE_DIR})
+
+set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
+if( NOT EIGEN3_INCLUDE_DIR )
+    message( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
+endif()
+include_directories (${EIGEN3_INCLUDE_DIR})
+
 
 add_subdirectory(src)
 add_subdirectory(test)

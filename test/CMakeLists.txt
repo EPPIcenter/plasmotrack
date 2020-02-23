@@ -20,6 +20,7 @@ endif()
 # settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
+
 add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
         ${CMAKE_BINARY_DIR}/googletest-build
         EXCLUDE_FROM_ALL)
@@ -30,6 +31,8 @@ set(SOURCE_FILES
         main.cpp
         src/core/core_parameter_tests.cpp
         src/core/core_likelihood_tests.cpp
+        src/core/core_allele_tests.cpp
+        src/core/core_data_tests.cpp
         )
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
