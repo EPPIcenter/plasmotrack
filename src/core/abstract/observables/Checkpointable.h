@@ -6,7 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_CHECKPOINTABLE_H
 
 #include "core/abstract/crtp.h"
-#include "Observable.h"
+#include "core/abstract/observables/Observable.h"
 
 
 template<typename T, typename ValueType>

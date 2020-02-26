@@ -8,7 +8,7 @@
 #include <iostream>
 #include <boost/container/flat_map.hpp>
 
-#include "../crtp.h"
+#include "core/abstract/crtp.h"
 
 //// Enables add and removing of callbacks for a given callback_type
 #define CREATE_EVENT(callback_name, callback_type)                                          \
@@ -70,7 +70,7 @@ protected:                                                                      
 // Data structures to support listener storage
 template<typename Key, typename Value> using ObserverMap = boost::container::flat_map<Key, Value>;
 
-using ListenerId_t = uint_fast32_t ;
+using ListenerId_t = uint_fast32_t;
 enum ListenerId : ListenerId_t {
 };
 

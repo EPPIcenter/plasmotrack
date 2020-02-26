@@ -6,7 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_ORDERING_H
 
 #include <iostream>
-#include "core/parameter/Parameter.h"
+#include "core/parameters/Parameter.h"
 
 template <typename T>
 class Ordering : public Parameter<std::vector<T*>> {
@@ -16,7 +16,7 @@ class Ordering : public Parameter<std::vector<T*>> {
     CREATE_KEYED_EVENT(moved_right, T*, MovedCallback); // Notifies that an element has been moved right of key
 
 public:
-    explicit Ordering(const std::string &id) : Parameter<std::vector<T*>>(id, {}) {};
+    explicit Ordering() : Parameter<std::vector<T*>>() {};
 
     void swap(int a, int b) noexcept {
         T* tmp = this->value_[a];

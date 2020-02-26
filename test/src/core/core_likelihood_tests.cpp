@@ -8,8 +8,8 @@
 
 #include "gtest/gtest.h"
 
-#include "core/parameter/Parameter.h"
-#include "core/parameter/Ordering.h"
+#include "core/parameters/Parameter.h"
+#include "core/parameters/Ordering.h"
 
 #include "core/datatypes/Data.h"
 #include "core/datatypes/Alleles.h"
@@ -20,21 +20,23 @@
 #include "core/computation/observation_process/ObservationProcessLikelihood.h"
 #include "core/computation/transmission_process/TransmissionProcessLikelihood.h"
 #include "core/computation/transmission_process/ZTMultiplicativeBinomial.h"
-#include "core/computation/transmission_process/TransmissionProcess.h"
+#include "core/computation/transmission_process/NoSuperInfectionTransmissionProcess.h"
 #include "core/computation/transmission_process/OrderDerivedParentSet.h"
 #include "core/computation/transmission_process/OrderBasedTransmissionProcess.h"
+#include "core/computation/transmission_process/MultinomialSourceTransmissionProcess.h"
 
 
 using GeneticsImpl = AllelesBitSet<16>;
+using DoubleParameter = Parameter<double>;
 
 TEST(CoreLikelihoodTest, LikelihoodTest) {
 
     using AlleleCounterAccumulator = Accumulator<AlleleCounter<GeneticsImpl>, AlleleCounts>;
 
-    Data d1("d1", GeneticsImpl("011010"));
-    Data d2("d2", GeneticsImpl("101101"));
-    Parameter k1("a1", d1.value());
-    Parameter k2("a1", d2.value());
+    Data<GeneticsImpl> d1("011010");
+    Data<GeneticsImpl> d2("101101");
+    Parameter<GeneticsImpl> k1("011010");
+    Parameter<GeneticsImpl> k2("101101");
 
     std::cout << "Created Parameters" << std::endl;
     AlleleCounter ac1(k1, d1);
@@ -53,8 +55,8 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     std::cout << "Accumulator:" << std::endl;
     std::cout << acc.value() << std::endl;
 
-    Parameter fpr("fpr", .05);
-    Parameter fnr("fnr", .05);
+    DoubleParameter fpr(.05);
+    DoubleParameter fnr(.05);
 
     ObservationProcessLikelihood op("ob", acc, fpr, fnr);
 
@@ -77,17 +79,12 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     std::cout << llik.value() << std::endl;
     fnr.acceptState();
 
-//    auto a = new int{3};
-//    auto b = new int{4};
-//    auto c = new int{5};
-//    auto d = new int{6};
-
     int a = 3;
     int b = 4;
     int c = 6;
     int d = 7;
 
-    Ordering<int> op2("op2");
+    Ordering<int> op2;
     op2.addElements({&a, &b, &c, &d});
     OrderDerivedParentSet ps(op2, c);
 
@@ -107,9 +104,9 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     ps.printSet();
     std::cout << op2 << std::endl;
 
-    Parameter tcp("tcp", .85);
-    Parameter tca("tca", .95);
-    ZTMultiplicativeBinomial<20> ztmb(tcp, tca);
+    DoubleParameter tcp(.85);
+    DoubleParameter tca(.95);
+    ZTMultiplicativeBinomial<10> ztmb(tcp, tca);
     std::cout << ztmb.value()(5, 3) << std::endl;
 
     tcp.saveState();
@@ -121,9 +118,34 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     tca.restoreState();
     std::cout << ztmb.value() << std::endl;
 
-    TransmissionProcess<3, 20> tp(ztmb);
+    NoSuperInfectionTransmissionProcess<4, 10> tp(ztmb);
 
-    std::cout << "Probability: " << std::endl;
+    std::cout << "Log Probability: " << std::endl;
     std::cout << tp.value() << std::endl;
 
+    Locus as1("AS1");
+
+    std::vector<LocusAssignment<GeneticsImpl, Locus>> dlas{{&as1, GeneticsImpl("011010")}};
+    std::vector<LocusAssignment<GeneticsImpl, Locus>> plas{{&as1, GeneticsImpl("011010")}};
+    Infection<GeneticsImpl> inf1(dlas, plas);
+    Infection<GeneticsImpl> inf2(dlas, plas);
+    Infection<GeneticsImpl> inf3(dlas, plas);
+    Infection<GeneticsImpl> inf4(dlas, plas);
+
+    ParentSet<Infection<GeneticsImpl>> ps1{&inf1};
+
+    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
+    tcp.saveState();
+    tcp.setValue(.05);
+    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
+    tcp.restoreState();
+    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
+
+    inf1.latentGenotype(&as1).saveState();
+    std::cout << "Saved State" << std::endl;
+    inf1.latentGenotype(&as1).setValue(GeneticsImpl("111111"));
+    std::cout << "Set Value" << std::endl;
+    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
+    inf1.latentGenotype(&as1).restoreState();
+    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
 }

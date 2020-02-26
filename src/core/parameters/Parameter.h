@@ -12,6 +12,8 @@
 #include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/Checkpointable.h"
 
+#include "core/utils/forwarding_utils.h"
+
 
 template<typename T>
 class Parameter : public Observable<Parameter<T>>,
@@ -23,13 +25,32 @@ class Parameter : public Observable<Parameter<T>>,
 
 public:
 
-    Parameter(std::string id, T value) : value_(std::move(value)), id_(std::move(id)) {};
+    template <typename Args, ENABLE_IF(NonSelf<Args, Parameter<T>>())>
+    explicit Parameter(Args&& args) : value_(std::forward<Args>(args)) {
+        std::cout << "parameter forwarded c'tor" << std::endl;
+    };
+
+    Parameter(const Parameter &other) : value_(other.value_), label_(other.label_) {
+        std::cout << "parameter copy c'tor" << std::endl;
+    };
+
+    Parameter() : value_({}) {
+        std::cout << "parameter empty c'tor" << std::endl;
+    };
 
     void setValue(T const value) noexcept {
         assert(this->isSaved());
         this->notify_pre_change();
         value_ = std::move(value);
         this->notify_post_change();
+    }
+
+    void setLabel(const std::string& label) noexcept {
+        label_ = label;
+    }
+
+    [[nodiscard]] std::string label() const noexcept {
+        return label_;
     }
 
     [[nodiscard]] constexpr T value() const noexcept {
@@ -41,7 +62,7 @@ protected:
     friend class Checkpointable<Parameter<T>, T>;
 
     T value_;
-    const std::string id_;
+    std::string label_{};
 };
 
 #endif //TRANSMISSION_NETWORKS_APP_PARAMETER3_H

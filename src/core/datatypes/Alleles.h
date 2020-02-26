@@ -8,18 +8,14 @@
 #include <bitset>
 #include <ostream>
 
-
-
 template<int MaxAlleles>
 class AllelesBitSet {
-private:
-    unsigned int total_alleles_{};
-    std::bitset<MaxAlleles> alleles_;
-
 public:
     explicit AllelesBitSet(const std::string &bitstr) : total_alleles_(bitstr.size()), alleles_(bitstr) {
         assert(bitstr.size() <= MaxAlleles);
     }
+
+    AllelesBitSet(const AllelesBitSet<MaxAlleles>& other) : total_alleles_(other.total_alleles_), alleles_(other.alleles_) {};
 
     friend std::ostream &operator<<(std::ostream &os, const AllelesBitSet &alleles) noexcept {
         os << alleles.allelesStr();
@@ -75,6 +71,9 @@ public:
         alleles_.reset(pos);
     };
 
+private:
+    unsigned int total_alleles_{};
+    std::bitset<MaxAlleles> alleles_;
 };
 
 

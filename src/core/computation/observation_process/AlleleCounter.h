@@ -5,11 +5,16 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ALLELECOUNTER_H
 #define TRANSMISSION_NETWORKS_APP_ALLELECOUNTER_H
 
-#include "core/computation/observation_process/AlleleCounts.h"
-#include "core/computation/Computation.h"
 #include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
+
+#include "core/computation/observation_process/AlleleCounts.h"
+#include "core/computation/Computation.h"
+
+#include "core/datatypes/Data.h"
+
+#include "core/parameters/Parameter.h"
 
 
 template<typename GeneticsImpl>

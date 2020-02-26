@@ -8,7 +8,7 @@
 #include <cmath>
 
 #include "core/computation/PartialLikelihood.h"
-#include "core/parameter/Parameter.h"
+#include "core/parameters/Parameter.h"
 
 template<typename AlleleCounter>
 class ObservationProcessLikelihood : public PartialLikelihood {

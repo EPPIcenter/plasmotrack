@@ -9,6 +9,7 @@ set(SOURCE_FILES
         computation/PartialLikelihood.cpp
         computation/LogLikelihood.cpp
         computation/observation_process/AlleleCounts.cpp
+        containers/Locus.cpp
         )
 
 add_library(transmission_network_core SHARED STATIC ${SOURCE_FILES})

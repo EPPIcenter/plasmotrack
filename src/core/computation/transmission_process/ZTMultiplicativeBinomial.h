@@ -108,20 +108,17 @@ template<int MAX_COUNT>
 const SquareMatrix<double, MAX_COUNT> ZTMultiplicativeBinomial<MAX_COUNT>::combo_matrix = initCombosMat<MAX_COUNT>();
 
 template<int MAX_COUNT>
-ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(Parameter<double> &prob,
-                                                            Parameter<double> &assoc)
-        :   prob_(prob),
-            assoc_(assoc) {
-                prob_.add_post_change_listener([&]() {
-                    this->setDirty();
-                });
-                prob_.registerCheckpointTarget(*this);
+ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(Parameter<double> &prob, Parameter<double> &assoc): prob_(prob), assoc_(assoc) {
+        prob_.add_post_change_listener([&]() {
+            this->setDirty();
+        });
+        prob_.registerCheckpointTarget(*this);
 
-                assoc_.add_post_change_listener([&]() {
-                    this->setDirty();
-                });
-                assoc_.registerCheckpointTarget(*this);
-            }
+        assoc_.add_post_change_listener([&]() {
+            this->setDirty();
+        });
+        assoc_.registerCheckpointTarget(*this);
+    }
 
 
 #endif //TRANSMISSION_NETWORKS_APP_ZTMULTIPLICATIVEBINOMIAL_H

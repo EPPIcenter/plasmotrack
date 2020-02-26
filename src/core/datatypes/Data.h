@@ -7,26 +7,39 @@
 
 #include <utility>
 
+#include "core/utils/forwarding_utils.h"
+
+
 template <typename T>
 class Data {
 
 public:
-    Data(std::string id, T value) : value_(value), id_(std::move(id)) {};
+    template <typename Args, ENABLE_IF(NonSelf<Args, Data<T>>())>
+    explicit Data(Args&& args) : value_(std::forward<Args>(args)) {
+        std::cout << "data forward c'tor" << std::endl;
+    };
 
-    template<typename T0>
-    Data(std::string id, T0 &&value) : value_(std::forward<T0>(value)), id_(std::move(id)) {};
+    Data(const Data &other) : value_(other.value_), label_(other.label_) {
+        std::cout << "data copy c'tor" << std::endl;
+    };
 
-    [[nodiscard]] constexpr T value() const noexcept {
-        return this->value_;
+    void setLabel(const std::string& label) noexcept {
+        label_ = label;
     }
 
-    [[nodiscard]] std::string id() const noexcept {
-        return id_;
+    [[nodiscard]] constexpr T value() const noexcept {
+        return value_;
+    }
+
+    [[nodiscard]] std::string label() const noexcept {
+        return label_;
     }
 
 private:
     T value_;
-    std::string id_;
+    std::string label_;
 };
+
+
 
 #endif //TRANSMISSION_NETWORKS_APP_DATA_H

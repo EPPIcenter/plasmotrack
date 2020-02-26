@@ -6,7 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_CACHEABLE_H
 
 #include "core/abstract/crtp.h"
-#include "Observable.h"
+#include "core/abstract/observables/Observable.h"
 
 template<typename T>
 class Cacheable : public crtp<T, Cacheable> {
@@ -25,6 +25,11 @@ public:
 
     void setClean() noexcept {
         this->underlying().is_dirty_ = false;
+    }
+
+    template<typename T0>
+    void registerDirtyTarget(T0& target) {
+        this->underlying().add_set_dirty_listener([&]() { target.setDirty();});
     }
 
 protected:
