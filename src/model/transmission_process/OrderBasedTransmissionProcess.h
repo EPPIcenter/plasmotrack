@@ -22,6 +22,8 @@ class OrderBasedTransmissionProcess : public Computation<double>,
                                       public Observable<OrderBasedTransmissionProcess<TransmissionProcessImpl, SourceTransmissionProcessImpl, TransmissionEventType, ParentSetMaxCardinality>>,
                                       public Cacheable<OrderBasedTransmissionProcess<TransmissionProcessImpl, SourceTransmissionProcessImpl, TransmissionEventType, ParentSetMaxCardinality>>,
                                       public Checkpointable<OrderBasedTransmissionProcess<TransmissionProcessImpl, SourceTransmissionProcessImpl, TransmissionEventType, ParentSetMaxCardinality>, double> {
+
+    using ListenerIdMap = boost::container::flat_map<TransmissionEventType *, ListenerId_t>;
 public:
     //// Source Transmission Process changes -> subtract source, recalculate
     //// Node Transmission Process changes -> recalculate completely
@@ -148,11 +150,11 @@ private:
         return lik;
     }
 
-    boost::container::flat_map<TransmissionEventType *, ListenerId_t> preChangeListenerIdMap{};
-    boost::container::flat_map<TransmissionEventType *, ListenerId_t> postChangeListenerIdMap{};
-    boost::container::flat_map<TransmissionEventType *, ListenerId_t> saveStateListenerIdMap{};
-    boost::container::flat_map<TransmissionEventType *, ListenerId_t> acceptStateListenerIdMap{};
-    boost::container::flat_map<TransmissionEventType *, ListenerId_t> restoreStateListenerIdMap{};
+    ListenerIdMap preChangeListenerIdMap{};
+    ListenerIdMap postChangeListenerIdMap{};
+    ListenerIdMap saveStateListenerIdMap{};
+    ListenerIdMap acceptStateListenerIdMap{};
+    ListenerIdMap restoreStateListenerIdMap{};
 
     std::vector<TransmissionEventType> toCalculate{};
     boost::container::flat_set<TransmissionEventType> calculated{};

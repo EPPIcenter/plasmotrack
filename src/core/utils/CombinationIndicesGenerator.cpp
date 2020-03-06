@@ -4,7 +4,7 @@
 
 #include "CombinationIndicesGenerator.h"
 
-CombinationIndicesGenerator::CombinationIndicesGenerator(int n, int r) : completed(n < 1 || r > n), n_(n), r_(r) {
+CombinationIndicesGenerator::CombinationIndicesGenerator(int n, int r) : completed(n < 1 or r > n or r == 0), n_(n), r_(r) {
     for (int c = 0; c < r_; ++c)
         curr.push_back(c);
 }

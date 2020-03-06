@@ -18,6 +18,10 @@ class Ordering : public Parameter<std::vector<T*>> {
 public:
     explicit Ordering() : Parameter<std::vector<T*>>() {};
 
+    Ordering(std::vector<T*> refs) {
+        addElements(refs);
+    };
+
     void swap(int a, int b) noexcept {
         T* tmp = this->value_[a];
         this->value_[a] = this->value_[b];

@@ -29,11 +29,12 @@ include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
 
 set(SOURCE_FILES
         main.cpp
-        src/core/core_parameter_tests.cpp
         src/core/core_likelihood_tests.cpp
         src/core/datatypes/AllelesTest.cpp
         src/core/parameters/OrderingTest.cpp
-        src/core/core_data_tests.cpp
+        src/core/containers/InfectionTest.cpp
+        src/core/utils/CombinationIndicesGeneratorTests.cpp
+        src/model/OrderDerivedParentSetTest.cpp
         )
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
