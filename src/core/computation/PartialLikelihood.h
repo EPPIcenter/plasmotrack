@@ -18,15 +18,13 @@ class PartialLikelihood : public Computation<Likelihood>,
                           public Checkpointable<PartialLikelihood, Likelihood> {
 public:
 
-    explicit PartialLikelihood(std::string id);
+    explicit PartialLikelihood() = default;
 
     Likelihood value() override = 0;
 
 protected:
     friend class Cacheable<PartialLikelihood>;
     friend class Checkpointable<PartialLikelihood, Likelihood>;
-
-    const std::string id_;
 };
 
 

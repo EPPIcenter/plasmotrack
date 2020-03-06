@@ -16,14 +16,18 @@
 
 #include "core/computation/Accumulator.h"
 
-#include "core/computation/observation_process/AlleleCounter.h"
-#include "core/computation/observation_process/ObservationProcessLikelihood.h"
-#include "core/computation/transmission_process/TransmissionProcessLikelihood.h"
-#include "core/computation/transmission_process/ZTMultiplicativeBinomial.h"
-#include "core/computation/transmission_process/NoSuperInfectionTransmissionProcess.h"
-#include "core/computation/transmission_process/OrderDerivedParentSet.h"
-#include "core/computation/transmission_process/OrderBasedTransmissionProcess.h"
-#include "core/computation/transmission_process/MultinomialSourceTransmissionProcess.h"
+#include "core/utils/CombinationIndicesGenerator.h"
+
+#include "model/observation_process/AlleleCounter.h"
+#include "model/observation_process/ObservationProcessLikelihood.h"
+
+#include "model/transmission_process/TransmissionProcessLikelihood.h"
+#include "model/transmission_process/node_transmission_process/ZTMultiplicativeBinomial.h"
+#include "model/transmission_process/node_transmission_process/NoSuperInfection.h"
+#include "model/transmission_process/OrderDerivedParentSet.h"
+#include "model/transmission_process/OrderBasedTransmissionProcess.h"
+#include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
+#include "model/transmission_process/node_transmission_process/GeometricGenerationProbability.h"
 
 
 using GeneticsImpl = AllelesBitSet<16>;
@@ -58,7 +62,7 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     DoubleParameter fpr(.05);
     DoubleParameter fnr(.05);
 
-    ObservationProcessLikelihood op("ob", acc, fpr, fnr);
+    ObservationProcessLikelihood op(acc, fpr, fnr);
 
     Accumulator<PartialLikelihood, float> llik;
     llik.addTarget(op);
@@ -118,7 +122,10 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     tca.restoreState();
     std::cout << ztmb.value() << std::endl;
 
-    NoSuperInfectionTransmissionProcess<4, 10> tp(ztmb);
+    DoubleParameter gp_prob(.6);
+    GeometricGenerationProbability<25> gp(gp_prob);
+
+    NoSuperInfection<10, 25, ZTMultiplicativeBinomial, GeometricGenerationProbability> tp(ztmb, gp);
 
     std::cout << "Log Probability: " << std::endl;
     std::cout << tp.value() << std::endl;
@@ -134,18 +141,31 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
 
     ParentSet<Infection<GeneticsImpl>> ps1{&inf1};
 
-    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
+    std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
     tcp.saveState();
     tcp.setValue(.05);
-    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
+    std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
     tcp.restoreState();
-    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
+    std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
 
     inf1.latentGenotype(&as1).saveState();
     std::cout << "Saved State" << std::endl;
     inf1.latentGenotype(&as1).setValue(GeneticsImpl("111111"));
     std::cout << "Set Value" << std::endl;
-    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
+    std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
     inf1.latentGenotype(&as1).restoreState();
-    std::cout << "Parent Set: " << tp.calculateLogLikelihood(inf2, ps1) << std::endl;
+    std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
+
+
+    std::cout << "Geometric Prob: " << gp.value() << std::endl;
+    std::cout << "Geometric Prob Sum: " << gp.value().sum() << std::endl;
+    gp_prob.saveState();
+    gp_prob.setValue(.1);
+    std::cout << "Geometric Prob: " << gp.value() << std::endl;
+    std::cout << "Geometric Prob Sum: " << gp.value().sum() << std::endl;
+    gp_prob.restoreState();
+    std::cout << "Geometric Prob: " << gp.value() << std::endl;
+    std::cout << "Geometric Prob Sum: " << gp.value().sum() << std::endl;
+
+
 }

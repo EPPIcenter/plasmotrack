@@ -9,7 +9,7 @@
 #include <Eigen/Core>
 
 #include "core/datatypes/TransitionMatrix.h"
-#include "core/computation/transmission_process/ZTMultiplicativeBinomial.h"
+#include "model/transmission_process/node_transmission_process/ZTMultiplicativeBinomial.h"
 
 
 

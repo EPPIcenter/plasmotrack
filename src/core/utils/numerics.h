@@ -71,4 +71,5 @@ typename std::iterator_traits<Iter>::value_type logSumExpKnownMax(Iter begin, It
     );
     return max_el + std::log(sum);
 }
+
 #endif //TRANSMISSION_NETWORKS_APP_NUMERICS_H

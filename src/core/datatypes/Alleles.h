@@ -34,8 +34,8 @@ public:
 
     [[nodiscard]] constexpr inline static unsigned int
     trueNegativeCount(const AllelesBitSet<MaxAlleles> &parent, const AllelesBitSet<MaxAlleles> &child) noexcept {
-        assert(child.total_alleles() == parent.total_alleles());
-        return (~child.alleles_ & ~parent.alleles_).count() - (MaxAlleles - child.total_alleles());
+        assert(child.totalAlleles() == parent.totalAlleles());
+        return (~child.alleles_ & ~parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
     };
 
     [[nodiscard]] constexpr inline static unsigned int
@@ -52,7 +52,7 @@ public:
         return alleles_.to_string().substr(MaxAlleles - total_alleles_, total_alleles_);
     };
 
-    [[nodiscard]] constexpr int total_alleles() const noexcept {
+    [[nodiscard]] constexpr int totalAlleles() const noexcept {
         return total_alleles_;
     };
 

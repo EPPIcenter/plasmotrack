@@ -1,0 +1,51 @@
+//
+// Created by Maxwell Murphy on 2/27/20.
+//
+
+#ifndef TRANSMISSION_NETWORKS_APP_GEOMETRICCOIPROBABILITY_H
+#define TRANSMISSION_NETWORKS_APP_GEOMETRICCOIPROBABILITY_H
+
+#include <Eigen/Core>
+
+#include "core/abstract/observables/Observable.h"
+#include "core/abstract/observables/Cacheable.h"
+#include "core/abstract/observables/Checkpointable.h"
+
+#include "core/datatypes/Matrix.h"
+
+#include "core/parameters/Parameter.h"
+
+
+template<int MAX_COI>
+class GeometricCOIProbability : public Computation<ProbabilityVector<MAX_COI + 1>>,
+                                       public Observable<GeometricCOIProbability<MAX_COI>>,
+                                       public Cacheable<GeometricCOIProbability<MAX_COI>>,
+                                       public Checkpointable<GeometricCOIProbability<MAX_COI>, ProbabilityVector<MAX_COI + 1>> {
+
+public:
+    explicit GeometricCOIProbability(Parameter<double> &prob) : prob_(prob) {
+        this->value_(0) = 0;
+        prob_.registerCheckpointTarget(*this);
+        prob_.add_post_change_listener([&]() { this->setDirty(); });
+    };
+
+    ProbabilityVector<MAX_COI + 1> value() noexcept {
+        if(this->isDirty()) {
+            double denominator = 0.0;
+            for (int j = 1; j < MAX_COI + 1; ++j) {
+                this->value_(j) = pow(1 - prob_.value(), j) * (prob_.value()); // geometric distribution pmf(j)
+                denominator += this->value_(j);
+            }
+            this->value_ = this->value_ / denominator;
+        }
+        return this->value_;
+    };
+
+private:
+    friend class Checkpointable<GeometricCOIProbability<MAX_COI>, ProbabilityVector<MAX_COI + 1>>;
+    friend class Cacheable<GeometricCOIProbability<MAX_COI>>;
+
+    Parameter<double> &prob_;
+};
+
+#endif //TRANSMISSION_NETWORKS_APP_GEOMETRICCOIPROBABILITY_H

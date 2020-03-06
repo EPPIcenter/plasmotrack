@@ -18,4 +18,5 @@ private:
 };
 
 
+
 #endif //TRANSMISSION_NETWORKS_APP_CRTP_H

@@ -14,11 +14,9 @@ template<typename AlleleCounter>
 class ObservationProcessLikelihood : public PartialLikelihood {
 
 public:
-    ObservationProcessLikelihood(const std::string &id,
-                                 AlleleCounter &totalAlleles,
+    ObservationProcessLikelihood(AlleleCounter &totalAlleles,
                                  Parameter<double> &falsePositiveRate,
                                  Parameter<double> &falseNegativeRate) :
-            PartialLikelihood(id),
             total_alleles(totalAlleles),
             false_positive_rate_(falsePositiveRate),
             false_negative_rate_(falseNegativeRate) {

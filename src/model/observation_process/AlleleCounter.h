@@ -9,7 +9,7 @@
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
 
-#include "core/computation/observation_process/AlleleCounts.h"
+#include "AlleleCounts.h"
 #include "core/computation/Computation.h"
 
 #include "core/datatypes/Data.h"

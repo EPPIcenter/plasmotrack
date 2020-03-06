@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(transmission_network_model C CXX)
+project(transmission_network_model_old C CXX)
 
 if(NOT DEFINED transmission_network_model_MAX_ALLELES)
     set(transmission_network_model_MAX_ALLELES 32)

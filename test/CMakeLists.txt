@@ -31,10 +31,11 @@ set(SOURCE_FILES
         main.cpp
         src/core/core_parameter_tests.cpp
         src/core/core_likelihood_tests.cpp
-        src/core/core_allele_tests.cpp
+        src/core/datatypes/AllelesTest.cpp
+        src/core/parameters/OrderingTest.cpp
         src/core/core_data_tests.cpp
         )
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
-target_link_libraries(transmission_networks_tests transmission_network_core gtest)
+target_link_libraries(transmission_networks_tests transmission_networks gtest)
 install(TARGETS transmission_networks_tests DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

@@ -1,0 +1,42 @@
+//
+// Created by Maxwell Murphy on 12/9/19.
+//
+
+#include "gtest/gtest.h"
+#include "core/datatypes/Alleles.h"
+#include "core/parameters/Parameter.h"
+
+constexpr int MAX_ALLELES = 24;
+using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
+
+
+class AllelesTestFixture : public ::testing::Test {
+protected:
+    AllelesTestFixture() : a1("111000111000"), a2("111111000000"), a3("10010") {};
+    GeneticsImpl a1;
+    GeneticsImpl a2;
+    GeneticsImpl a3;
+};
+
+TEST_F(AllelesTestFixture, HandlesCounts) {
+    ASSERT_EQ(a1.totalAlleles(), 12);
+    ASSERT_EQ(GeneticsImpl::falsePositiveCount(a1, a2), 3);
+    ASSERT_EQ(GeneticsImpl::falseNegativeCount(a1, a2), 3);
+    ASSERT_EQ(GeneticsImpl::truePositiveCount(a1, a2), 3);
+    ASSERT_EQ(GeneticsImpl::trueNegativeCount(a1, a2), 3);
+    ASSERT_EQ(a1.totalPositiveCount(), 6);
+    ASSERT_EQ(a1.totalAlleles(), 12);
+    ASSERT_EQ(a3.totalAlleles(), 5);
+}
+
+TEST_F(AllelesTestFixture, HandlesFlipSetReset) {
+    a1.flip(11);
+    ASSERT_EQ(a1.totalPositiveCount(), 5);
+    a1.flip(11);
+    ASSERT_EQ(a1.totalPositiveCount(), 6);
+
+    a1.set(8);
+    ASSERT_EQ(a1.totalPositiveCount(), 7);
+    a1.reset(8);
+    ASSERT_EQ(a1.totalPositiveCount(), 6);
+}

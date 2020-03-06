@@ -16,4 +16,8 @@ using LogProbabilityMatrix = SquareMatrix<double, MAX_STATES>;
 template <int MAX_STATES>
 using ProbabilityMatrix = SquareMatrix<double, MAX_STATES>;
 
+template <int MAX_STATES>
+using ProbabilityVector = Eigen::Matrix<double, MAX_STATES, 1>;
+
+
 #endif //TRANSMISSION_NETWORKS_APP_MATRIX_H

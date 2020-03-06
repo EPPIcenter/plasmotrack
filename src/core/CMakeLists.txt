@@ -3,12 +3,11 @@ project(transmission_network_core)
 
 find_package(Boost 1.72 REQUIRED container math_c99l)
 find_package(Eigen3 REQUIRED)
+find_package(GSL REQUIRED)
 
 set(SOURCE_FILES
-        main.cpp
         computation/PartialLikelihood.cpp
         computation/LogLikelihood.cpp
-        computation/observation_process/AlleleCounts.cpp
         containers/Locus.cpp
         )
 
