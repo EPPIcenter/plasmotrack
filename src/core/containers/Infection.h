@@ -7,25 +7,28 @@
 
 #include <boost/container/flat_map.hpp>
 
+#include "core/abstract/observables/Observable.h"
 #include "core/containers/Locus.h"
 #include "core/datatypes/Data.h"
 #include "core/parameters/Parameter.h"
 
-template<template <typename> typename Wrapper, typename GeneticImpl, typename LocusImpl>
-using GenotypeMap = boost::container::flat_map<LocusImpl*, Wrapper<GeneticImpl>>; // Maps genetic readout to loci
+
 
 template<typename GeneticImpl, typename LocusImpl = Locus>
-using LocusAssignment = std::pair<LocusImpl*, GeneticImpl>;
+using LocusGeneticsAssignment = std::pair<LocusImpl*, GeneticImpl>;
 
 template <typename GeneticImpl, typename LocusImpl = Locus>
 class Infection: public Observable<Infection<GeneticImpl, LocusImpl>> {
+    template<template <typename> typename Wrapper>
+    using GenotypeMap = boost::container::flat_map<LocusImpl*, Wrapper<GeneticImpl>>; // Maps genetic readout to loci
+
     using ChangeCallback = std::function<void()>;
     CREATE_EVENT(pre_change, ChangeCallback);
     CREATE_EVENT(post_change, ChangeCallback);
     using CallbackType = std::function<void()>;
-    CRTP_CREATE_EVENT(save_state, CallbackType);
-    CRTP_CREATE_EVENT(accept_state, CallbackType);
-    CRTP_CREATE_EVENT(restore_state, CallbackType);
+    CREATE_EVENT(save_state, CallbackType);
+    CREATE_EVENT(accept_state, CallbackType);
+    CREATE_EVENT(restore_state, CallbackType);
 
 public:
 
@@ -40,6 +43,7 @@ public:
     template<typename LocusDataIter>
     Infection(LocusDataIter obs, LocusDataIter latent) {
         for(auto const& [locus, genetics] : obs) {
+            assert(locus->totalAlleles() == genetics.totalAlleles());
             observedGenotype_.emplace(locus, genetics);
         }
 
@@ -55,7 +59,7 @@ public:
         }
     };
 
-    GenotypeMap<Data, GeneticImpl, LocusImpl>& observedGenotype() {
+    GenotypeMap<Data>& observedGenotype() {
         return observedGenotype_;
     };
 
@@ -63,7 +67,7 @@ public:
         return observedGenotype_.at(locus);
     };
 
-    GenotypeMap<Parameter, GeneticImpl, LocusImpl>& latentGenotype() {
+    GenotypeMap<Parameter>& latentGenotype() {
         return latentGenotype_;
     };
 
@@ -72,8 +76,8 @@ public:
     };
 
 private:
-    GenotypeMap<Data, GeneticImpl, LocusImpl> observedGenotype_{};
-    GenotypeMap<Parameter, GeneticImpl, LocusImpl> latentGenotype_{};
+    GenotypeMap<Data> observedGenotype_{};
+    GenotypeMap<Parameter> latentGenotype_{};
 };
 
 #endif //TRANSMISSION_NETWORKS_APP_INFECTION_H

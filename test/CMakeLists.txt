@@ -33,6 +33,7 @@ set(SOURCE_FILES
         src/core/datatypes/AllelesTest.cpp
         src/core/parameters/OrderingTest.cpp
         src/core/containers/InfectionTest.cpp
+        src/core/containers/AlleleFrequencyContainerTest.cpp
         src/core/utils/CombinationIndicesGeneratorTests.cpp
         src/model/OrderDerivedParentSetTest.cpp
         )

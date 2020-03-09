@@ -11,6 +11,8 @@
 #include "core/parameters/Parameter.h"
 #include "core/parameters/Ordering.h"
 
+#include "core/containers/Infection.h"
+
 #include "core/datatypes/Data.h"
 #include "core/datatypes/Alleles.h"
 
@@ -130,10 +132,10 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     std::cout << "Log Probability: " << std::endl;
     std::cout << tp.value() << std::endl;
 
-    Locus as1("AS1");
+    Locus as1("AS1", 6);
 
-    std::vector<LocusAssignment<GeneticsImpl, Locus>> dlas{{&as1, GeneticsImpl("011010")}};
-    std::vector<LocusAssignment<GeneticsImpl, Locus>> plas{{&as1, GeneticsImpl("011010")}};
+    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> dlas{{&as1, GeneticsImpl("011010")}};
+    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> plas{{&as1, GeneticsImpl("011010")}};
     Infection<GeneticsImpl> inf1(dlas, plas);
     Infection<GeneticsImpl> inf2(dlas, plas);
     Infection<GeneticsImpl> inf3(dlas, plas);

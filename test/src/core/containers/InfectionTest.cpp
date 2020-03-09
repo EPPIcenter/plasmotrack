@@ -11,11 +11,11 @@
 TEST(InfectionTest, HandlesChangedLatentAlleles) {
     using GeneticsImpl = AllelesBitSet<16>;
 
-    Locus as1("AS1");
+    Locus as1("AS1", 6);
     bool allelesChanged = false;
 
-    std::vector<LocusAssignment<GeneticsImpl, Locus>> dlas{{&as1, GeneticsImpl("011010")}};
-    std::vector<LocusAssignment<GeneticsImpl, Locus>> plas{{&as1, GeneticsImpl("011010")}};
+    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> dlas{{&as1, GeneticsImpl("011010")}};
+    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> plas{{&as1, GeneticsImpl("011010")}};
     Infection<GeneticsImpl> inf1(dlas, plas);
 
     inf1.add_post_change_listener([&]() { allelesChanged = true; });

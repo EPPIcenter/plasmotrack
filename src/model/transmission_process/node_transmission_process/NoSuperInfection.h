@@ -17,14 +17,17 @@
 #include "core/containers/Locus.h"
 
 
-template<int MAX_COI, int MAX_TRANSMISSIONS,  template<int> typename COITransitionProbImpl, template<int> typename InterTransmissionProbImpl>
+template<int MAX_COI, int MAX_TRANSMISSIONS, template<int> typename COITransitionProbImpl,
+        template<int> typename InterTransmissionProbImpl>
 class NoSuperInfection : public Computation<LogProbabilityMatrix<MAX_COI + 1>>,
                          public Observable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>,
                          public Cacheable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>,
-                         public Checkpointable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<MAX_COI + 1>> {
+                         public Checkpointable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<
+                                 MAX_COI + 1>> {
 
 public:
-    explicit NoSuperInfection(COITransitionProbImpl<MAX_COI> &coitp, InterTransmissionProbImpl<MAX_TRANSMISSIONS> &intp) : coitp_(coitp) , intp_(intp) {
+    explicit NoSuperInfection(COITransitionProbImpl<MAX_COI> &coitp, InterTransmissionProbImpl<MAX_TRANSMISSIONS> &intp)
+            : coitp_(coitp), intp_(intp) {
         coitp_.registerCheckpointTarget(*this);
         coitp_.add_set_dirty_listener([&]() { this->setDirty(); });
 
@@ -49,17 +52,18 @@ public:
     };
 
     template<typename GeneticsImpl>
-    double calculateLogLikelihood(Infection<GeneticsImpl>& child, ParentSet<Infection<GeneticsImpl>>& ps) {
+    double calculateLogLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps) {
         assert(ps.size() == 1);
         double llik = 0.0;
-        auto const& childGenotype = child.latentGenotype();
-        for (auto const& parent : ps) {
-            auto const& parentGenotypes = parent->latentGenotype();
-            for (auto const& [locus, parentGenotypeAtLocus] : parentGenotypes) {
-                if(childGenotype.contains(locus)) {
-                    auto const& childGenotypeAtLocus = childGenotype.at(locus);
+        auto const &childGenotype = child.latentGenotype();
+        for (auto const &parent : ps) {
+            auto const &parentGenotypes = parent->latentGenotype();
+            for (auto const&[locus, parentGenotypeAtLocus] : parentGenotypes) {
+                if (childGenotype.contains(locus)) {
+                    auto const &childGenotypeAtLocus = childGenotype.at(locus);
                     const unsigned int parentAlleleCount = parentGenotypeAtLocus.value().totalPositiveCount();
-                    const unsigned int retainedAlleleCount = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+                    const unsigned int retainedAlleleCount = GeneticsImpl::truePositiveCount(
+                            parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
                     llik += value()(parentAlleleCount, retainedAlleleCount);
                 }
             }
@@ -69,17 +73,18 @@ public:
     };
 
     template<typename GeneticsImpl>
-    double peekCalculateLogLikelihood(Infection<GeneticsImpl>& child, ParentSet<Infection<GeneticsImpl>>& ps) {
+    double peekCalculateLogLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps) {
         assert(ps.size() == 1);
         double llik = 0.0;
-        auto const& childGenotype = child.latentGenotype();
-        for (auto const& parent : ps) {
-            auto const& parentGenotypes = parent->latentGenotype();
-            for (auto const& [locus, parentGenotypeAtLocus] : parentGenotypes) {
-                if(childGenotype.contains(locus)) {
-                    auto const& childGenotypeAtLocus = childGenotype.at(locus);
+        auto const &childGenotype = child.latentGenotype();
+        for (auto const &parent : ps) {
+            auto const &parentGenotypes = parent->latentGenotype();
+            for (auto const&[locus, parentGenotypeAtLocus] : parentGenotypes) {
+                if (childGenotype.contains(locus)) {
+                    auto const &childGenotypeAtLocus = childGenotype.at(locus);
                     unsigned int parentAlleleCount = parentGenotypeAtLocus.value().totalPositiveCount();
-                    unsigned int retainedAlleleCount = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+                    unsigned int retainedAlleleCount = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus.value(),
+                                                                                       childGenotypeAtLocus.value());
                     llik += this->peek()(parentAlleleCount, retainedAlleleCount);
                 }
             }
@@ -89,17 +94,19 @@ public:
     };
 
     template<typename GeneticsImpl>
-    double calculateLikelihood(Infection<GeneticsImpl>& child, ParentSet<Infection<GeneticsImpl>>& ps) {
+    double calculateLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps) {
         return exp(calculateLogLikelihood(child, ps));
     }
 
     template<typename GeneticsImpl>
-    double peekCalculateLikelihood(Infection<GeneticsImpl>& child, ParentSet<Infection<GeneticsImpl>>& ps) {
+    double peekCalculateLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps) {
         return exp(peekCalculateLogLikelihood(child, ps));
     }
 
 private:
-    friend class Checkpointable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<MAX_COI + 1>>;
+    friend class Checkpointable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<
+            MAX_COI + 1>>;
+
     friend class Cacheable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>;
 
     COITransitionProbImpl<MAX_COI> &coitp_;

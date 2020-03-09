@@ -7,22 +7,27 @@
 
 #include "Locus.h"
 
-Locus::Locus(std::string label) : uid(newUID++), label(std::move(label)) {}
+Locus::Locus(std::string label, int total_alleles) : uid(newUID++), label(std::move(label)),
+                                                     total_alleles_(total_alleles) {};
 
 unsigned int Locus::newUID = 0;
 
-bool Locus::operator<(const Locus &rhs) const {
+int Locus::totalAlleles() const noexcept {
+    return total_alleles_;
+}
+
+bool Locus::operator<(const Locus &rhs) const noexcept {
     return uid < rhs.uid;
 }
 
-bool Locus::operator>(const Locus &rhs) const {
+bool Locus::operator>(const Locus &rhs) const noexcept {
     return rhs < *this;
 }
 
-bool Locus::operator<=(const Locus &rhs) const {
+bool Locus::operator<=(const Locus &rhs) const noexcept {
     return !(rhs < *this);
 }
 
-bool Locus::operator>=(const Locus &rhs) const {
+bool Locus::operator>=(const Locus &rhs) const noexcept {
     return !(*this < rhs);
 }

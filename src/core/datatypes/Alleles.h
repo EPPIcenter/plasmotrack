@@ -72,7 +72,7 @@ public:
     };
 
 private:
-    unsigned int total_alleles_{};
+    unsigned int total_alleles_;
     std::bitset<MaxAlleles> alleles_;
 };
 

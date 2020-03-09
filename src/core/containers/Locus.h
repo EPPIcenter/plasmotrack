@@ -10,18 +10,21 @@ public:
     const unsigned int uid;
     const std::string label;
 
-    explicit Locus(std::string label);
+    explicit Locus(std::string label, int total_alleles);
 
-    bool operator<(const Locus &rhs) const;
+    [[nodiscard]] int totalAlleles() const noexcept;
 
-    bool operator>(const Locus &rhs) const;
+    bool operator<(const Locus &rhs) const noexcept;
 
-    bool operator<=(const Locus &rhs) const;
+    bool operator>(const Locus &rhs) const noexcept;
 
-    bool operator>=(const Locus &rhs) const;
+    bool operator<=(const Locus &rhs) const noexcept;
+
+    bool operator>=(const Locus &rhs) const noexcept;
 
 private:
     static unsigned int newUID;
+    int total_alleles_;
 };
 
 
