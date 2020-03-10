@@ -19,10 +19,6 @@ public:
         std::cout << "data forward c'tor" << std::endl;
     };
 
-    Data(const Data &other) : value_(other.value_), label_(other.label_) {
-        std::cout << "data copy c'tor" << std::endl;
-    };
-
     void setLabel(const std::string& label) noexcept {
         label_ = label;
     }

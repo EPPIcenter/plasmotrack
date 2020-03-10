@@ -7,6 +7,9 @@
 
 #include "core/datatypes/Matrix.h"
 
+
+// TODO: might want to make this a general frequency data structure, nothing particularly special about alleles
+
 template<int MaxAlleles>
 class AlleleFrequenciesVector {
 public:
@@ -25,10 +28,11 @@ public:
         set(freqs);
     };
 
-    AlleleFrequenciesVector(const AlleleFrequenciesVector<MaxAlleles> &other) : total_alleles_(
-            std::move(other.total_alleles_)), allele_frequencies_(std::move(other.allele_frequencies_)) {
-        std::cout << "allele frequencies move constructor" << std::endl;
-    }
+    //
+//    AlleleFrequenciesVector(const AlleleFrequenciesVector<MaxAlleles> &other) : total_alleles_(
+//            std::move(other.total_alleles_)), allele_frequencies_(std::move(other.allele_frequencies_)) {
+//        std::cout << "allele frequencies move constructor" << std::endl;
+//    }
 
     void set(const std::vector<double> valueArray) {
         assert(valueArray.size() == total_alleles_);

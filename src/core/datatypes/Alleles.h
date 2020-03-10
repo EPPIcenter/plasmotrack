@@ -15,10 +15,6 @@ public:
         assert(bitstr.size() <= MaxAlleles);
     }
 
-    AllelesBitSet(const AllelesBitSet<MaxAlleles>& other) : total_alleles_(other.total_alleles_), alleles_(other.alleles_) {
-        std::cout << "alleles copy c'tor" << std::endl;
-    };
-
     friend std::ostream &operator<<(std::ostream &os, const AllelesBitSet &alleles) noexcept {
         os << alleles.allelesStr();
         return os;

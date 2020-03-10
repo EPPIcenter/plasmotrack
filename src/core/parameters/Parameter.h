@@ -35,11 +35,6 @@ public:
         std::cout << "initializer list constructor" << std::endl;
     };
 
-
-    Parameter(const Parameter &other) : value_(other.value_), label_(other.label_) {
-        std::cout << "parameter copy c'tor" << std::endl;
-    };
-
     Parameter() : value_({}) {
         std::cout << "parameter empty c'tor" << std::endl;
     };
