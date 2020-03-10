@@ -31,14 +31,14 @@ TEST_F(AllelesTestFixture, HandlesCounts) {
 
 TEST_F(AllelesTestFixture, HandlesFlipSetReset) {
     a1.flip(11);
-    ASSERT_EQ(a1.totalPositiveCount(), 5);
+    ASSERT_EQ(a1.totalPositiveCount(), 7);
     a1.flip(11);
     ASSERT_EQ(a1.totalPositiveCount(), 6);
 
     a1.set(8);
-    ASSERT_EQ(a1.totalPositiveCount(), 7);
-    a1.reset(8);
     ASSERT_EQ(a1.totalPositiveCount(), 6);
+    a1.reset(8);
+    ASSERT_EQ(a1.totalPositiveCount(), 5);
 }
 
 TEST_F(AllelesTestFixture, HandlesIteration) {
