@@ -40,3 +40,14 @@ TEST_F(AllelesTestFixture, HandlesFlipSetReset) {
     a1.reset(8);
     ASSERT_EQ(a1.totalPositiveCount(), 6);
 }
+
+TEST_F(AllelesTestFixture, HandlesIteration) {
+    // "10010"
+    for (int i = 0; i < a3.totalAlleles(); ++i) {
+        if(i == 0 or i == 3) {
+            ASSERT_TRUE(a3.allele(i));
+        } else {
+            ASSERT_FALSE(a3.allele(i));
+        }
+    }
+}

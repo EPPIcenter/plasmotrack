@@ -30,6 +30,12 @@ public:
         std::cout << "parameter forwarded c'tor" << std::endl;
     };
 
+    template<typename T0>
+    Parameter(const std::initializer_list<T0> il) : value_(il) {
+        std::cout << "initializer list constructor" << std::endl;
+    };
+
+
     Parameter(const Parameter &other) : value_(other.value_), label_(other.label_) {
         std::cout << "parameter copy c'tor" << std::endl;
     };

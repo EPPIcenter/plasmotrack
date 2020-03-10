@@ -1,0 +1,55 @@
+//
+// Created by Maxwell Murphy on 3/9/20.
+//
+
+#include <vector>
+
+#include "gtest/gtest.h"
+#include "core/datatypes/AlleleFrequenciesVector.h"
+#include "core/parameters/Parameter.h"
+
+constexpr int MAX_ALLELES = 10;
+TEST(AlleleFrequenciesTest, BasicTest) {
+    AlleleFrequenciesVector<MAX_ALLELES> av(3);
+    ASSERT_DOUBLE_EQ(av.alleleFrequencies(0), 1);
+    ASSERT_DOUBLE_EQ(av.alleleFrequencies().sum(), 1);
+
+    av.set({.33, .33, .33});
+    ASSERT_DOUBLE_EQ(av.alleleFrequencies(0), 1.0/3.0);
+    ASSERT_DOUBLE_EQ(av.alleleFrequencies().sum(), 1);
+
+    av.set({.25, .63, .33});
+    ASSERT_DOUBLE_EQ(av.alleleFrequencies().sum(), 1);
+
+    AlleleFrequenciesVector<MAX_ALLELES> av2({1,2,3});
+    ASSERT_DOUBLE_EQ(av2.alleleFrequencies(0), 1.0/6.0);
+    ASSERT_DOUBLE_EQ(av2.alleleFrequencies().sum(), 1);
+}
+
+TEST(AlleleFrequenciesTest, ParameterTest) {
+    AlleleFrequenciesVector<MAX_ALLELES> av(3);
+    Parameter<AlleleFrequenciesVector<MAX_ALLELES>> p(av);
+    ASSERT_DOUBLE_EQ(p.value().alleleFrequencies().sum(), 1);
+
+    Parameter<AlleleFrequenciesVector<MAX_ALLELES>> p2({.33, .33, .33});
+    ASSERT_DOUBLE_EQ(p2.value().alleleFrequencies(0), 1.0/3.0);
+    ASSERT_DOUBLE_EQ(p2.value().alleleFrequencies().sum(), 1);
+
+    p2.saveState();
+    p2.setValue({.5, .6, .7});
+    ASSERT_DOUBLE_EQ(p2.value().alleleFrequencies(0), .5 / (.5 + .6 + .7));
+    p2.restoreState();
+    ASSERT_DOUBLE_EQ(p2.value().alleleFrequencies(0), 1.0/3.0);
+
+    p2.saveState();
+    p2.setValue(AlleleFrequenciesVector<MAX_ALLELES>({1.0, 2.0, 3.0}));
+    ASSERT_DOUBLE_EQ(p2.value().alleleFrequencies(0), 1.0 / 6.0);
+    p2.restoreState();
+    ASSERT_DOUBLE_EQ(p2.value().alleleFrequencies(0), 1.0/3.0);
+
+    p2.saveState();
+    p2.setValue(AlleleFrequenciesVector<MAX_ALLELES>(std::vector<double>({.1, .4, .6})));
+    ASSERT_DOUBLE_EQ(p2.value().alleleFrequencies(0), .1 / (.1 + .4 + .6));
+    p2.restoreState();
+    ASSERT_DOUBLE_EQ(p2.value().alleleFrequencies(0), 1.0/3.0);
+}

@@ -12,7 +12,7 @@
 #include "core/datatypes/Matrix.h"
 #include "core/parameters/Parameter.h"
 
-
+// TODO: This container could be generalized, very similar to infection container.
 template<typename AlleleFrequencyImpl, typename LocusImpl = Locus>
 using LocusAlleleFrequencyAssignment = std::pair<LocusImpl*, AlleleFrequencyImpl>;
 
