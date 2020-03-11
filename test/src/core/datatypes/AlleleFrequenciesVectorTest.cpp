@@ -9,7 +9,7 @@
 #include "core/parameters/Parameter.h"
 
 constexpr int MAX_ALLELES = 10;
-TEST(AlleleFrequenciesTest, BasicTest) {
+TEST(AlleleFrequenciesVectorTest, BasicTest) {
     AlleleFrequenciesVector<MAX_ALLELES> av(3);
     ASSERT_DOUBLE_EQ(av.alleleFrequencies(0), 1);
     ASSERT_DOUBLE_EQ(av.alleleFrequencies().sum(), 1);
@@ -26,7 +26,7 @@ TEST(AlleleFrequenciesTest, BasicTest) {
     ASSERT_DOUBLE_EQ(av2.alleleFrequencies().sum(), 1);
 }
 
-TEST(AlleleFrequenciesTest, ParameterTest) {
+TEST(AlleleFrequenciesVectorTest, ParameterTest) {
     AlleleFrequenciesVector<MAX_ALLELES> av(3);
     Parameter<AlleleFrequenciesVector<MAX_ALLELES>> p(av);
     ASSERT_DOUBLE_EQ(p.value().alleleFrequencies().sum(), 1);

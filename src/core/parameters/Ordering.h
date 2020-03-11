@@ -23,14 +23,16 @@ public:
     };
 
     void swap(int a, int b) noexcept {
-        T* tmp = this->value_[a];
-        this->value_[a] = this->value_[b];
-        this->value_[b] = tmp;
+        if(a != b) {
+            T* tmp = this->value_[a];
+            this->value_[a] = this->value_[b];
+            this->value_[b] = tmp;
 
-        if (a < b) {
-            notifySwap(a, b);
-        } else if (a > b) {
-            notifySwap(b, a);
+            if (a < b) {
+                notifySwap(a, b);
+            } else {
+                notifySwap(b, a);
+            }
         }
     }
 

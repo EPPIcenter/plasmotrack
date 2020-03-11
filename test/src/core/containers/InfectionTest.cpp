@@ -15,14 +15,18 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     Locus as2("AS2", 8);
     bool allelesChanged = false;
 
-    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> dlas{{&as1, GeneticsImpl("011010")},
-                                                                   {&as2, GeneticsImpl("00000011")}};
+    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> dlas{
+        {&as1, GeneticsImpl("011010")},
+        {&as2, GeneticsImpl("00000011")}
+    };
 
-    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> plas{{&as1, GeneticsImpl("011010")},
-                                                                   {&as2, GeneticsImpl("00000011")}};
+    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> plas{
+        {&as1, GeneticsImpl("011010")},
+        {&as2, GeneticsImpl("00000011")}
+    };
 
     Infection<GeneticsImpl> inf1(dlas, plas);
-    inf1.add_post_change_listener([&]() {allelesChanged = true; });
+    inf1.add_set_dirty_listener([&]() {allelesChanged = true; });
 
     allelesChanged = false;
     auto tmp1 = inf1.latentGenotype(&as1).value();
@@ -31,6 +35,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
 
     inf1.latentGenotype(&as1).saveState();
     inf1.latentGenotype(&as1).setValue(tmp1);
+
     EXPECT_TRUE(allelesChanged);
     EXPECT_EQ(inf1.latentGenotype(&as1).value().allelesStr(), "111010");
     EXPECT_EQ(inf1.observedGenotype(&as1).value().allelesStr(), "011010");

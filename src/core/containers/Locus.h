@@ -12,7 +12,7 @@ public:
 
     explicit Locus(std::string label, int total_alleles);
 
-    [[nodiscard]] int totalAlleles() const noexcept;
+    [[nodiscard]] unsigned int totalAlleles() const noexcept;
 
     bool operator<(const Locus &rhs) const noexcept;
 
@@ -24,7 +24,7 @@ public:
 
 private:
     static unsigned int newUID;
-    int total_alleles_;
+    unsigned int total_alleles_;
 };
 
 

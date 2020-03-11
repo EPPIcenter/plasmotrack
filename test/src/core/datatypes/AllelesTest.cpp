@@ -43,7 +43,7 @@ TEST_F(AllelesTestFixture, HandlesFlipSetReset) {
 
 TEST_F(AllelesTestFixture, HandlesIteration) {
     // "10010"
-    for (int i = 0; i < a3.totalAlleles(); ++i) {
+    for (unsigned int i = 0; i < a3.totalAlleles(); ++i) {
         if(i == 0 or i == 3) {
             ASSERT_TRUE(a3.allele(i));
         } else {

@@ -50,6 +50,10 @@ public:
         return allele_frequencies_(idx);
     };
 
+    [[nodiscard]] unsigned int totalAlleles() const noexcept {
+        return total_alleles_;
+    }
+
 private:
     unsigned int total_alleles_;
     ProbabilityVector<MaxAlleles> allele_frequencies_{};

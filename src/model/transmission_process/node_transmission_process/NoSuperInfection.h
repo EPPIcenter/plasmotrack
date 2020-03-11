@@ -58,7 +58,7 @@ public:
         auto const &childGenotype = child.latentGenotype();
         for (auto const &parent : ps) {
             auto const &parentGenotypes = parent->latentGenotype();
-            for (auto const&[locus, parentGenotypeAtLocus] : parentGenotypes) {
+            for (auto const& [locus, parentGenotypeAtLocus] : parentGenotypes) {
                 if (childGenotype.contains(locus)) {
                     auto const &childGenotypeAtLocus = childGenotype.at(locus);
                     const unsigned int parentAlleleCount = parentGenotypeAtLocus.value().totalPositiveCount();

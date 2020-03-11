@@ -50,7 +50,7 @@ public:
         return alleles_.to_string().substr(MaxAlleles - total_alleles_, total_alleles_);
     };
 
-    [[nodiscard]] constexpr int totalAlleles() const noexcept {
+    [[nodiscard]] constexpr unsigned int totalAlleles() const noexcept {
         return total_alleles_;
     };
 

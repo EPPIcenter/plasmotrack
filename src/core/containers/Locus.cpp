@@ -12,7 +12,7 @@ Locus::Locus(std::string label, int total_alleles) : uid(newUID++), label(std::m
 
 unsigned int Locus::newUID = 0;
 
-int Locus::totalAlleles() const noexcept {
+unsigned int Locus::totalAlleles() const noexcept {
     return total_alleles_;
 }
 
