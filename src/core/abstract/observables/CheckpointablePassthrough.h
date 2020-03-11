@@ -1,16 +1,16 @@
 //
-// Created by Maxwell Murphy on 1/25/20.
+// Created by Maxwell Murphy on 3/10/20.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_CHECKPOINTABLE_H
-#define TRANSMISSION_NETWORKS_APP_CHECKPOINTABLE_H
+#ifndef TRANSMISSION_NETWORKS_APP_CHECKPOINTABLEPASSTHROUGH_H
+#define TRANSMISSION_NETWORKS_APP_CHECKPOINTABLEPASSTHROUGH_H
+
 
 #include "core/abstract/crtp.h"
 #include "core/abstract/observables/Observable.h"
 
-
-template<typename T, typename ValueType>
-class Checkpointable : public crtp<T, Checkpointable, ValueType> {
+template<typename T>
+class CheckpointablePassthrough : public crtp<T, CheckpointablePassthrough> {
     using CallbackType = std::function<void()>;
     CRTP_CREATE_EVENT(save_state, CallbackType);
     CRTP_CREATE_EVENT(accept_state, CallbackType);
@@ -27,33 +27,21 @@ public:
     }
 
     void saveState() noexcept {
-        if(!this->saved_state_) {
-            this->underlying().notify_save_state();
-            this->saved_state_ = this->underlying().value();
-        }
+        this->underlying().notify_save_state();
     }
 
     void restoreState() noexcept {
-        if (this->saved_state_) {
-            this->underlying().notify_restore_state();
-            this->underlying().value_ = *(this->saved_state_);
-            this->saved_state_.reset();
-        }
+        this->underlying().notify_restore_state();
     }
 
     void acceptState() noexcept {
-        if (this->saved_state_) {
-            this->underlying().notify_accept_state();
-            this->saved_state_.reset();
-        }
+        this->underlying().notify_accept_state();
     }
 
-    bool constexpr isSaved() noexcept {
-        return this->saved_state_.has_value();
-    }
+//    bool constexpr isSaved() noexcept {
+//        return true;
+//    }
 
-protected:
-    std::optional<ValueType> saved_state_{};
 };
 
-#endif //TRANSMISSION_NETWORKS_APP_CHECKPOINTABLE_H
+#endif //TRANSMISSION_NETWORKS_APP_CHECKPOINTABLEPASSTHROUGH_H

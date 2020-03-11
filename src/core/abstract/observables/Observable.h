@@ -86,7 +86,6 @@ public:
     auto
     add_listener(const Callback &cb, ObserverMap<ListenerId_t, Callback> &callback_container) noexcept -> ListenerId {
         const auto id = ListenerId(++id_value());
-        std::cout << "Listener ID: " << id << " " << &callback_container << std::endl;
         callback_container.emplace(id, cb);
         return id;
     }
