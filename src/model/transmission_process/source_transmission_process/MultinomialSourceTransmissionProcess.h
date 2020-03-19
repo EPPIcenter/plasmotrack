@@ -6,16 +6,16 @@
 #define TRANSMISSION_NETWORKS_APP_MULTINOMIALSOURCETRANSMISSIONPROCESS_H
 
 #include "core/abstract/observables/Observable.h"
-#include "core/abstract/observables/CacheablePassthrough.h"
-#include "core/abstract/observables/CheckpointablePassthrough.h"
+#include "core/abstract/observables/Cacheable.h"
+#include "core/abstract/observables/Checkpointable.h"
 
-#include "core/containers/AlleleFrequencyContainer.h"
-#include "core/containers/Infection.h"
+#include "core/computation/Computation.h"
 
-template<typename COIProbabilityImpl, typename AlleleFrequencyImpl>
-class MultinomialSourceTransmissionProcess : public Observable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyImpl>>,
-                                             public CacheablePassthrough<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyImpl>>,
-                                             public CheckpointablePassthrough<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyImpl>> {
+template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename Infection>
+class MultinomialSourceTransmissionProcess : public Computation<double>,
+                                             public Observable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, Infection>>,
+                                             public Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, Infection>>,
+                                             public Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, Infection>, double> {
     using CallbackType = std::function<void()>;
     CREATE_EVENT(save_state, CallbackType);
     CREATE_EVENT(accept_state, CallbackType);
@@ -24,19 +24,40 @@ class MultinomialSourceTransmissionProcess : public Observable<MultinomialSource
 public:
 
     MultinomialSourceTransmissionProcess(COIProbabilityImpl &coiProb,
-                                         AlleleFrequencyContainer<AlleleFrequencyImpl> &alleleFrequenciesContainer)
-            : coiProb_(coiProb), alleleFrequenciesContainer_(alleleFrequenciesContainer) {
+                                         AlleleFrequencyContainer &alleleFrequenciesContainer,
+                                         Infection &founder)
+            : coiProb_(coiProb), alleleFrequenciesContainer_(alleleFrequenciesContainer), founder_(founder) {
 
-        coiProb_.registerCheckpointTarget(*this);
+        coiProb_.registerCacheableCheckpointTarget(*this);
         coiProb_.registerDirtyTarget(*this);
-        alleleFrequenciesContainer_.registerCheckpointTarget(*this);
-        alleleFrequenciesContainer_.registerDirtyTarget(*this);
+
+        alleleFrequenciesContainer_.registerCacheableCheckpointTarget(*this);
+        alleleFrequenciesContainer_.add_post_change_listener([&]() { this->setDirty(); });
+
+        founder_.registerCacheableCheckpointTarget(*this);
+        founder_.add_post_change_listener([&]() { this->setDirty(); });
     }
 
-    template<typename GeneticsImpl>
-    double calculateLogLikelihood(Infection<GeneticsImpl>& founder) {
+    double value() override {
+        if (this->isDirty()) {
+            this->value_ = calculateLikelihood();
+            this->setClean();
+        }
+        return this->value_;
+    };
+
+
+private:
+    friend class Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, Infection>>;
+    friend class Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, Infection>, double>;
+
+    COIProbabilityImpl &coiProb_;
+    AlleleFrequencyContainer &alleleFrequenciesContainer_;
+    Infection &founder_;
+
+    double calculateLogLikelihood() {
         double llik = 0.0;
-        const auto founderLatentGenotype = founder.latentGenotype();
+        const auto founderLatentGenotype = founder_.latentGenotype();
         for (auto const& [locus, founderGenotypeAtLocus] : founderLatentGenotype) {
             double probNotObserved = 0.0;
             const double totalAlleles = locus->totalAlleles();
@@ -50,24 +71,19 @@ public:
 
             // Calculate likelihood that allele was not drawn in k infections times prob of k infections
             double locusLik = 0.0;
-            size_t totalInfections = coiProb_.value().size();
-            for (size_t k = 1; k < totalInfections; ++k) {
+            unsigned int minCOI = founderGenotypeAtLocus.value().totalPositiveCount();
+            unsigned int totalInfections = coiProb_.value().size();
+            for (auto k = minCOI; k < totalInfections; ++k) {
                 locusLik += pow(probNotObserved, k) * coiProb_.value()(k);
             }
-            llik += log(locusLik);
+            llik += log(1 - locusLik);
         }
         return llik;
     }
 
-    template<typename GeneticsImpl>
-    double calculateLikelihood(Infection<GeneticsImpl>& founder) {
-        return exp(calculateLogLikelihood(founder));
+    double calculateLikelihood() {
+        return exp(calculateLogLikelihood());
     }
-
-
-private:
-    COIProbabilityImpl &coiProb_;
-    AlleleFrequencyContainer<AlleleFrequencyImpl> &alleleFrequenciesContainer_;
 };
 
 #endif //TRANSMISSION_NETWORKS_APP_MULTINOMIALSOURCETRANSMISSIONPROCESS_H

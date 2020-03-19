@@ -77,62 +77,98 @@ enum ListenerId : ListenerId_t {
 template<typename T>
 class Observable : public crtp<T, Observable> {
 public:
-    static auto id_value() -> ListenerId_t & {
-        static ListenerId_t the_id;
-        return the_id;
-    }
+    static auto id_value() -> ListenerId_t &;
 
     template<typename Callback>
     auto
-    add_listener(const Callback &cb, ObserverMap<ListenerId_t, Callback> &callback_container) noexcept -> ListenerId {
-        const auto id = ListenerId(++id_value());
-        callback_container.emplace(id, cb);
-        return id;
-    }
+    add_listener(const Callback &cb, ObserverMap<ListenerId_t, Callback> &callback_container) noexcept -> ListenerId;
 
     template<typename Callback>
-    auto remove_listener(const ListenerId_t id, ObserverMap<ListenerId_t, Callback> &callback_container) noexcept -> bool {
-        const auto it = callback_container.find(id);
-        if (it == callback_container.end()) {
-            return false;
-        }
-        callback_container.erase(it);
-        return true;
-    }
+    auto remove_listener(ListenerId_t id, ObserverMap<ListenerId_t, Callback> &callback_container) noexcept -> bool;
 
     template<typename Callback, typename ...Args>
-    void notify(const ObserverMap<ListenerId_t, Callback> &callback_container, Args... args) const noexcept {
-        for (const auto &pair : callback_container) {
-            pair.second(args...);
-        }
-    }
+    void notify(const ObserverMap<ListenerId_t, Callback> &callback_container, Args... args) const noexcept;
 
     template<typename KeyType, typename Callback>
-    auto add_keyed_listener(KeyType key, const Callback &cb, ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container) noexcept -> ListenerId {
-        const auto id = ListenerId(++id_value());
-        callback_container.at(key).emplace(id, cb);
-        return id;
-    }
+    auto add_keyed_listener(KeyType key, const Callback &cb,
+                            ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container) noexcept -> ListenerId;
 
     template<typename KeyType, typename Callback>
-    auto remove_keyed_listener(KeyType key, const ListenerId_t id, ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container) noexcept -> bool {
-        auto cbs = callback_container.at(key);
-        const auto it = cbs.find(id);
-        if (it == cbs.end()) {
-            return false;
-        }
-        cbs.erase(it);
-        return true;
-    }
+    auto remove_keyed_listener(KeyType key, ListenerId_t id,
+                               ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container) noexcept -> bool;
 
     template<typename KeyType, typename Callback, typename ...Args>
-    void keyed_notify(KeyType key, const ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container, Args... args) const noexcept {
-        auto cbs = callback_container.at(key);
-        for (const auto &pair : cbs) {
-            pair.second(args...);
-        }
-    }
+    void keyed_notify(KeyType key, const ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container,
+                      Args... args) const noexcept;
 
 };
+
+template<typename T>
+auto Observable<T>::id_value() -> ListenerId_t & {
+    static ListenerId_t the_id;
+    return the_id;
+}
+
+template<typename T>
+template<typename Callback>
+auto Observable<T>::add_listener(const Callback &cb,
+                                 ObserverMap<ListenerId_t, Callback> &callback_container) noexcept -> ListenerId {
+    const auto id = ListenerId(++id_value());
+    callback_container.emplace(id, cb);
+    return id;
+}
+
+template<typename T>
+template<typename Callback>
+auto Observable<T>::remove_listener(const ListenerId_t id,
+                                    ObserverMap<ListenerId_t, Callback> &callback_container) noexcept -> bool {
+    const auto it = callback_container.find(id);
+    if (it == callback_container.end()) {
+        return false;
+    }
+    callback_container.erase(it);
+    return true;
+}
+
+template<typename T>
+template<typename Callback, typename ...Args>
+void Observable<T>::notify(const ObserverMap<ListenerId_t, Callback> &callback_container, Args... args) const noexcept {
+    for (const auto &pair : callback_container) {
+        pair.second(args...);
+    }
+}
+
+template<typename T>
+template<typename KeyType, typename Callback>
+auto Observable<T>::add_keyed_listener(KeyType key, const Callback &cb,
+                                       ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container) noexcept -> ListenerId {
+    const auto id = ListenerId(++id_value());
+    callback_container.at(key).emplace(id, cb);
+    return id;
+}
+
+template<typename T>
+template<typename KeyType, typename Callback>
+auto Observable<T>::remove_keyed_listener(KeyType key, const ListenerId_t id,
+                                          ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container) noexcept -> bool {
+    auto cbs = callback_container.at(key);
+    const auto it = cbs.find(id);
+    if (it == cbs.end()) {
+        return false;
+    }
+    cbs.erase(it);
+    return true;
+}
+
+template<typename T>
+template<typename KeyType, typename Callback, typename ...Args>
+void Observable<T>::keyed_notify(KeyType key,
+                                 const ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container,
+                                 Args... args) const noexcept {
+    auto cbs = callback_container.at(key);
+    for (const auto &pair : cbs) {
+        pair.second(args...);
+    }
+}
 
 #endif //TRANSMISSION_NETWORKS_APP_OBSERVABLE_H

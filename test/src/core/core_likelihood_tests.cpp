@@ -38,6 +38,7 @@ using DoubleParameter = Parameter<double>;
 TEST(CoreLikelihoodTest, LikelihoodTest) {
 
     using AlleleCounterAccumulator = Accumulator<AlleleCounter<GeneticsImpl>, AlleleCounts>;
+    using Infection = Infection<GeneticsImpl, Locus>;
 
     Data<GeneticsImpl> d1("011010");
     Data<GeneticsImpl> d2("101101");
@@ -127,21 +128,21 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     DoubleParameter gp_prob(.6);
     GeometricGenerationProbability<25> gp(gp_prob);
 
-    NoSuperInfection<10, 25, ZTMultiplicativeBinomial, GeometricGenerationProbability> tp(ztmb, gp);
+    NoSuperInfection<10, 25, ZTMultiplicativeBinomial<10>, GeometricGenerationProbability<25>> tp(ztmb, gp);
 
     std::cout << "Log Probability: " << std::endl;
     std::cout << tp.value() << std::endl;
 
     Locus as1("AS1", 6);
 
-    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> dlas{{&as1, GeneticsImpl("011010")}};
-    std::vector<LocusGeneticsAssignment<GeneticsImpl, Locus>> plas{{&as1, GeneticsImpl("011010")}};
-    Infection<GeneticsImpl> inf1(dlas, plas);
-    Infection<GeneticsImpl> inf2(dlas, plas);
-    Infection<GeneticsImpl> inf3(dlas, plas);
-    Infection<GeneticsImpl> inf4(dlas, plas);
+    std::vector<Infection::LocusGeneticsAssignment> dlas{{&as1, GeneticsImpl("011010")}};
+    std::vector<Infection::LocusGeneticsAssignment> plas{{&as1, GeneticsImpl("011010")}};
+    Infection inf1(dlas, plas);
+    Infection inf2(dlas, plas);
+    Infection inf3(dlas, plas);
+    Infection inf4(dlas, plas);
 
-    ParentSet<Infection<GeneticsImpl>> ps1{&inf1};
+    ParentSet<Infection> ps1{&inf1};
 
     std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
     tcp.saveState();

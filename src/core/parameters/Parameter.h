@@ -10,6 +10,7 @@
 #include <optional>
 
 #include "core/abstract/observables/Observable.h"
+#include "core/abstract/observables/Uncacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
 
 #include "core/utils/forwarding_utils.h"
@@ -17,11 +18,9 @@
 
 template<typename T>
 class Parameter : public Observable<Parameter<T>>,
+                  public Uncacheable<Parameter<T>, T>,
                   public Checkpointable<Parameter<T>, T> {
 
-    using ChangeCallback = std::function<void()>;
-    CREATE_EVENT(pre_change, ChangeCallback);
-    CREATE_EVENT(post_change, ChangeCallback);
 
 public:
 
@@ -39,13 +38,6 @@ public:
         std::cout << "parameter empty c'tor" << std::endl;
     };
 
-    void setValue(T const value) noexcept {
-        assert(this->isSaved());
-        this->notify_pre_change();
-        value_ = std::move(value);
-        this->notify_post_change();
-    }
-
     void setLabel(const std::string& label) noexcept {
         label_ = label;
     }
@@ -54,13 +46,10 @@ public:
         return label_;
     }
 
-    [[nodiscard]] constexpr T value() const noexcept {
-        return value_;
-    }
-
 
 protected:
     friend class Checkpointable<Parameter<T>, T>;
+    friend class Uncacheable<Parameter<T>, T>;
 
     T value_;
     std::string label_{};

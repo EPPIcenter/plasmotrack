@@ -13,34 +13,13 @@
 template<int MaxAlleles>
 class AlleleFrequenciesVector {
 public:
-    explicit AlleleFrequenciesVector(const unsigned int totalAlleles) : total_alleles_(totalAlleles) {
-        allele_frequencies_.setZero();
-        allele_frequencies_(0) = 1;
-    }
+    explicit AlleleFrequenciesVector(const unsigned int totalAlleles);
 
-    AlleleFrequenciesVector(const std::initializer_list<double> freqs) : total_alleles_(freqs.size()) {
-        allele_frequencies_.setZero();
-        set(freqs);
-    };
+    AlleleFrequenciesVector(const std::initializer_list<double> freqs);
 
-    explicit AlleleFrequenciesVector(const std::vector<double> freqs) : total_alleles_(freqs.size()) {
-        allele_frequencies_.setZero();
-        set(freqs);
-    };
+    explicit AlleleFrequenciesVector(const std::vector<double> freqs);;
 
-    //
-//    AlleleFrequenciesVector(const AlleleFrequenciesVector<MaxAlleles> &other) : total_alleles_(
-//            std::move(other.total_alleles_)), allele_frequencies_(std::move(other.allele_frequencies_)) {
-//        std::cout << "allele frequencies move constructor" << std::endl;
-//    }
-
-    void set(const std::vector<double> valueArray) {
-        assert(valueArray.size() == total_alleles_);
-        for (unsigned int i = 0; i < total_alleles_; ++i) {
-            allele_frequencies_[i] = valueArray[i];
-        }
-        allele_frequencies_ = allele_frequencies_ / allele_frequencies_.sum();
-    }
+    void set(const std::vector<double> valueArray);
 
     ProbabilityVector<MaxAlleles> alleleFrequencies() const noexcept {
         return allele_frequencies_;
@@ -58,5 +37,32 @@ private:
     unsigned int total_alleles_;
     ProbabilityVector<MaxAlleles> allele_frequencies_{};
 };
+
+template<int MaxAlleles>
+AlleleFrequenciesVector<MaxAlleles>::AlleleFrequenciesVector(const unsigned int totalAlleles) : total_alleles_(totalAlleles) {
+    allele_frequencies_.setZero();
+    allele_frequencies_(0) = 1;
+}
+
+template<int MaxAlleles>
+AlleleFrequenciesVector<MaxAlleles>::AlleleFrequenciesVector(const std::initializer_list<double> freqs) : total_alleles_(freqs.size()) {
+    allele_frequencies_.setZero();
+    set(freqs);
+}
+
+template<int MaxAlleles>
+AlleleFrequenciesVector<MaxAlleles>::AlleleFrequenciesVector(const std::vector<double> freqs) : total_alleles_(freqs.size()) {
+    allele_frequencies_.setZero();
+    set(freqs);
+}
+
+template<int MaxAlleles>
+void AlleleFrequenciesVector<MaxAlleles>::set(const std::vector<double> valueArray) {
+    assert(valueArray.size() == total_alleles_);
+    for (unsigned int i = 0; i < total_alleles_; ++i) {
+        allele_frequencies_[i] = valueArray[i];
+    }
+    allele_frequencies_ = allele_frequencies_ / allele_frequencies_.sum();
+}
 
 #endif //TRANSMISSION_NETWORKS_APP_ALLELEFREQUENCIESVECTOR_H

@@ -6,6 +6,8 @@
 #define TRANSMISSION_NETWORKS_APP_ORDERING_H
 
 #include <iostream>
+#include <vector>
+
 #include "core/parameters/Parameter.h"
 
 template <typename T>
@@ -18,54 +20,66 @@ class Ordering : public Parameter<std::vector<T*>> {
 public:
     explicit Ordering() : Parameter<std::vector<T*>>() {};
 
-    Ordering(std::vector<T*> refs) {
+    explicit Ordering(std::vector<T*> refs) {
         addElements(refs);
     };
 
-    void swap(int a, int b) noexcept {
-        if(a != b) {
-            T* tmp = this->value_[a];
-            this->value_[a] = this->value_[b];
-            this->value_[b] = tmp;
+    void swap(int a, int b) noexcept;
 
-            if (a < b) {
-                notifySwap(a, b);
-            } else {
-                notifySwap(b, a);
-            }
-        }
-    }
+    void addElement(T* ref) noexcept;
 
-    void addElement(T* ref) noexcept {
-        this->value_.push_back(ref);
-        register_moved_left_listener_key(ref);
-        register_moved_right_listener_key(ref);
-    }
-
-    void addElements(std::vector<T*> refs) noexcept {
-        for (auto& ref: refs) {
-            addElement(ref);
-        }
-    }
+    void addElements(std::vector<T*> refs) noexcept;
 
     friend std::ostream &operator<<(std::ostream &os, const Ordering &list) noexcept {
         for (unsigned long i = 0; i < list.value_.size(); ++i) {
             os << "Element " << i << ": " << *list.value_[i] << std::endl;
         }
         return os;
-    }
+    };
 
 private:
-    void notifySwap(const int left_idx, const int right_idx) noexcept {
-        keyed_notify_moved_right(this->value_[left_idx], this->value_[right_idx]);
-        keyed_notify_moved_left(this->value_[right_idx], this->value_[left_idx]);
-        for (int i = left_idx + 1; i < right_idx; ++i) {
-            keyed_notify_moved_left(this->value_[right_idx], this->value_[i]);
-            keyed_notify_moved_right(this->value_[left_idx], this->value_[i]);
-            keyed_notify_moved_right(this->value_[i], this->value_[right_idx]);
-            keyed_notify_moved_left(this->value_[i], this->value_[left_idx]);
+    void notifySwap(const int left_idx, const int right_idx) noexcept;
+};
+
+template<typename T>
+void Ordering<T>::swap(int a, int b) noexcept {
+    if(a != b) {
+        T* tmp = this->value_[a];
+        this->value_[a] = this->value_[b];
+        this->value_[b] = tmp;
+
+        if (a < b) {
+            notifySwap(a, b);
+        } else {
+            notifySwap(b, a);
         }
     }
-};
+}
+
+template<typename T>
+void Ordering<T>::addElement(T *ref) noexcept {
+    this->value_.push_back(ref);
+    register_moved_left_listener_key(ref);
+    register_moved_right_listener_key(ref);
+}
+
+template<typename T>
+void Ordering<T>::addElements(std::vector<T *> refs) noexcept {
+    for (auto& ref: refs) {
+        addElement(ref);
+    }
+}
+
+template<typename T>
+void Ordering<T>::notifySwap(const int left_idx, const int right_idx) noexcept {
+    keyed_notify_moved_right(this->value_[left_idx], this->value_[right_idx]);
+    keyed_notify_moved_left(this->value_[right_idx], this->value_[left_idx]);
+    for (int i = left_idx + 1; i < right_idx; ++i) {
+        keyed_notify_moved_left(this->value_[right_idx], this->value_[i]);
+        keyed_notify_moved_right(this->value_[left_idx], this->value_[i]);
+        keyed_notify_moved_right(this->value_[i], this->value_[right_idx]);
+        keyed_notify_moved_left(this->value_[i], this->value_[left_idx]);
+    }
+}
 
 #endif //TRANSMISSION_NETWORKS_APP_ORDERING_H
