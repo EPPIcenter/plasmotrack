@@ -36,10 +36,11 @@ set(SOURCE_FILES
         src/core/containers/AlleleFrequencyContainerTest.cpp
         src/core/utils/CombinationIndicesGeneratorTests.cpp
         src/core/datatypes/AlleleFrequenciesVectorTest.cpp
-        src/model/OrderDerivedParentSetTest.cpp
+        src/model/transmission_process/OrderDerivedParentSetTest.cpp
+        src/model/transmission_process/OrderBasedTransmissionProcessTest.cpp
         src/model/transmission_process/source_transmission_process/GeometricCOIProbabilityTest.cpp
         src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
-        src/model/transmission_process/OrderBasedTransmissionProcessTest.cpp)
+        )
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests transmission_networks gtest)

@@ -33,6 +33,10 @@ public:
         return observedGenotype_;
     };
 
+    GenotypeMap<Data> &observedGenotype() const {
+        return observedGenotype_;
+    };
+
     Data<GeneticImpl> &observedGenotype(LocusImpl *locus) {
         return observedGenotype_.at(locus);
     };
@@ -50,6 +54,10 @@ public:
     };
 
     Parameter<GeneticImpl> &latentGenotype(LocusImpl *locus) {
+        return latentGenotype_.at(locus);
+    };
+
+    Parameter<GeneticImpl> &latentGenotype(LocusImpl *locus) const {
         return latentGenotype_.at(locus);
     };
 

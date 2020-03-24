@@ -6,10 +6,10 @@
 #include "model/transmission_process/OrderDerivedParentSet.h"
 
 TEST(OrderDerivedParentSetTest, HandlesReorder) {
-    auto el1 = 1;
-    auto el2 = 2;
-    auto el3 = 3;
-    auto el4 = 4;
+    int el1 = 1;
+    int el2 = 2;
+    int el3 = 3;
+    int el4 = 4;
 
     Ordering<int> ordering({&el1, &el2, &el3, &el4});
     OrderDerivedParentSet ops(ordering, el1);

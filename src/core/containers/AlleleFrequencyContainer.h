@@ -6,6 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_ALLELEFREQUENCYCONTAINER_H
 
 #include <boost/container/flat_map.hpp>
+#include <ostream>
 
 #include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/UncacheablePassthrough.h"
@@ -34,12 +35,19 @@ public:
         return alleleFrequencies_;
     };
 
-    Parameter<AlleleFrequencyImpl> alleleFrequencies(LocusImpl *locus) {
+    Parameter<AlleleFrequencyImpl>& alleleFrequencies(LocusImpl *locus) {
         return alleleFrequencies_.at(locus);
     };
 
-    Parameter<AlleleFrequencyImpl> alleleFrequencies(LocusImpl *locus) const {
-        return alleleFrequencies_.at(locus);
+//    Parameter<AlleleFrequencyImpl> alleleFrequencies(LocusImpl *locus) const {
+//        return alleleFrequencies_.at(locus);
+//    }
+
+    friend std::ostream &operator<<(std::ostream &os, const AlleleFrequencyContainer &container) {
+        for (const auto& [locus, alleleFreqs] : container.alleleFrequencies_ ) {
+            os << locus->label << ": " << alleleFreqs.value() << std::endl;
+        }
+        return os;
     };
 
 

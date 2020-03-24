@@ -18,11 +18,9 @@ class Ordering : public Parameter<std::vector<T*>> {
     CREATE_KEYED_EVENT(moved_right, T*, MovedCallback); // Notifies that an element has been moved right of key
 
 public:
-    explicit Ordering() : Parameter<std::vector<T*>>() {};
+    explicit Ordering();
 
-    explicit Ordering(std::vector<T*> refs) {
-        addElements(refs);
-    };
+    explicit Ordering(std::vector<T*> refs);
 
     void swap(int a, int b) noexcept;
 
@@ -40,6 +38,14 @@ public:
 private:
     void notifySwap(const int left_idx, const int right_idx) noexcept;
 };
+
+template<typename T>
+Ordering<T>::Ordering() : Parameter<std::vector<T*>>() {}
+
+template<typename T>
+Ordering<T>::Ordering(std::vector<T *> refs) {
+    addElements(refs);
+}
 
 template<typename T>
 void Ordering<T>::swap(int a, int b) noexcept {

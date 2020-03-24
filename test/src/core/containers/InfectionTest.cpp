@@ -54,4 +54,10 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     EXPECT_EQ(inf1.latentGenotype(&as2).value().allelesStr(), "10000011");
     EXPECT_EQ(inf1.observedGenotype(&as2).value().allelesStr(), "00000011");
     inf1.latentGenotype(&as2).acceptState();
+
+    allelesChanged = false;
+    inf1.latentGenotype(&as2).saveState();
+    inf1.latentGenotype(&as2).setValue(GeneticsImpl("111000"));
+    EXPECT_TRUE(allelesChanged);
+    inf1.latentGenotype(&as2).acceptState();
 }

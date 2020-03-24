@@ -88,13 +88,13 @@ template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typ
 template<typename GeneticsImpl>
 double
 NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::calculateLogLikelihood(
-        Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps) {
+        Infection <GeneticsImpl> &child, ParentSet <Infection<GeneticsImpl>> &ps) {
     assert(ps.size() == 1);
     double llik = 0.0;
     auto const &childGenotype = child.latentGenotype();
     for (auto const &parent : ps) {
         auto const &parentGenotypes = parent->latentGenotype();
-        for (auto const&[locus, parentGenotypeAtLocus] : parentGenotypes) {
+        for (auto const& [locus, parentGenotypeAtLocus] : parentGenotypes) {
             if (childGenotype.contains(locus)) {
                 auto const &childGenotypeAtLocus = childGenotype.at(locus);
                 const unsigned int parentAlleleCount = parentGenotypeAtLocus.value().totalPositiveCount();
@@ -112,7 +112,7 @@ template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typ
 template<typename GeneticsImpl>
 double
 NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::peekCalculateLogLikelihood(
-        Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps) {
+        Infection <GeneticsImpl> &child, ParentSet <Infection<GeneticsImpl>> &ps) {
     assert(ps.size() == 1);
     double llik = 0.0;
     auto const &childGenotype = child.latentGenotype();

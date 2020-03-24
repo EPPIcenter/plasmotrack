@@ -22,7 +22,7 @@ public:                                                                         
         return this->add_listener(cb, this->callback_name##_callbacks_);                    \
     }                                                                                       \
                                                                                             \
-    auto remove_##callback_name##_listener(const ListenerId id) noexcept -> bool {          \
+    auto remove_##callback_name##_listener(const ListenerId_t id) noexcept -> bool {          \
         return this->remove_listener(id, this->callback_name##_callbacks_);                 \
     }                                                                                       \
 private:                                                                                    \
@@ -39,7 +39,7 @@ public:                                                                         
         return this->add_keyed_listener(key, cb, this->keyed_##callback_name##_callbacks_);                         \
     }                                                                                                               \
                                                                                                                     \
-    auto remove_keyed_##callback_name##_listener(KeyType key, const ListenerId id) noexcept -> bool {               \
+    auto remove_keyed_##callback_name##_listener(KeyType key, const ListenerId_t id) noexcept -> bool {               \
         return this->remove_keyed_listener(key, id, this->keyed_##callback_name##_callbacks_);                      \
     }                                                                                                               \
                                                                                                                     \
@@ -60,7 +60,7 @@ public:                                                                         
         return this->underlying().add_listener(cb, this->callback_name##_callbacks_);       \
     }                                                                                       \
                                                                                             \
-    auto remove_##callback_name##_listener(const ListenerId id) noexcept -> bool {          \
+    auto remove_##callback_name##_listener(const ListenerId_t id) noexcept -> bool {          \
         return this->underlying().remove_listener(id, this->callback_name##_callbacks_);    \
     }                                                                                       \
 protected:                                                                                  \

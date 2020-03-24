@@ -50,8 +50,8 @@ template<typename T, typename ValueType>
 template<typename T0>
 std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType>::registerCacheableCheckpointTarget(T0 &target) {
     ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([&]() { target.saveState(); });
-    ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([&]() { target.acceptState(); target.setClean(); });
-    ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([&]() { target.restoreState(); target.setClean(); });
+    ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([&]() { target.acceptState(); target.value(); target.setClean(); });
+    ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([&]() { target.restoreState(); target.value(); target.setClean(); });
     return std::make_tuple(saveStateEventId, acceptStateEventId, restoreStateEventId);
 }
 

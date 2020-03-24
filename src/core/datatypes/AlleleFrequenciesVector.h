@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ALLELEFREQUENCIESVECTOR_H
 #define TRANSMISSION_NETWORKS_APP_ALLELEFREQUENCIESVECTOR_H
 
+#include <ostream>
 #include "core/datatypes/Matrix.h"
 
 
@@ -23,6 +24,13 @@ public:
 
     ProbabilityVector<MaxAlleles> alleleFrequencies() const noexcept {
         return allele_frequencies_;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const AlleleFrequenciesVector &vector) {
+        for (int i = 0; i < vector.total_alleles_; ++i) {
+            os << vector.allele_frequencies_[i] << ", ";
+        }
+        return os;
     };
 
     [[nodiscard]] double alleleFrequencies(int idx) const noexcept {
