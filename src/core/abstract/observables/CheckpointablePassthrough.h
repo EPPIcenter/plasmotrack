@@ -12,9 +12,9 @@
 template<typename T>
 class CheckpointablePassthrough : public crtp<T, CheckpointablePassthrough> {
     using CallbackType = std::function<void()>;
-CRTP_CREATE_EVENT(save_state, CallbackType);
-CRTP_CREATE_EVENT(accept_state, CallbackType);
-CRTP_CREATE_EVENT(restore_state, CallbackType);
+    CRTP_CREATE_EVENT(save_state, CallbackType)
+    CRTP_CREATE_EVENT(accept_state, CallbackType)
+    CRTP_CREATE_EVENT(restore_state, CallbackType)
 
 public:
 

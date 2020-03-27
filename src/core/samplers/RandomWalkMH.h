@@ -83,8 +83,8 @@ void RandomWalkMH<T>::update() {
 
 template<typename T>
 void RandomWalkMH<T>::adapt() {
-    variance_ +=  (acceptanceRate() - target_acceptance_rate_) / std::sqrt(total_updates_ + 1);
-    variance_ = std::max(std::min(variance_, max_variance_), min_variance_);
+    variance_ += (acceptanceRate() - target_acceptance_rate_) / std::sqrt(total_updates_ + 1);
+    variance_ = std::clamp(variance_, min_variance_, max_variance_);
 }
 
 template<typename T>

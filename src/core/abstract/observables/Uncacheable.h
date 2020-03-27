@@ -11,8 +11,8 @@
 template<typename T, typename ValueType>
 class Uncacheable : public crtp<T, Uncacheable, ValueType> {
     using ChangeCallback = std::function<void()>;
-    CRTP_CREATE_EVENT(pre_change, ChangeCallback);
-    CRTP_CREATE_EVENT(post_change, ChangeCallback);
+    CRTP_CREATE_EVENT(pre_change, ChangeCallback)
+    CRTP_CREATE_EVENT(post_change, ChangeCallback)
 
 public:
 

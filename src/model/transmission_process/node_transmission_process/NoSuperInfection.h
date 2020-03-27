@@ -33,7 +33,7 @@ public:
     double calculateLogLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps);
 
     template<typename GeneticsImpl>
-    double peekCalculateLogLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps);;
+    double peekCalculateLogLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps);
 
     template<typename GeneticsImpl>
     double calculateLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps) {

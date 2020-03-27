@@ -25,8 +25,8 @@ class OrderDerivedParentSet : public Computation<ParentSet<ElementType>>,
 
     using ElementAddedCallback = std::function<void(ElementType* element)>;
     using ElementRemovedCallback = std::function<void(ElementType* element)>;
-    CREATE_EVENT(element_added, ElementAddedCallback);
-    CREATE_EVENT(element_removed, ElementRemovedCallback);
+    CREATE_EVENT(element_added, ElementAddedCallback)
+    CREATE_EVENT(element_removed, ElementRemovedCallback)
 
 public:
     explicit OrderDerivedParentSet(Ordering<ElementType> &ordering, ElementType &child) : ordering_(ordering), child_(child) {

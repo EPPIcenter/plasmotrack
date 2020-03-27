@@ -11,8 +11,8 @@
 template<typename T>
 class UncacheablePassthrough : public crtp<T, UncacheablePassthrough> {
     using ChangeCallback = std::function<void()>;
-    CRTP_CREATE_EVENT(pre_change, ChangeCallback);
-    CRTP_CREATE_EVENT(post_change, ChangeCallback);
+    CRTP_CREATE_EVENT(pre_change, ChangeCallback)
+    CRTP_CREATE_EVENT(post_change, ChangeCallback)
 };
 
 #endif //TRANSMISSION_NETWORKS_APP_UNCACHEABLEPASSTHROUGH_H

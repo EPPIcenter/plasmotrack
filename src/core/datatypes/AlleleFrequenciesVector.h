@@ -18,7 +18,7 @@ public:
 
     AlleleFrequenciesVector(const std::initializer_list<double> freqs);
 
-    explicit AlleleFrequenciesVector(const std::vector<double> freqs);;
+    explicit AlleleFrequenciesVector(const std::vector<double> freqs);
 
     void set(const std::vector<double> valueArray);
 
@@ -27,7 +27,7 @@ public:
     }
 
     friend std::ostream &operator<<(std::ostream &os, const AlleleFrequenciesVector &vector) {
-        for (int i = 0; i < vector.total_alleles_; ++i) {
+        for (unsigned int i = 0; i < vector.total_alleles_; ++i) {
             os << vector.allele_frequencies_[i] << ", ";
         }
         return os;

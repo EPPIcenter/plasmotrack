@@ -19,9 +19,9 @@ class MultinomialSourceTransmissionProcess : public Computation<double>,
                                              public Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GeneticsImpl>>,
                                              public Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GeneticsImpl>, double> {
     using CallbackType = std::function<void()>;
-    CREATE_EVENT(save_state, CallbackType);
-    CREATE_EVENT(accept_state, CallbackType);
-    CREATE_EVENT(restore_state, CallbackType);
+    CREATE_EVENT(save_state, CallbackType)
+    CREATE_EVENT(accept_state, CallbackType)
+    CREATE_EVENT(restore_state, CallbackType)
 
 public:
 

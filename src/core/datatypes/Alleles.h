@@ -30,9 +30,9 @@ public:
     [[nodiscard]] constexpr inline static unsigned int
     falseNegativeCount(const AllelesBitSet<MaxAlleles> &parent, const AllelesBitSet<MaxAlleles> &child) noexcept;
 
-    [[nodiscard]] inline std::string allelesStr() const noexcept;;
+    [[nodiscard]] inline std::string allelesStr() const noexcept;
 
-    [[nodiscard]] constexpr unsigned int totalAlleles() const noexcept;;
+    [[nodiscard]] constexpr unsigned int totalAlleles() const noexcept;
 
     inline constexpr void flip(size_t pos) noexcept;
 

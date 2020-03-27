@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 #if ( CMAKE_COMPILER_IS_GNUCC )
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -Werror -pedantic-errors")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math")
 #endif()
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
@@ -24,7 +26,7 @@ include_directories(${TRANSMISSION_NETWORK_MODEL_HEADERS_DIR})
 include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
 include_directories(${PROJECT_BINARY_DIR})
 
-include_directories(${Boost_INCLUDE_DIR})
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
 if( NOT EIGEN3_INCLUDE_DIR )

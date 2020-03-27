@@ -11,7 +11,7 @@
 template<typename T>
 class Cacheable : public crtp<T, Cacheable> {
     using SetDirtyCallbackType = std::function<void()>;
-    CRTP_CREATE_EVENT(set_dirty, SetDirtyCallbackType);
+    CRTP_CREATE_EVENT(set_dirty, SetDirtyCallbackType)
 
 public:
     bool isDirty() noexcept;

@@ -14,8 +14,8 @@ template <typename T>
 class Ordering : public Parameter<std::vector<T*>> {
 
     using MovedCallback = std::function<void(T* element)>;
-    CREATE_KEYED_EVENT(moved_left, T*, MovedCallback); // Notifies that an element has been moved left of key
-    CREATE_KEYED_EVENT(moved_right, T*, MovedCallback); // Notifies that an element has been moved right of key
+    CREATE_KEYED_EVENT(moved_left, T*, MovedCallback) // Notifies that an element has been moved left of key
+    CREATE_KEYED_EVENT(moved_right, T*, MovedCallback) // Notifies that an element has been moved right of key
 
 public:
     explicit Ordering();
