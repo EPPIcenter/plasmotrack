@@ -160,7 +160,7 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         Infection<GeneticsImpl> *parent) {
 //    const auto preChangeListenerId = parent->add_pre_change_listener([&]() { parentUpdated(parent); });
     const auto postChangeListenerId = parent->add_post_change_listener([&]() { parentUpdated(parent); });
-    const auto[saveStateListenerId, acceptStateListenerId, restoreStateListenerId] = parent->registerCheckpointTarget(
+    const auto [saveStateListenerId, acceptStateListenerId, restoreStateListenerId] = parent->registerCacheableCheckpointTarget(
             *this);
     this->setDirty();
     postChangeListenerIdMap[parent] = postChangeListenerId;

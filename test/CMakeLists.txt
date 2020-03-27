@@ -30,16 +30,19 @@ include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
 set(SOURCE_FILES
         main.cpp
         src/core/core_likelihood_tests.cpp
-        src/core/datatypes/AllelesTest.cpp
-        src/core/parameters/OrderingTest.cpp
         src/core/containers/InfectionTest.cpp
         src/core/containers/AlleleFrequencyContainerTest.cpp
-        src/core/utils/CombinationIndicesGeneratorTests.cpp
+        src/core/datatypes/AllelesTest.cpp
         src/core/datatypes/AlleleFrequenciesVectorTest.cpp
+        src/core/parameters/OrderingTest.cpp
+        src/core/samplers/RandomWalkMHTest.cpp
+        src/core/samplers/ConstrainedRandomWalkMHTest.cpp
+        src/core/utils/CombinationIndicesGeneratorTests.cpp
         src/model/transmission_process/OrderDerivedParentSetTest.cpp
         src/model/transmission_process/OrderBasedTransmissionProcessTest.cpp
         src/model/transmission_process/source_transmission_process/GeometricCOIProbabilityTest.cpp
         src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
+        src/model/transmission_process/node_transmission_process/GeometricGenerationProbabilityTest.cpp
         )
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})

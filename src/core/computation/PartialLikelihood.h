@@ -18,7 +18,7 @@ class PartialLikelihood : public Computation<Likelihood>,
                           public Checkpointable<PartialLikelihood, Likelihood> {
 public:
 
-    explicit PartialLikelihood() = default;
+//    explicit PartialLikelihood() = default;
 
     Likelihood value() override = 0;
 

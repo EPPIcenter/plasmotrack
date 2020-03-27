@@ -5,9 +5,11 @@
 #ifndef TRANSMISSION_NETWORKS_APP_GEOMETRICGENERATIONPROBABILITY_H
 #define TRANSMISSION_NETWORKS_APP_GEOMETRICGENERATIONPROBABILITY_H
 
-#include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
+#include "core/abstract/observables/Observable.h"
+
+#include "core/computation/Computation.h"
 
 #include "core/datatypes/Matrix.h"
 
@@ -53,6 +55,7 @@ ProbabilityVector<MAX_TRANSMISSIONS + 1> GeometricGenerationProbability<MAX_TRAN
             denominator += this->value_(j);
         }
         this->value_ = this->value_ / denominator;
+        this->setClean();
     }
     return this->value_;
 }

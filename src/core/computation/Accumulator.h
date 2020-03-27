@@ -48,7 +48,7 @@ void Accumulator<Input, Output>::addTarget(Input &target) {
         this->setDirty();
     });
 
-    target.registerCheckpointTarget(*this);
+    target.registerCacheableCheckpointTarget(*this);
 }
 
 template<typename Input, typename Output>

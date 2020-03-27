@@ -30,7 +30,7 @@ class OrderDerivedParentSet : public Computation<ParentSet<ElementType>>,
 
 public:
     explicit OrderDerivedParentSet(Ordering<ElementType> &ordering, ElementType &child) : ordering_(ordering), child_(child) {
-        ordering_.registerCheckpointTarget(*this);
+        ordering_.registerCacheableCheckpointTarget(*this);
 
         ordering_.add_keyed_moved_left_listener(&child_, [&](ElementType* element) {
             this->value_.insert(element);

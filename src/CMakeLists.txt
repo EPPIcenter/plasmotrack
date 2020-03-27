@@ -16,6 +16,8 @@ set(SOURCE_FILES
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})
+target_link_libraries(transmission_networks GSL::gsl GSL::gslcblas)
+
 #target_link_libraries(transmission_networks transmission_network_model)
 
 install(TARGETS transmission_networks DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
