@@ -5,6 +5,13 @@ find_package(Boost 1.72 REQUIRED container math_c99l)
 find_package(Eigen3 REQUIRED)
 find_package(GSL REQUIRED)
 
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+
+set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
+if( NOT EIGEN3_INCLUDE_DIR )
+    message( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
+endif()
+include_directories (${EIGEN3_INCLUDE_DIR})
 
 set(SOURCE_FILES
         core/computation/PartialLikelihood.cpp
