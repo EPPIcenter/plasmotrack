@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(transmission_networks)
 
-find_package(Boost 1.72 REQUIRED container math_c99l)
+
+find_package(Boost 1.72 REQUIRED container math_c99l random)
 find_package(Eigen3 REQUIRED)
-find_package(GSL REQUIRED)
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -19,11 +19,11 @@ set(SOURCE_FILES
         core/containers/Locus.cpp
         core/utils/CombinationIndicesGenerator.cpp
         model/observation_process/AlleleCounts.cpp
-        )
+        core/samplers/OrderSampler.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})
-target_link_libraries(transmission_networks GSL::gsl GSL::gslcblas)
+target_link_libraries(transmission_networks)
 
 #target_link_libraries(transmission_networks transmission_network_model)
 

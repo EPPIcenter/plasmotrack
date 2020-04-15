@@ -26,13 +26,6 @@ include_directories(${TRANSMISSION_NETWORK_MODEL_HEADERS_DIR})
 include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
 include_directories(${PROJECT_BINARY_DIR})
 
-#include_directories(SYSTEM ${Boost_INCLUDE_DIR})
-#
-#set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
-#if( NOT EIGEN3_INCLUDE_DIR )
-#    message( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
-#endif()
-#include_directories (${EIGEN3_INCLUDE_DIR})
 
 add_subdirectory(src)
 add_subdirectory(test)
