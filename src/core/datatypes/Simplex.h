@@ -2,8 +2,8 @@
 // Created by Maxwell Murphy on 3/8/20.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_ALLELEFREQUENCIESVECTOR_H
-#define TRANSMISSION_NETWORKS_APP_ALLELEFREQUENCIESVECTOR_H
+#ifndef TRANSMISSION_NETWORKS_APP_SIMPLEX_H
+#define TRANSMISSION_NETWORKS_APP_SIMPLEX_H
 
 #include <ostream>
 #include "core/datatypes/Matrix.h"
@@ -11,66 +11,77 @@
 
 // TODO: might want to make this a general frequency data structure, nothing particularly special about alleles
 
-template<int MaxAlleles>
-class AlleleFrequenciesVector {
+template<int MaxElements>
+class Simplex {
 public:
-    explicit AlleleFrequenciesVector(const unsigned int totalAlleles);
+    explicit Simplex(unsigned int totalElements);
 
-    AlleleFrequenciesVector(const std::initializer_list<double> freqs);
+    Simplex(std::initializer_list<double> freqs);
 
-    explicit AlleleFrequenciesVector(const std::vector<double> freqs);
+    explicit Simplex(std::vector<double> freqs);
 
-    void set(const std::vector<double> valueArray);
+    void set(std::vector<double> valueArray);
 
-    ProbabilityVector<MaxAlleles> alleleFrequencies() const noexcept {
-        return allele_frequencies_;
-    }
+//    void set(unsigned int idx, double value);
 
-    friend std::ostream &operator<<(std::ostream &os, const AlleleFrequenciesVector &vector) {
-        for (unsigned int i = 0; i < vector.total_alleles_; ++i) {
-            os << vector.allele_frequencies_[i] << ", ";
+//    ProbabilityVector<MaxElements> frequencies() const noexcept {
+//        return frequencies_;
+//    }
+
+    [[nodiscard]] double frequencies(const unsigned int idx) const noexcept {
+        assert(idx < total_elements_);
+        return frequencies_(idx);
+    };
+
+    [[nodiscard]] unsigned int totalElements() const noexcept {
+        return total_elements_;
+    };
+
+    friend std::ostream &operator<<(std::ostream &os, const Simplex &vector) {
+        for (unsigned int i = 0; i < vector.total_elements_; ++i) {
+            os << vector.frequencies_[i] << ", ";
         }
         return os;
     };
 
-    [[nodiscard]] double alleleFrequencies(int idx) const noexcept {
-        return allele_frequencies_(idx);
-    };
-
-    [[nodiscard]] unsigned int totalAlleles() const noexcept {
-        return total_alleles_;
-    }
-
 private:
-    unsigned int total_alleles_;
-    ProbabilityVector<MaxAlleles> allele_frequencies_{};
+    unsigned int total_elements_;
+    ProbabilityVector<MaxElements> frequencies_{};
 };
 
 template<int MaxAlleles>
-AlleleFrequenciesVector<MaxAlleles>::AlleleFrequenciesVector(const unsigned int totalAlleles) : total_alleles_(totalAlleles) {
-    allele_frequencies_.setZero();
-    allele_frequencies_(0) = 1;
+Simplex<MaxAlleles>::Simplex(const unsigned int totalElements) : total_elements_(totalElements) {
+    frequencies_.setZero();
+    frequencies_(0) = 1;
 }
 
 template<int MaxAlleles>
-AlleleFrequenciesVector<MaxAlleles>::AlleleFrequenciesVector(const std::initializer_list<double> freqs) : total_alleles_(freqs.size()) {
-    allele_frequencies_.setZero();
+Simplex<MaxAlleles>::Simplex(const std::initializer_list<double> freqs) : total_elements_(freqs.size()) {
+    frequencies_.setZero();
     set(freqs);
 }
 
 template<int MaxAlleles>
-AlleleFrequenciesVector<MaxAlleles>::AlleleFrequenciesVector(const std::vector<double> freqs) : total_alleles_(freqs.size()) {
-    allele_frequencies_.setZero();
+Simplex<MaxAlleles>::Simplex(const std::vector<double> freqs) : total_elements_(freqs.size()) {
+    frequencies_.setZero();
     set(freqs);
 }
 
 template<int MaxAlleles>
-void AlleleFrequenciesVector<MaxAlleles>::set(const std::vector<double> valueArray) {
-    assert(valueArray.size() == total_alleles_);
-    for (unsigned int i = 0; i < total_alleles_; ++i) {
-        allele_frequencies_[i] = valueArray[i];
+void Simplex<MaxAlleles>::set(const std::vector<double> valueArray) {
+    assert(valueArray.size() == total_elements_);
+    for (unsigned int i = 0; i < total_elements_; ++i) {
+        frequencies_[i] = valueArray[i];
     }
-    allele_frequencies_ = allele_frequencies_ / allele_frequencies_.sum();
+    frequencies_ = frequencies_ / frequencies_.sum();
 }
 
-#endif //TRANSMISSION_NETWORKS_APP_ALLELEFREQUENCIESVECTOR_H
+//template<int MaxElements>
+//void Simplex<MaxElements>::set(unsigned int idx, double value) {
+//    assert(idx < total_elements_);
+//    assert(value <= 1);
+//
+//
+//}
+
+#endif //TRANSMISSION_NETWORKS_APP_SIMPLEX_H

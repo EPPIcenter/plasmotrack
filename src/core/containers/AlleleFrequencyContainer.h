@@ -11,9 +11,9 @@
 #include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/UncacheablePassthrough.h"
 #include "core/abstract/observables/CheckpointablePassthrough.h"
+
 #include "core/containers/Locus.h"
-#include "core/datatypes/Matrix.h"
-#include "core/datatypes/AlleleFrequenciesVector.h"
+
 #include "core/parameters/Parameter.h"
 
 // TODO: This container could be generalized, very similar to infection container.
@@ -39,7 +39,7 @@ public:
         return alleleFrequencies_.at(locus);
     };
 
-//    Parameter<AlleleFrequencyImpl> alleleFrequencies(LocusImpl *locus) const {
+//    Parameter<AlleleFrequencyImpl> frequencies(LocusImpl *locus) const {
 //        return alleleFrequencies_.at(locus);
 //    }
 
@@ -59,7 +59,7 @@ template<typename AlleleFrequencyImpl, typename LocusImpl>
 template<typename AlleleDataIter>
 AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>::AlleleFrequencyContainer(AlleleDataIter alleleFreqs) {
     for (auto const&[locus, alleleFrequencies] : alleleFreqs) {
-        assert(locus->totalAlleles() == alleleFrequencies.totalAlleles());
+        assert(locus->totalAlleles() == alleleFrequencies.totalElements());
         alleleFrequencies_.emplace(locus, alleleFrequencies);
         // pass through notifications
         alleleFrequencies_.at(locus).add_pre_change_listener([&]() { this->notify_pre_change(); });

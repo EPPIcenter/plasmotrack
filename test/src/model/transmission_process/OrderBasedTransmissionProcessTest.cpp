@@ -4,7 +4,7 @@
 
 #include "gtest/gtest.h"
 
-#include "core/datatypes/AlleleFrequenciesVector.h"
+#include "core/datatypes/Simplex.h"
 
 #include "core/parameters/Ordering.h"
 
@@ -27,7 +27,7 @@ constexpr int MAX_TRANSMISSIONS = 5;
 TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
     using Infection = Infection<GeneticsImpl>;
-    using AlleleFrequenciesVector = AlleleFrequenciesVector<MAX_ALLELES>;
+    using AlleleFrequenciesVector = Simplex<MAX_ALLELES>;
     using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequenciesVector>;
     using Ordering = Ordering<Infection>;
 

@@ -67,7 +67,7 @@ private:
             // Calculate prob that allele was not drawn in one infection
             for (int j = 0; j < totalAlleles; ++j) {
                 if(!founderGenotypeAtLocus.value().allele(j)) {
-                    probNotObserved += alleleFrequenciesParameter.value().alleleFrequencies(j);
+                    probNotObserved += alleleFrequenciesParameter.value().frequencies(j);
                 }
             }
 

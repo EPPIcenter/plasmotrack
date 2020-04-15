@@ -22,6 +22,7 @@
 
 #include "core/samplers/RandomWalkMH.h"
 #include "core/samplers/ConstrainedRandomWalkMH.h"
+#include "core/samplers/SALTSampler.h"
 
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/ObservationProcessLikelihood.h"

@@ -20,6 +20,16 @@ endif()
 # settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
+find_package(Boost 1.72 REQUIRED container math_c99l random)
+find_package(Eigen3 REQUIRED)
+
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+
+set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
+if( NOT EIGEN3_INCLUDE_DIR )
+    message( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
+endif()
+include_directories (${EIGEN3_INCLUDE_DIR})
 
 add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
         ${CMAKE_BINARY_DIR}/googletest-build
@@ -33,17 +43,18 @@ set(SOURCE_FILES
         src/core/containers/InfectionTest.cpp
         src/core/containers/AlleleFrequencyContainerTest.cpp
         src/core/datatypes/AllelesTest.cpp
-        src/core/datatypes/AlleleFrequenciesVectorTest.cpp
+        src/core/datatypes/SimplexTest.cpp
         src/core/parameters/OrderingTest.cpp
         src/core/samplers/RandomWalkMHTest.cpp
         src/core/samplers/ConstrainedRandomWalkMHTest.cpp
+        src/core/samplers/SALTSamplerTest.cpp
         src/core/utils/CombinationIndicesGeneratorTests.cpp
         src/model/transmission_process/OrderDerivedParentSetTest.cpp
         src/model/transmission_process/OrderBasedTransmissionProcessTest.cpp
         src/model/transmission_process/source_transmission_process/GeometricCOIProbabilityTest.cpp
         src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
         src/model/transmission_process/node_transmission_process/GeometricGenerationProbabilityTest.cpp
-        )
+        src/core/samplers/OrderSamplerTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests transmission_networks gtest)

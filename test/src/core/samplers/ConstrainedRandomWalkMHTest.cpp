@@ -3,6 +3,9 @@
 //
 
 #include "gtest/gtest.h"
+
+#include <boost/random.hpp>
+#include <boost/math/distributions.hpp>
 #include "Eigen/Core"
 
 #include "core/parameters/Parameter.h"
@@ -15,32 +18,33 @@ TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {
     struct BernoulliTestTarget {
 
         explicit BernoulliTestTarget(Parameter<double> &prob) : prob_(prob) {
+            boost::random::bernoulli_distribution<> dist{TEST_PROB};
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
-                data_.push_back(gsl_ran_bernoulli(r, TEST_PROB));
+                data_.push_back(dist(r));
             }
         };
 
         double value() {
+            boost::math::bernoulli d(prob_.value());
             double llik = 0;
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
-                llik += log(gsl_ran_bernoulli_pdf(data_[i], prob_.value()));
+                llik += log(boost::math::pdf(d, data_[i]));
             }
             return llik;
         }
 
-    private:
-        gsl_rng *r = gsl_rng_alloc(gsl_rng_taus);
+        boost::random::mt19937 r;
         Parameter<double> &prob_;
         std::vector<double> data_;
     };
 
     Parameter<double> myProb(.5);
     BernoulliTestTarget myTestTar(myProb);
-    gsl_rng *r = gsl_rng_alloc(gsl_rng_taus);
+    boost::random::mt19937 r;
 
-    ConstrainedRandomWalkMH sampler(myProb, myTestTar, r, .01, 0, 1);
+    ConstrainedRandomWalkMH sampler(myProb, myTestTar, &r, .01, 0, 1);
 
-    int i = 10000;
+    int i = 2000;
     while (i > 0) {
         i--;
         sampler.update();

@@ -9,8 +9,9 @@
 class AbstractSampler {
 public:
     virtual ~AbstractSampler() = default;
-    virtual void update() = 0;
-
+    virtual void update() noexcept = 0;
+    virtual void adapt() noexcept {};
+    virtual void adapt([[maybe_unused]] unsigned int idx) noexcept {};
 };
 
 

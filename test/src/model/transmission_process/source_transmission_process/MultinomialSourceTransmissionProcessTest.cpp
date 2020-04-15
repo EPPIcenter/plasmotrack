@@ -10,7 +10,7 @@
 #include "core/containers/AlleleFrequencyContainer.h"
 
 #include "core/datatypes/Alleles.h"
-#include "core/datatypes/AlleleFrequenciesVector.h"
+#include "core/datatypes/Simplex.h"
 
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 #include "model/transmission_process/source_transmission_process/GeometricCOIProbability.h"
@@ -21,7 +21,7 @@ constexpr int MAX_ALLELES = 32;
 TEST(MultinomialSourceTransmissionProcessTest, BasicTest) {
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
     using COIProbabilityImpl = GeometricCOIProbability<MAX_COI>;
-    using AlleleFrequencyImpl = AlleleFrequenciesVector<MAX_ALLELES>;
+    using AlleleFrequencyImpl = Simplex<MAX_ALLELES>;
     using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequencyImpl, Locus>;
     using Infection = Infection<GeneticsImpl, Locus>;
 
