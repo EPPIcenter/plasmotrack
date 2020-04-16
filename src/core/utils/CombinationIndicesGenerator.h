@@ -22,7 +22,7 @@ private:
 
     int n_;
     int r_;
-    combination_t curr;
+    combination_t curr{};
 };
 
 

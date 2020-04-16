@@ -45,8 +45,8 @@ set(SOURCE_FILES
         src/core/datatypes/AllelesTest.cpp
         src/core/datatypes/SimplexTest.cpp
         src/core/parameters/OrderingTest.cpp
-        src/core/samplers/RandomWalkMHTest.cpp
-        src/core/samplers/ConstrainedRandomWalkMHTest.cpp
+        src/core/samplers/ContinuousRandomWalkTest.cpp
+        src/core/samplers/ConstrainedContinuousRandomWalkTest.cpp
         src/core/samplers/SALTSamplerTest.cpp
         src/core/utils/CombinationIndicesGeneratorTests.cpp
         src/model/transmission_process/OrderDerivedParentSetTest.cpp
@@ -54,7 +54,7 @@ set(SOURCE_FILES
         src/model/transmission_process/source_transmission_process/GeometricCOIProbabilityTest.cpp
         src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
         src/model/transmission_process/node_transmission_process/GeometricGenerationProbabilityTest.cpp
-        src/core/samplers/OrderSamplerTest.cpp)
+        src/core/samplers/OrderSamplerTest.cpp src/core/samplers/DiscreteRandomWalkTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests transmission_networks gtest)

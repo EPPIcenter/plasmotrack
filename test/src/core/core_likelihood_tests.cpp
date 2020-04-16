@@ -20,9 +20,10 @@
 
 #include "core/utils/CombinationIndicesGenerator.h"
 
-#include "core/samplers/RandomWalkMH.h"
-#include "core/samplers/ConstrainedRandomWalkMH.h"
+#include "core/samplers/ContinuousRandomWalk.h"
+#include "core/samplers/ConstrainedContinuousRandomWalk.h"
 #include "core/samplers/SALTSampler.h"
+#include "core/samplers/DiscreteRandomWalk.h"
 
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/ObservationProcessLikelihood.h"

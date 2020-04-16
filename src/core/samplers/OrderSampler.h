@@ -29,7 +29,6 @@ private:
     Engine *rng_;
     unsigned int max_distance_;
     unsigned int num_elements_;
-    boost::random::normal_distribution<> normal_dist_{0, 1};
     boost::random::uniform_01<> uniform_dist_{};
     boost::random::uniform_int_distribution<> pivot_sampling_dist_;
     boost::random::uniform_int_distribution<> offset_sampling_dist_;

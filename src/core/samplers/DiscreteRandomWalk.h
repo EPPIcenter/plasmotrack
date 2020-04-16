@@ -1,0 +1,116 @@
+//
+// Created by Maxwell Murphy on 4/16/20.
+//
+
+#ifndef TRANSMISSION_NETWORKS_APP_DISCRETERANDOMWALK_H
+#define TRANSMISSION_NETWORKS_APP_DISCRETERANDOMWALK_H
+
+#include <boost/random.hpp>
+#include <boost/math/distributions.hpp>
+#include <cmath>
+
+#include "core/parameters/Parameter.h"
+
+#include "core/samplers/AbstractSampler.h"
+
+template<typename T, typename Engine>
+class DiscreteRandomWalk : public AbstractSampler {
+
+public:
+    DiscreteRandomWalk(Parameter<int> &parameter, T &target, Engine *rng) noexcept;
+
+    DiscreteRandomWalk(Parameter<int> &parameter, T &target, Engine *rng, unsigned int maxDistance) noexcept;
+
+
+    [[nodiscard]] unsigned int acceptances() const noexcept;
+
+    [[nodiscard]] unsigned int rejections() const noexcept;
+
+    [[nodiscard]] double acceptanceRate() const noexcept;
+
+    virtual double sampleStride() noexcept;
+
+    virtual double logMetropolisHastingsAdjustment([[maybe_unused]] double curr, [[maybe_unused]] double proposed) noexcept;
+
+    void update() noexcept override;
+
+
+protected:
+    Parameter<int> &parameter_;
+    T &target_;
+    Engine *rng;
+    unsigned int max_distance_ = 1;
+    boost::random::normal_distribution<> normal_dist_{0, 1};
+    boost::random::uniform_01<> uniform_dist_{};
+    boost::random::uniform_int_distribution<> step_sampling_dist_;
+
+    unsigned int acceptances_ = 0;
+    unsigned int rejections_ = 0;
+    unsigned int total_updates_ = 0;
+
+};
+
+template<typename T, typename Engine>
+DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(Parameter<int> &parameter, T &target, Engine *rng) noexcept :
+    parameter_(parameter), target_(target), rng(rng) {
+        step_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
+    }
+
+template<typename T, typename Engine>
+DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(Parameter<int> &parameter, T &target, Engine *rng,
+                                                  unsigned int maxDistance) noexcept :
+      parameter_(parameter), target_(target), rng(rng), max_distance_(maxDistance) {
+          step_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
+      }
+
+template<typename T, typename Engine>
+unsigned int DiscreteRandomWalk<T, Engine>::acceptances() const noexcept {
+    return acceptances_;
+}
+
+template<typename T, typename Engine>
+unsigned int DiscreteRandomWalk<T, Engine>::rejections() const noexcept {
+    return rejections_;
+}
+
+template<typename T, typename Engine>
+double DiscreteRandomWalk<T, Engine>::acceptanceRate() const noexcept {
+    return double(acceptances_) / double(rejections_ + acceptances_);
+}
+
+template<typename T, typename Engine>
+double DiscreteRandomWalk<T, Engine>::sampleStride() noexcept {
+    auto stride = step_sampling_dist_(*rng);
+    return uniform_dist_(*rng) > .5 ? stride : -stride;
+}
+
+template<typename T, typename Engine>
+double DiscreteRandomWalk<T, Engine>::logMetropolisHastingsAdjustment(
+        [[maybe_unused]] double curr, [[maybe_unused]] double proposed) noexcept {
+    return 0;
+}
+
+template<typename T, typename Engine>
+void DiscreteRandomWalk<T, Engine>::update() noexcept {
+    double curLik = target_.value();
+    parameter_.saveState();
+
+    const int stride = sampleStride();
+    parameter_.setValue(parameter_.value() + stride);
+
+    const double acceptanceRatio = target_.value() - curLik;
+    const bool accept = log(uniform_dist_(*rng)) <= acceptanceRatio;
+
+    if (accept) {
+        acceptances_ += 1;
+        parameter_.acceptState();
+    } else {
+        rejections_ += 1;
+        parameter_.restoreState();
+    }
+
+    total_updates_++;
+}
+
+
+#endif //TRANSMISSION_NETWORKS_APP_DISCRETERANDOMWALK_H

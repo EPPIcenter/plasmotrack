@@ -1,4 +1,8 @@
 //
+// Created by Maxwell Murphy on 4/16/20.
+//
+
+//
 // Created by Maxwell Murphy on 3/25/20.
 //
 
@@ -9,24 +13,23 @@
 #include <Eigen/Core>
 
 #include "core/parameters/Parameter.h"
-#include "core/samplers/RandomWalkMH.h"
+#include "core/samplers/DiscreteRandomWalk.h"
 
-TEST(RandomWalkMHTest, NormalTest) {
-    constexpr double TEST_MEAN = 5;
-    constexpr double TEST_VARIANCE = 1;
-    constexpr int TOTAL_DATA_POINTS = 100;
+TEST(DiscreteRandomWalkTest, NormalTest) {
+    constexpr double TEST_MEAN = 5.51;
+    constexpr double TEST_VARIANCE = 10;
+    constexpr int TOTAL_DATA_POINTS = 30;
 
     struct NormalTestTarget {
 
-        explicit NormalTestTarget(Parameter<double> &mean) : mean_(mean) {
-            boost::random::normal_distribution<> dist{0, 1};
+        explicit NormalTestTarget(Parameter<int> &mean) : mean_(mean) {
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
                 data_(i) = dist(r) * TEST_VARIANCE + TEST_MEAN;
             }
         };
 
         double value() {
-            boost::math::normal d(mean_.value(), 1);
+            boost::math::normal d(mean_.value(), TEST_VARIANCE);
             double llik = 0;
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
                 llik += log(boost::math::pdf(d, data_[i]));
@@ -34,18 +37,18 @@ TEST(RandomWalkMHTest, NormalTest) {
             return llik;
         }
 
+        boost::random::normal_distribution<> dist{0, 1};
         boost::random::mt19937 r;
-        Parameter<double> &mean_;
+        Parameter<int> &mean_;
         Eigen::Array<double, TOTAL_DATA_POINTS, 1> data_;
     };
 
 
-    Parameter<double> myMean(30);
+    Parameter<int> myMean(30);
     NormalTestTarget myTestTar(myMean);
     boost::random::mt19937 r;
 
-
-    RandomWalkMH sampler(myMean, myTestTar, &r, 1);
+    DiscreteRandomWalk sampler(myMean, myTestTar, &r, 3);
 
     int i = 2000;
     while (i > 0) {
@@ -54,8 +57,9 @@ TEST(RandomWalkMHTest, NormalTest) {
         sampler.adapt();
     }
 
-    Eigen::Array<double, 1000, 1> results;
-    i = 1000;
+    constexpr int total_samples = 2000;
+    Eigen::Array<double, total_samples, 1> results;
+    i = total_samples;
     while (i > 0) {
         i--;
         sampler.update();
@@ -66,16 +70,15 @@ TEST(RandomWalkMHTest, NormalTest) {
     auto resultsStdDev = std::sqrt( (results - results.mean()).square().sum() / results.size() );
     std::cout << "Mean: " << resultsMean << std::endl;
     std::cout << "StdDev: " << resultsStdDev << std::endl;
-    std::cout << "Variance: " << sampler.variance() << std::endl;
     std::cout << "Acceptance Ratio: " << sampler.acceptanceRate() << std::endl;
     EXPECT_GE(resultsStdDev * 3, resultsMean - TEST_MEAN);
     EXPECT_LE(-resultsStdDev * 3, resultsMean - TEST_MEAN);
 }
 
-TEST(RandomWalkMHTest, DoubleWellTest) {
+TEST(DiscreteRandomWalkTest, DoubleWellTest) {
     struct DoubleWellTestTarget {
 
-        explicit DoubleWellTestTarget(Parameter<double> &x, Parameter<double> &y) : x_(x), y_(y) {};
+        explicit DoubleWellTestTarget(Parameter<int> &x, Parameter<int> &y) : x_(x), y_(y) {};
 
         double value() {
             return -(
@@ -83,26 +86,26 @@ TEST(RandomWalkMHTest, DoubleWellTest) {
                     (.5 * b_ * std::pow(x_.value(), 2)) +
                     (c_ * x_.value()) +
                     (.5 * d_ * std::pow(y_.value(), 2))
-                    );
+            );
         }
 
-        Parameter<double> &x_;
-        Parameter<double> &y_;
+        Parameter<int> &x_;
+        Parameter<int> &y_;
         double a_ = 1;
         double b_ = 6;
         double c_ = 1;
         double d_ = 1;
     };
 
-    Parameter<double> x(0);
-    Parameter<double> y(0);
+    Parameter<int> x(0);
+    Parameter<int> y(0);
     DoubleWellTestTarget myTestTar(x, y);
     boost::random::mt19937 r;
 
-    RandomWalkMH xSampler(x, myTestTar, &r, 10, 3, 100);
-    RandomWalkMH ySampler(y, myTestTar, &r, 10, 3, 100);
+    DiscreteRandomWalk xSampler(x, myTestTar, &r, 3);
+    DiscreteRandomWalk ySampler(y, myTestTar, &r, 3);
 
-    int i = 20000;
+    int i = 2000;
     while (i > 0) {
         i--;
         xSampler.update();
@@ -127,7 +130,6 @@ TEST(RandomWalkMHTest, DoubleWellTest) {
     auto resultsStdDev = std::sqrt( (xResults - xResults.mean()).square().sum() / xResults.size() );
     std::cout << "Mean: " << resultsMean << std::endl;
     std::cout << "StdDev: " << resultsStdDev << std::endl;
-    std::cout << "Variance: " << xSampler.variance() << std::endl;
     std::cout << "Acceptance Ratio: " << xSampler.acceptanceRate() << std::endl;
 //    std::cout << xResults << std::endl;
 //    EXPECT_GE(resultsStdDev * 3, resultsMean - TEST_MEAN);

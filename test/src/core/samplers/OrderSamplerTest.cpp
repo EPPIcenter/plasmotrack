@@ -52,7 +52,7 @@ TEST(OrderSamplerTest, OrderTest) {
 
     OrderSampler sampler(myOrdering, myTestTar, &r, 1);
 
-    int i = 2000;
+    int i = 500;
     while (i > 0) {
         i--;
         sampler.update();
