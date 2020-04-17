@@ -28,9 +28,9 @@ public:
 
     [[nodiscard]] double acceptanceRate() const noexcept;
 
-    virtual double sampleStride() noexcept;
+    virtual double sampleStride([[maybe_unused]] int current) noexcept;
 
-    virtual double logMetropolisHastingsAdjustment([[maybe_unused]] double curr, [[maybe_unused]] double proposed) noexcept;
+    virtual double logMetropolisHastingsAdjustment([[maybe_unused]] int curr, [[maybe_unused]] int proposed) noexcept;
 
     void update() noexcept override;
 
@@ -38,11 +38,11 @@ public:
 protected:
     Parameter<int> &parameter_;
     T &target_;
-    Engine *rng;
+    Engine *rng_;
     unsigned int max_distance_ = 1;
     boost::random::normal_distribution<> normal_dist_{0, 1};
     boost::random::uniform_01<> uniform_dist_{};
-    boost::random::uniform_int_distribution<> step_sampling_dist_;
+    boost::random::uniform_int_distribution<> stride_sampling_dist_;
 
     unsigned int acceptances_ = 0;
     unsigned int rejections_ = 0;
@@ -52,15 +52,15 @@ protected:
 
 template<typename T, typename Engine>
 DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(Parameter<int> &parameter, T &target, Engine *rng) noexcept :
-    parameter_(parameter), target_(target), rng(rng) {
-        step_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
+    parameter_(parameter), target_(target), rng_(rng) {
+        stride_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
     }
 
 template<typename T, typename Engine>
 DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(Parameter<int> &parameter, T &target, Engine *rng,
                                                   unsigned int maxDistance) noexcept :
-      parameter_(parameter), target_(target), rng(rng), max_distance_(maxDistance) {
-          step_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
+      parameter_(parameter), target_(target), rng_(rng), max_distance_(maxDistance) {
+          stride_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
       }
 
 template<typename T, typename Engine>
@@ -79,14 +79,14 @@ double DiscreteRandomWalk<T, Engine>::acceptanceRate() const noexcept {
 }
 
 template<typename T, typename Engine>
-double DiscreteRandomWalk<T, Engine>::sampleStride() noexcept {
-    auto stride = step_sampling_dist_(*rng);
-    return uniform_dist_(*rng) > .5 ? stride : -stride;
+double DiscreteRandomWalk<T, Engine>::sampleStride([[maybe_unused]] int current) noexcept {
+    auto stride = stride_sampling_dist_(*rng_);
+    return uniform_dist_(*rng_) > .5 ? stride : -stride;
 }
 
 template<typename T, typename Engine>
 double DiscreteRandomWalk<T, Engine>::logMetropolisHastingsAdjustment(
-        [[maybe_unused]] double curr, [[maybe_unused]] double proposed) noexcept {
+        [[maybe_unused]] int curr, [[maybe_unused]] int proposed) noexcept {
     return 0;
 }
 
@@ -95,11 +95,13 @@ void DiscreteRandomWalk<T, Engine>::update() noexcept {
     double curLik = target_.value();
     parameter_.saveState();
 
-    const int stride = sampleStride();
+    const int stride = sampleStride(parameter_.value());
+    double mhAdjustment = logMetropolisHastingsAdjustment(parameter_.value(), parameter_.value() + stride);
+
     parameter_.setValue(parameter_.value() + stride);
 
-    const double acceptanceRatio = target_.value() - curLik;
-    const bool accept = log(uniform_dist_(*rng)) <= acceptanceRatio;
+    const double acceptanceRatio = target_.value() - curLik + mhAdjustment;
+    const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
     if (accept) {
         acceptances_ += 1;

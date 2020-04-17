@@ -9,9 +9,9 @@
 
 #include "ContinuousRandomWalk.h"
 
-// Random Walk constrained to a range (lower, upper)
+// Continuous Random Walk constrained to a range (lower, upper)
 
-template< int LOWER_BOUND, int UPPER_BOUND, typename T, typename Engine>
+template<int LOWER_BOUND, int UPPER_BOUND, typename T, typename Engine>
 class ConstrainedContinuousRandomWalk : public ContinuousRandomWalk<T, Engine> {
 public:
     ConstrainedContinuousRandomWalk(Parameter<double> &parameter, T &target, Engine *rng);

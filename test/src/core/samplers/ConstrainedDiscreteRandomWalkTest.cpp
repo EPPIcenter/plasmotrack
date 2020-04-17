@@ -9,9 +9,9 @@
 #include <Eigen/Core>
 
 #include "core/parameters/Parameter.h"
-#include "core/samplers/DiscreteRandomWalk.h"
+#include "core/samplers/ConstrainedDiscreteRandomWalk.h"
 
-TEST(DiscreteRandomWalkTest, NormalTest) {
+TEST(ConstrainedDiscreteRandomWalkTest, NormalTest) {
     constexpr double TEST_MEAN = 5.51;
     constexpr double TEST_VARIANCE = 10;
     constexpr int TOTAL_DATA_POINTS = 30;
@@ -40,11 +40,11 @@ TEST(DiscreteRandomWalkTest, NormalTest) {
     };
 
 
-    Parameter<int> myMean(30);
+    Parameter<int> myMean(5);
     NormalTestTarget myTestTar(myMean);
     boost::random::mt19937 r;
 
-    DiscreteRandomWalk sampler(myMean, myTestTar, &r, 3);
+    ConstrainedDiscreteRandomWalk<3, 11, NormalTestTarget, boost::random::mt19937> sampler(myMean, myTestTar, &r, 3);
 
     int i = 2000;
     while (i > 0) {
@@ -71,7 +71,7 @@ TEST(DiscreteRandomWalkTest, NormalTest) {
     EXPECT_LE(-resultsStdDev * 3, resultsMean - TEST_MEAN);
 }
 
-TEST(DiscreteRandomWalkTest, DoubleWellTest) {
+TEST(ConstrainedDiscreteRandomWalkTest, DoubleWellTest) {
     struct DoubleWellTestTarget {
 
         explicit DoubleWellTestTarget(Parameter<int> &x, Parameter<int> &y) : x_(x), y_(y) {};
@@ -98,8 +98,8 @@ TEST(DiscreteRandomWalkTest, DoubleWellTest) {
     DoubleWellTestTarget myTestTar(x, y);
     boost::random::mt19937 r;
 
-    DiscreteRandomWalk xSampler(x, myTestTar, &r, 3);
-    DiscreteRandomWalk ySampler(y, myTestTar, &r, 3);
+    ConstrainedDiscreteRandomWalk< -5, 5, DoubleWellTestTarget, boost::random::mt19937> xSampler(x, myTestTar, &r, 3);
+    ConstrainedDiscreteRandomWalk< -5, 5, DoubleWellTestTarget, boost::random::mt19937> ySampler(y, myTestTar, &r, 3);
 
     int i = 2000;
     while (i > 0) {
