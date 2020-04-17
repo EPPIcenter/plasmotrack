@@ -27,8 +27,7 @@ constexpr int MAX_TRANSMISSIONS = 5;
 TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
     using Infection = Infection<GeneticsImpl>;
-    using AlleleFrequenciesVector = Simplex<MAX_ALLELES>;
-    using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequenciesVector>;
+    using AlleleFrequencyContainer = AlleleFrequencyContainer<Simplex>;
     using Ordering = Ordering<Infection>;
 
     using COITransitionProbImpl = ZTMultiplicativeBinomial<MAX_COI>;
@@ -46,6 +45,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
             {&as1, GeneticsImpl("11010")},
             {&as2, GeneticsImpl("000011")}
     };
+
     std::vector<Infection::LocusGeneticsAssignment> plas{
             {&as1, GeneticsImpl("11010")},
             {&as2, GeneticsImpl("000011")}
@@ -64,8 +64,8 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     OrderDerivedParentSet ps4(infectionOrder, inf4);
 
     std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> lfas {
-            {&as1, AlleleFrequenciesVector(as1.totalAlleles())},
-            {&as2, AlleleFrequenciesVector(as2.totalAlleles())}
+            {&as1, Simplex(as1.totalAlleles())},
+            {&as2, Simplex(as2.totalAlleles())}
     };
     AlleleFrequencyContainer afc(lfas);
 

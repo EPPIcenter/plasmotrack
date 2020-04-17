@@ -21,7 +21,7 @@ constexpr int MAX_ALLELES = 32;
 TEST(MultinomialSourceTransmissionProcessTest, BasicTest) {
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
     using COIProbabilityImpl = GeometricCOIProbability<MAX_COI>;
-    using AlleleFrequencyImpl = Simplex<MAX_ALLELES>;
+    using AlleleFrequencyImpl = Simplex;
     using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequencyImpl, Locus>;
     using Infection = Infection<GeneticsImpl, Locus>;
 

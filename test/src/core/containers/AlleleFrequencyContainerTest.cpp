@@ -7,10 +7,9 @@
 #include "core/datatypes/Simplex.h"
 #include "core/containers/AlleleFrequencyContainer.h"
 
-constexpr int MAX_ALLELES = 32;
 
 TEST(AlleleFrequencyContainerTest, HandlesChangedFrequencies) {
-    using AlleleFrequenciesVector = Simplex<MAX_ALLELES>;
+    using AlleleFrequenciesVector = Simplex;
     using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequenciesVector>;
 
     Locus as1("AS1", 4);
