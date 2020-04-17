@@ -15,13 +15,19 @@
 template<typename T, typename Engine, typename OrderingElement>
 class OrderSampler : public AbstractSampler {
 public:
-    OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng);
-    OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng, unsigned int max_distance);
+    OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng) noexcept;
 
-public:
+    OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng, unsigned int max_distance) noexcept;
+
     void update() noexcept override;
 
     std::tuple<int, int> sampleProposal() noexcept;
+
+    [[nodiscard]] unsigned int acceptances() noexcept;
+
+    [[nodiscard]] unsigned int rejections() noexcept;
+
+    [[nodiscard]] double acceptanceRate() noexcept;
 
 private:
     Ordering<OrderingElement> &parameter_;
@@ -33,9 +39,8 @@ private:
     boost::random::uniform_int_distribution<> pivot_sampling_dist_;
     boost::random::uniform_int_distribution<> offset_sampling_dist_;
 
-    double acceptances_ = 0;
-    double rejections_ = 0;
-
+    unsigned int acceptances_ = 0;
+    unsigned int rejections_ = 0;
     unsigned int total_updates_ = 0;
 };
 
@@ -65,7 +70,7 @@ void OrderSampler<T, Engine, OrderingElement>::update() noexcept {
 }
 
 template<typename T, typename Engine, typename OrderingElement>
-OrderSampler<T, Engine, OrderingElement>::OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng)
+OrderSampler<T, Engine, OrderingElement>::OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng) noexcept
         :parameter_(parameter), target_(target), rng_(rng), max_distance_(1) {
     offset_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
     num_elements_ = parameter.value().size();
@@ -73,7 +78,7 @@ OrderSampler<T, Engine, OrderingElement>::OrderSampler(Ordering<OrderingElement>
 }
 
 template<typename T, typename Engine, typename OrderingElement>
-OrderSampler<T, Engine, OrderingElement>::OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng, unsigned int max_distance)
+OrderSampler<T, Engine, OrderingElement>::OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng, unsigned int max_distance) noexcept
         :parameter_(parameter), target_(target), rng_(rng), max_distance_(max_distance) {
     offset_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
     num_elements_ = parameter.value().size();
@@ -98,6 +103,21 @@ std::tuple<int, int> OrderSampler<T, Engine, OrderingElement>::sampleProposal() 
     auto pivot = pivot_sampling_dist_(*rng_);
 
     return std::tuple<int, int>(pivot, offset);
+}
+
+template<typename T, typename Engine, typename OrderingElement>
+unsigned int OrderSampler<T, Engine, OrderingElement>::acceptances() noexcept {
+    return acceptances_;
+}
+
+template<typename T, typename Engine, typename OrderingElement>
+unsigned int OrderSampler<T, Engine, OrderingElement>::rejections() noexcept {
+    return rejections_;
+}
+
+template<typename T, typename Engine, typename OrderingElement>
+double OrderSampler<T, Engine, OrderingElement>::acceptanceRate() noexcept {
+    return double(acceptances_) / (acceptances_ + rejections_);
 }
 
 #endif //TRANSMISSION_NETWORKS_APP_ORDERSAMPLER_H

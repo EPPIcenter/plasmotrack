@@ -57,7 +57,7 @@ set(SOURCE_FILES
         src/model/transmission_process/source_transmission_process/GeometricCOIProbabilityTest.cpp
         src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
         src/model/transmission_process/node_transmission_process/GeometricGenerationProbabilityTest.cpp
-        )
+        src/core/samplers/genetics/RandomAllelesBitSetSamplerTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests transmission_networks gtest)

@@ -19,7 +19,7 @@ set(SOURCE_FILES
         core/containers/Locus.cpp
         core/utils/CombinationIndicesGenerator.cpp
         model/observation_process/AlleleCounts.cpp
-        core/samplers/OrderSampler.h)
+        core/samplers/ConstrainedDiscreteRandomWalk.h core/samplers/genetics/RandomAllelesBitSetSampler.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

@@ -2,14 +2,12 @@
 // Created by Maxwell Murphy on 4/14/20.
 //
 
-#include "gtest/gtest.h"
-
 #include <boost/random.hpp>
-#include <boost/math/distributions.hpp>
 #include <Eigen/Core>
 
+#include "gtest/gtest.h"
+
 #include "core/parameters/Ordering.h"
-#include "core/parameters/Parameter.h"
 #include "core/samplers/OrderSampler.h"
 
 
@@ -33,7 +31,6 @@ TEST(OrderSamplerTest, OrderTest) {
             return llik;
         }
 
-        boost::random::mt19937 r;
         Ordering<int> &ordering_;
     };
 
