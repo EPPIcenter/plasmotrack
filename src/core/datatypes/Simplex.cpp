@@ -22,6 +22,9 @@ Simplex::Simplex(const std::vector<double> freqs) : total_elements_(freqs.size()
     set(freqs);
 }
 
+Simplex::Simplex(DynamicArray freqs) : total_elements_(freqs.size()), frequencies_(freqs) {}
+
+
 void Simplex::set(const std::vector<double> valueArray) {
     assert(valueArray.size() == total_elements_);
     for (unsigned int i = 0; i < total_elements_; ++i) {
@@ -30,12 +33,29 @@ void Simplex::set(const std::vector<double> valueArray) {
     frequencies_ = frequencies_ / frequencies_.sum();
 }
 
+
+void Simplex::set(const unsigned int idx, const double value) {
+    assert(idx < total_elements_);
+    assert(value <= 1);
+    frequencies_(idx) = 0;
+    frequencies_ = (frequencies_ / frequencies_.sum()) * (1 - value);
+    frequencies_(idx) = value;
+}
+
 double Simplex::frequencies(const unsigned int idx) const noexcept {
     return frequencies_(idx);
+}
+
+DynamicArray Simplex::frequencies() const noexcept {
+    return frequencies_;
 }
 
 unsigned int Simplex::totalElements() const noexcept {
     return total_elements_;
 }
 
-Simplex::Simplex(DynamicProbabilityVector freqs) : total_elements_(freqs.size()), frequencies_(freqs) {}
+std::ostream &operator<<(std::ostream &os, const Simplex &simplex) {
+    os << "frequencies: " << simplex.frequencies_;
+    return os;
+}
+

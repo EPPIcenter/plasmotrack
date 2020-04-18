@@ -20,5 +20,6 @@ template <int MAX_STATES>
 using ProbabilityVector = Eigen::Matrix<double, MAX_STATES, 1>;
 
 using DynamicProbabilityVector = Eigen::Matrix<double, Eigen::Dynamic, 1>;
+using DynamicArray = Eigen::Array<double, Eigen::Dynamic, 1>;
 
 #endif //TRANSMISSION_NETWORKS_APP_MATRIX_H

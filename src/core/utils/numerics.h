@@ -73,4 +73,28 @@ typename std::iterator_traits<Iter>::value_type logSumExpKnownMax(Iter begin, It
     return max_el + std::log(sum);
 }
 
+
+template<typename T>
+inline double logit(T x) {
+    if (x < .5) {
+        return log(x) - log1p(x);
+    } else {
+        return log(x / (1 - x));
+    }
+}
+
+template<typename T>
+inline double expit(T x) {
+    return 1 / (1 + exp(-x));
+}
+
+template<typename T>
+double logLogit(T x) {
+    if (x < log(.5)) {
+        return x - log1p(-exp(x));
+    } else {
+        return x - log(-expm1(x));
+    }
+}
+
 #endif //TRANSMISSION_NETWORKS_APP_NUMERICS_H

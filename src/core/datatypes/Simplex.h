@@ -17,26 +17,25 @@ public:
 
     explicit Simplex(std::vector<double> freqs);
 
-    explicit Simplex(const DynamicProbabilityVector freqs);
+    friend std::ostream &operator<<(std::ostream &os, const Simplex &simplex);
+
+    explicit Simplex(const DynamicArray freqs);
 
     Simplex(std::initializer_list<double> freqs);
 
     void set(std::vector<double> valueArray);
 
+    void set(unsigned int idx, double value);
+
     [[nodiscard]] double frequencies(const unsigned int idx) const noexcept;
+
+    [[nodiscard]] DynamicArray frequencies() const noexcept;
 
     [[nodiscard]] unsigned int totalElements() const noexcept;
 
-    friend std::ostream &operator<<(std::ostream &os, const Simplex &vector) {
-        for (unsigned int i = 0; i < vector.total_elements_; ++i) {
-            os << vector.frequencies_[i] << ", ";
-        }
-        return os;
-    };
-
-private:
+    private:
     unsigned int total_elements_;
-    DynamicProbabilityVector frequencies_{};
+    DynamicArray frequencies_{};
 };
 
 
