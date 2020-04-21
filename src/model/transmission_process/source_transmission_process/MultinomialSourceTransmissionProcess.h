@@ -9,15 +9,13 @@
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
 
-#include "core/containers/Infection.h"
-
 #include "core/computation/Computation.h"
 
-template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename GeneticsImpl>
+template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl>
 class MultinomialSourceTransmissionProcess : public Computation<double>,
-                                             public Observable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GeneticsImpl>>,
-                                             public Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GeneticsImpl>>,
-                                             public Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GeneticsImpl>, double> {
+                                             public Observable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl>>,
+                                             public Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl>>,
+                                             public Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl>, double> {
     using CallbackType = std::function<void()>;
     CREATE_EVENT(save_state, CallbackType)
     CREATE_EVENT(accept_state, CallbackType)
@@ -27,7 +25,7 @@ public:
 
     MultinomialSourceTransmissionProcess(COIProbabilityImpl &coiProb,
                                          AlleleFrequencyContainer &alleleFrequenciesContainer,
-                                         Infection<GeneticsImpl> &founder)
+                                         InfectionEventImpl &founder)
             : coiProb_(coiProb), alleleFrequenciesContainer_(alleleFrequenciesContainer), founder_(founder) {
 
         coiProb_.registerCacheableCheckpointTarget(*this);
@@ -50,12 +48,12 @@ public:
 
 
 private:
-    friend class Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GeneticsImpl>>;
-    friend class Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GeneticsImpl>, double>;
+    friend class Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl>>;
+    friend class Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl>, double>;
 
     COIProbabilityImpl &coiProb_;
     AlleleFrequencyContainer &alleleFrequenciesContainer_;
-    Infection<GeneticsImpl> &founder_;
+    InfectionEventImpl &founder_;
 
     double calculateLogLikelihood() {
         double llik = 0.0;
@@ -63,7 +61,7 @@ private:
         for (auto const& [locus, founderGenotypeAtLocus] : founderLatentGenotype) {
             double probNotObserved = 0.0;
             const double totalAlleles = locus->totalAlleles();
-            const auto alleleFrequenciesParameter = alleleFrequenciesContainer_.alleleFrequencies(locus);
+            const auto alleleFrequenciesParameter = alleleFrequenciesContainer_.alleleFrequencies(*locus);
             // Calculate prob that allele was not drawn in one infection
             for (int j = 0; j < totalAlleles; ++j) {
                 if(!founderGenotypeAtLocus.value().allele(j)) {

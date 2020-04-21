@@ -31,3 +31,7 @@ bool Locus::operator<=(const Locus &rhs) const noexcept {
 bool Locus::operator>=(const Locus &rhs) const noexcept {
     return !(*this < rhs);
 }
+
+Locus::~Locus() {
+
+}

@@ -8,9 +8,9 @@
 #include "core/datatypes/Simplex.h"
 #include "core/parameters/Parameter.h"
 
-TEST(DynamicSimplexTest, BasicTest) {
+TEST(SimplexTest, BasicTest) {
     Simplex av(3);
-    ASSERT_DOUBLE_EQ(av.frequencies(0), 1);
+    ASSERT_DOUBLE_EQ(av.frequencies(0), 1.0/3.0);
 
     av.set({.33, .33, .33});
     ASSERT_DOUBLE_EQ(av.frequencies(0), 1.0 / 3.0);
@@ -21,7 +21,7 @@ TEST(DynamicSimplexTest, BasicTest) {
     ASSERT_DOUBLE_EQ(av2.frequencies(0), 1.0 / 6.0);
 }
 
-TEST(DynamicSimplexTest, ParameterTest) {
+TEST(SimplexTest, ParameterTest) {
     Simplex av(3);
     Parameter<Simplex> p(av);
 

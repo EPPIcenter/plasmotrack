@@ -12,6 +12,8 @@ public:
 
     explicit Locus(std::string label, int total_alleles);
 
+    virtual ~Locus();
+
     [[nodiscard]] unsigned int totalAlleles() const noexcept;
 
     bool operator<(const Locus &rhs) const noexcept;

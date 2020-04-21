@@ -6,18 +6,21 @@
 
 Simplex::Simplex(const unsigned int totalElements) : total_elements_(totalElements) {
     frequencies_.resize(total_elements_);
-    frequencies_.setZero();
-    frequencies_(0) = 1;
+    assert(total_elements_ > 0);
+    frequencies_.setOnes();
+    frequencies_ = frequencies_ / frequencies_.sum();
 }
 
 Simplex::Simplex(const std::initializer_list<double> freqs) : total_elements_(freqs.size()) {
     frequencies_.resize(total_elements_);
+    assert(total_elements_ > 0);
     frequencies_.setZero();
     set(freqs);
 }
 
 Simplex::Simplex(const std::vector<double> freqs) : total_elements_(freqs.size()) {
     frequencies_.resize(total_elements_);
+    assert(total_elements_ > 0);
     frequencies_.setZero();
     set(freqs);
 }
@@ -36,7 +39,7 @@ void Simplex::set(const std::vector<double> valueArray) {
 
 void Simplex::set(const unsigned int idx, const double value) {
     assert(idx < total_elements_);
-    assert(value <= 1);
+    assert(value < 1);
     frequencies_(idx) = 0;
     frequencies_ = (frequencies_ / frequencies_.sum()) * (1 - value);
     frequencies_(idx) = value;

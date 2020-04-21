@@ -5,8 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_COMPUTATION_H
 #define TRANSMISSION_NETWORKS_APP_COMPUTATION_H
 
-#include <optional>
-
 template <typename T>
 class Computation {
 public:
@@ -15,6 +13,8 @@ public:
     };
 
     virtual T value() = 0;
+
+    virtual ~Computation() = default;
 
 protected:
     T value_{};

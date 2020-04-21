@@ -26,35 +26,35 @@ constexpr int MAX_TRANSMISSIONS = 5;
 
 TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
-    using Infection = Infection<GeneticsImpl>;
+    using InfectionEvent = Infection<GeneticsImpl>;
     using AlleleFrequencyContainer = AlleleFrequencyContainer<Simplex>;
-    using Ordering = Ordering<Infection>;
+    using Ordering = Ordering<InfectionEvent>;
 
     using COITransitionProbImpl = ZTMultiplicativeBinomial<MAX_COI>;
     using InterTransmissionProbImpl = GeometricGenerationProbability<MAX_TRANSMISSIONS>;
     using NodeTransmissionImpl = NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>;
 
     using COIProbabilityImpl = GeometricCOIProbability<MAX_COI>;
-    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GeneticsImpl>;
-    using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, GeneticsImpl>;
+    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent>;
+    using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
 
     Locus as1("AS1", 5);
     Locus as2("AS2", 6);
 
-    std::vector<Infection::LocusGeneticsAssignment> dlas{
+    std::vector<InfectionEvent::LocusGeneticsAssignment> dlas{
             {&as1, GeneticsImpl("11010")},
             {&as2, GeneticsImpl("000011")}
     };
 
-    std::vector<Infection::LocusGeneticsAssignment> plas{
+    std::vector<InfectionEvent::LocusGeneticsAssignment> plas{
             {&as1, GeneticsImpl("11010")},
             {&as2, GeneticsImpl("000011")}
     };
 
-    Infection inf1(dlas, plas);
-    Infection inf2(dlas, plas);
-    Infection inf3(dlas, plas);
-    Infection inf4(dlas, plas);
+    InfectionEvent inf1(dlas, plas);
+    InfectionEvent inf2(dlas, plas);
+    InfectionEvent inf3(dlas, plas);
+    InfectionEvent inf4(dlas, plas);
 
     Ordering infectionOrder({&inf1, &inf2, &inf3, &inf4});
 
@@ -99,11 +99,6 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     tp2.value();
     EXPECT_FALSE(tp2.isDirty());
 
-    std::cout << "TP1: " << tp1.value() << std::endl;
-    std::cout << "TP2: " << tp2.value() << std::endl;
-    std::cout << "TP3: " << tp3.value() << std::endl;
-    std::cout << "TP4: " << tp4.value() << std::endl;
-    std::cout << "\n";
 
     geoCOIProb.saveState();
     geoCOIProb.setValue(.5);
@@ -126,12 +121,6 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp2.isDirty());
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
-
-    std::cout << "TP1: " << tp1.value() << std::endl;
-    std::cout << "TP2: " << tp2.value() << std::endl;
-    std::cout << "TP3: " << tp3.value() << std::endl;
-    std::cout << "TP4: " << tp4.value() << std::endl;
-    std::cout << "\n";
 
     ztmbAssoc.saveState();
     ztmbAssoc.setValue(.5);
@@ -156,11 +145,6 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
 
-    std::cout << "TP1: " << tp1.value() << std::endl;
-    std::cout << "TP2: " << tp2.value() << std::endl;
-    std::cout << "TP3: " << tp3.value() << std::endl;
-    std::cout << "TP4: " << tp4.value() << std::endl;
-    std::cout << "\n";
 
     ztmbProb.saveState();
     ztmbProb.setValue(.5);
@@ -185,12 +169,6 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
 
-    std::cout << "TP1: " << tp1.value() << std::endl;
-    std::cout << "TP2: " << tp2.value() << std::endl;
-    std::cout << "TP3: " << tp3.value() << std::endl;
-    std::cout << "TP4: " << tp4.value() << std::endl;
-    std::cout << "\n";
-
     geoGenProb.saveState();
     geoGenProb.setValue(.25);
     EXPECT_TRUE(tp1.isDirty());
@@ -203,47 +181,31 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
 
-    std::cout << "TP1: " << tp1.value() << std::endl;
-    std::cout << "TP2: " << tp2.value() << std::endl;
-    std::cout << "TP3: " << tp3.value() << std::endl;
-    std::cout << "TP4: " << tp4.value() << std::endl;
-    std::cout << "\n";
-
-    afc.alleleFrequencies(&as1).saveState();
-    afc.alleleFrequencies(&as1).setValue({.01, .01, .999996, .01, .01});
+    afc.alleleFrequencies(as1).saveState();
+    afc.alleleFrequencies(as1).setValue({.01, .01, .999996, .01, .01});
     EXPECT_TRUE(tp1.isDirty());
     EXPECT_TRUE(tp2.isDirty());
     EXPECT_TRUE(tp3.isDirty());
     EXPECT_TRUE(tp4.isDirty());
-    afc.alleleFrequencies(&as1).acceptState();
+    afc.alleleFrequencies(as1).acceptState();
     EXPECT_FALSE(tp1.isDirty());
     EXPECT_FALSE(tp2.isDirty());
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
 
-    std::cout << "TP1: " << tp1.value() << std::endl;
-    std::cout << "TP2: " << tp2.value() << std::endl;
-    std::cout << "TP3: " << tp3.value() << std::endl;
-    std::cout << "TP4: " << tp4.value() << std::endl;
-    std::cout << "\n";
 
-    afc.alleleFrequencies(&as2).saveState();
-    afc.alleleFrequencies(&as2).setValue({.01, .01, .9999999996, .01, .01, .01});
+    afc.alleleFrequencies(as2).saveState();
+    afc.alleleFrequencies(as2).setValue({.01, .01, .9999999996, .01, .01, .01});
     EXPECT_TRUE(tp1.isDirty());
     EXPECT_TRUE(tp2.isDirty());
     EXPECT_TRUE(tp3.isDirty());
     EXPECT_TRUE(tp4.isDirty());
-    afc.alleleFrequencies(&as2).acceptState();
+    afc.alleleFrequencies(as2).acceptState();
     EXPECT_FALSE(tp1.isDirty());
     EXPECT_FALSE(tp2.isDirty());
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
 
-    std::cout << "TP1: " << tp1.value() << std::endl;
-    std::cout << "TP2: " << tp2.value() << std::endl;
-    std::cout << "TP3: " << tp3.value() << std::endl;
-    std::cout << "TP4: " << tp4.value() << std::endl;
-    std::cout << "\n";
 
     infectionOrder.saveState();
     infectionOrder.swap(2, 3);
@@ -256,11 +218,5 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp2.isDirty());
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
-
-    std::cout << "TP1: " << tp1.value() << std::endl;
-    std::cout << "TP2: " << tp2.value() << std::endl;
-    std::cout << "TP3: " << tp3.value() << std::endl;
-    std::cout << "TP4: " << tp4.value() << std::endl;
-    std::cout << "\n";
 
 }

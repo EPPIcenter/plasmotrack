@@ -34,9 +34,10 @@ public:
         std::cout << "initializer list constructor" << std::endl;
     };
 
-    Parameter() : value_({}) {
+    Parameter() {
         std::cout << "parameter empty c'tor" << std::endl;
     };
+
 
     void setLabel(const std::string& label) noexcept {
         label_ = label;

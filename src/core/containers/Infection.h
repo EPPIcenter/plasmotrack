@@ -10,8 +10,11 @@
 #include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/UncacheablePassthrough.h"
 #include "core/abstract/observables/CheckpointablePassthrough.h"
+
 #include "core/containers/Locus.h"
+
 #include "core/datatypes/Data.h"
+
 #include "core/parameters/Parameter.h"
 
 
@@ -28,6 +31,11 @@ public:
 
     template<typename LocusDataIter>
     Infection(LocusDataIter obs, LocusDataIter latent);
+
+    Infection();
+
+    template<typename T>
+    void addGenetics(LocusImpl *locus, const T &obs, const T &latent);
 
     GenotypeMap<Data> &observedGenotype() {
         return observedGenotype_;
@@ -85,5 +93,20 @@ Infection<GeneticImpl, LocusImpl>::Infection(LocusDataIter obs, LocusDataIter la
         latentGenotype_.at(locus).add_restore_state_listener([&]() { this->notify_restore_state(); });
     }
 }
+
+template<typename GeneticImpl, typename LocusImpl>
+template<typename T>
+void Infection<GeneticImpl, LocusImpl>::addGenetics(LocusImpl *locus, const T &obs, const T &latent) {
+    latentGenotype_.emplace(locus, GeneticImpl(latent));
+    observedGenotype_.emplace(locus, GeneticImpl(obs));
+    latentGenotype_.at(locus).add_pre_change_listener([&]() { this->notify_pre_change(); });
+    latentGenotype_.at(locus).add_post_change_listener([&]() { this->notify_post_change(); });
+    latentGenotype_.at(locus).add_save_state_listener([&]() { this->notify_save_state(); });
+    latentGenotype_.at(locus).add_accept_state_listener([&]() { this->notify_accept_state(); });
+    latentGenotype_.at(locus).add_restore_state_listener([&]() { this->notify_restore_state(); });
+}
+
+template<typename GeneticImpl, typename LocusImpl>
+Infection<GeneticImpl, LocusImpl>::Infection() {}
 
 #endif //TRANSMISSION_NETWORKS_APP_INFECTION_H

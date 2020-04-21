@@ -6,6 +6,8 @@
 #define TRANSMISSION_NETWORKS_APP_CHECKPOINTABLE_H
 
 #include <type_traits>
+#include <optional>
+
 
 #include "core/abstract/crtp.h"
 #include "core/abstract/observables/Observable.h"
