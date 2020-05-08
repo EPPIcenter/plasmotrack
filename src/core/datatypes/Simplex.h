@@ -19,7 +19,7 @@ public:
 
     friend std::ostream &operator<<(std::ostream &os, const Simplex &simplex);
 
-    explicit Simplex(const DynamicArray freqs);
+    explicit Simplex(DynamicArray freqs);
 
     Simplex(std::initializer_list<double> freqs);
 
@@ -27,15 +27,19 @@ public:
 
     void set(unsigned int idx, double value);
 
-    [[nodiscard]] double frequencies(const unsigned int idx) const noexcept;
+    [[nodiscard]] double frequencies(unsigned int idx) const noexcept;
 
-    [[nodiscard]] DynamicArray frequencies() const noexcept;
+    [[nodiscard]] const DynamicArray& frequencies() const noexcept;
 
     [[nodiscard]] unsigned int totalElements() const noexcept;
 
+    [[nodiscard]] double min() const noexcept;
+
+    [[nodiscard]] double max() const noexcept;
+
     private:
     unsigned int total_elements_;
-    DynamicArray frequencies_{};
+    DynamicArray coefficients_{};
 };
 
 

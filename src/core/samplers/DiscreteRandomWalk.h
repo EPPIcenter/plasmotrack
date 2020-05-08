@@ -13,7 +13,7 @@
 
 #include "core/samplers/AbstractSampler.h"
 
-template<typename T, typename Engine>
+template<typename T, typename Engine=boost::random::mt19937>
 class DiscreteRandomWalk : public AbstractSampler {
 
 public:

@@ -57,7 +57,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
 
     allelesChanged = false;
     inf1.latentGenotype(&as2).saveState();
-    inf1.latentGenotype(&as2).setValue(GeneticsImpl("111000"));
+    inf1.latentGenotype(&as2).setValue(GeneticsImpl("00000011"));
     EXPECT_TRUE(allelesChanged);
     inf1.latentGenotype(&as2).acceptState();
 }

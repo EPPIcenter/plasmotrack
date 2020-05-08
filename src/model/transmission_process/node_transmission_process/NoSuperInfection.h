@@ -59,11 +59,11 @@ template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typ
 NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::NoSuperInfection(
         COITransitionProbImpl &coitp, InterTransmissionProbImpl &intp)
         : coitp_(coitp), intp_(intp) {
-    coitp_.registerCacheableCheckpointTarget(*this);
-    coitp_.add_set_dirty_listener([&]() { this->setDirty(); });
+    coitp_.registerCacheableCheckpointTarget(this);
+    coitp_.add_set_dirty_listener([=]() { this->setDirty(); });
 
-    intp_.registerCacheableCheckpointTarget(*this);
-    intp_.add_set_dirty_listener([&]() { this->setDirty(); });
+    intp_.registerCacheableCheckpointTarget(this);
+    intp_.add_set_dirty_listener([=]() { this->setDirty(); });
 }
 
 template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
@@ -99,7 +99,8 @@ NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmi
                 auto const &childGenotypeAtLocus = childGenotype.at(locus);
                 const unsigned int parentAlleleCount = parentGenotypeAtLocus.value().totalPositiveCount();
                 const unsigned int retainedAlleleCount = GeneticsImpl::truePositiveCount(
-                        parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+                        parentGenotypeAtLocus.value(), childGenotypeAtLocus.value()
+                        );
                 llik += value()(parentAlleleCount, retainedAlleleCount);
             }
         }

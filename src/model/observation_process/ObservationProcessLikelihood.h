@@ -33,14 +33,14 @@ ObservationProcessLikelihood<AlleleCounter>::ObservationProcessLikelihood(Allele
         total_alleles(totalAlleles),
         false_positive_rate_(falsePositiveRate),
         false_negative_rate_(falseNegativeRate) {
-    total_alleles.add_set_dirty_listener([&]() { this->setDirty(); });
-    total_alleles.registerCacheableCheckpointTarget(*this);
+    total_alleles.add_set_dirty_listener([=]() { this->setDirty(); });
+    total_alleles.registerCacheableCheckpointTarget(this);
 
-    false_positive_rate_.add_post_change_listener([&]() { this->setDirty(); });
-    false_positive_rate_.registerCacheableCheckpointTarget(*this);
+    false_positive_rate_.add_post_change_listener([=]() { this->setDirty(); });
+    false_positive_rate_.registerCacheableCheckpointTarget(this);
 
-    false_negative_rate_.add_post_change_listener([&]() { this->setDirty(); });
-    false_negative_rate_.registerCacheableCheckpointTarget(*this);
+    false_negative_rate_.add_post_change_listener([=]() { this->setDirty(); });
+    false_negative_rate_.registerCacheableCheckpointTarget(this);
 }
 
 template<typename AlleleCounter>

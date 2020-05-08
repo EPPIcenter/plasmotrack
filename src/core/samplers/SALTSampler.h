@@ -31,7 +31,7 @@
 
 
 
-template<typename T, typename Engine>
+template<typename T,  typename Engine=boost::random::mt19937>
 class SALTSampler : public AbstractSampler {
 public:
     SALTSampler(Parameter<Simplex> &parameter, T &target, Engine *rng);
@@ -65,9 +65,9 @@ private:
     boost::random::normal_distribution<> normal_dist_{0, 1};
     boost::random::uniform_01<> uniform_dist_{};
 
-    std::vector<double> variances_;
-    std::vector<double> acceptances_;
-    std::vector<double> rejections_;
+    std::vector<double> variances_{};
+    std::vector<double> acceptances_{};
+    std::vector<double> rejections_{};
 
     double min_variance_ = 1e-12;
     double max_variance_ = 1e6;
@@ -87,15 +87,16 @@ private:
 template<typename T, typename Engine>
 void SALTSampler<T, Engine>::update() noexcept {
     auto indices = randomSequence(0, parameter_.value().totalElements(), rng_);
-    Simplex currentVal = parameter_.value();
+    Simplex currentVal(parameter_.value());
     for(const auto idx : indices) {
         double curLik = target_.value();
-        parameter_.saveState();
 
         double logitCurr = logit(currentVal.frequencies(idx));
         double logitProp = sampleProposal(logitCurr, variances_[idx]);
-        double prop = expit(logitProp);
+        double prop = std::max(expit(logitProp), 1e-6);
+
         currentVal.set(idx, prop);
+        parameter_.saveState();
         parameter_.setValue(currentVal);
 
         const double adjRatio = logMetropolisHastingsAdjustment(logitCurr, logitProp, currentVal.totalElements());
@@ -117,18 +118,13 @@ void SALTSampler<T, Engine>::update() noexcept {
 }
 
 template<typename T, typename Engine>
-SALTSampler<T, Engine>::SALTSampler(Parameter<Simplex> &parameter, T &target, Engine *rng):parameter_(
+SALTSampler<T, Engine>::SALTSampler(Parameter<Simplex> &parameter, T &target, Engine *rng) : parameter_(
         parameter), target_(target), rng_(rng) {
-
-    variances_.resize(parameter_.value().totalElements());
-    std::fill(variances_.begin(), variances_.end(), 1);
-
-    acceptances_.resize(parameter_.value().totalElements());
-    std::fill(acceptances_.begin(), acceptances_.end(), 0);
-
-    rejections_.resize(parameter_.value().totalElements());
-    std::fill(rejections_.begin(), variances_.end(), 0);
-
+    for (size_t j = 0; j < parameter_.value().totalElements(); ++j) {
+        variances_.push_back(1);
+        acceptances_.push_back(0);
+        rejections_.push_back(0);
+    }
 }
 
 template<typename T, typename Engine>

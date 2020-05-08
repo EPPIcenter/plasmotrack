@@ -24,6 +24,10 @@ TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {
             }
         };
 
+        bool isDirty() {
+            return true;
+        }
+
         double value() {
             boost::math::bernoulli d(prob_.value());
             double llik = 0;

@@ -28,6 +28,10 @@ TEST(SALTSamplerTest, SimplexTest) {
             return llik;
         }
 
+        bool isDirty() {
+            return true;
+        }
+
         std::vector<int> target{1, 2000, 3000, 4000};
         Parameter<Simplex> &freqs;
     };

@@ -11,7 +11,7 @@
 
 // Continuous Random Walk constrained to a range (lower, upper)
 
-template<int LOWER_BOUND, int UPPER_BOUND, typename T, typename Engine>
+template<int LOWER_BOUND, int UPPER_BOUND, typename T, typename Engine=boost::random::mt19937>
 class ConstrainedContinuousRandomWalk : public ContinuousRandomWalk<T, Engine> {
 public:
     ConstrainedContinuousRandomWalk(Parameter<double> &parameter, T &target, Engine *rng);

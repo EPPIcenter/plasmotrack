@@ -35,7 +35,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     using NodeTransmissionImpl = NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>;
 
     using COIProbabilityImpl = GeometricCOIProbability<MAX_COI>;
-    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent>;
+    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent, MAX_COI>;
     using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
 
     Locus as1("AS1", 5);
@@ -63,11 +63,14 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     OrderDerivedParentSet ps3(infectionOrder, inf3);
     OrderDerivedParentSet ps4(infectionOrder, inf4);
 
-    std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> lfas {
-            {&as1, Simplex(as1.totalAlleles())},
-            {&as2, Simplex(as2.totalAlleles())}
-    };
-    AlleleFrequencyContainer afc(lfas);
+//    std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> lfas {
+//            {&as1, Simplex(as1.totalAlleles())},
+//            {&as2, Simplex(as2.totalAlleles())}
+//    };
+
+    AlleleFrequencyContainer afc;
+    afc.addLocus(as1);
+    afc.addLocus(as2);
 
     Parameter<double> ztmbProb(.3);
     Parameter<double> ztmbAssoc(1.0);
@@ -81,6 +84,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     Parameter<double> geoCOIProb(.9);
     COIProbabilityImpl geoCOI(geoCOIProb);
 
+    std::cout << "AFC Addr: " << &afc << std::endl;
     SourceTransmissionImpl mstp1(geoCOI, afc, inf1);
     SourceTransmissionImpl mstp2(geoCOI, afc, inf2);
     SourceTransmissionImpl mstp3(geoCOI, afc, inf3);
@@ -111,6 +115,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_TRUE(tp2.isDirty());
     EXPECT_TRUE(tp3.isDirty());
     EXPECT_TRUE(tp4.isDirty());
+
     geoCOIProb.acceptState();
     EXPECT_FALSE(geoCOI.isDirty());
     EXPECT_FALSE(mstp1.isDirty());
@@ -182,7 +187,8 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp4.isDirty());
 
     afc.alleleFrequencies(as1).saveState();
-    afc.alleleFrequencies(as1).setValue({.01, .01, .999996, .01, .01});
+    afc.alleleFrequencies(as1).setValue(Simplex({.01, .01, .999996, .01, .01}));
+    std::cout << "Allele Freqs address: " << &(afc.alleleFrequencies(as1)) << std::endl;
     EXPECT_TRUE(tp1.isDirty());
     EXPECT_TRUE(tp2.isDirty());
     EXPECT_TRUE(tp3.isDirty());
@@ -195,7 +201,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
 
 
     afc.alleleFrequencies(as2).saveState();
-    afc.alleleFrequencies(as2).setValue({.01, .01, .9999999996, .01, .01, .01});
+    afc.alleleFrequencies(as2).setValue(Simplex({.01, .01, .9999999996, .01, .01, .01}));
     EXPECT_TRUE(tp1.isDirty());
     EXPECT_TRUE(tp2.isDirty());
     EXPECT_TRUE(tp3.isDirty());

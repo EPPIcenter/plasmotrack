@@ -7,16 +7,22 @@
 
 #include <utility>
 
+#include <boost/math/distributions/beta.hpp>
+
 #include "core/datatypes/Alleles.h"
 
 #include "core/computation/PartialLikelihood.h"
 #include "core/computation/Accumulator.h"
+#include "core/computation/Transformers/LogTransformer.h"
+
+#include "core/priors/Prior.h"
 
 #include "impl/state/ModelOneState.h"
 
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/AlleleCounts.h"
 #include "model/observation_process/ObservationProcessLikelihood.h"
+
 
 #include "model/transmission_process/OrderBasedTransmissionProcess.h"
 #include "model/transmission_process/node_transmission_process/ZTMultiplicativeBinomial.h"
@@ -26,7 +32,7 @@
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
 class ModelOne {
-    static constexpr int MAX_COI = 10;
+    static constexpr int MAX_COI = 8;
     static constexpr int MAX_PARENTS = 1;
     static constexpr int MAX_TRANSMISSIONS = 5;
 
@@ -44,25 +50,29 @@ class ModelOne {
     using NodeTransmissionImpl = NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>;
 
     using COIProbabilityImpl = GeometricCOIProbability<MAX_COI>;
-    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent>;
+    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent, MAX_COI>;
 
     using ParentSetImpl = OrderDerivedParentSet<InfectionEvent>;
     using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
 
+    using BetaPrior = Prior<boost::math::beta_distribution<>, Parameter<double>, int, int>;
+
 public:
-    explicit ModelOne(ModelOneState state);
+    explicit ModelOne(ModelOneState& state);
 
     double value();
 
+    bool isDirty();
+
     void init();
 
-    ModelOneState state;
+    ModelOneState& state;
     Accumulator<PartialLikelihood, double> likelihood;
 
     // Observation Process
-    std::vector<std::unique_ptr<AlleleCounter>> alleleCounters{};
+    std::vector<AlleleCounter *> alleleCounters{};
     AlleleCounterAccumulator alleleCountAccumulator;
-    ObservationProcessLikelihood<AlleleCounterAccumulator>* observationProcessLikelihood{};
+    ObservationProcessLikelihood<AlleleCounterAccumulator>* observationProcessLikelihood;
 
     // Node Transmission Process
     COITransitionProbImpl* coitp;
@@ -71,14 +81,13 @@ public:
 
     // Source Transmission Process
     COIProbabilityImpl* coiProb;
-    std::vector<std::unique_ptr<SourceTransmissionImpl>> sourceTransmissionProcessList;
+    std::vector<SourceTransmissionImpl *> sourceTransmissionProcessList;
 
     // Transmission Process
     std::vector<ParentSetImpl *> parentSetList{};
     std::vector<TransmissionProcess *> transmissionProcessList{};
 
-public:
-
+    std::vector<LogTransformer<TransmissionProcess> *> logTransmissionProcessList{};
 
 };
 

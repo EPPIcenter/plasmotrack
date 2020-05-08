@@ -60,7 +60,7 @@ public:                                                                         
         return this->underlying().add_listener(cb, this->callback_name##_callbacks_);       \
     }                                                                                       \
                                                                                             \
-    auto remove_##callback_name##_listener(const ListenerId_t id) noexcept -> bool {          \
+    auto remove_##callback_name##_listener(const ListenerId_t id) noexcept -> bool {        \
         return this->underlying().remove_listener(id, this->callback_name##_callbacks_);    \
     }                                                                                       \
 protected:                                                                                  \

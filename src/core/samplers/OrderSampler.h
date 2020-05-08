@@ -12,7 +12,7 @@
 #include "core/samplers/AbstractSampler.h"
 #include "core/parameters/Ordering.h"
 
-template<typename T, typename Engine, typename OrderingElement>
+template<typename T,  typename OrderingElement, typename Engine=boost::random::mt19937>
 class OrderSampler : public AbstractSampler {
 public:
     OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng) noexcept;
@@ -45,8 +45,8 @@ private:
 };
 
 
-template<typename T, typename Engine, typename OrderingElement>
-void OrderSampler<T, Engine, OrderingElement>::update() noexcept {
+template<typename T, typename OrderingElement, typename Engine>
+void OrderSampler<T, OrderingElement, Engine>::update() noexcept {
     double curLik = target_.value();
     parameter_.saveState();
 
@@ -69,24 +69,24 @@ void OrderSampler<T, Engine, OrderingElement>::update() noexcept {
     total_updates_++;
 }
 
-template<typename T, typename Engine, typename OrderingElement>
-OrderSampler<T, Engine, OrderingElement>::OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng) noexcept
+template<typename T, typename OrderingElement, typename Engine>
+OrderSampler<T, OrderingElement, Engine>::OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng) noexcept
         :parameter_(parameter), target_(target), rng_(rng), max_distance_(1) {
     offset_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
     num_elements_ = parameter.value().size();
     assert(max_distance_ <= (num_elements_ / 2));
 }
 
-template<typename T, typename Engine, typename OrderingElement>
-OrderSampler<T, Engine, OrderingElement>::OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng, unsigned int max_distance) noexcept
+template<typename T, typename OrderingElement, typename Engine>
+OrderSampler<T, OrderingElement, Engine>::OrderSampler(Ordering<OrderingElement> &parameter, T &target, Engine *rng, unsigned int max_distance) noexcept
         :parameter_(parameter), target_(target), rng_(rng), max_distance_(max_distance) {
     offset_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
     num_elements_ = parameter.value().size();
     assert(max_distance_ <= (num_elements_ / 2));
 }
 
-template<typename T, typename Engine, typename OrderingElement>
-std::tuple<int, int> OrderSampler<T, Engine, OrderingElement>::sampleProposal() noexcept {
+template<typename T, typename OrderingElement, typename Engine>
+std::tuple<int, int> OrderSampler<T, OrderingElement, Engine>::sampleProposal() noexcept {
     auto offset = offset_sampling_dist_(*rng_);
     offset = uniform_dist_(*rng_) > .5 ? offset : -offset;
 
@@ -105,18 +105,18 @@ std::tuple<int, int> OrderSampler<T, Engine, OrderingElement>::sampleProposal() 
     return std::tuple<int, int>(pivot, offset);
 }
 
-template<typename T, typename Engine, typename OrderingElement>
-unsigned int OrderSampler<T, Engine, OrderingElement>::acceptances() noexcept {
+template<typename T, typename OrderingElement, typename Engine>
+unsigned int OrderSampler<T, OrderingElement, Engine>::acceptances() noexcept {
     return acceptances_;
 }
 
-template<typename T, typename Engine, typename OrderingElement>
-unsigned int OrderSampler<T, Engine, OrderingElement>::rejections() noexcept {
+template<typename T, typename OrderingElement, typename Engine>
+unsigned int OrderSampler<T, OrderingElement, Engine>::rejections() noexcept {
     return rejections_;
 }
 
-template<typename T, typename Engine, typename OrderingElement>
-double OrderSampler<T, Engine, OrderingElement>::acceptanceRate() noexcept {
+template<typename T, typename OrderingElement, typename Engine>
+double OrderSampler<T, OrderingElement, Engine>::acceptanceRate() noexcept {
     return double(acceptances_) / (acceptances_ + rejections_);
 }
 

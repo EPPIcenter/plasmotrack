@@ -15,8 +15,12 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
 
     Ordering<int> ordering;
     ordering.addElements({&el1, &el2, &el3, &el4});
-    ordering.add_keyed_moved_left_listener(&el1, [&](const int* el) { el2MovedLeft = el == &el2; });
-    ordering.add_keyed_moved_right_listener(&el2, [&](const int* el) { el1MovedRight = el == &el1; });
+    ordering.add_keyed_moved_left_listener(&el1, [&](const int* el) {
+        el2MovedLeft = (el == &el2);
+    });
+    ordering.add_keyed_moved_right_listener(&el2, [&](const int* el) {
+        el1MovedRight = (el == &el1);
+    });
 
     ASSERT_EQ(ordering.value()[0], &el1);
     ASSERT_EQ(ordering.value()[1], &el2);

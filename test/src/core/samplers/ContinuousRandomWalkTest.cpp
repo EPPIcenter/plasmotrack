@@ -25,6 +25,10 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
             }
         };
 
+        bool isDirty() {
+            return true;
+        }
+
         double value() {
             boost::math::normal d(mean_.value(), TEST_VARIANCE);
             double llik = 0;
@@ -84,6 +88,10 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
                     (c_ * x_.value()) +
                     (.5 * d_ * std::pow(y_.value(), 2))
                     );
+        }
+
+        bool isDirty() {
+            return true;
         }
 
         Parameter<double> &x_;

@@ -21,7 +21,7 @@ public:
     void setClean() noexcept;
 
     template<typename T0>
-    void registerDirtyTarget(T0& target);
+    void registerDirtyTarget(T0 *target);
 
 protected:
     bool is_dirty_{true};
@@ -45,8 +45,8 @@ void Cacheable<T>::setClean() noexcept {
 
 template<typename T>
 template<typename T0>
-void Cacheable<T>::registerDirtyTarget(T0 &target) {
-    this->underlying().add_set_dirty_listener([&]() { target.setDirty();});
+void Cacheable<T>::registerDirtyTarget(T0 *target) {
+    this->underlying().add_set_dirty_listener([=]() { target->setDirty();});
 }
 
 #endif //TRANSMISSION_NETWORKS_APP_CACHEABLE_H

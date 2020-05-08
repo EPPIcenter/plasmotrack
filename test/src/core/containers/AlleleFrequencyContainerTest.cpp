@@ -25,7 +25,6 @@ TEST(AlleleFrequencyContainerTest, HandlesChangedFrequencies) {
     AlleleFrequencyContainer afc(lfas);
     afc.add_post_change_listener([&]() { frequencyChanged = true; });
 
-    std::cout << afc << std::endl;
     afc.alleleFrequencies(as1).saveState();
     afc.alleleFrequencies(as1).setValue({.1, .2, .3, .4});
     EXPECT_TRUE(frequencyChanged);

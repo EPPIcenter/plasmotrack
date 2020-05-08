@@ -24,45 +24,37 @@ TEST(ObservationProcessTest, CoreTest) {
     using AlleleCounter = AlleleCounter<GeneticsImpl>;
     using AlleleCounterAccumulator = Accumulator<AlleleCounter, AlleleCounts>;
 
-//    std::vector<std::shared_ptr<Locus>> loci{
-//        std::make_shared<Locus>("AS1", 5),
-//        std::make_shared<Locus>("AS2", 6)
-//    };
-
-    Locus as1("AS1", 5);
-    Locus as2("AS2", 6);
-
-    std::vector<Infection::LocusGeneticsAssignment> observed{
-            {&as1, GeneticsImpl("11010")},
-            {&as2, GeneticsImpl("000011")}
+    std::vector<Locus *> loci{
+            new Locus("L1", 6),
+            new Locus("L2", 6),
+            new Locus("L3", 6)
     };
 
-    std::vector<Infection::LocusGeneticsAssignment> latent{
-            {&as1, GeneticsImpl("11010")},
-            {&as2, GeneticsImpl("000011")}
-    };
-
-    std::vector<std::unique_ptr<Infection>> infections{};
+    std::vector<Infection *> infections{};
 
     infections.reserve(4);
     for (int i = 0; i < 4; ++i) {
-        infections.push_back(std::make_unique<Infection>(latent, observed));
+        auto infection = new Infection();
+        infections.push_back(infection);
+        for(auto &locus : loci) {
+            infection->addGenetics(locus, "101010", "111111");
+        }
     }
 
-    std::vector<std::unique_ptr<AlleleCounter>> alleleCounters{};
+    std::vector<AlleleCounter *> alleleCounters{};
     AlleleCounterAccumulator alleleCountAccumulator;
 
     for (auto& infection : infections) {
         for (auto &[locus, obsGenotype] : infection->observedGenotype()) {
-            alleleCounters.push_back(std::make_unique<AlleleCounter>(infection->latentGenotype(locus), obsGenotype));
-            alleleCountAccumulator.addTarget(*(alleleCounters.back()));
+            alleleCounters.push_back(new AlleleCounter(infection->latentGenotype(locus), obsGenotype));
+            alleleCountAccumulator.addTarget(alleleCounters.back());
         }
     }
 
-    EXPECT_EQ(alleleCountAccumulator.value().true_positive_count, 20);
-    EXPECT_EQ(alleleCountAccumulator.value().true_negative_count, 24);
+    EXPECT_EQ(alleleCountAccumulator.value().true_positive_count, 36);
+    EXPECT_EQ(alleleCountAccumulator.value().true_negative_count, 0);
     EXPECT_EQ(alleleCountAccumulator.value().false_positive_count, 0);
-    EXPECT_EQ(alleleCountAccumulator.value().false_negative_count, 0);
+    EXPECT_EQ(alleleCountAccumulator.value().false_negative_count, 36);
 
 
     Parameter<double> falsePositiveRate(.01);
@@ -72,13 +64,13 @@ TEST(ObservationProcessTest, CoreTest) {
 
     auto oldValue = target.value();
 
-    infections.at(0)->latentGenotype(&as1).saveState();
-    infections.at(0)->latentGenotype(&as1).setValue(GeneticsImpl("11111"));
+    infections.at(0)->latentGenotype(loci.at(0)).saveState();
+    infections.at(0)->latentGenotype(loci.at(0)).setValue(GeneticsImpl("100000"));
 
-    EXPECT_EQ(alleleCountAccumulator.value().true_positive_count, 20);
-    EXPECT_EQ(alleleCountAccumulator.value().true_negative_count, 22);
-    EXPECT_EQ(alleleCountAccumulator.value().false_positive_count, 0);
-    EXPECT_EQ(alleleCountAccumulator.value().false_negative_count, 2);
+    EXPECT_EQ(alleleCountAccumulator.value().true_positive_count, 34);
+    EXPECT_EQ(alleleCountAccumulator.value().true_negative_count, 3);
+    EXPECT_EQ(alleleCountAccumulator.value().false_positive_count, 2);
+    EXPECT_EQ(alleleCountAccumulator.value().false_negative_count, 33);
 
     EXPECT_TRUE(target.isDirty());
     auto newValue = target.value();
@@ -86,13 +78,13 @@ TEST(ObservationProcessTest, CoreTest) {
 
     EXPECT_GT(oldValue, newValue);
 
-    infections.at(0)->latentGenotype(&as1).restoreState();
+    infections.at(0)->latentGenotype(loci.at(0)).restoreState();
 
     EXPECT_FALSE(target.isDirty());
-    EXPECT_EQ(alleleCountAccumulator.value().true_positive_count, 20);
-    EXPECT_EQ(alleleCountAccumulator.value().true_negative_count, 24);
+    EXPECT_EQ(alleleCountAccumulator.value().true_positive_count, 36);
+    EXPECT_EQ(alleleCountAccumulator.value().true_negative_count, 0);
     EXPECT_EQ(alleleCountAccumulator.value().false_positive_count, 0);
-    EXPECT_EQ(alleleCountAccumulator.value().false_negative_count, 0);
+    EXPECT_EQ(alleleCountAccumulator.value().false_negative_count, 36);
 
 
 }

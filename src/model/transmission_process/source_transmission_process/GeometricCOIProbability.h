@@ -40,8 +40,8 @@ private:
 template<int MAX_COI>
 GeometricCOIProbability<MAX_COI>::GeometricCOIProbability(Parameter<double> &prob) : prob_(prob) {
     this->value_(0) = 0;
-    prob_.registerCacheableCheckpointTarget(*this);
-    prob_.add_post_change_listener([&]() { this->setDirty(); });
+    prob_.registerCacheableCheckpointTarget(this);
+    prob_.add_post_change_listener([=]() { this->setDirty(); });
 }
 
 template<int MAX_COI>

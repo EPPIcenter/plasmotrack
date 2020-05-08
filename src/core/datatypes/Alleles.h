@@ -6,6 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_ALLELE_H
 
 #include <bitset>
+#include <iostream>
 #include <ostream>
 
 template<int MaxAlleles>
@@ -13,10 +14,20 @@ class AllelesBitSet {
 public:
     explicit AllelesBitSet(const std::string &bitstr);
 
+    AllelesBitSet& operator=(AllelesBitSet other) {
+        assert(total_alleles_ == other.total_alleles_);
+        if(&other == this) {
+            return *this;
+        }
+
+        alleles_ = other.alleles_;
+        return *this;
+    }
+
     friend std::ostream &operator<<(std::ostream &os, const AllelesBitSet &alleles) noexcept;
 
     [[nodiscard]] constexpr inline unsigned int
-    totalPositiveCount() noexcept;
+    totalPositiveCount() const noexcept;
 
     [[nodiscard]] constexpr inline static unsigned int
     truePositiveCount(const AllelesBitSet<MaxAlleles> &parent, const AllelesBitSet<MaxAlleles> &child) noexcept;
@@ -40,7 +51,7 @@ public:
 
     inline constexpr void reset(size_t pos) noexcept;
 
-    inline constexpr bool allele(size_t pos) noexcept;
+    inline constexpr bool allele(size_t pos) const noexcept;
 
 private:
     unsigned int total_alleles_;
@@ -59,7 +70,7 @@ std::ostream &operator<<(std::ostream &os, const AllelesBitSet<MaxAlleles> &alle
 }
 
 template<int MaxAlleles>
-constexpr unsigned int AllelesBitSet<MaxAlleles>::totalPositiveCount() noexcept {
+constexpr unsigned int AllelesBitSet<MaxAlleles>::totalPositiveCount() const noexcept {
     return alleles_.count();
 }
 
@@ -117,7 +128,7 @@ constexpr void AllelesBitSet<MaxAlleles>::reset(size_t pos) noexcept {
 }
 
 template<int MaxAlleles>
-constexpr bool AllelesBitSet<MaxAlleles>::allele(size_t pos) noexcept {
+constexpr bool AllelesBitSet<MaxAlleles>::allele(size_t pos) const noexcept {
     // Bitsets are accessed right to left so we're converting to left to right accession
     assert(pos < total_alleles_);
     return alleles_[total_alleles_ - 1 - pos];

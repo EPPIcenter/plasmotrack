@@ -24,6 +24,10 @@ TEST(DiscreteRandomWalkTest, NormalTest) {
             }
         };
 
+        bool isDirty() {
+            return true;
+        }
+
         double value() {
             boost::math::normal d(mean_.value(), TEST_VARIANCE);
             double llik = 0;

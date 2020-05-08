@@ -27,6 +27,10 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
             return llik;
         };
 
+        bool isDirty() {
+            return true;
+        }
+
         Alleles target{"011010"};
         Parameter<Alleles> &alleles_;
 

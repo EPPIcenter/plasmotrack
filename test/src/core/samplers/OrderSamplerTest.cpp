@@ -31,6 +31,10 @@ TEST(OrderSamplerTest, OrderTest) {
             return llik;
         }
 
+        bool isDirty() {
+            return true;
+        }
+
         Ordering<int> &ordering_;
     };
 

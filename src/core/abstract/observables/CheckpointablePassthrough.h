@@ -19,10 +19,10 @@ class CheckpointablePassthrough : public crtp<T, CheckpointablePassthrough> {
 public:
 
     template<typename T0>
-    std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> registerCheckpointTarget(T0 &target);
+    std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> registerCheckpointTarget(T0 *target);
 
     template<typename T0>
-    std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> registerCacheableCheckpointTarget(T0 &target);
+    std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> registerCacheableCheckpointTarget(T0 *target);
 
     void saveState() noexcept;
 
@@ -35,19 +35,19 @@ public:
 template<typename T>
 template<typename T0>
 std::tuple<ListenerId_t, ListenerId_t, ListenerId_t>
-CheckpointablePassthrough<T>::registerCheckpointTarget(T0 &target) {
-    ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([&]() { target.saveState(); });
-    ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([&]() { target.acceptState(); });
-    ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([&]() { target.restoreState(); });
+CheckpointablePassthrough<T>::registerCheckpointTarget(T0 *target) {
+    ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=]() { target->saveState(); });
+    ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=]() { target->acceptState(); });
+    ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=]() { target->restoreState(); });
     return std::make_tuple(saveStateEventId, acceptStateEventId, restoreStateEventId);
 }
 
 template<typename T>
 template<typename T0>
-std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> CheckpointablePassthrough<T>::registerCacheableCheckpointTarget(T0 &target) {
-    ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([&]() { target.saveState(); });
-    ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([&]() { target.acceptState(); target.setClean(); });
-    ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([&]() { target.restoreState(); target.setClean(); });
+std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> CheckpointablePassthrough<T>::registerCacheableCheckpointTarget(T0 *target) {
+    ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=]() { target->saveState(); });
+    ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=]() { target->acceptState(); target->setClean(); });
+    ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=]() { target->restoreState(); target->setClean(); });
     return std::make_tuple(saveStateEventId, acceptStateEventId, restoreStateEventId);
 }
 

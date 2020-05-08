@@ -38,6 +38,10 @@ public:
         std::cout << "parameter empty c'tor" << std::endl;
     };
 
+//    ~Parameter() {
+//        std::cout << "parameter d'tor" << std::endl;
+//    }
+
 
     void setLabel(const std::string& label) noexcept {
         label_ = label;

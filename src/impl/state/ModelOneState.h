@@ -26,7 +26,6 @@ struct ModelOneState {
     using AlleleFrequencyImpl = Simplex;
     using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequencyImpl, Locus>;
 
-
     std::vector<Locus *> loci{};
     std::vector<InfectionEvent *> infections{};
 

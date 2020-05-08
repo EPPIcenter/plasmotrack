@@ -5,52 +5,52 @@
 #include "Simplex.h"
 
 Simplex::Simplex(const unsigned int totalElements) : total_elements_(totalElements) {
-    frequencies_.resize(total_elements_);
+    coefficients_.resize(total_elements_);
     assert(total_elements_ > 0);
-    frequencies_.setOnes();
-    frequencies_ = frequencies_ / frequencies_.sum();
+    coefficients_.setOnes();
+    coefficients_ = coefficients_ / coefficients_.sum();
 }
 
 Simplex::Simplex(const std::initializer_list<double> freqs) : total_elements_(freqs.size()) {
-    frequencies_.resize(total_elements_);
+    coefficients_.resize(total_elements_);
     assert(total_elements_ > 0);
-    frequencies_.setZero();
+    coefficients_.setZero();
     set(freqs);
 }
 
 Simplex::Simplex(const std::vector<double> freqs) : total_elements_(freqs.size()) {
-    frequencies_.resize(total_elements_);
+    coefficients_.resize(total_elements_);
     assert(total_elements_ > 0);
-    frequencies_.setZero();
+    coefficients_.setZero();
     set(freqs);
 }
 
-Simplex::Simplex(DynamicArray freqs) : total_elements_(freqs.size()), frequencies_(freqs) {}
+Simplex::Simplex(DynamicArray freqs) : total_elements_(freqs.size()), coefficients_(freqs) {}
 
 
 void Simplex::set(const std::vector<double> valueArray) {
     assert(valueArray.size() == total_elements_);
     for (unsigned int i = 0; i < total_elements_; ++i) {
-        frequencies_(i) = valueArray[i];
+        coefficients_(i) = valueArray[i];
     }
-    frequencies_ = frequencies_ / frequencies_.sum();
+    coefficients_ = coefficients_ / coefficients_.sum();
 }
 
 
 void Simplex::set(const unsigned int idx, const double value) {
     assert(idx < total_elements_);
-    assert(value < 1);
-    frequencies_(idx) = 0;
-    frequencies_ = (frequencies_ / frequencies_.sum()) * (1 - value);
-    frequencies_(idx) = value;
+//    assert(value < 1);
+    coefficients_(idx) = 0;
+    coefficients_ = (coefficients_ / coefficients_.sum()) * (1 - value);
+    coefficients_(idx) = value;
 }
 
 double Simplex::frequencies(const unsigned int idx) const noexcept {
-    return frequencies_(idx);
+    return coefficients_(idx);
 }
 
-DynamicArray Simplex::frequencies() const noexcept {
-    return frequencies_;
+const DynamicArray& Simplex::frequencies() const noexcept {
+    return coefficients_;
 }
 
 unsigned int Simplex::totalElements() const noexcept {
@@ -58,7 +58,14 @@ unsigned int Simplex::totalElements() const noexcept {
 }
 
 std::ostream &operator<<(std::ostream &os, const Simplex &simplex) {
-    os << "frequencies: " << simplex.frequencies_;
+    os << "frequencies: " << simplex.coefficients_;
     return os;
 }
 
+double Simplex::min() const noexcept {
+    return coefficients_.minCoeff();
+}
+
+double Simplex::max() const noexcept {
+    return coefficients_.maxCoeff();
+}

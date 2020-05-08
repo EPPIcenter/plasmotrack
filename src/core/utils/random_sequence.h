@@ -24,7 +24,7 @@ std::vector<int> randomSequence(int min, int max, Engine rng) {
     std::vector<int> indices(max - min);
     std::iota(std::begin(indices), std::end(indices), min);
 
-    auto int_generator = [&](int max_val) {
+    auto int_generator = [=](int max_val) {
         boost::random::uniform_int_distribution<> dist_{0, max_val};
         return dist_(*rng);
     };

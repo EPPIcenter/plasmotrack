@@ -19,7 +19,21 @@ set(SOURCE_FILES
         core/containers/Locus.cpp
         core/utils/CombinationIndicesGenerator.cpp
         model/observation_process/AlleleCounts.cpp
-        core/samplers/ConstrainedDiscreteRandomWalk.h core/samplers/genetics/RandomAllelesBitSetSampler.h core/utils/random_sequence.h core/datatypes/Simplex.cpp)
+        core/samplers/ConstrainedDiscreteRandomWalk.h
+        core/samplers/genetics/RandomAllelesBitSetSampler.h
+        core/utils/random_sequence.h
+        core/datatypes/Simplex.cpp
+        core/samplers/Scheduler.cpp
+        core/samplers/Scheduler.h
+        impl/state/ModelOneState.cpp
+        impl/state/ModelOneState.h
+        impl/model/ModelOne.cpp
+        impl/model/ModelOne.h
+        core/computation/Transformers/Transformer.h
+        core/computation/Transformers/LogTransformer.h
+        core/utils/CombinationsWithRepetitionsGenerator.cpp
+        core/utils/CombinationsWithRepetitionsGenerator.h
+        core/priors/Prior.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

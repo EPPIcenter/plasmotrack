@@ -81,21 +81,22 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         ntp_(ntp), stp_(stp), child_(child), parent_set_(parent_set) {
 
     value_ = 0;
-    ntp_.add_set_dirty_listener([&]() { nodeTransmissionProcessSetDirty(); });
-    ntp_.registerCacheableCheckpointTarget(*this);
+    ntp_.add_set_dirty_listener([=]() { nodeTransmissionProcessSetDirty(); });
+    ntp_.registerCacheableCheckpointTarget(this);
 
-    stp_.add_set_dirty_listener([&]() { sourceTransmissionProcessSetDirty(); });
-    stp_.registerCacheableCheckpointTarget(*this);
+    stp_.add_set_dirty_listener([=]() { sourceTransmissionProcessSetDirty(); });
+    stp_.registerCacheableCheckpointTarget(this);
 
-    child_.add_post_change_listener([&]() { childSetDirty(); });
-    child_.registerCacheableCheckpointTarget(*this);
+    child_.add_post_change_listener([=]() { childSetDirty(); });
+    child_.registerCacheableCheckpointTarget(this);
 
-    parent_set_.add_element_added_listener([&](InfectionEventImpl *parent) { addParent(parent); });
-    parent_set_.add_element_removed_listener([&](InfectionEventImpl *parent) { removeParent(parent); });
-    parent_set_.registerCacheableCheckpointTarget(*this);
+    parent_set_.add_element_added_listener([=](InfectionEventImpl *parent) { addParent(parent); });
+    parent_set_.add_element_removed_listener([=](InfectionEventImpl *parent) { removeParent(parent); });
+    parent_set_.registerCacheableCheckpointTarget(this);
 
     for (auto &parent : parent_set_.value()) {
         addParent(parent);
+        parent->registerCacheableCheckpointTarget(this);
     }
 }
 
@@ -103,19 +104,21 @@ template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, type
 double
 OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::value() {
     if (recalculate_source) {
-        this->value_ += stp_.value();
+        this->value_ += exp(stp_.value());
+        assert(this->value_ < std::numeric_limits<double>::infinity());
         recalculate_source = false;
     }
 
-    for (const auto &parent: to_calculate_) {
-        auto parent_likelihood = calculateParentLikelihoodContribution(parent, calculated_);
-        this->value_ += parent_likelihood;
+    for (auto &parent: to_calculate_) {
+        this->value_ += calculateParentLikelihoodContribution(parent, calculated_);
+        assert(this->value_ < std::numeric_limits<double>::infinity());
         calculated_.insert(parent);
     }
     to_calculate_.clear();
     this->setClean();
 
-    return log(this->value_);
+//    assert(this->value_ < std::numeric_limits<double>::infinity());
+    return this->value_;
 }
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
@@ -125,7 +128,7 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
     this->value_ = 0;
     recalculate_source = true;
     to_calculate_.clear();
-    for (InfectionEventImpl* p : parent_set_.value()) {
+    for (auto &p : parent_set_.value()) {
         to_calculate_.push_back(p);
     };
 }
@@ -135,7 +138,7 @@ void
 OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::sourceTransmissionProcessSetDirty() {
     // notify dependencies dirty so may be subtracted, then subtract out after notifying
     this->setDirty();
-    this->value_ -= stp_.peek();
+    this->value_ -= exp(stp_.peek());
     recalculate_source = true;
 }
 
@@ -146,7 +149,7 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
     this->value_ = 0;
     recalculate_source = true;
     to_calculate_.clear();
-    for (InfectionEventImpl* p : parent_set_.value()) {
+    for (auto &p : parent_set_.value()) {
         to_calculate_.push_back(p);
     };
 }
@@ -155,10 +158,9 @@ template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, type
 void
 OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::addParent(
         InfectionEventImpl *parent) {
-//    const auto preChangeListenerId = parent->add_pre_change_listener([&]() { parentUpdated(parent); });
-    const auto postChangeListenerId = parent->add_post_change_listener([&]() { parentUpdated(parent); });
-    const auto [saveStateListenerId, acceptStateListenerId, restoreStateListenerId] = parent->registerCacheableCheckpointTarget(
-            *this);
+//    const auto preChangeListenerId = parent->add_pre_change_listener([=]() { parentUpdated(parent); });
+    const auto postChangeListenerId = parent->add_post_change_listener([=]() { parentUpdated(parent); });
+    const auto [saveStateListenerId, acceptStateListenerId, restoreStateListenerId] = parent->registerCacheableCheckpointTarget(this);
     this->setDirty();
     postChangeListenerIdMap[parent] = postChangeListenerId;
     saveStateListenerIdMap[parent] = saveStateListenerId;
@@ -194,11 +196,10 @@ template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, type
 double
 OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::calculateParentLikelihoodContribution(
         InfectionEventImpl *parent, ParentSet<InfectionEventImpl> others) {
-    using ParentSet = ParentSet<InfectionEventImpl>;
     double lik = 0.0;
     const auto otherNodesSize = others.size();
-    ParentSet tmp_ps;
-    ParentSet p{parent};
+    ParentSet<InfectionEventImpl> tmp_ps;
+    ParentSet<InfectionEventImpl> p{parent};
     lik += ntp_.calculateLikelihood(child_, p);
     for (int i = 1; i < ParentSetMaxCardinality - 1; ++i) {
         CombinationIndicesGenerator cs(otherNodesSize, i);

@@ -58,7 +58,7 @@ set(SOURCE_FILES
         src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
         src/model/transmission_process/node_transmission_process/GeometricGenerationProbabilityTest.cpp
         src/core/samplers/genetics/RandomAllelesBitSetSamplerTest.cpp
-        src/core/utils/RandomSequenceTests.cpp src/model/observation_process/ObservationProcessTest.cpp src/impl/ModelOneTest.cpp src/model/transmission_process/node_transmission_process/ZTMultiplicativeBinomialTest.cpp)
+        src/core/utils/RandomSequenceTests.cpp src/model/observation_process/ObservationProcessTest.cpp src/impl/ModelOneTest.cpp src/model/transmission_process/node_transmission_process/ZTMultiplicativeBinomialTest.cpp src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests transmission_networks gtest)

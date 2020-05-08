@@ -17,7 +17,7 @@
 
 // Random Walk Metropolis Hastings using a gaussian proposal distribution centered at the current value
 
-template<typename T, typename Engine>
+template<typename T, typename Engine=boost::random::mt19937>
 class ContinuousRandomWalk : public AbstractSampler {
 
 public:
@@ -100,6 +100,8 @@ void ContinuousRandomWalk<T, Engine>::update() noexcept {
     const double proposal = sampleProposal();
 
     parameter_.setValue(proposal);
+
+    assert(target_.isDirty());
     const double acceptanceRatio = target_.value() - curLik + logMetropolisHastingsAdjustment(currentVal, proposal);
 
     const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
