@@ -11,8 +11,20 @@ CombinationIndicesGenerator::CombinationIndicesGenerator(int n, int r) : complet
     std::iota(curr.begin(), curr.end(), 0);
 }
 
-CombinationIndicesGenerator::combination_t CombinationIndicesGenerator::next() noexcept {
-    combination_t ret = curr;
+void CombinationIndicesGenerator::reset(int n, int r) {
+    completed = n < 1 or r > n or r == 0;
+    generated = 1;
+
+    n_ = n;
+    r_ = r;
+
+    curr.resize(r_);
+    std::iota(curr.begin(), curr.end(), 0);
+}
+
+void CombinationIndicesGenerator::next() noexcept {
+    assert(!completed);
+
     completed = true;
     for (int i = r_ - 1; i >= 0; --i)
         if (curr[i] < n_ - r_ + i) {
@@ -24,6 +36,10 @@ CombinationIndicesGenerator::combination_t CombinationIndicesGenerator::next() n
             generated++;
             break;
         }
+}
 
-    return ret;
+CombinationIndicesGenerator::CombinationIndicesGenerator() {
+    completed = true;
+    n_ = 0;
+    r_ = 0;
 }

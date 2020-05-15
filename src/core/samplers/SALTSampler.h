@@ -93,7 +93,7 @@ void SALTSampler<T, Engine>::update() noexcept {
 
         double logitCurr = logit(currentVal.frequencies(idx));
         double logitProp = sampleProposal(logitCurr, variances_[idx]);
-        double prop = std::max(expit(logitProp), 1e-6);
+        double prop = std::max(expit(logitProp), 1e-8); // technically incorrect to bound like this without correcting, but probably close enough
 
         currentVal.set(idx, prop);
         parameter_.saveState();

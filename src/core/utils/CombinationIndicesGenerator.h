@@ -16,13 +16,20 @@ struct CombinationIndicesGenerator {
     unsigned long generated = 1;
 
     CombinationIndicesGenerator(int n, int r);
-    combination_t next() noexcept;
+
+    CombinationIndicesGenerator();
+
+    void reset(int n, int r);
+
+    void next() noexcept;
+
+    combination_t curr{};
 
 private:
 
     int n_;
     int r_;
-    combination_t curr{};
+
 };
 
 

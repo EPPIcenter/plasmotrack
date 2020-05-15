@@ -8,7 +8,7 @@
 TEST(CombinationsIndicesGeneratorTest, HandlesGeneratingCombos) {
     CombinationIndicesGenerator cs(10, 2);
     while(!cs.completed) {
-        auto indices = cs.next();
+        cs.next();
     }
     ASSERT_TRUE(cs.completed);
     ASSERT_EQ(cs.generated, 45);

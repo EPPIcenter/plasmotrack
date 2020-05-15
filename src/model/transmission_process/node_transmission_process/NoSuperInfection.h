@@ -30,19 +30,21 @@ public:
     LogProbabilityMatrix<MAX_COI + 1> value() noexcept override;
 
     template<typename GeneticsImpl>
-    double calculateLogLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps);
+    double calculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps);
 
     template<typename GeneticsImpl>
-    double peekCalculateLogLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps);
+    double peekCalculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps);
 
     template<typename GeneticsImpl>
-    double calculateLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps) {
-        return exp(calculateLogLikelihood(child, ps));
+    double calculateLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
+        double llik = calculateLogLikelihood(child, ps);
+        return llik > -std::numeric_limits<double>::infinity() ? exp(llik) : 0;
     }
 
     template<typename GeneticsImpl>
-    double peekCalculateLikelihood(Infection<GeneticsImpl> &child, ParentSet<Infection<GeneticsImpl>> &ps) {
-        return exp(peekCalculateLogLikelihood(child, ps));
+    double peekCalculateLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
+        double llik = peekCalculateLogLikelihood(child, ps);
+        return llik > -std::numeric_limits<double>::infinity() ? exp(llik) : 0;
     }
 
 private:
@@ -88,7 +90,7 @@ template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typ
 template<typename GeneticsImpl>
 double
 NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::calculateLogLikelihood(
-        Infection <GeneticsImpl> &child, ParentSet <Infection<GeneticsImpl>> &ps) {
+        const Infection <GeneticsImpl> &child, const ParentSet <Infection<GeneticsImpl>> &ps) {
     assert(ps.size() == 1);
     double llik = 0.0;
     auto const &childGenotype = child.latentGenotype();
@@ -105,7 +107,6 @@ NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmi
             }
         }
     }
-
     return llik;
 }
 
@@ -113,7 +114,7 @@ template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typ
 template<typename GeneticsImpl>
 double
 NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::peekCalculateLogLikelihood(
-        Infection <GeneticsImpl> &child, ParentSet <Infection<GeneticsImpl>> &ps) {
+        const Infection <GeneticsImpl> &child, const ParentSet <Infection<GeneticsImpl>> &ps) {
     assert(ps.size() == 1);
     double llik = 0.0;
     auto const &childGenotype = child.latentGenotype();

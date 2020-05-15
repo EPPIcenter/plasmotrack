@@ -15,7 +15,11 @@ struct CombinationsWithRepetitionsGenerator {
     unsigned long generated = 0;
 
     CombinationsWithRepetitionsGenerator(unsigned int nChoices, unsigned int k);
+    CombinationsWithRepetitionsGenerator();
+
     void next() noexcept;
+    void reset(unsigned int nChoices, unsigned int k) noexcept;
+
     combination_t curr{};
 
 private:

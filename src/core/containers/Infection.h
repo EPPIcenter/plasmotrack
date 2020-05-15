@@ -69,21 +69,27 @@ public:
         return latentGenotype_.at(locus);
     };
 
+    const std::vector<LocusImpl *> &loci() const {
+        return loci_;
+    }
+
 private:
     GenotypeMap<Data> observedGenotype_{};
     GenotypeMap<Parameter> latentGenotype_{};
+    std::vector<LocusImpl *> loci_{};
 };
 
 template<typename GeneticImpl, typename LocusImpl>
 template<typename LocusDataIter>
 Infection<GeneticImpl, LocusImpl>::Infection(LocusDataIter obs, LocusDataIter latent) {
-    for (auto const&[locus, genetics] : obs) {
+    for (const auto& [locus, genetics] : obs) {
         assert(locus->totalAlleles() == genetics.totalAlleles());
         observedGenotype_.emplace(locus, genetics);
     }
 
     // TODO: Generalize this notification forwarding in collections of parameters
-    for (auto const&[locus, genetics] : latent) {
+    for (const auto& [locus, genetics] : latent) {
+        loci_.push_back(locus);
         latentGenotype_.emplace(locus, genetics);
         // Creating pass through of notifications
         latentGenotype_.at(locus).add_pre_change_listener([=]() { this->notify_pre_change(); });
@@ -97,6 +103,7 @@ Infection<GeneticImpl, LocusImpl>::Infection(LocusDataIter obs, LocusDataIter la
 template<typename GeneticImpl, typename LocusImpl>
 template<typename T>
 void Infection<GeneticImpl, LocusImpl>::addGenetics(LocusImpl *locus, const T &obs, const T &latent) {
+    loci_.push_back(locus);
     latentGenotype_.emplace(locus, GeneticImpl(latent));
     observedGenotype_.emplace(locus, GeneticImpl(obs));
     latentGenotype_.at(locus).add_pre_change_listener([=]() { this->notify_pre_change(); });

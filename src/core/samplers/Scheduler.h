@@ -16,16 +16,16 @@ public:
     }
 
     void updateAndAdapt() {
-        for(const auto sampler : samplers) {
+        for(const auto& sampler : samplers) {
             sampler->update();
         }
-        for(const auto sampler : samplers) {
+        for(const auto& sampler : samplers) {
             sampler->adapt();
         }
     }
 
     void update() {
-        for(const auto sampler : samplers) {
+        for(const auto& sampler : samplers) {
             sampler->update();
         }
     }

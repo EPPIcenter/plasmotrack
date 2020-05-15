@@ -21,12 +21,14 @@
 /// State implementation of a simple model
 struct ModelOneState {
     static constexpr int MAX_ALLELES = 32;
+    using LocusImpl = Locus;
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
-    using InfectionEvent = Infection<GeneticsImpl, Locus>;
+    using InfectionEvent = Infection<GeneticsImpl, LocusImpl>;
     using AlleleFrequencyImpl = Simplex;
-    using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequencyImpl, Locus>;
+    using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
 
-    std::vector<Locus *> loci{};
+
+    std::vector<LocusImpl *> loci{};
     std::vector<InfectionEvent *> infections{};
 
     AlleleFrequencyContainer alleleFrequencies;

@@ -6,9 +6,20 @@
 
 CombinationsWithRepetitionsGenerator::CombinationsWithRepetitionsGenerator(unsigned int nChoices, unsigned int k) : nChoices_(nChoices),
                                                                                                   k_(k) {
-    curr = std::vector<int>(k, 0);
+    curr = std::vector<int>(k_, 0);
     curr[0] = -1;
 }
+
+
+void CombinationsWithRepetitionsGenerator::reset(unsigned int nChoices, unsigned int k) noexcept {
+    k_ = k;
+    nChoices_ = nChoices;
+    std::fill(curr.begin(), curr.end(), 0);
+    curr.resize(k_, 0);
+    curr[0] = -1;
+    generated = 0;
+};
+
 
 void CombinationsWithRepetitionsGenerator::next() noexcept {
     generated++;
@@ -26,7 +37,6 @@ void CombinationsWithRepetitionsGenerator::next() noexcept {
             completed = true;
         }
 
-//        return curr;
         return;
     }
 
@@ -52,7 +62,14 @@ void CombinationsWithRepetitionsGenerator::next() noexcept {
             currIdx--;
         }
     }
-//    return curr;
-};
+}
+
+CombinationsWithRepetitionsGenerator::CombinationsWithRepetitionsGenerator() {
+    nChoices_ = 1;
+    k_ = 1;
+    curr = std::vector<int>(k_, 0);
+    curr[0] = -1;
+}
+
 
 

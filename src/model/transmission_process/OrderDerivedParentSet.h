@@ -33,15 +33,15 @@ public:
         ordering_.registerCacheableCheckpointTarget(this);
 
         ordering_.add_keyed_moved_left_listener(&child_, [=](ElementType* element) {
+            this->setDirty();
             this->value_.insert(element);
             this->notify_element_added(element);
-            this->setDirty();
         });
 
         ordering_.add_keyed_moved_right_listener(&child_, [=](ElementType* element) {
+            this->setDirty();
             this->value_.erase(element);
             this->notify_element_removed(element);
-            this->setDirty();
         });
 
         // Initialize the current parent set from the ordering

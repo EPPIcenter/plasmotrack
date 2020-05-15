@@ -50,6 +50,7 @@ Ordering<T>::Ordering(std::vector<T *> refs) noexcept {
 template<typename T>
 void Ordering<T>::swap(int a, int b) noexcept {
     if(a != b) {
+        this->notify_pre_change();
         T* tmp = this->value_.at(a);
         this->value_.at(a) = this->value_.at(b);
         this->value_.at(b) = tmp;
@@ -59,14 +60,17 @@ void Ordering<T>::swap(int a, int b) noexcept {
         } else {
             notifySwap(b, a);
         }
+        this->notify_post_change();
     }
 }
 
 template<typename T>
 void Ordering<T>::addElement(T *ref) noexcept {
+    this->notify_pre_change();
     this->value_.push_back(ref);
     register_moved_left_listener_key(ref);
     register_moved_right_listener_key(ref);
+    this->notify_post_change();
 }
 
 template<typename T>

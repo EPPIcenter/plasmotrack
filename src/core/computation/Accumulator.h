@@ -6,6 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_ACCUMULATOR_H
 
 #include <boost/container/flat_set.hpp>
+#include <cmath>
 
 #include "Computation.h"
 #include "PartialLikelihood.h"
@@ -106,8 +107,8 @@ inline void Accumulator<PartialLikelihood, double>::addTarget(PartialLikelihood 
     target->add_set_dirty_listener([=]() {
         const auto& [_, inserted] = dirty_targets_.insert(target);
         if (inserted) {
-            this->value_ -= target->peek();
             this->setDirty();
+            this->value_ -= target->peek();
         }
     });
 
@@ -132,11 +133,11 @@ Output Accumulator<Input, Output>::value() noexcept {
     return this->value_;
 }
 
+
 template<>
 inline double Accumulator<PartialLikelihood, double>::value() noexcept {
-    for (auto el : dirty_targets_) {
-        assert(el->value() < std::numeric_limits<double>::infinity());
-        this->value_ += el->value();
+    for (auto &el : dirty_targets_) {
+        this->value_ += std::isnan(el->value()) ? std::numeric_limits<double>::lowest() : el->value();
     }
     this->dirty_targets_.clear();
 
