@@ -20,7 +20,7 @@ endif()
 # settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-find_package(Boost 1.72 REQUIRED container math_c99l random)
+find_package(Boost 1.72 REQUIRED container math_c99l random filesystem)
 find_package(Eigen3 REQUIRED)
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
@@ -54,12 +54,15 @@ set(SOURCE_FILES
         src/core/utils/CombinationIndicesGeneratorTests.cpp
         src/model/transmission_process/OrderDerivedParentSetTest.cpp
         src/model/transmission_process/OrderBasedTransmissionProcessTest.cpp
-        src/model/transmission_process/source_transmission_process/GeometricCOIProbabilityTest.cpp
         src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
-        src/model/transmission_process/node_transmission_process/GeometricGenerationProbabilityTest.cpp
+        src/core/distributions/GeometricTest.cpp
         src/core/samplers/genetics/RandomAllelesBitSetSamplerTest.cpp
-        src/core/utils/RandomSequenceTests.cpp src/model/observation_process/ObservationProcessTest.cpp src/impl/ModelOneTest.cpp src/model/transmission_process/node_transmission_process/ZTMultiplicativeBinomialTest.cpp src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp)
+        src/core/utils/RandomSequenceTests.cpp src/model/observation_process/ObservationProcessTest.cpp src/impl/ModelOneTest.cpp src/core/distributions/ZTMultiplicativeBinomialTest.cpp src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp src/core/utils/ParseJSONTests.cpp src/impl/ModelTwoTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
-target_link_libraries(transmission_networks_tests transmission_networks gtest)
+target_link_libraries(transmission_networks_tests
+        ${Boost_FILESYSTEM_LIBRARY}
+        ${Boost_SYSTEM_LIBRARY}
+        transmission_networks
+        gtest)
 install(TARGETS transmission_networks_tests DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

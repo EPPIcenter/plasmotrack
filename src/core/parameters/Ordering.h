@@ -35,6 +35,7 @@ public:
         return os;
     };
 
+
 private:
     void notifySwap(int left_idx, int right_idx) noexcept;
 };
@@ -91,5 +92,38 @@ void Ordering<T>::notifySwap(const int left_idx, const int right_idx) noexcept {
         keyed_notify_moved_left(this->value_[i], this->value_[left_idx]);
     }
 }
+//
+//template<typename T>
+//const std::string Ordering<T>::serialize() const noexcept {
+//    std::string out;
+//    for (const auto& el : this->value()) {
+//        out += el->serialize();
+//        out += ",";
+//    }
+//    out.pop_back();
+//    return out;
+//}
+//
+//template<>
+//const std::string Ordering<double>::serialize() const noexcept {
+//    std::string out;
+//    for (const auto& el : this->value()) {
+//        out += std::to_string(*el);
+//        out += ",";
+//    }
+//    out.pop_back();
+//    return out;
+//}
+//
+//template<>
+//const std::string Ordering<int>::serialize() const noexcept {
+//    std::string out;
+//    for (const auto& el : this->value()) {
+//        out += std::to_string(*el);
+//        out += ",";
+//    }
+//    out.pop_back();
+//    return out;
+//}
 
 #endif //TRANSMISSION_NETWORKS_APP_ORDERING_H

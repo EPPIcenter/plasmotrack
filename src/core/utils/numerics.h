@@ -16,7 +16,7 @@
  * @return
  */
 template<typename Iter>
-typename std::iterator_traits<Iter>::value_type logSumExp(Iter begin, Iter end) {
+typename std::iterator_traits<Iter>::value_type logSumExp(const Iter& begin, const Iter& end) {
     using ValueType = typename std::iterator_traits<Iter>::value_type;
 
     if (begin == end) {
@@ -24,10 +24,31 @@ typename std::iterator_traits<Iter>::value_type logSumExp(Iter begin, Iter end) 
     }
 
     auto max_el = *std::max_element(begin, end);
+
+    if (max_el == -std::numeric_limits<double>::infinity()) {
+        return -std::numeric_limits<double>::infinity();
+    }
+
     auto sum = std::accumulate(
             begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); }
             );
-    return max_el + log(sum);
+    return max_el + std::log(sum);
+}
+
+template <typename T>
+double logSumExp(const T& iterable) {
+    return logSumExp(iterable.begin(), iterable.end());
+}
+
+
+inline double logSumExp(const double a, const double b) {
+    double max_el = std::max(a, b);
+    if (max_el == -std::numeric_limits<double>::infinity()) {
+        return -std::numeric_limits<double>::infinity();
+    }
+
+    double sum = std::exp(a - max_el) + std::exp(b - max_el);
+    return max_el + std::log(sum);
 }
 
 /**
@@ -38,7 +59,7 @@ typename std::iterator_traits<Iter>::value_type logSumExp(Iter begin, Iter end) 
  * @return
  */
 template<typename Iter>
-typename std::iterator_traits<Iter>::value_type sortedLogSumExp(Iter begin, Iter end) {
+typename std::iterator_traits<Iter>::value_type sortedLogSumExp(const Iter& begin, const Iter& end) {
     using ValueType = typename std::iterator_traits<Iter>::value_type;
 
     if (begin == end) {
@@ -60,7 +81,7 @@ typename std::iterator_traits<Iter>::value_type sortedLogSumExp(Iter begin, Iter
  * @return
  */
 template<typename Iter>
-typename std::iterator_traits<Iter>::value_type logSumExpKnownMax(Iter begin, Iter end, typename std::iterator_traits<Iter>::value_type max_el) {
+typename std::iterator_traits<Iter>::value_type logSumExpKnownMax(const Iter& begin, const Iter& end, const typename std::iterator_traits<Iter>::value_type& max_el) {
     using ValueType = typename std::iterator_traits<Iter>::value_type;
 
     if (begin == end) {
@@ -75,7 +96,7 @@ typename std::iterator_traits<Iter>::value_type logSumExpKnownMax(Iter begin, It
 
 
 template<typename T>
-inline double logit(T x) {
+inline double logit(const T x) {
     if (x < .5) {
         return log(x) - log1p(x);
     } else {
@@ -84,12 +105,12 @@ inline double logit(T x) {
 }
 
 template<typename T>
-inline double expit(T x) {
+inline double expit(const T x) {
     return 1 / (1 + exp(-x));
 }
 
 template<typename T>
-double logLogit(T x) {
+inline double logLogit(const T x) {
     if (x < log(.5)) {
         return x - log1p(-exp(x));
     } else {

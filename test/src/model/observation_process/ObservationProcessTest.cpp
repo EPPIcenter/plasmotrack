@@ -34,7 +34,7 @@ TEST(ObservationProcessTest, CoreTest) {
 
     infections.reserve(4);
     for (int i = 0; i < 4; ++i) {
-        auto infection = new Infection();
+        auto infection = new Infection(std::to_string(i));
         infections.push_back(infection);
         for(auto &locus : loci) {
             infection->addGenetics(locus, "101010", "111111");

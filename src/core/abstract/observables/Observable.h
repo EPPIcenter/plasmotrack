@@ -122,12 +122,13 @@ template<typename T>
 template<typename Callback>
 auto Observable<T>::remove_listener(const ListenerId_t id,
                                     ObserverMap<ListenerId_t, Callback> &callback_container) noexcept -> bool {
-    const auto it = callback_container.find(id);
-    if (it == callback_container.end()) {
-        return false;
-    }
-    callback_container.erase(it);
-    return true;
+//    const auto it = callback_container.find(id);
+//    if (it == callback_container.end()) {
+//        return false;
+//    }
+    auto elements_removed = callback_container.erase(id);
+    assert(elements_removed == 1);
+    return elements_removed > 0;
 }
 
 template<typename T>
@@ -152,12 +153,13 @@ template<typename KeyType, typename Callback>
 auto Observable<T>::remove_keyed_listener(KeyType key, const ListenerId_t id,
                                           ObserverMap<KeyType, ObserverMap<ListenerId_t, Callback>> &callback_container) noexcept -> bool {
     auto cbs = callback_container.at(key);
-    const auto it = cbs.find(id);
-    if (it == cbs.end()) {
-        return false;
-    }
-    cbs.erase(it);
-    return true;
+//    const auto it = cbs.find(id);
+//    if (it == cbs.end()) {
+//        return false;
+//    }
+    auto elements_removed = cbs.erase(id);
+    assert(elements_removed == 1);
+    return elements_removed > 0;
 }
 
 template<typename T>

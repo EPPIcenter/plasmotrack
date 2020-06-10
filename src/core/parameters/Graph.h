@@ -1,8 +1,0 @@
-//
-// Created by Maxwell Murphy on 2/6/20.
-//
-
-#ifndef TRANSMISSION_NETWORKS_APP_GRAPH_H
-#define TRANSMISSION_NETWORKS_APP_GRAPH_H
-
-#endif //TRANSMISSION_NETWORKS_APP_GRAPH_H

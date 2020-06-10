@@ -12,28 +12,34 @@
 class Scheduler {
 public:
     void registerSampler(AbstractSampler* sampler) {
-        samplers.push_back(sampler);
+        samplers_.push_back(sampler);
     }
 
-    void updateAndAdapt() {
-        for(const auto& sampler : samplers) {
+    virtual void updateAndAdapt() {
+        update();
+        adapt();
+    }
+
+    virtual void update() {
+        for(const auto& sampler : samplers_) {
             sampler->update();
         }
-        for(const auto& sampler : samplers) {
+    }
+
+    virtual void adapt() {
+        for(const auto& sampler : samplers_) {
             sampler->adapt();
         }
     }
 
-    void update() {
-        for(const auto& sampler : samplers) {
-            sampler->update();
-        }
+    [[nodiscard]] const std::vector<AbstractSampler*>& samplers() const noexcept {
+        return samplers_;
     }
 
-private:
+protected:
 
-    std::vector<AbstractSampler*> samplers{};
-    std::vector<double> weights{};
+    std::vector<AbstractSampler*> samplers_{};
+    std::vector<double> weights_{};
 };
 
 

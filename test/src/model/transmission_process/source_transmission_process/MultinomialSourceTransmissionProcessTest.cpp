@@ -12,15 +12,16 @@
 #include "core/datatypes/Alleles.h"
 #include "core/datatypes/Simplex.h"
 
+#include "core/distributions/ZTGeometric.h"
+
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
-#include "model/transmission_process/source_transmission_process/GeometricCOIProbability.h"
 
 constexpr int MAX_COI = 12;
 constexpr int MAX_ALLELES = 32;
 
 TEST(MultinomialSourceTransmissionProcessTest, BasicTest) {
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
-    using COIProbabilityImpl = GeometricCOIProbability<MAX_COI>;
+    using COIProbabilityImpl = ZTGeometric<MAX_COI>;
     using AlleleFrequencyImpl = Simplex;
     using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequencyImpl, Locus>;
     using Infection = Infection<GeneticsImpl, Locus>;
@@ -33,7 +34,7 @@ TEST(MultinomialSourceTransmissionProcessTest, BasicTest) {
             {&as2, GeneticsImpl("0011")}
     };
 
-    Infection inf1(dlas, dlas);
+    Infection inf1("inf1", dlas, dlas);
 
 
     std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> freqPairs{

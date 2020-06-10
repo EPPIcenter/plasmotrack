@@ -61,6 +61,8 @@ AlleleCounter<GeneticsImpl>::AlleleCounter(Parameter<GeneticsImpl> &latentGeneti
         latentGenetics), observed_genetics_(observedGenetics) {
     latent_genetics_.add_post_change_listener([=]() { this->setDirty(); });
     latent_genetics_.registerCacheableCheckpointTarget(this);
+    this->setDirty();
+    this->value();
 }
 
 

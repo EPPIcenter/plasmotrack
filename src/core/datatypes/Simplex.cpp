@@ -69,3 +69,9 @@ double Simplex::min() const noexcept {
 double Simplex::max() const noexcept {
     return coefficients_.maxCoeff();
 }
+
+const std::string Simplex::serialize() const noexcept {
+    std::stringstream ss;
+    ss << coefficients_.format(fmt);
+    return ss.str();
+}

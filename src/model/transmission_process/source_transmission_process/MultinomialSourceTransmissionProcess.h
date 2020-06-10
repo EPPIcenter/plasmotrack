@@ -18,6 +18,7 @@
 
 #include "core/utils/CombinationsWithRepetitionsGenerator.h"
 #include "core/utils/numerics.h"
+#include "core/utils/io/serialize.h"
 
 
 template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
@@ -64,21 +65,33 @@ public:
         for (int j = 1; j <= coiProb_.value().size(); ++j) {
             logFactorials.push_back(lgamma(j));
         }
+        this->value();
     }
 
     double value() override {
         if(this->isDirty()) {
-            for (auto &locus : dirty_loci) {
+            for (const auto &locus : dirty_loci) {
                 loci_llik.at(locus) = calculateLocusLogLikelihood(locus);
             }
+
             dirty_loci.clear();
             this->value_ = 0.0;
-            for (const auto& [locus, val] : loci_llik) {
-                this->value_ += val;
-            }
+
+//            for (const auto& [locus, val] : loci_llik) {
+//                std::cout << val << ", ";
+//                this->value_ += val;
+//            }
+//            std::cout << " -- Done" << std::endl;
             this->setClean();
         }
 
+//        if(this->value_ <= -std::numeric_limits<double>::infinity()) {
+//            std::cout << "Encountered -Inf" << std::endl;
+//            for (const auto& [locus, val] : loci_llik) {
+//                std::cout << val << ", ";
+//            }
+//            std::cout << " -- Done" << std::endl;
+//        }
 
         return this->value_;
     };
@@ -122,7 +135,7 @@ private:
 
         positiveIndices.clear();
 
-        // Identify locations of positive indices and initialize to 1 and calculate probability of all 1 allele
+        // Identify locations of positive indices, initialize to 1, calculate probability
         for (int k = 0; k < totalAlleles; ++k) {
             alleleVector.at(k) = genotype.allele(k);
             if (alleleVector.at(k) == 1) {
@@ -152,12 +165,12 @@ private:
                 coiMaxResult = std::max(result, coiMaxResult);
                 coiLogResults.push_back(result);
             }
-            auto logCOIProb = log(coiProb_.value()(minCOI + j));
+            double logCOIProb = log(coiProb_.value()(minCOI + j));
             logResults.push_back(logSumExpKnownMax(coiLogResults.begin(), coiLogResults.end(), coiMaxResult) + logCOIProb);
             maxResult = std::max(maxResult, logResults.back());
         }
-
-        return logSumExpKnownMax(logResults.begin(), logResults.end(), maxResult);
+        double llik = logSumExpKnownMax(logResults.begin(), logResults.end(), maxResult);
+        return llik;
     }
 
     double calculateMultinomialLogLikelihood(const Simplex& simplex, const std::vector<int>& alleleCounts) {

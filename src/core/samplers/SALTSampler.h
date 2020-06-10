@@ -60,8 +60,8 @@ public:
 private:
 
     Parameter<Simplex> &parameter_;
-    T &target_;
-    Engine *rng_;
+    T& target_;
+    Engine* rng_;
     boost::random::normal_distribution<> normal_dist_{0, 1};
     boost::random::uniform_01<> uniform_dist_{};
 
@@ -87,8 +87,8 @@ private:
 template<typename T, typename Engine>
 void SALTSampler<T, Engine>::update() noexcept {
     auto indices = randomSequence(0, parameter_.value().totalElements(), rng_);
-    Simplex currentVal(parameter_.value());
     for(const auto idx : indices) {
+        Simplex currentVal(parameter_.value());
         double curLik = target_.value();
 
         double logitCurr = logit(currentVal.frequencies(idx));
@@ -104,7 +104,10 @@ void SALTSampler<T, Engine>::update() noexcept {
 
         const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
+
+
         if (accept) {
+//            std::cout << target_.value() << " | " << curLik << "\n";
             acceptances_.at(idx)++;
             parameter_.acceptState();
         } else {

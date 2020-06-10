@@ -44,8 +44,8 @@ private:
 
 template<typename Input, typename Output>
 void Accumulator<Input, Output>::addTarget(Input &target) {
+    this->setDirty();
     targets_.insert(&target);
-//    this->value_ += target.value();
     dirty_targets_.insert(&target);
 
     target.add_set_dirty_listener([&]() {
@@ -57,70 +57,64 @@ void Accumulator<Input, Output>::addTarget(Input &target) {
     });
 
     target.registerCacheableCheckpointTarget(this);
-    this->setDirty();
 }
 
 template<>
 inline void Accumulator<PartialLikelihood, double>::addTarget(PartialLikelihood &target) {
+    this->setDirty();
     const auto& [_, inserted] = targets_.insert(&target);
     if(!inserted) assert(!"Target added more than once. Check model specification.");
-    this->value_ += target.value();
-//    dirty_targets_.insert(&target);
+    dirty_targets_.insert(&target);
 
     target.add_set_dirty_listener([&]() {
         const auto& [_, inserted] = dirty_targets_.insert(&target);
         if (inserted) {
-            this->value_ -= target.peek();
             this->setDirty();
+            assert(target.peek() > -std::numeric_limits<double>::infinity());
+            this->value_ -= target.peek();
         }
     });
 
     target.registerCacheableCheckpointTarget(this);
-//    this->setDirty();
 }
 
 template<typename Input, typename Output>
 void Accumulator<Input, Output>::addTarget(Input *target) {
+    this->setDirty();
     targets_.insert(target);
-    this->value_ += target->value();
-//    dirty_targets_.insert(target);
+    dirty_targets_.insert(target);
 
     target->add_set_dirty_listener([=]() {
         const auto& [_, inserted] = dirty_targets_.insert(target);
         if (inserted) {
-            this->value_ -= target->peek();
             this->setDirty();
+            this->value_ -= target->peek();
         }
     });
 
     target->registerCacheableCheckpointTarget(this);
-//    this->setDirty();
 }
 
 template<>
 inline void Accumulator<PartialLikelihood, double>::addTarget(PartialLikelihood *target) {
+    this->setDirty();
     const auto& [_, inserted] = targets_.insert(target);
     if(!inserted) assert(!"Target added more than once. Check model specification.");
-    this->value_ += target->value();
-//    dirty_targets_.insert(target);
+    dirty_targets_.insert(target);
 
     target->add_set_dirty_listener([=]() {
         const auto& [_, inserted] = dirty_targets_.insert(target);
         if (inserted) {
             this->setDirty();
+            assert(target->peek() > -std::numeric_limits<double>::infinity());
             this->value_ -= target->peek();
         }
     });
 
     target->registerCacheableCheckpointTarget(this);
-//    this->setDirty();
 }
 
-//template<typename Input, typename Output>
-//void Accumulator<Input, Output>::customSetClean() noexcept {
-//    this->dirty_targets_.clear();
-//    this->setClean();
-//}
+
 
 template<typename Input, typename Output>
 Output Accumulator<Input, Output>::value() noexcept {
@@ -136,8 +130,11 @@ Output Accumulator<Input, Output>::value() noexcept {
 
 template<>
 inline double Accumulator<PartialLikelihood, double>::value() noexcept {
+    assert(this->value_ < std::numeric_limits<double>::infinity());
     for (auto &el : dirty_targets_) {
-        this->value_ += std::isnan(el->value()) ? std::numeric_limits<double>::lowest() : el->value();
+        assert(this->value_ < std::numeric_limits<double>::infinity());
+        this->value_ += std::isnan(el->value()) ? -std::numeric_limits<double>::infinity() : el->value();
+        assert(this->value_ < std::numeric_limits<double>::infinity());
     }
     this->dirty_targets_.clear();
 

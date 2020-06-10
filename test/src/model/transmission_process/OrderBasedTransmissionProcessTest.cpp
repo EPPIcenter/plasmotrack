@@ -4,6 +4,7 @@
 
 #include "gtest/gtest.h"
 
+#include "core/datatypes/Alleles.h"
 #include "core/datatypes/Simplex.h"
 
 #include "core/parameters/Ordering.h"
@@ -12,11 +13,11 @@
 #include "core/containers/AlleleFrequencyContainer.h"
 #include "core/containers/Locus.h"
 
+#include "core/distributions/ZTGeometric.h"
+#include "core/distributions/ZTMultiplicativeBinomial.h"
+
 #include "model/transmission_process/OrderBasedTransmissionProcess.h"
-#include "model/transmission_process/node_transmission_process/ZTMultiplicativeBinomial.h"
-#include "model/transmission_process/node_transmission_process/NoSuperInfection.h"
-#include "model/transmission_process/node_transmission_process/GeometricGenerationProbability.h"
-#include "model/transmission_process/source_transmission_process/GeometricCOIProbability.h"
+#include "model/transmission_process/node_transmission_process/NoSuperInfectionNoMutation.h"
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
 constexpr int MAX_PARENTS = 1;
@@ -31,10 +32,10 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     using Ordering = Ordering<InfectionEvent>;
 
     using COITransitionProbImpl = ZTMultiplicativeBinomial<MAX_COI>;
-    using InterTransmissionProbImpl = GeometricGenerationProbability<MAX_TRANSMISSIONS>;
-    using NodeTransmissionImpl = NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>;
+    using InterTransmissionProbImpl = ZTGeometric<MAX_TRANSMISSIONS>;
+    using NodeTransmissionImpl = NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>;
 
-    using COIProbabilityImpl = GeometricCOIProbability<MAX_COI>;
+    using COIProbabilityImpl = ZTGeometric<MAX_COI>;
     using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent, MAX_COI>;
     using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
 
@@ -51,10 +52,10 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
             {&as2, GeneticsImpl("000011")}
     };
 
-    InfectionEvent inf1(dlas, plas);
-    InfectionEvent inf2(dlas, plas);
-    InfectionEvent inf3(dlas, plas);
-    InfectionEvent inf4(dlas, plas);
+    InfectionEvent inf1("inf1", dlas, plas);
+    InfectionEvent inf2("inf2", dlas, plas);
+    InfectionEvent inf3("inf3", dlas, plas);
+    InfectionEvent inf4("inf4", dlas, plas);
 
     Ordering infectionOrder({&inf1, &inf2, &inf3, &inf4});
 

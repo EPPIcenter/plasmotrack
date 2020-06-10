@@ -26,6 +26,8 @@ public:
 
     friend std::ostream &operator<<(std::ostream &os, const AllelesBitSet &alleles) noexcept;
 
+    const std::string serialize() const noexcept;
+
     [[nodiscard]] constexpr inline unsigned int
     totalPositiveCount() const noexcept;
 
@@ -132,6 +134,11 @@ constexpr bool AllelesBitSet<MaxAlleles>::allele(size_t pos) const noexcept {
     // Bitsets are accessed right to left so we're converting to left to right accession
     assert(pos < total_alleles_);
     return alleles_[total_alleles_ - 1 - pos];
+}
+
+template<int MaxAlleles>
+const std::string AllelesBitSet<MaxAlleles>::serialize() const noexcept {
+    return allelesStr();
 }
 
 

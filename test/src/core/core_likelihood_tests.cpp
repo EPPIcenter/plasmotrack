@@ -29,12 +29,12 @@
 #include "model/observation_process/ObservationProcessLikelihood.h"
 
 #include "model/transmission_process/TransmissionProcessLikelihood.h"
-#include "model/transmission_process/node_transmission_process/ZTMultiplicativeBinomial.h"
-#include "model/transmission_process/node_transmission_process/NoSuperInfection.h"
+#include "core/distributions/ZTMultiplicativeBinomial.h"
+#include "model/transmission_process/node_transmission_process/NoSuperInfectionNoMutation.h"
 #include "model/transmission_process/OrderDerivedParentSet.h"
 #include "model/transmission_process/OrderBasedTransmissionProcess.h"
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
-#include "model/transmission_process/node_transmission_process/GeometricGenerationProbability.h"
+#include "core/distributions/ZTGeometric.h"
 
 
 using GeneticsImpl = AllelesBitSet<16>;
@@ -131,9 +131,9 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     std::cout << ztmb.value() << std::endl;
 
     DoubleParameter gp_prob(.6);
-    GeometricGenerationProbability<25> gp(gp_prob);
+    ZTGeometric<25> gp(gp_prob);
 
-    NoSuperInfection<10, 25, ZTMultiplicativeBinomial<10>, GeometricGenerationProbability<25>> tp(ztmb, gp);
+    NoSuperInfectionNoMutation<10, 25, ZTMultiplicativeBinomial<10>, ZTGeometric<25>> tp(ztmb, gp);
 
     std::cout << "Log Probability: " << std::endl;
     std::cout << tp.value() << std::endl;
@@ -142,10 +142,10 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
 
     std::vector<Infection::LocusGeneticsAssignment> dlas{{&as1, GeneticsImpl("011010")}};
     std::vector<Infection::LocusGeneticsAssignment> plas{{&as1, GeneticsImpl("011010")}};
-    Infection inf1(dlas, plas);
-    Infection inf2(dlas, plas);
-    Infection inf3(dlas, plas);
-    Infection inf4(dlas, plas);
+    Infection inf1("inf1", dlas, plas);
+    Infection inf2("inf2", dlas, plas);
+    Infection inf3("inf3", dlas, plas);
+    Infection inf4("inf4", dlas, plas);
 
     ParentSet<Infection> ps1{&inf1};
 

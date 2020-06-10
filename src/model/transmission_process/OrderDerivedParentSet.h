@@ -53,6 +53,9 @@ public:
                 break;
             }
         }
+
+        this->setDirty();
+        this->value();
     };
 
     ParentSet<ElementType> value() noexcept override {

@@ -6,6 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_MODELONESTATE_H
 
 #include <vector>
+#include <map>
 
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
@@ -20,7 +21,7 @@
 
 /// State implementation of a simple model
 struct ModelOneState {
-    static constexpr int MAX_ALLELES = 32;
+    static constexpr int MAX_ALLELES = 8;
     using LocusImpl = Locus;
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
     using InfectionEvent = Infection<GeneticsImpl, LocusImpl>;
@@ -28,20 +29,24 @@ struct ModelOneState {
     using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
 
 
-    std::vector<LocusImpl *> loci{};
+    std::map<std::string, LocusImpl *> loci{};
     std::vector<InfectionEvent *> infections{};
 
     AlleleFrequencyContainer alleleFrequencies;
 
+    // Network Structure
     Ordering<InfectionEvent> infectionEventOrdering;
 
+    // Observation Process
     Parameter<double> observationFalsePositiveRate;
     Parameter<double> observationFalseNegativeRate;
 
+    // Node Transmission Process
     Parameter<double> geometricGenerationProb;
     Parameter<double> ztMultiplicativeBinomialProb;
     Parameter<double> ztMultiplicativeBinomialAssoc;
 
+    // Source Transmission Process
     Parameter<double> geometricCOIProb;
 
 };

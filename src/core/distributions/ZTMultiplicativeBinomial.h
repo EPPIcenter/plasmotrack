@@ -118,7 +118,9 @@ ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(Parameter<double> 
     
     assoc_.registerCacheableCheckpointTarget(this);
     assoc_.add_post_change_listener([=]() { this->setDirty(); });
-    }
+    this->setDirty();
+    this->value();
+}
 
 
 template<int MAX_COUNT>

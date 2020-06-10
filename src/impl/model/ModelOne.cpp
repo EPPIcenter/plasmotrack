@@ -6,18 +6,19 @@
 
 
 ModelOne::ModelOne(ModelOneState& state) : state(state) {
-    init();
-}
-
-double ModelOne::value() {
-    return likelihood.value();
-}
-
-void ModelOne::init() {
     coitp = new COITransitionProbImpl(state.ztMultiplicativeBinomialProb, state.ztMultiplicativeBinomialAssoc);
     intp = new InterTransmissionProbImpl(state.geometricGenerationProb);
     nodeTransmissionProcess = new NodeTransmissionImpl(*coitp, *intp);
     coiProb = new COIProbabilityImpl(state.geometricCOIProb);
+
+
+    // Register Priors
+    likelihood.addTarget(new BetaPrior(state.observationFalsePositiveRate, 2, 18));
+    likelihood.addTarget(new BetaPrior(state.observationFalseNegativeRate, 2, 18));
+    likelihood.addTarget(new GammaPrior(state.ztMultiplicativeBinomialAssoc, 10, .1));
+    likelihood.addTarget(new BetaPrior(state.ztMultiplicativeBinomialProb, 80, 20));
+    likelihood.addTarget(new BetaPrior(state.geometricCOIProb, 1, 1));
+    likelihood.addTarget(new BetaPrior(state.geometricGenerationProb, 1, 1));
 
     for (auto &infection : state.infections) {
         for (auto &[locus, obsGenotype] : infection->observedGenotype()) {
@@ -42,7 +43,7 @@ void ModelOne::init() {
                 *coiProb,
                 state.alleleFrequencies,
                 *infection
-                )
+                                                )
         );
 
         transmissionProcessList.push_back(new TransmissionProcess(
@@ -53,14 +54,13 @@ void ModelOne::init() {
                                           )
         );
 
-        auto logTransmissionProcess = new LogTransformer(*(transmissionProcessList.back()));
-        logTransmissionProcessList.push_back(logTransmissionProcess);
-        likelihood.addTarget(logTransmissionProcessList.back());
+        likelihood.addTarget(transmissionProcessList.back());
 
-        likelihood.addTarget(new BetaPrior(state.observationFalsePositiveRate, 5, 95));
-        likelihood.addTarget(new BetaPrior(state.observationFalseNegativeRate, 5, 95));
     }
+}
 
+double ModelOne::value() {
+    return likelihood.value();
 }
 
 bool ModelOne::isDirty() {

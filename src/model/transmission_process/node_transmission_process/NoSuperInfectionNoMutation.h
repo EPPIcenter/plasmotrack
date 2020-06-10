@@ -2,15 +2,14 @@
 // Created by Maxwell Murphy on 2/18/20.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_NOSUPERINFECTION_H
-#define TRANSMISSION_NETWORKS_APP_NOSUPERINFECTION_H
+#ifndef TRANSMISSION_NETWORKS_APP_NOSUPERINFECTIONNOMUTATION_H
+#define TRANSMISSION_NETWORKS_APP_NOSUPERINFECTIONNOMUTATION_H
 
 #include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
 
 #include "core/datatypes/Matrix.h"
-#include "core/datatypes/Alleles.h"
 
 #include "core/containers/ParentSet.h"
 #include "core/containers/Infection.h"
@@ -18,14 +17,14 @@
 
 
 template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
-class NoSuperInfection : public Computation<LogProbabilityMatrix<MAX_COI + 1>>,
-                         public Observable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>,
-                         public Cacheable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>,
-                         public Checkpointable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<
+class NoSuperInfectionNoMutation : public Computation<LogProbabilityMatrix<MAX_COI + 1>>,
+                                   public Observable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>,
+                                   public Cacheable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>,
+                                   public Checkpointable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<
                                  MAX_COI + 1>> {
 
 public:
-    explicit NoSuperInfection(COITransitionProbImpl &coitp, InterTransmissionProbImpl &intp);
+    explicit NoSuperInfectionNoMutation(COITransitionProbImpl &coitp, InterTransmissionProbImpl &intp);
 
     LogProbabilityMatrix<MAX_COI + 1> value() noexcept override;
 
@@ -48,17 +47,17 @@ public:
     }
 
 private:
-    friend class Checkpointable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<
+    friend class Checkpointable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<
             MAX_COI + 1>>;
 
-    friend class Cacheable<NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>;
+    friend class Cacheable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>;
 
     COITransitionProbImpl &coitp_;
     InterTransmissionProbImpl &intp_;
 };
 
 template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
-NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::NoSuperInfection(
+NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::NoSuperInfectionNoMutation(
         COITransitionProbImpl &coitp, InterTransmissionProbImpl &intp)
         : coitp_(coitp), intp_(intp) {
     coitp_.registerCacheableCheckpointTarget(this);
@@ -66,18 +65,20 @@ NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmi
 
     intp_.registerCacheableCheckpointTarget(this);
     intp_.add_set_dirty_listener([=]() { this->setDirty(); });
+    this->setDirty();
+    this->value();
 }
 
 template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
 LogProbabilityMatrix<MAX_COI + 1>
-NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::value() noexcept {
+NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::value() noexcept {
     if (this->isDirty()) {
-        this->value_ = coitp_.value() * intp_.value()(1);
         auto tmp = coitp_.value();
+        this->value_ = tmp * intp_.value()(1);
 
         for (int i = 2; i <= MAX_TRANSMISSIONS; ++i) {
-            tmp = tmp * coitp_.value() * intp_.value()(i);
-            this->value_ += tmp;
+            tmp = tmp * coitp_.value();
+            this->value_ += tmp * intp_.value()(i);
         }
 
         this->value_ = this->value_.array().log();
@@ -89,7 +90,7 @@ NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmi
 template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
 template<typename GeneticsImpl>
 double
-NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::calculateLogLikelihood(
+NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::calculateLogLikelihood(
         const Infection <GeneticsImpl> &child, const ParentSet <Infection<GeneticsImpl>> &ps) {
     assert(ps.size() == 1);
     double llik = 0.0;
@@ -113,7 +114,7 @@ NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmi
 template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
 template<typename GeneticsImpl>
 double
-NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::peekCalculateLogLikelihood(
+NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::peekCalculateLogLikelihood(
         const Infection <GeneticsImpl> &child, const ParentSet <Infection<GeneticsImpl>> &ps) {
     assert(ps.size() == 1);
     double llik = 0.0;
@@ -134,4 +135,4 @@ NoSuperInfection<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmi
     return llik;
 }
 
-#endif //TRANSMISSION_NETWORKS_APP_NOSUPERINFECTION_H
+#endif //TRANSMISSION_NETWORKS_APP_NOSUPERINFECTIONNOMUTATION_H

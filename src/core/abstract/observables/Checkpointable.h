@@ -72,9 +72,9 @@ std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType
 
 template<typename T, typename ValueType>
 void Checkpointable<T, ValueType>::saveState() noexcept {
-    if(!this->saved_state_) {
-        this->saved_state_ = this->underlying().value();
+    if (!this->saved_state_) {
         this->underlying().notify_save_state();
+        this->saved_state_ = this->underlying().value();
     }
 }
 

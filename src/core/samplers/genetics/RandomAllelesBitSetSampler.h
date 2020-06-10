@@ -52,8 +52,8 @@ void RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept
     parameter_.setValue(proposal);
 
     const double acceptanceRatio = target_.value() - curLik;
-
-    const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
+    const double logProbAccept = log(uniform_dist_(*rng_));
+    const bool accept = logProbAccept <= acceptanceRatio;
 
     if (accept) {
         acceptances_++;

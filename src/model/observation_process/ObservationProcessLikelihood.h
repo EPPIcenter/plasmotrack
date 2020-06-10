@@ -41,6 +41,9 @@ ObservationProcessLikelihood<AlleleCounter>::ObservationProcessLikelihood(Allele
 
     false_negative_rate_.add_post_change_listener([=]() { this->setDirty(); });
     false_negative_rate_.registerCacheableCheckpointTarget(this);
+
+    this->setDirty();
+    this->value();
 }
 
 template<typename AlleleCounter>
@@ -52,6 +55,8 @@ double ObservationProcessLikelihood<AlleleCounter>::value() {
                  total_alleles.value().false_negative_count * log(false_negative_rate_.value());
         this->setClean();
     }
+    assert(this->value_ < std::numeric_limits<double>::infinity());
+
     return value_;
 }
 

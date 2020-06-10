@@ -26,7 +26,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
         {&as2, GeneticsImpl("00000011")}
     };
 
-    Infection inf1(dlas, plas);
+    Infection inf1("inf1", dlas, plas);
     inf1.add_post_change_listener([&]() {allelesChanged = true; });
 
     allelesChanged = false;

@@ -2,41 +2,69 @@
 // Created by Maxwell Murphy on 4/20/20.
 //
 
+#include <boost/filesystem.hpp>
+
 #include "gtest/gtest.h"
 
+#include "core/utils/io/parse_json.h"
+#include "core/utils/io/Loggers/ValueLogger.h"
+#include "core/utils/io/path_parsing.h"
 
 #include "core/samplers/ConstrainedContinuousRandomWalk.h"
 #include "core/samplers/SALTSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 #include "core/samplers/OrderSampler.h"
-#include "core/samplers/Scheduler.h"
+#include "core/samplers/RandomizedScheduler.h"
 
 #include "impl/model/ModelOne.h"
 #include "impl/state/ModelOneState.h"
 
 
-TEST(ModelOneTest, CoreTest) {
-    using InfectionEvent = ModelOneState::InfectionEvent;
-    using GeneticsImpl = ModelOneState::GeneticsImpl;
+namespace fs = boost::filesystem;
 
+TEST(ModelOneTest, CoreTest) {
+
+    using InfectionEvent = ModelOneState::InfectionEvent;
+    using Locus = ModelOneState::LocusImpl;
     using ZeroOneSampler = ConstrainedContinuousRandomWalk<0, 1, ModelOne, boost::random::mt19937>;
     using ZeroBoundedSampler = ConstrainedContinuousRandomWalk<0, std::numeric_limits<int>::max(), ModelOne, boost::random::mt19937>;
     using GeneticsSampler = RandomAllelesBitSetSampler<ModelOne, boost::random::mt19937, ModelOneState::GeneticsImpl>;
 
     ModelOneState state;
 
-    for (int l = 1; l <= 12; ++l) {
-        state.loci.push_back(new Locus("L" + std::to_string(l), 8));
+    const auto testsDir = getPathFromEnvVar("TRANSMISSION_NETWORK_TESTS_DIR");
+    const fs::path nodesFile{"resources/JSON/nodes.json"};
+    const fs::path outputDir{"outputs/ModelOneTests/CoreTest"};
+
+    const fs::path testFilePath = testsDir / nodesFile;
+    const fs::path paramOutput = testsDir / outputDir;
+
+    if(!fs::exists(paramOutput)) {
+        fs::create_directories(paramOutput);
     }
 
-    for (int j = 0; j < 40; ++j) {
-        state.infections.push_back(new InfectionEvent());
-        for(auto &locus : state.loci) {
-            state.infections.back()->addGenetics(locus, "10101010", "11111100");
-        }
+
+    if(!fs::exists(testFilePath)) {
+        std::cerr << "Nodes test file does not exist." << std::endl;
+        exit(1);
     }
 
-    for(const auto &locus : state.loci) {
+    fs::ifstream testFile{testFilePath};
+
+    if(!testFile) {
+        std::cout << "Cannot open file." << std::endl;
+        exit(1);
+    }
+
+    auto j = loadJSON(testFile);
+    auto loci = parseLociFromJSON<Locus>(j);
+    auto infections = parseInfectionsFromJSON<InfectionEvent, Locus>(j, loci);
+
+
+    state.loci = loci;
+    state.infections = infections;
+
+    for(const auto& [locus_label, locus] : state.loci) {
         state.alleleFrequencies.addLocus(locus);
     }
 
@@ -45,11 +73,28 @@ TEST(ModelOneTest, CoreTest) {
     state.observationFalsePositiveRate.initializeValue(.025);
     state.observationFalseNegativeRate.initializeValue(.025);
     state.geometricGenerationProb.initializeValue(.5);
-    state.ztMultiplicativeBinomialProb.initializeValue(.5);
+    state.ztMultiplicativeBinomialProb.initializeValue(.9);
     state.ztMultiplicativeBinomialAssoc.initializeValue(1.0);
     state.geometricCOIProb.initializeValue(.9);
 
     ModelOne model(state);
+
+    std::vector<AbstractLogger*> loggers{};
+    loggers.push_back(new ValueLogger(paramOutput / "fpr.csv", state.observationFalsePositiveRate));
+    loggers.push_back(new ValueLogger(paramOutput / "fnr.csv", state.observationFalseNegativeRate));
+    loggers.push_back(new ValueLogger(paramOutput / "geo_gen_prob.csv", state.geometricGenerationProb));
+    loggers.push_back(new ValueLogger(paramOutput / "zt_mult_binom_prob.csv", state.ztMultiplicativeBinomialProb));
+    loggers.push_back(new ValueLogger(paramOutput / "zt_mult_binom_assoc.csv", state.ztMultiplicativeBinomialAssoc));
+    loggers.push_back(new ValueLogger(paramOutput / "geometric_coi_prob.csv", state.geometricCOIProb));
+    loggers.push_back(new ValueLogger(paramOutput / "infection_order.csv", state.infectionEventOrdering));
+    loggers.push_back(new ValueLogger(paramOutput / "likelihood.csv", model));
+    for(const auto& [locus_label, locus] : state.loci) {
+        loggers.push_back(new ValueLogger(paramOutput / (locus_label + "_frequencies.csv"), state.alleleFrequencies.alleleFrequencies(locus)));
+    }
+
+    for(const auto& logger : loggers) {
+        logger->clearFile();
+    }
 
     state.observationFalsePositiveRate.saveState();
     auto currLik = model.value();
@@ -117,19 +162,18 @@ TEST(ModelOneTest, CoreTest) {
     std::cout << "Geo COI Prob Old/New: " << oldLik << " ||| " << newLik << std::endl;
     ASSERT_DOUBLE_EQ(currLik, oldLik);
 
-    state.infections.at(10)->latentGenotype(state.loci.at(0)).saveState();
-    currLik = model.value();
-    state.infections.at(10)->latentGenotype(state.loci.at(0)).setValue(GeneticsImpl("00011100"));
-    newLik = model.value();
-    state.infections.at(10)->latentGenotype(state.loci.at(0)).restoreState();
-    oldLik = model.value();
-    std::cout << "Infection Old/New: " << oldLik << " ||| " << newLik << std::endl;
-    ASSERT_DOUBLE_EQ(currLik, oldLik);
-
 
     boost::random::mt19937 r;
-    Scheduler scheduler;
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r));
+    RandomizedScheduler scheduler(&r);
+    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 1));
+    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 2));
+    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 3));
+    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 4));
+    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 5));
+    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 6));
+    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 7));
+    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 8));
+    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 9));
     scheduler.registerSampler(new ZeroOneSampler(state.observationFalsePositiveRate, model, &r));
     scheduler.registerSampler(new ZeroOneSampler(state.observationFalseNegativeRate, model, &r));
     scheduler.registerSampler(new ZeroOneSampler(state.geometricGenerationProb, model, &r));
@@ -139,19 +183,34 @@ TEST(ModelOneTest, CoreTest) {
 
 
     for(auto &infection : state.infections) {
-        for(auto &locus : state.loci) {
-            auto &latentGenotype = infection->latentGenotype(locus);
-            scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
+        for(const auto& [locus_label, locus] : state.loci) {
+            if (infection->latentGenotype().contains(locus)) {
+                auto &latentGenotype = infection->latentGenotype(locus);
+                scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
+            }
         }
     }
 
-    for(auto &locus : state.loci) {
+    for(const auto& [locus_label, locus] : state.loci) {
         scheduler.registerSampler(new SALTSampler<ModelOne>(state.alleleFrequencies.alleleFrequencies(locus), model, &r));
     }
 
-    for (int k = 0; k < 500; ++k) {
+    for (int k = 0; k < 50000; ++k) {
+//        scheduler.update();
         scheduler.updateAndAdapt();
-        std::cout << model.value() << std::endl;
+        if(k % 10 == 0) {
+            std::cout << "Current LLik: " << model.value() << std::endl;
+        }
     }
+
+    for (int i = 0; i < 50000; ++i) {
+        scheduler.update();
+        if (i % 10 == 0) {
+            for (const auto& logger : loggers) {
+                logger->logValue();
+            }
+        }
+    }
+
     std::cout << "Completed" << std::endl;
 }

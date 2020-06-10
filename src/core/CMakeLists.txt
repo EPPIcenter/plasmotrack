@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 project(transmission_network_core)
 
-find_package(Boost 1.72 REQUIRED container math_c99l)
+find_package(Boost 1.72 REQUIRED container math_c99l random filesystem)
 find_package(Eigen3 REQUIRED)
 find_package(GSL REQUIRED)
 

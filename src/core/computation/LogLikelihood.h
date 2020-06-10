@@ -18,7 +18,7 @@ class LogLikelihood {
 public:
     enum callbackId: uint_fast64_t {};
 
-    LogLikelihood(std::string id);
+    explicit LogLikelihood(std::string id);
 
     LogLikelihood(float value, std::string id);
 
