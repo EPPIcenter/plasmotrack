@@ -51,6 +51,8 @@ public:
 
     inline constexpr void set(size_t pos) noexcept;
 
+    inline constexpr void set() noexcept;
+
     inline constexpr void reset(size_t pos) noexcept;
 
     inline constexpr bool allele(size_t pos) const noexcept;
@@ -122,6 +124,14 @@ constexpr void AllelesBitSet<MaxAlleles>::set(size_t pos) noexcept {
     assert(pos < total_alleles_);
     alleles_.set(total_alleles_ - 1 - pos);
 }
+
+template<int MaxAlleles>
+constexpr void AllelesBitSet<MaxAlleles>::set() noexcept {
+    for (int i = 0; i < total_alleles_; ++i) {
+        alleles_.set(i);
+    };
+}
+
 
 template<int MaxAlleles>
 constexpr void AllelesBitSet<MaxAlleles>::reset(size_t pos) noexcept {

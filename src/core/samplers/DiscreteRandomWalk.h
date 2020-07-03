@@ -109,6 +109,7 @@ void DiscreteRandomWalk<T, Engine>::update() noexcept {
     } else {
         rejections_ += 1;
         parameter_.restoreState();
+        assert(curLik == target_.value());
     }
 
     total_updates_++;

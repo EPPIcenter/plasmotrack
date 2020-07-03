@@ -92,7 +92,7 @@ template<typename GeneticsImpl>
 double
 NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::calculateLogLikelihood(
         const Infection <GeneticsImpl> &child, const ParentSet <Infection<GeneticsImpl>> &ps) {
-    assert(ps.size() == 1);
+    assert(ps.size() <= 1);
     double llik = 0.0;
     auto const &childGenotype = child.latentGenotype();
     for (auto const &parent : ps) {

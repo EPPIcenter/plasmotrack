@@ -54,7 +54,7 @@ public:
 
     friend std::ostream &operator<<(std::ostream &os, const AlleleFrequencyContainer &container) {
         for (const auto& [locus, alleleFreqs] : container.alleleFrequencies_ ) {
-            os << locus->label << ": " << alleleFreqs.value() << std::endl;
+            os << locus->label << ": " << alleleFreqs.value() << "\n";
         }
         return os;
     };

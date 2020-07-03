@@ -64,6 +64,7 @@ void OrderSampler<T, OrderingElement, Engine>::update() noexcept {
     } else {
         rejections_++;
         parameter_.restoreState();
+        assert(curLik == target_.value());
     }
 
     total_updates_++;

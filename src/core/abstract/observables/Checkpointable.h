@@ -8,7 +8,6 @@
 #include <type_traits>
 #include <optional>
 
-
 #include "core/abstract/crtp.h"
 #include "core/abstract/observables/Observable.h"
 
@@ -39,6 +38,7 @@ protected:
     std::optional<ValueType> saved_state_{};
 };
 
+
 template<typename T, typename ValueType>
 template<typename T0>
 std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType>::registerCheckpointTarget(T0 *target) {
@@ -57,13 +57,13 @@ std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType
 
     ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=]() {
         target->acceptState();
-        target->value();
+//        target->value();
         target->setClean();
     });
 
     ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=]() {
         target->restoreState();
-        target->value();
+//        target->value();
         target->setClean();
     });
 
@@ -72,7 +72,7 @@ std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType
 
 template<typename T, typename ValueType>
 void Checkpointable<T, ValueType>::saveState() noexcept {
-    if (!this->saved_state_) {
+    if (!this->isSaved()) {
         this->underlying().notify_save_state();
         this->saved_state_ = this->underlying().value();
     }
@@ -80,7 +80,7 @@ void Checkpointable<T, ValueType>::saveState() noexcept {
 
 template<typename T, typename ValueType>
 void Checkpointable<T, ValueType>::restoreState() noexcept {
-    if (this->saved_state_) {
+    if (this->isSaved()) {
         this->underlying().notify_restore_state();
         this->underlying().value_ = *(this->saved_state_);
         this->saved_state_.reset();
@@ -89,7 +89,7 @@ void Checkpointable<T, ValueType>::restoreState() noexcept {
 
 template<typename T, typename ValueType>
 void Checkpointable<T, ValueType>::acceptState() noexcept {
-    if (this->saved_state_) {
+    if (this->isSaved()) {
         this->underlying().notify_accept_state();
         this->saved_state_.reset();
     }

@@ -64,7 +64,11 @@ std::vector<InfectionEvent*> parseInfectionsFromJSON(
                 exit(1);
             }
             if (!missingGenotype(genetics.at(genotypeKey))) {
-                infections.back()->addGenetics(locusItr->second, genetics.at(genotypeKey));
+                std::string obs_genetics = genetics.at(genotypeKey);
+//                std::string latent_genetics = "";
+//                latent_genetics.resize(obs_genetics.length(), '1');
+                infections.back()->addGenetics(locusItr->second, obs_genetics, obs_genetics);
+//                infections.back()->addGenetics(locusItr->second, obs_genetics, latent_genetics);
             }
 
         }

@@ -43,6 +43,15 @@ private:
 };
 
 template<typename T, typename Engine, typename AllelesBitSetImpl>
+RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::RandomAllelesBitSetSampler(
+        Parameter<AllelesBitSetImpl> &parameter, T &target, Engine *rng) noexcept :
+        parameter_(parameter), target_(target), rng_(rng) {
+    allele_index_sampling_dist_.param(
+            boost::random::uniform_int_distribution<>::param_type(0, parameter_.value().totalAlleles() - 1)
+    );
+}
+
+template<typename T, typename Engine, typename AllelesBitSetImpl>
 void RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept {
     double curLik = target_.value();
     parameter_.saveState();
@@ -79,15 +88,6 @@ unsigned int RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::rejection
 template<typename T, typename Engine, typename AllelesBitSetImpl>
 double RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::acceptanceRate() noexcept {
     return double(acceptances_) / (acceptances_ + rejections_);
-}
-
-template<typename T, typename Engine, typename AllelesBitSetImpl>
-RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::RandomAllelesBitSetSampler(
-        Parameter<AllelesBitSetImpl> &parameter, T &target, Engine *rng) noexcept :
-        parameter_(parameter), target_(target), rng_(rng) {
-    allele_index_sampling_dist_.param(
-            boost::random::uniform_int_distribution<>::param_type(0, parameter_.value().totalAlleles() - 1)
-    );
 }
 
 template<typename T, typename Engine, typename AllelesBitSetImpl>

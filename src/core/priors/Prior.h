@@ -5,7 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PRIOR_H
 #define TRANSMISSION_NETWORKS_APP_PRIOR_H
 
-#include <boost/math/distributions.hpp>
 
 #include "core/computation/PartialLikelihood.h"
 
@@ -14,7 +13,7 @@ template<typename Distribution, typename TargetParam, typename ...Args>
 class Prior : public PartialLikelihood {
 
 public:
-    Prior(TargetParam &target, Args&&... args);
+    explicit Prior(TargetParam &target, Args&&... args);
 
     Likelihood value() override {
         if (isDirty()) {

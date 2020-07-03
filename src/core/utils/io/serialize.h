@@ -10,6 +10,7 @@
 #include "core/datatypes/Alleles.h"
 #include "core/datatypes/Simplex.h"
 #include "core/containers/Infection.h"
+#include "core/containers/TransmissionNetwork.h"
 
 inline std::string serialize(const double val) noexcept {
     return std::to_string(val);
@@ -31,6 +32,11 @@ inline std::string serialize(const Simplex& val) noexcept {
 
 template<typename GeneticImpl, typename LocusImpl = Locus>
 std::string serialize(const Infection<GeneticImpl, LocusImpl>* val) {
+    return val->serialize();
+}
+
+template<typename NodeValueImpl>
+std::string serialize(const TransmissionNetwork<NodeValueImpl>& val) {
     return val->serialize();
 }
 

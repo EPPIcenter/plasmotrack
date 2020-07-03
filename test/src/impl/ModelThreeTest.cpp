@@ -1,0 +1,191 @@
+//
+// Created by Maxwell Murphy on 6/19/20.
+//
+
+#include <boost/filesystem.hpp>
+
+#include "gtest/gtest.h"
+
+#include "core/utils/io/parse_json.h"
+#include "core/utils/io/path_parsing.h"
+#include "core/utils/io/Loggers/ValueLogger.h"
+#include "core/utils/io/Loggers/LambdaLogger.h"
+
+#include "core/samplers/ConstrainedContinuousRandomWalk.h"
+#include "core/samplers/SALTSampler.h"
+#include "core/samplers/RandomizedScheduler.h"
+
+#include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
+
+#include "core/samplers/graph/RandomAddEdgeSampler.h"
+#include "core/samplers/graph/RandomRemoveEdgeSampler.h"
+#include "core/samplers/graph/RandomReverseEdgeSampler.h"
+#include "core/samplers/graph/RandomSwapEdgeSampler.h"
+
+#include "impl/model/ModelThree.h"
+#include "impl/state/ModelThreeState.h"
+
+namespace fs = boost::filesystem;
+
+TEST(ModelThreeTest, CoreTest) {
+
+    using InfectionEvent = ModelThreeState::InfectionEvent;
+    using Locus = ModelThreeState::LocusImpl;
+    using ZeroOneSampler = ConstrainedContinuousRandomWalk<0, 1, ModelThree, boost::random::mt19937>;
+    using ZeroBoundedSampler = ConstrainedContinuousRandomWalk<0, std::numeric_limits<int>::max(), ModelThree, boost::random::mt19937>;
+    using GeneticsSampler = RandomAllelesBitSetSampler<ModelThree, boost::random::mt19937, ModelThreeState::GeneticsImpl>;
+    using AddEdgeSampler = RandomAddEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using RemoveEdgeSampler = RandomRemoveEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using ReverseEdgeSampler = RandomReverseEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using SwapEdgeSampler = RandomSwapEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+
+
+    ModelThreeState state;
+
+    const auto testsDir = getPathFromEnvVar("TRANSMISSION_NETWORK_TESTS_DIR");
+    const fs::path nodesFile{"resources/JSON/nodes.json"};
+    const fs::path outputDir{"outputs/ModelThreeTests/CoreTest"};
+
+    const fs::path testFilePath = testsDir / nodesFile;
+    const fs::path paramOutput = testsDir / outputDir;
+
+    if(!fs::exists(paramOutput)) {
+        fs::create_directories(paramOutput);
+    }
+
+
+    if(!fs::exists(testFilePath)) {
+        std::cerr << "Nodes test file does not exist." << std::endl;
+        exit(1);
+    }
+
+    fs::ifstream testFile{testFilePath};
+
+    if(!testFile) {
+        std::cout << "Cannot open file." << std::endl;
+        exit(1);
+    }
+
+    auto j = loadJSON(testFile);
+    auto loci = parseLociFromJSON<Locus>(j);
+    auto infections = parseInfectionsFromJSON<InfectionEvent, Locus>(j, loci);
+
+
+    state.loci = loci;
+    state.infections = infections;
+
+    for(const auto& [locus_label, locus] : state.loci) {
+        state.alleleFrequencies.addLocus(locus);
+    }
+
+    state.transmissionNetwork.addNodes(state.infections);
+
+    state.observationFalsePositiveRate.initializeValue(.5);
+    state.observationFalseNegativeRate.initializeValue(.5);
+    state.geometricGenerationProb.initializeValue(.9);
+    state.lossProb.initializeValue(.5);
+    state.mutationProb.initializeValue(.5);
+    state.meanCOI.initializeValue(1);
+
+    ModelThree model(state);
+
+    std::vector<AbstractLogger*> loggers{};
+    loggers.push_back(new ValueLogger(paramOutput / "fpr.csv", state.observationFalsePositiveRate));
+    loggers.push_back(new ValueLogger(paramOutput / "fnr.csv", state.observationFalseNegativeRate));
+    loggers.push_back(new ValueLogger(paramOutput / "geo_gen_prob.csv", state.geometricGenerationProb));
+    loggers.push_back(new ValueLogger(paramOutput / "loss_prob.csv", state.lossProb));
+    loggers.push_back(new ValueLogger(paramOutput / "mutation_prob.csv", state.mutationProb));
+    loggers.push_back(new ValueLogger(paramOutput / "mean_coi.csv", state.meanCOI));
+    loggers.push_back(new ValueLogger(paramOutput / "likelihood.csv", model));
+    loggers.push_back(new LambdaLogger(paramOutput / "network.csv", [&](){ return state.transmissionNetwork.serialize(); }));
+    for(const auto& [locus_label, locus] : state.loci) {
+        loggers.push_back(new ValueLogger(paramOutput / (locus_label + "_frequencies.csv"), state.alleleFrequencies.alleleFrequencies(locus)));
+    }
+
+    for(const auto& infection : state.infections) {
+        for(const auto& [locus_label, locus] : state.loci) {
+            if (std::find(infection->loci().begin(), infection->loci().end(), locus) != infection->loci().end()) {
+                loggers.push_back(new ValueLogger(paramOutput / "nodes" / (infection->id() + "_" + locus_label + ".csv"), infection->latentGenotype(locus)));
+            }
+        }
+    }
+
+    for(const auto& logger : loggers) {
+        logger->clearFile();
+    }
+
+
+    boost::random::mt19937 r;
+    RandomizedScheduler scheduler(&r);
+
+    scheduler.registerSampler(new AddEdgeSampler(state.transmissionNetwork, model, &r));
+    scheduler.registerSampler(new RemoveEdgeSampler(state.transmissionNetwork, model, &r));
+    scheduler.registerSampler(new SwapEdgeSampler(state.transmissionNetwork, model, &r));
+    scheduler.registerSampler(new ReverseEdgeSampler(state.transmissionNetwork, model, &r));
+
+
+    for(auto &infection : state.infections) {
+        for(const auto& [locus_label, locus] : state.loci) {
+            if (infection->latentGenotype().contains(locus)) {
+                auto &latentGenotype = infection->latentGenotype(locus);
+                scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
+                scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
+                scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
+            }
+        }
+    }
+
+    for (int k = 0; k < 50000; ++k) {
+//        scheduler.update();
+        scheduler.updateAndAdapt();
+        if(k % 10 == 0) {
+            std::cout << "Edge and Genotypes Current LLik: " << model.value() << "\n";
+            std::cout << state.transmissionNetwork.serialize() << "\n";
+//            std::cout << "Genotype Sampler: " << genotypeSampler->acceptanceRate() << std::endl;
+        }
+    }
+
+    scheduler.registerSampler(new ZeroOneSampler(state.observationFalsePositiveRate, model, &r));
+    scheduler.registerSampler(new ZeroOneSampler(state.observationFalseNegativeRate, model, &r));
+    scheduler.registerSampler(new ZeroOneSampler(state.geometricGenerationProb, model, &r));
+    scheduler.registerSampler(new ZeroOneSampler(state.lossProb, model, &r));
+    scheduler.registerSampler(new ZeroOneSampler (state.mutationProb, model, &r));
+    scheduler.registerSampler(new ZeroBoundedSampler(state.meanCOI, model, &r));
+
+
+    for(auto &infection : state.infections) {
+        for(const auto& [locus_label, locus] : state.loci) {
+            if (infection->latentGenotype().contains(locus)) {
+                auto &latentGenotype = infection->latentGenotype(locus);
+                scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
+            }
+        }
+    }
+
+//    const auto genotypeSampler = dynamic_cast<GeneticsSampler*>(scheduler.samplers().back());
+
+//    for(const auto& [locus_label, locus] : state.loci) {
+//        scheduler.registerSampler(new SALTSampler<ModelThree>(state.alleleFrequencies.alleleFrequencies(locus), model, &r));
+//    }
+
+    for (int k = 0; k < 50000; ++k) {
+//        scheduler.update();
+        scheduler.updateAndAdapt();
+        if(k % 10 == 0) {
+            std::cout << "Current LLik: " << model.value() << "\n";
+//            std::cout << "Genotype Sampler: " << genotypeSampler->acceptanceRate() << std::endl;
+        }
+    }
+
+    for (int i = 0; i < 50000; ++i) {
+        scheduler.update();
+        if (i % 10 == 0) {
+            std::cout << "(Writing) Current LLik: " << model.value() << "\n";
+            for (const auto& logger : loggers) {
+                logger->logValue();
+            }
+        }
+    }
+
+    std::cout << "Completed" << "\n";
+}

@@ -7,6 +7,7 @@
 
 #include <utility>
 #include <boost/math/distributions/beta.hpp>
+#include <boost/math/distributions/gamma.hpp>
 
 #include "core/computation/PartialLikelihood.h"
 #include "core/computation/Accumulator.h"
@@ -31,7 +32,7 @@
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
 class ModelOne {
-    static constexpr int MAX_COI = 8;
+    static constexpr int MAX_COI = 32;
     static constexpr int MAX_PARENTS = 1;
     static constexpr int MAX_TRANSMISSIONS = 5;
 

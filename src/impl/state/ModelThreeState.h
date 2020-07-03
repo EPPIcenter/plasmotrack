@@ -1,9 +1,9 @@
 //
-// Created by Maxwell Murphy on 4/19/20.
+// Created by Maxwell Murphy on 6/18/20.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_MODELONESTATE_H
-#define TRANSMISSION_NETWORKS_APP_MODELONESTATE_H
+#ifndef TRANSMISSION_NETWORKS_APP_MODELTHREESTATE_H
+#define TRANSMISSION_NETWORKS_APP_MODELTHREESTATE_H
 
 #include <vector>
 #include <map>
@@ -11,17 +11,17 @@
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
 #include "core/containers/AlleleFrequencyContainer.h"
+#include "core/containers/TransmissionNetwork.h"
 
 #include "core/datatypes/Alleles.h"
 #include "core/datatypes/Simplex.h"
 
 #include "core/parameters/Parameter.h"
-#include "core/parameters/Ordering.h"
 
 
-/// State implementation of a simple model
-struct ModelOneState {
+struct ModelThreeState {
     static constexpr int MAX_ALLELES = 32;
+    static constexpr int MAX_PARENT_SET = 1;
     using LocusImpl = Locus;
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
     using InfectionEvent = Infection<GeneticsImpl, LocusImpl>;
@@ -35,7 +35,7 @@ struct ModelOneState {
     AlleleFrequencyContainer alleleFrequencies;
 
     // Network Structure
-    Ordering<InfectionEvent> infectionEventOrdering;
+    TransmissionNetwork<InfectionEvent> transmissionNetwork;
 
     // Observation Process
     Parameter<double> observationFalsePositiveRate;
@@ -43,13 +43,12 @@ struct ModelOneState {
 
     // Node Transmission Process
     Parameter<double> geometricGenerationProb;
-    Parameter<double> ztMultiplicativeBinomialProb;
-    Parameter<double> ztMultiplicativeBinomialAssoc;
+    Parameter<double> lossProb;
+    Parameter<double> mutationProb;
 
     // Source Transmission Process
-    Parameter<double> geometricCOIProb;
-
+    Parameter<double> meanCOI;
 };
 
 
-#endif //TRANSMISSION_NETWORKS_APP_MODELONESTATE_H
+#endif //TRANSMISSION_NETWORKS_APP_MODELTHREESTATE_H

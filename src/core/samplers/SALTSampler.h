@@ -113,6 +113,7 @@ void SALTSampler<T, Engine>::update() noexcept {
         } else {
             rejections_.at(idx)++;
             parameter_.restoreState();
+            assert(curLik == target_.value());
         }
     }
 

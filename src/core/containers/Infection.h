@@ -30,9 +30,9 @@ public:
     using LocusGeneticsAssignment = std::pair<LocusImpl *, GeneticImpl>;
 
     template<typename LocusDataIter>
-    Infection(const std::string id, const LocusDataIter obs, const LocusDataIter latent);
+    Infection(std::string id, const LocusDataIter obs, const LocusDataIter latent);
 
-    Infection(const std::string id);
+    Infection(std::string id);
 
     template<typename T>
     void addGenetics(LocusImpl *locus, const T &obs, const T &latent);
@@ -69,11 +69,11 @@ public:
         return loci_;
     }
 
-    const std::string id() const {
+    std::string id() const {
         return id_;
     }
 
-    const std::string serialize() const {
+    std::string serialize() const {
         return id_;
     }
 
@@ -108,8 +108,8 @@ template<typename GeneticImpl, typename LocusImpl>
 template<typename T>
 void Infection<GeneticImpl, LocusImpl>::addGenetics(LocusImpl *locus, const T &obs, const T &latent) {
     loci_.push_back(locus);
-    latentGenotype_.emplace(locus, GeneticImpl(latent));
     observedGenotype_.emplace(locus, GeneticImpl(obs));
+    latentGenotype_.emplace(locus, GeneticImpl(latent));
     // Creating pass through of notifications
     latentGenotype_.at(locus).add_pre_change_listener([=]() { this->notify_pre_change(); });
     latentGenotype_.at(locus).add_post_change_listener([=]() { this->notify_post_change(); });
@@ -125,8 +125,8 @@ template<typename GeneticImpl, typename LocusImpl>
 template<typename T>
 void Infection<GeneticImpl, LocusImpl>::addGenetics(LocusImpl *locus, const T &obs) {
     loci_.push_back(locus);
-    latentGenotype_.emplace(locus, GeneticImpl(obs));
     observedGenotype_.emplace(locus, GeneticImpl(obs));
+    latentGenotype_.emplace(locus, GeneticImpl(obs));
     latentGenotype_.at(locus).add_pre_change_listener([=]() { this->notify_pre_change(); });
     latentGenotype_.at(locus).add_post_change_listener([=]() { this->notify_post_change(); });
     latentGenotype_.at(locus).add_save_state_listener([=]() { this->notify_save_state(); });

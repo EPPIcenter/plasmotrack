@@ -97,7 +97,10 @@ LogProbabilityMatrix<2> NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmi
 template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
 template<typename GeneticsImpl>
 double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::calculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
-    assert(ps.size() == 1);
+//    assert(ps.size() <= 1);
+    if(ps.size() > 1) {
+        return -std::numeric_limits<double>::infinity();
+    }
     double llik = 0.0;
     auto const &childGenotype = child.latentGenotype();
     for (auto const &parent : ps) {
@@ -110,15 +113,18 @@ double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::c
                 const unsigned int t10 = GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
                 const unsigned int t11 = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
 
-//                llik += t00 * value()(0,0);
-//                llik += t01 * value()(0,1);
-//                llik += t10 * value()(1,0);
-//                llik += t11 * value()(1,1);
-//                std::cout << std::endl;
-//                std::cout << t00 << " , " << t01 << " , " << t10 << " , " << t11 << std::endl;
-//                std::cout << this->value() << std::endl;
-//                std::cout << llik << std::endl;
-//                std::cout << std::endl;
+                // no mutation
+                llik += t00 * value()(0,0);
+
+                // mutation
+                llik += t01 * value()(0,1);
+
+                // loss
+                llik += t10 * value()(1,0);
+
+                // no loss
+                llik += t11 * value()(1,1);
+
             }
         }
     }
@@ -128,7 +134,10 @@ double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::c
 template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
 template<typename GeneticsImpl>
 double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::peekCalculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
-    assert(ps.size() == 1);
+//    assert(ps.size() <= 1);
+    if(ps.size() > 1) {
+        return -std::numeric_limits<double>::infinity();
+    }
     double llik = 0.0;
     auto const &childGenotype = child.latentGenotype();
     for (auto const &parent : ps) {
@@ -141,9 +150,16 @@ double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::p
                 const unsigned int t10 = GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
                 const unsigned int t11 = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
 
+                // no mutation
                 llik += t00 * peek()(0,0);
+
+                // mutation
                 llik += t01 * peek()(0,1);
+
+                // loss
                 llik += t10 * peek()(1,0);
+
+                // no loss
                 llik += t11 * peek()(1,1);
 
             }

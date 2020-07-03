@@ -59,7 +59,7 @@ simulate_observed_infection <- function(latent_genotype, fpr, fnr) {
 total_founders <- 20
 num_loci <- 10
 min_alleles <- 5
-max_alleles <- 8
+max_alleles <- 16
 fpr = .05
 fnr = .05
 pr = .8

@@ -35,7 +35,7 @@ set(SOURCE_FILES
         core/utils/CombinationsWithRepetitionsGenerator.cpp
         core/utils/CombinationsWithRepetitionsGenerator.h
         core/priors/Prior.h
-        core/utils/io/parse_json.h core/utils/io/Loggers/AbstractLogger.h core/utils/io/Loggers/ValueLogger.h core/utils/io/serialize.h core/utils/io/Loggers/AbstractLogger.cpp core/samplers/RandomizedScheduler.h core/utils/io/path_parsing.cpp core/utils/io/path_parsing.h model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h model/transmission_process/GraphBasedTransmissionProcess.h impl/state/ModelTwoState.cpp impl/state/ModelTwoState.h impl/model/ModelTwo.cpp impl/model/ModelTwo.h core/distributions/ZTPoisson.h)
+        core/utils/io/parse_json.h core/utils/io/Loggers/AbstractLogger.h core/utils/io/Loggers/ValueLogger.h core/utils/io/serialize.h core/utils/io/Loggers/AbstractLogger.cpp core/samplers/RandomizedScheduler.h core/utils/io/path_parsing.cpp core/utils/io/path_parsing.h model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h model/transmission_process/NetworkBasedTransmissionProcess.h impl/state/ModelTwoState.cpp impl/state/ModelTwoState.h impl/model/ModelTwo.cpp impl/model/ModelTwo.h core/distributions/ZTPoisson.h core/samplers/graph/RandomAddEdgeSampler.h core/samplers/graph/RandomRemoveEdgeSampler.h core/samplers/graph/RandomSwapEdgeSampler.h impl/model/ModelThree.cpp impl/model/ModelThree.h impl/state/ModelThreeState.cpp impl/state/ModelThreeState.h core/utils/io/Loggers/LambdaLogger.h core/samplers/graph/RandomReverseEdgeSampler.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

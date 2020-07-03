@@ -8,10 +8,6 @@
 #include <boost/container/flat_set.hpp>
 #include <boost/range/adaptors.hpp>
 
-#include "core/abstract/observables/Observable.h"
-#include "core/abstract/observables/Cacheable.h"
-#include "core/abstract/observables/Checkpointable.h"
-
 #include "core/computation/PartialLikelihood.h"
 
 #include "core/containers/Infection.h"
@@ -75,27 +71,27 @@ private:
     ListenerIdMap restoreStateListenerIdMap{};
 
     // Track parent deltas between save and accept/restore
-    boost::container::flat_set<InfectionEventImpl*> added_parents{};
-    boost::container::flat_set<InfectionEventImpl*> removed_parents{};
+    boost::container::flat_set<InfectionEventImpl*> addedParents_{};
+    boost::container::flat_set<InfectionEventImpl*> removedParents_{};
 
 
-    boost::container::flat_set<InfectionEventImpl*> to_calculate_{};
+    boost::container::flat_set<InfectionEventImpl*> toCalculate_{};
     boost::container::flat_set<InfectionEventImpl*> calculated_{};
-    boost::container::flat_map<InfectionEventImpl*, double> calculated_parent_values_{};
+    boost::container::flat_map<InfectionEventImpl*, double> calculatedParentValues_{};
 
-    boost::container::flat_set<InfectionEventImpl*> to_calculate_cache_{};
-    boost::container::flat_set<InfectionEventImpl*> calculated_cache_{};
-    boost::container::flat_map<InfectionEventImpl*, double> calculated_parent_values_cache_{};
+    boost::container::flat_set<InfectionEventImpl*> toCalculateCache_{};
+    boost::container::flat_set<InfectionEventImpl*> calculatedCache_{};
+    boost::container::flat_map<InfectionEventImpl*, double> calculatedParentValuesCache_{};
 
 
     NodeTransmissionProcessImpl &ntp_;
     SourceTransmissionProcessImpl &stp_;
     InfectionEventImpl &child_;
-    OrderDerivedParentSet<InfectionEventImpl> &parent_set_;
+    OrderDerivedParentSet<InfectionEventImpl> &parentSet_;
 
 
-    ParentSet<InfectionEventImpl> tmp_ps_{};
-    std::vector<double> parent_likelihood_contribution_{};
+    ParentSet<InfectionEventImpl> tmpPs_{};
+    std::vector<double> parentLikelihoodContribution_{};
     CombinationIndicesGenerator cs_;
 
 };
@@ -104,7 +100,7 @@ template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, type
 OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::OrderBasedTransmissionProcess(
         NodeTransmissionProcessImpl &ntp, SourceTransmissionProcessImpl &stp, InfectionEventImpl &child,
         OrderDerivedParentSet<InfectionEventImpl> &parent_set) :
-        ntp_(ntp), stp_(stp), child_(child), parent_set_(parent_set) {
+        ntp_(ntp), stp_(stp), child_(child), parentSet_(parent_set) {
 
     ntp_.add_set_dirty_listener([=]() { nodeTransmissionProcessSetDirty(); });
     ntp_.add_save_state_listener([=]() { customSaveState(); });
@@ -121,18 +117,18 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
     child_.add_restore_state_listener([=]() { customRestoreState(); });
     child_.add_accept_state_listener([=]() { customAcceptState(); });
 
-    parent_set_.add_element_added_listener([=](InfectionEventImpl *parent) { addParent(parent); });
-    parent_set_.add_element_removed_listener([=](InfectionEventImpl *parent) { removeParent(parent); });
-    parent_set_.add_save_state_listener([=]() { customSaveState(); });
-    parent_set_.add_restore_state_listener([=]() { customRestoreState(); });
-    parent_set_.add_accept_state_listener([=]() { customAcceptState(); });
+    parentSet_.add_element_added_listener([=](InfectionEventImpl *parent) { addParent(parent); });
+    parentSet_.add_element_removed_listener([=](InfectionEventImpl *parent) { removeParent(parent); });
+    parentSet_.add_save_state_listener([=]() { customSaveState(); });
+    parentSet_.add_restore_state_listener([=]() { customRestoreState(); });
+    parentSet_.add_accept_state_listener([=]() { customAcceptState(); });
 
 
-    for (auto &parent : parent_set_.value()) {
+    for (auto &parent : parentSet_.value()) {
         addParent(parent);
     }
 
-    added_parents.clear();
+    addedParents_.clear();
 
     this->setDirty();
 }
@@ -144,14 +140,14 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
     if(this->isDirty()) {
 //        this->value_ = -std::numeric_limits<double>::infinity();
 
-        for (auto &parent: to_calculate_) {
-            calculated_parent_values_.at(parent) = calculateParentLogLikelihoodContribution(parent, calculated_);
+        for (auto &parent: toCalculate_) {
+            calculatedParentValues_.at(parent) = calculateParentLogLikelihoodContribution(parent, calculated_);
             calculated_.insert(parent);
         }
-        to_calculate_.clear();
+        toCalculate_.clear();
 
-        if(calculated_parent_values_.size() > 0) {
-            this->value_ = logSumExp(calculated_parent_values_ | boost::adaptors::map_values);
+        if(calculatedParentValues_.size() > 0) {
+            this->value_ = logSumExp(calculatedParentValues_ | boost::adaptors::map_values);
         }
 
 //        std::cout << "Total Parents: " << calculated_parent_values_.size() << " -- ";
@@ -179,13 +175,13 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         this->setDirty();
     }
 
-    to_calculate_.clear();
+    toCalculate_.clear();
     calculated_.clear();
-    calculated_parent_values_.clear();
+    calculatedParentValues_.clear();
 
-    for (auto &p : parent_set_.value()) {
-        calculated_parent_values_.insert_or_assign(p, -std::numeric_limits<double>::infinity());
-        to_calculate_.insert(p);
+    for (auto &p : parentSet_.value()) {
+        calculatedParentValues_.insert_or_assign(p, -std::numeric_limits<double>::infinity());
+        toCalculate_.insert(p);
     }
 
 }
@@ -207,13 +203,13 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         this->setDirty();
     }
 
-    to_calculate_.clear();
+    toCalculate_.clear();
     calculated_.clear();
-    calculated_parent_values_.clear();
+    calculatedParentValues_.clear();
 
-    for (auto &p : parent_set_.value()) {
-        calculated_parent_values_.insert_or_assign(p, -std::numeric_limits<double>::infinity());
-        to_calculate_.insert(p);
+    for (auto &p : parentSet_.value()) {
+        calculatedParentValues_.insert_or_assign(p, -std::numeric_limits<double>::infinity());
+        toCalculate_.insert(p);
     };
 }
 
@@ -226,8 +222,8 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         this->setDirty();
     }
     addParentListeners(parent);
-    added_parents.insert(parent);
-    to_calculate_.insert(parent);
+    addedParents_.insert(parent);
+    toCalculate_.insert(parent);
 }
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
@@ -246,7 +242,7 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
     acceptStateListenerIdMap[parent] = acceptStateListenerId;
     restoreStateListenerIdMap[parent] = restoreStateListenerId;
 
-    calculated_parent_values_.emplace(parent, -std::numeric_limits<double>::infinity());
+    calculatedParentValues_.emplace(parent, -std::numeric_limits<double>::infinity());
 }
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
@@ -257,16 +253,16 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         this->setDirty();
     }
 
-    calculated_parent_values_.erase(parent);
+    calculatedParentValues_.erase(parent);
 
     if (calculated_.contains(parent)) {
         calculated_.erase(parent);
     } else {
-        to_calculate_.erase(parent);
+        toCalculate_.erase(parent);
     }
 
     removeParentListeners(parent);
-    removed_parents.insert(parent);
+    removedParents_.insert(parent);
 }
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
@@ -295,9 +291,9 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
     }
 
     if(calculated_.contains(parent)) {
-        calculated_parent_values_.at(parent) = -std::numeric_limits<double>::infinity();
+        calculatedParentValues_.at(parent) = -std::numeric_limits<double>::infinity();
         calculated_.erase(parent);
-        to_calculate_.insert(parent);
+        toCalculate_.insert(parent);
     }
 }
 
@@ -308,26 +304,26 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         InfectionEventImpl *parent, ParentSet<InfectionEventImpl> others) {
     const auto otherNodesSize = others.size();
     double max_llik = std::numeric_limits<double>::lowest();
-    parent_likelihood_contribution_.clear();
+    parentLikelihoodContribution_.clear();
     // Calculate the single parent case
-    tmp_ps_.clear();
-    tmp_ps_.insert(parent);
-    parent_likelihood_contribution_.push_back(ntp_.calculateLogLikelihood(child_, tmp_ps_));
-    max_llik = std::max(max_llik, parent_likelihood_contribution_.back());
+    tmpPs_.clear();
+    tmpPs_.insert(parent);
+    parentLikelihoodContribution_.push_back(ntp_.calculateLogLikelihood(child_, tmpPs_));
+    max_llik = std::max(max_llik, parentLikelihoodContribution_.back());
     for (int i = 1; i < ParentSetMaxCardinality - 1; ++i) {
         cs_.reset(otherNodesSize, i);
         while (!cs_.completed) {
             cs_.next();
-            tmp_ps_.clear();
+            tmpPs_.clear();
             for (const auto &idx : cs_.curr) {
-                tmp_ps_.insert(others.begin()[idx]);
+                tmpPs_.insert(others.begin()[idx]);
             }
-            tmp_ps_.insert(parent);
+            tmpPs_.insert(parent);
 
-            parent_likelihood_contribution_.push_back(ntp_.calculateLogLikelihood(child_, tmp_ps_));
+            parentLikelihoodContribution_.push_back(ntp_.calculateLogLikelihood(child_, tmpPs_));
         }
     }
-    return logSumExpKnownMax(parent_likelihood_contribution_.begin(), parent_likelihood_contribution_.end(), max_llik);
+    return logSumExpKnownMax(parentLikelihoodContribution_.begin(), parentLikelihoodContribution_.end(), max_llik);
 }
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
@@ -337,9 +333,9 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         this->notify_save_state();
         this->saved_state_ = this->value();
 
-        calculated_parent_values_cache_ = calculated_parent_values_;
-        to_calculate_cache_ = to_calculate_;
-        calculated_cache_ = calculated_;
+        calculatedParentValuesCache_ = calculatedParentValues_;
+        toCalculateCache_ = toCalculate_;
+        calculatedCache_ = calculated_;
 
     }
 }
@@ -351,20 +347,20 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         this->notify_restore_state();
         this->value_ = *(this->saved_state_);
 
-        calculated_parent_values_ = calculated_parent_values_cache_;
-        to_calculate_ = to_calculate_cache_;
-        calculated_ = calculated_cache_;
+        calculatedParentValues_ = calculatedParentValuesCache_;
+        toCalculate_ = toCalculateCache_;
+        calculated_ = calculatedCache_;
 
-        for (const auto& parent : added_parents) {
+        for (const auto& parent : addedParents_) {
             removeParentListeners(parent);
         }
 
-        for (const auto& parent : removed_parents) {
+        for (const auto& parent : removedParents_) {
             addParentListeners(parent);
         }
 
-        removed_parents.clear();
-        added_parents.clear();
+        removedParents_.clear();
+        addedParents_.clear();
 
         this->saved_state_.reset();
         this->value();
@@ -378,8 +374,8 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
     if (this->isSaved()) {
         this->notify_accept_state();
 
-        removed_parents.clear();
-        added_parents.clear();
+        removedParents_.clear();
+        addedParents_.clear();
 
         this->saved_state_.reset();
         this->value();

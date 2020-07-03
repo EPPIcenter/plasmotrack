@@ -52,6 +52,7 @@ ProbabilityVector<MAX_COUNT + 1> ZTPoisson<MAX_COUNT>::value() noexcept {
             denominator += this->value_(j);
         }
         this->value_ = this->value_ / denominator;
+        this->setClean();
     }
     return this->value_;
 }

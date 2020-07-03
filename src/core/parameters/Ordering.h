@@ -30,7 +30,7 @@ public:
 
     friend std::ostream &operator<<(std::ostream &os, const Ordering &list) noexcept {
         for (unsigned long i = 0; i < list.value_.size(); ++i) {
-            os << "Element " << i << ": " << *list.value_[i] << std::endl;
+            os << "Element " << i << ": " << *list.value_[i] << "\n";
         }
         return os;
     };
