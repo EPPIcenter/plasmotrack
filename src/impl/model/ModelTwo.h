@@ -6,7 +6,6 @@
 #define TRANSMISSION_NETWORKS_APP_MODELTWO_H
 
 #include <utility>
-#include <boost/math/distributions.hpp>
 
 #include "core/computation/PartialLikelihood.h"
 #include "core/computation/Accumulator.h"
@@ -17,8 +16,6 @@
 #include "core/distributions/ZTGeometric.h"
 #include "core/distributions/ZTPoisson.h"
 #include "core/distributions/ZTMultiplicativeBinomial.h"
-
-#include "core/priors/Prior.h"
 
 #include "impl/state/ModelTwoState.h"
 
@@ -54,8 +51,6 @@ class ModelTwo {
     using ParentSetImpl = OrderDerivedParentSet<InfectionEvent>;
     using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
 
-    using BetaPrior = Prior<boost::math::beta_distribution<>, Parameter<double>, int, int>;
-    using GammaPrior = Prior<boost::math::gamma_distribution<>, Parameter<double>, double, double>;
 
 public:
     explicit ModelTwo(ModelTwoState& state);

@@ -52,7 +52,8 @@ void OrderSampler<T, OrderingElement, Engine>::update() noexcept {
 
     auto [pivot, offset] = sampleProposal();
 
-    parameter_.swap(pivot, pivot + offset);
+
+    parameter_.swap(pivot + offset, pivot);
 
     const double acceptanceRatio = target_.value() - curLik;
 

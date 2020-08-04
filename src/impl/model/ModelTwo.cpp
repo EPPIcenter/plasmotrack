@@ -4,6 +4,9 @@
 
 #include "ModelTwo.h"
 
+#include "core/distributions/pdfs/BetaLogPDF.h"
+#include "core/distributions/pdfs/GammaLogPDF.h"
+
 
 ModelTwo::ModelTwo(ModelTwoState& state) : state(state) {
     intp = new InterTransmissionProbImpl(state.geometricGenerationProb);
@@ -12,12 +15,12 @@ ModelTwo::ModelTwo(ModelTwoState& state) : state(state) {
 
 
     // Register Priors
-    likelihood.addTarget(new BetaPrior(state.observationFalsePositiveRate, 1, 1));
-    likelihood.addTarget(new BetaPrior(state.observationFalseNegativeRate, 1, 1));
-    likelihood.addTarget(new BetaPrior(state.mutationProb, 1, 1));
-    likelihood.addTarget(new BetaPrior(state.lossProb, 1, 1));
-    likelihood.addTarget(new GammaPrior(state.meanCOI, 1, 1));
-    likelihood.addTarget(new BetaPrior(state.geometricGenerationProb, 1, 1));
+    likelihood.addTarget(new BetaLogPDF(state.observationFalsePositiveRate, 1, 10));
+    likelihood.addTarget(new BetaLogPDF(state.observationFalseNegativeRate, 1, 10));
+    likelihood.addTarget(new BetaLogPDF(state.mutationProb, 1, 50));
+    likelihood.addTarget(new BetaLogPDF(state.lossProb, 1, 1));
+    likelihood.addTarget(new GammaLogPDF(state.meanCOI, 1, 1));
+    likelihood.addTarget(new BetaLogPDF(state.geometricGenerationProb, 1, 1));
 
     for (auto &infection : state.infections) {
         for (auto &[locus, obsGenotype] : infection->observedGenotype()) {

@@ -20,19 +20,19 @@
 
 
 template<int MAX_COUNT>
-class ZTMultiplicativeBinomial : public Computation<ProbabilityMatrix <MAX_COUNT + 1>>,
+class ZTMultiplicativeBinomial : public Computation<TransitionMatrix<MAX_COUNT + 1>>,
                                  public Observable<ZTMultiplicativeBinomial<MAX_COUNT>>,
                                  public Cacheable<ZTMultiplicativeBinomial<MAX_COUNT>>,
-                                 public Checkpointable<ZTMultiplicativeBinomial<MAX_COUNT>, ProbabilityMatrix <MAX_COUNT + 1>> {
+                                 public Checkpointable<ZTMultiplicativeBinomial<MAX_COUNT>, TransitionMatrix<MAX_COUNT + 1>> {
 public:
     ZTMultiplicativeBinomial(Parameter<double> &prob,
                              Parameter<double> &assoc);
 
-    ProbabilityMatrix <MAX_COUNT + 1> value() noexcept override;
+    TransitionMatrix<MAX_COUNT + 1> value() noexcept override;
 
 
 private:
-    friend class Checkpointable<ZTMultiplicativeBinomial<MAX_COUNT>, ProbabilityMatrix <MAX_COUNT + 1>>;
+    friend class Checkpointable<ZTMultiplicativeBinomial<MAX_COUNT>, TransitionMatrix<MAX_COUNT + 1>>;
     friend class Cacheable<ZTMultiplicativeBinomial<MAX_COUNT>>;
 
     static const SquareMatrix<double, MAX_COUNT + 1> mat1;
@@ -124,7 +124,7 @@ ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(Parameter<double> 
 
 
 template<int MAX_COUNT>
-ProbabilityMatrix <MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::value() noexcept {
+TransitionMatrix<MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::value() noexcept {
     if (this->isDirty()) {
         auto tmp = combo_matrix.array() *
                    Eigen::pow(prob_.value(), mat1.array()) *

@@ -4,6 +4,9 @@
 
 #include "ModelThree.h"
 
+#include "core/distributions/pdfs/BetaLogPDF.h"
+#include "core/distributions/pdfs/GammaLogPDF.h"
+
 ModelThree::ModelThree(ModelThreeState& state) : state(state) {
     intp = new InterTransmissionProbImpl(state.geometricGenerationProb);
     nodeTransmissionProcess = new NodeTransmissionImpl(state.mutationProb, state.lossProb, *intp);
@@ -11,12 +14,12 @@ ModelThree::ModelThree(ModelThreeState& state) : state(state) {
 
 
     // Register Priors
-    likelihood.addTarget(new BetaPrior(state.observationFalsePositiveRate, 1, 1));
-    likelihood.addTarget(new BetaPrior(state.observationFalseNegativeRate, 1, 1));
-    likelihood.addTarget(new BetaPrior(state.mutationProb, 1, 1));
-    likelihood.addTarget(new BetaPrior(state.lossProb, 1, 1));
-    likelihood.addTarget(new GammaPrior(state.meanCOI, 1, 1));
-    likelihood.addTarget(new BetaPrior(state.geometricGenerationProb, 1, 1));
+    likelihood.addTarget(new BetaLogPDF(state.observationFalsePositiveRate, 1, 100));
+    likelihood.addTarget(new BetaLogPDF(state.observationFalseNegativeRate, 1, 50));
+    likelihood.addTarget(new BetaLogPDF(state.mutationProb, 1, 1000));
+    likelihood.addTarget(new BetaLogPDF(state.lossProb, 1, 1));
+    likelihood.addTarget(new GammaLogPDF(state.meanCOI, 1, 1));
+    likelihood.addTarget(new BetaLogPDF(state.geometricGenerationProb, 1, 1));
 
     for (auto &infection : state.infections) {
         for (auto &[locus, obsGenotype] : infection->observedGenotype()) {
@@ -40,7 +43,7 @@ ModelThree::ModelThree(ModelThreeState& state) : state(state) {
                 *coiProb,
                 state.alleleFrequencies,
                 *infection
-                                                )
+            )
         );
 
         transmissionProcessList.push_back(new TransmissionProcess(
@@ -48,7 +51,7 @@ ModelThree::ModelThree(ModelThreeState& state) : state(state) {
                 *sourceTransmissionProcessList.back(),
                 *infection,
                 *parentSet
-                                          )
+            )
         );
 
         likelihood.addTarget(transmissionProcessList.back());

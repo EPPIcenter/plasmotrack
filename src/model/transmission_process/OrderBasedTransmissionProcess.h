@@ -129,7 +129,6 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
     }
 
     addedParents_.clear();
-
     this->setDirty();
 }
 
@@ -138,7 +137,7 @@ double
 OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::value() {
 
     if(this->isDirty()) {
-//        this->value_ = -std::numeric_limits<double>::infinity();
+        this->value_ = -std::numeric_limits<double>::infinity();
 
         for (auto &parent: toCalculate_) {
             calculatedParentValues_.at(parent) = calculateParentLogLikelihoodContribution(parent, calculated_);
@@ -150,16 +149,7 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
             this->value_ = logSumExp(calculatedParentValues_ | boost::adaptors::map_values);
         }
 
-//        std::cout << "Total Parents: " << calculated_parent_values_.size() << " -- ";
-//        for (const auto& [k, val] : calculated_parent_values_) {
-//            std::cout << val << ", ";
-//        }
-
-//        std::cout << stp_.value() << std::endl;
-
         this->value_ = logSumExp(this->value_, stp_.value());
-//        this->value_ = logSumExp(this->value_, -1000);
-//        std::cout << "Total Value: " << this->value_ << std::endl;
         this->setClean();
     }
 

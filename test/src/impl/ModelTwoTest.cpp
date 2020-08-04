@@ -10,6 +10,7 @@
 #include "core/utils/io/Loggers/ValueLogger.h"
 #include "core/utils/io/path_parsing.h"
 
+#include "core/samplers/DoubleConstrainedContinuousRandomWalk.h"
 #include "core/samplers/ConstrainedContinuousRandomWalk.h"
 #include "core/samplers/SALTSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
@@ -19,6 +20,8 @@
 #include "impl/model/ModelTwo.h"
 #include "impl/state/ModelTwoState.h"
 
+#include "core/utils/io/serialize.h"
+
 
 namespace fs = boost::filesystem;
 
@@ -26,7 +29,7 @@ TEST(ModelTwoTest, CoreTest) {
 
     using InfectionEvent = ModelTwoState::InfectionEvent;
     using Locus = ModelTwoState::LocusImpl;
-    using ZeroOneSampler = ConstrainedContinuousRandomWalk<0, 1, ModelTwo, boost::random::mt19937>;
+    using ProbabilitySampler = DoubleConstrainedContinuousRandomWalk<ModelTwo, boost::random::mt19937>;
     using ZeroBoundedSampler = ConstrainedContinuousRandomWalk<0, std::numeric_limits<int>::max(), ModelTwo, boost::random::mt19937>;
     using GeneticsSampler = RandomAllelesBitSetSampler<ModelTwo, boost::random::mt19937, ModelTwoState::GeneticsImpl>;
 
@@ -70,10 +73,10 @@ TEST(ModelTwoTest, CoreTest) {
 
     state.infectionEventOrdering.addElements(state.infections);
 
-    state.observationFalsePositiveRate.initializeValue(.15);
+    state.observationFalsePositiveRate.initializeValue(.05);
     state.observationFalseNegativeRate.initializeValue(.15);
-    state.geometricGenerationProb.initializeValue(.5);
-    state.lossProb.initializeValue(.001);
+    state.geometricGenerationProb.initializeValue(.8);
+    state.lossProb.initializeValue(.3);
     state.mutationProb.initializeValue(.0005);
     state.meanCOI.initializeValue(1);
 
@@ -110,22 +113,6 @@ TEST(ModelTwoTest, CoreTest) {
     for (int l = 1; l < (int)state.infections.size() / 2; ++l) {
         scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, l));
     }
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 1));
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 2));
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 3));
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 4));
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 5));
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 6));
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 7));
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 8));
-    scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 9));
-//    scheduler.registerSampler(new ZeroOneSampler(state.observationFalsePositiveRate, model, &r));
-//    scheduler.registerSampler(new ZeroOneSampler(state.observationFalseNegativeRate, model, &r));
-//    scheduler.registerSampler(new ZeroOneSampler(state.geometricGenerationProb, model, &r));
-//    scheduler.registerSampler(new ZeroOneSampler(state.lossProb, model, &r));
-//    scheduler.registerSampler(new ZeroOneSampler (state.mutationProb, model, &r));
-//    scheduler.registerSampler(new ZeroBoundedSampler(state.meanCOI, model, &r));
-
 
     for(auto &infection : state.infections) {
         for(const auto& [locus_label, locus] : state.loci) {
@@ -136,7 +123,25 @@ TEST(ModelTwoTest, CoreTest) {
         }
     }
 
-//    const auto genotypeSampler = dynamic_cast<GeneticsSampler*>(scheduler.samplers().back());
+    for (int k = 0; k < 5000; ++k) {
+        scheduler.updateAndAdapt();
+        if(k % 10 == 0) {
+            std::cout << "Current LLik: " << model.value() << std::endl;
+            std::cout << serialize(state.infectionEventOrdering.value()) << std::endl;
+            std::cout << state.observationFalsePositiveRate.value() << " ";
+            std::cout << state.observationFalseNegativeRate.value() << " ";
+            std::cout << state.lossProb.value() << " ";
+            std::cout << state.mutationProb.value() << std::endl;
+        }
+    }
+
+//    scheduler.registerSampler(new ProbabilitySampler(state.observationFalsePositiveRate, model, 0.0, 0.15, &r));
+//    scheduler.registerSampler(new ProbabilitySampler(state.observationFalseNegativeRate, model, 0.0, 0.5, &r));
+    scheduler.registerSampler(new ProbabilitySampler(state.geometricGenerationProb, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ProbabilitySampler(state.lossProb, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ProbabilitySampler (state.mutationProb, model, 0.0, 0.5, &r));
+    scheduler.registerSampler(new ZeroBoundedSampler(state.meanCOI, model, &r));
+
 
     for(const auto& [locus_label, locus] : state.loci) {
         scheduler.registerSampler(new SALTSampler<ModelTwo>(state.alleleFrequencies.alleleFrequencies(locus), model, &r));
@@ -145,14 +150,25 @@ TEST(ModelTwoTest, CoreTest) {
     for (int k = 0; k < 50000; ++k) {
 //        scheduler.update();
         scheduler.updateAndAdapt();
-        if(k % 10 == 0) {
+        if (k % 10 == 0) {
             std::cout << "Current LLik: " << model.value() << std::endl;
+            std::cout << serialize(state.infectionEventOrdering.value()) << std::endl;
+            std::cout << state.observationFalsePositiveRate.value() << " ";
+            std::cout << state.observationFalseNegativeRate.value() << " ";
+            std::cout << state.lossProb.value() << " ";
+            std::cout << state.mutationProb.value() << std::endl;
 //            std::cout << "Genotype Sampler: " << genotypeSampler->acceptanceRate() << std::endl;
         }
     }
 
-    for (int i = 0; i < 50000; ++i) {
+    for (int i = 0; i < 5000; ++i) {
         scheduler.update();
+        std::cout << "Current LLik: " << model.value() << std::endl;
+        std::cout << serialize(state.infectionEventOrdering.value()) << std::endl;
+        std::cout << state.observationFalsePositiveRate.value() << " ";
+        std::cout << state.observationFalseNegativeRate.value() << " ";
+        std::cout << state.lossProb.value() << " ";
+        std::cout << state.mutationProb.value() << std::endl;
         if (i % 10 == 0) {
             for (const auto& logger : loggers) {
                 logger->logValue();

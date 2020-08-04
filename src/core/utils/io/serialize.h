@@ -20,11 +20,11 @@ inline std::string serialize(const int val) noexcept {
     return std::to_string(val);
 }
 
+
 template<int MAX_COI>
 std::string serialize(const AllelesBitSet<MAX_COI>& val) noexcept {
     return val.serialize();
 }
-
 
 inline std::string serialize(const Simplex& val) noexcept {
     return val.serialize();
@@ -39,6 +39,7 @@ template<typename NodeValueImpl>
 std::string serialize(const TransmissionNetwork<NodeValueImpl>& val) {
     return val->serialize();
 }
+
 
 template<typename T>
 std::string serialize(const std::vector<T*> val) {

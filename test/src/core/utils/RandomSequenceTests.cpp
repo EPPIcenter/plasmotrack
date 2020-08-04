@@ -4,8 +4,8 @@
 
 #include <boost/random.hpp>
 
+#include "core/utils/RandomSequence.h"
 #include "gtest/gtest.h"
-#include "core/utils/random_sequence.h"
 
 
 TEST(RandomSequenceTest, HandlesZeroIndexed) {

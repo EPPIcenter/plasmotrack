@@ -14,11 +14,11 @@ struct CombinationsWithRepetitionsGenerator {
     bool completed = false;
     unsigned long generated = 0;
 
-    CombinationsWithRepetitionsGenerator(unsigned int nChoices, unsigned int k);
+    CombinationsWithRepetitionsGenerator(int nChoices, int k);
     CombinationsWithRepetitionsGenerator();
 
     void next() noexcept;
-    void reset(unsigned int nChoices, unsigned int k) noexcept;
+    void reset(int nChoices, int k) noexcept;
 
     combination_t curr{};
 

@@ -28,13 +28,13 @@
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/ObservationProcessLikelihood.h"
 
-#include "model/transmission_process/TransmissionProcessLikelihood.h"
-#include "core/distributions/ZTMultiplicativeBinomial.h"
-#include "model/transmission_process/node_transmission_process/NoSuperInfectionNoMutation.h"
-#include "model/transmission_process/OrderDerivedParentSet.h"
-#include "model/transmission_process/OrderBasedTransmissionProcess.h"
-#include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 #include "core/distributions/ZTGeometric.h"
+#include "core/distributions/ZTMultiplicativeBinomial.h"
+#include "model/transmission_process/OrderBasedTransmissionProcess.h"
+#include "model/transmission_process/OrderDerivedParentSet.h"
+#include "model/transmission_process/TransmissionProcessLikelihood.h"
+#include "model/transmission_process/node_transmission_process/NoSuperInfectionNoMutation.h"
+#include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
 
 using GeneticsImpl = AllelesBitSet<16>;

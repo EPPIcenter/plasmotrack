@@ -4,14 +4,14 @@
 
 #include "CombinationsWithRepetitionsGenerator.h"
 
-CombinationsWithRepetitionsGenerator::CombinationsWithRepetitionsGenerator(unsigned int nChoices, unsigned int k) : nChoices_(nChoices),
+CombinationsWithRepetitionsGenerator::CombinationsWithRepetitionsGenerator(int nChoices, int k) : nChoices_(nChoices),
                                                                                                   k_(k) {
     curr = std::vector<int>(k_, 0);
     curr[0] = -1;
 }
 
 
-void CombinationsWithRepetitionsGenerator::reset(unsigned int nChoices, unsigned int k) noexcept {
+void CombinationsWithRepetitionsGenerator::reset(int nChoices, int k) noexcept {
     k_ = k;
     nChoices_ = nChoices;
     std::fill(curr.begin(), curr.end(), 0);

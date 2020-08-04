@@ -56,6 +56,7 @@ std::vector<InfectionEvent*> parseInfectionsFromJSON(
     std::vector<InfectionEvent*> infections{};
     for (const auto& inf : input.at(infectionsKey)) {
         infections.push_back(new InfectionEvent(inf.at(idKey)));
+
         for (const auto& genetics : inf.at(obsGenotypesKey)) {
             auto locusLabel = genetics.at(locusKey);
             auto locusItr = loci.find(locusLabel);
@@ -65,10 +66,12 @@ std::vector<InfectionEvent*> parseInfectionsFromJSON(
             }
             if (!missingGenotype(genetics.at(genotypeKey))) {
                 std::string obs_genetics = genetics.at(genotypeKey);
-//                std::string latent_genetics = "";
-//                latent_genetics.resize(obs_genetics.length(), '1');
                 infections.back()->addGenetics(locusItr->second, obs_genetics, obs_genetics);
-//                infections.back()->addGenetics(locusItr->second, obs_genetics, latent_genetics);
+            } else {
+                std::string latent_genetics;
+                latent_genetics.resize(locusItr->second->totalAlleles(), '0');
+                latent_genetics[0] = '1';
+                infections.back()->addLatentGenetics(locusItr->second, latent_genetics);
             }
 
         }

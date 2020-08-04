@@ -39,7 +39,7 @@ public:
 
     const std::string serialize() const noexcept;
 
-    private:
+private:
     unsigned int total_elements_;
     DynamicArray coefficients_{};
     Eigen::IOFormat fmt{4, 0, ",", ","};

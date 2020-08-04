@@ -2,8 +2,8 @@
 // Created by Maxwell Murphy on 4/17/20.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_RANDOM_SEQUENCE_H
-#define TRANSMISSION_NETWORKS_APP_RANDOM_SEQUENCE_H
+#ifndef TRANSMISSION_NETWORKS_APP_RANDOMSEQUENCE_H
+#define TRANSMISSION_NETWORKS_APP_RANDOMSEQUENCE_H
 
 #include <vector>
 #include <numeric>
@@ -12,12 +12,14 @@
 #include <boost/random.hpp>
 #include <boost/range/algorithm.hpp>
 
-/// Generate a random sequence of values from [min, max). Useful for randomly indexing into a vector
-/// \tparam Engine boost random generator
-/// \param min min inclusive value in sequence
-/// \param max max exclusive value in sequence
-/// \param rng boost random generator
-/// \return vector<int> of random sequence containing [min, max)
+/**
+ * Generate a random sequence of values from [min, max). Useful for randomly indexing into a vector
+ * @tparam Engine boost random generator
+ * @param min  min inclusive value in sequence
+ * @param max max exclusive value in sequence
+ * @param rng boost random generator
+ * @return vector<int> of random sequence containing [min, max)
+ */
 template<typename Engine>
 std::vector<int> randomSequence(int min, int max, Engine rng) {
     assert(min < max);
@@ -33,4 +35,4 @@ std::vector<int> randomSequence(int min, int max, Engine rng) {
     return indices;
 }
 
-#endif //TRANSMISSION_NETWORKS_APP_RANDOM_SEQUENCE_H
+#endif//TRANSMISSION_NETWORKS_APP_RANDOMSEQUENCE_H

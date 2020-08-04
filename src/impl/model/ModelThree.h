@@ -5,21 +5,16 @@
 #ifndef TRANSMISSION_NETWORKS_APP_MODELTHREE_H
 #define TRANSMISSION_NETWORKS_APP_MODELTHREE_H
 
-#include <boost/math/distributions.hpp>
-
 #include "core/computation/Accumulator.h"
 
 #include "core/distributions/ZTGeometric.h"
 #include "core/distributions/ZTPoisson.h"
 #include "core/distributions/ZTMultiplicativeBinomial.h"
 
-#include "core/priors/Prior.h"
-
 #include "impl/state/ModelThreeState.h"
 
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/ObservationProcessLikelihood.h"
-
 
 #include "model/transmission_process/NetworkBasedTransmissionProcess.h"
 #include "model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h"
@@ -28,7 +23,7 @@
 
 
 class ModelThree {
-    static constexpr int MAX_COI = 32;
+    static constexpr int MAX_COI = 8;
     static constexpr int MAX_PARENTS = 1;
     static constexpr int MAX_TRANSMISSIONS = 5;
 
@@ -48,8 +43,8 @@ class ModelThree {
     using ParentSetImpl = ParentSet<InfectionEvent>;
     using TransmissionProcess = NetworkBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
 
-    using BetaPrior = Prior<boost::math::beta_distribution<>, Parameter<double>, int, int>;
-    using GammaPrior = Prior<boost::math::gamma_distribution<>, Parameter<double>, double, double>;
+//    using BetaPrior = Prior<boost::math::beta_distribution<>, Parameter<double>, int, int>;
+//    using GammaPrior = Prior<boost::math::gamma_distribution<>, Parameter<double>, double, double>;
 
 public:
     explicit ModelThree(ModelThreeState& state);

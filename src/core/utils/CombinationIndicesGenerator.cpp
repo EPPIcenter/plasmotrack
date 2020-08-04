@@ -9,6 +9,10 @@ CombinationIndicesGenerator::CombinationIndicesGenerator(int n, int r) : complet
                                                                          r_(r) {
     curr.resize(r_);
     std::iota(curr.begin(), curr.end(), 0);
+//    curr.clear();
+//    for (int i = 0; i < r_; ++i) {
+//        curr.push_back(i);
+//    }
 }
 
 void CombinationIndicesGenerator::reset(int n, int r) {
@@ -20,6 +24,10 @@ void CombinationIndicesGenerator::reset(int n, int r) {
 
     curr.resize(r_);
     std::iota(curr.begin(), curr.end(), 0);
+//    curr.clear();
+//    for (int i = 0; i < r_; ++i) {
+//        curr.push_back(i);
+//    }
 }
 
 void CombinationIndicesGenerator::next() noexcept {
@@ -27,10 +35,10 @@ void CombinationIndicesGenerator::next() noexcept {
 
     completed = true;
     for (int i = r_ - 1; i >= 0; --i)
-        if (curr[i] < n_ - r_ + i) {
-            int j = curr[i] + 1;
-            while (i <= r_) {
-                curr[i++] = j++;
+        if (curr.at(i) < n_ - r_ + i) {
+            int j = curr.at(i) + 1;
+            while (i < r_) {
+                curr.at(i++) = j++;
             }
             completed = false;
             generated++;
@@ -43,3 +51,5 @@ CombinationIndicesGenerator::CombinationIndicesGenerator() {
     n_ = 0;
     r_ = 0;
 }
+
+//CombinationIndicesGenerator::combination_t CombinationIndicesGenerator::curr = {};

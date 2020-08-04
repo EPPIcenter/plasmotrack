@@ -17,16 +17,16 @@
 
 #include "core/datatypes/Matrix.h"
 
-template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
-class NoSuperInfectionMutation : public Computation<LogProbabilityMatrix<2>>,
-                                 public Observable<NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>>,
-                                 public Cacheable<NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>>,
-                                 public Checkpointable<NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>, LogProbabilityMatrix<2>> {
+template<int MaxTransmissions, typename InterTransmissionProbImpl>
+class NoSuperInfectionMutation : public Computation<LogProbabilityTransitionMatrix<2>>,
+                                 public Observable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>>,
+                                 public Cacheable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>>,
+                                 public Checkpointable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>, LogProbabilityTransitionMatrix<2>> {
 
 public:
     explicit NoSuperInfectionMutation(Parameter<double> &mutProb, Parameter<double> &lossProb, InterTransmissionProbImpl &intp);
 
-    LogProbabilityMatrix<2> value() noexcept override;
+    LogProbabilityTransitionMatrix<2> value() noexcept override;
 
     template<typename GeneticsImpl>
     double calculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps);
@@ -42,8 +42,8 @@ public:
 
 
 private:
-    friend class Checkpointable<NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>, LogProbabilityMatrix<2>>;
-    friend class Cacheable<NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>>;
+    friend class Checkpointable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>, LogProbabilityTransitionMatrix<2>>;
+    friend class Cacheable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>>;
 
     Parameter<double> &mutProb_;
     Parameter<double> &lossProb_;
@@ -51,8 +51,8 @@ private:
 };
 
 
-template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
-NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::NoSuperInfectionMutation(
+template<int MaxTransmissions, typename InterTransmissionProbImpl>
+NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::NoSuperInfectionMutation(
         Parameter<double> &mutProb, Parameter<double> &lossProb, InterTransmissionProbImpl &intp):mutProb_(mutProb), lossProb_(lossProb), intp_(intp) {
             mutProb_.registerCacheableCheckpointTarget(this);
             mutProb_.add_post_change_listener([=]() { this->setDirty(); });
@@ -70,8 +70,8 @@ NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::NoSuperI
 
 
 
-template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
-LogProbabilityMatrix<2> NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::value() noexcept {
+template<int MaxTransmissions, typename InterTransmissionProbImpl>
+        LogProbabilityTransitionMatrix<2> NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::value() noexcept {
     if (this->isDirty()) {
         SquareMatrix<double, 2> t_mat;
         t_mat <<    1 - mutProb_.value(),   mutProb_.value(),
@@ -80,7 +80,7 @@ LogProbabilityMatrix<2> NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmi
         auto tmp = t_mat;
         value_ = tmp * intp_.value()(1);
 
-        for (int i = 2; i <= MAX_TRANSMISSIONS; ++i) {
+        for (int i = 2; i <= MaxTransmissions; ++i) {
             tmp = tmp * t_mat;
             value_ += tmp * intp_.value()(i);
         }
@@ -94,10 +94,9 @@ LogProbabilityMatrix<2> NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmi
 }
 
 
-template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
+template<int MaxTransmissions, typename InterTransmissionProbImpl>
 template<typename GeneticsImpl>
-double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::calculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
-//    assert(ps.size() <= 1);
+double NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::calculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
     if(ps.size() > 1) {
         return -std::numeric_limits<double>::infinity();
     }
@@ -106,34 +105,31 @@ double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::c
     for (auto const &parent : ps) {
         auto const &parentGenotypes = parent->latentGenotype();
         for (auto const& [locus, parentGenotypeAtLocus] : parentGenotypes) {
-            if (childGenotype.contains(locus)) {
-                auto const &childGenotypeAtLocus = childGenotype.at(locus);
-                const unsigned int t00 = GeneticsImpl::trueNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
-                const unsigned int t01 = GeneticsImpl::falsePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
-                const unsigned int t10 = GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
-                const unsigned int t11 = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+            auto const &childGenotypeAtLocus = childGenotype.at(locus); // this is bad, slow lookup in tight loop -> could represent locus genetic data as one big vector instead?
+            const unsigned int t00 = GeneticsImpl::trueNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+            const unsigned int t01 = GeneticsImpl::falsePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+            const unsigned int t10 = GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+            const unsigned int t11 = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
 
-                // no mutation
-                llik += t00 * value()(0,0);
+            // no mutation
+            llik += t00 * value()(0,0);
 
-                // mutation
-                llik += t01 * value()(0,1);
+            // mutation
+            llik += t01 * value()(0,1);
 
-                // loss
-                llik += t10 * value()(1,0);
+            // loss
+            llik += t10 * value()(1,0);
 
-                // no loss
-                llik += t11 * value()(1,1);
-
-            }
+            // no loss
+            llik += t11 * value()(1,1);
         }
     }
     return llik;
 }
 
-template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
+template<int MaxTransmissions, typename InterTransmissionProbImpl>
 template<typename GeneticsImpl>
-double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::peekCalculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
+double NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::peekCalculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
 //    assert(ps.size() <= 1);
     if(ps.size() > 1) {
         return -std::numeric_limits<double>::infinity();
@@ -169,16 +165,16 @@ double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::p
 }
 
 
-template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
+template<int MaxTransmissions, typename InterTransmissionProbImpl>
 template<typename GeneticsImpl>
-double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::calculateLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
+double NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::calculateLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
     double llik = calculateLogLikelihood(child, ps);
     return llik > -std::numeric_limits<double>::infinity() ? exp(llik) : 0;
 }
 
-template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
+template<int MaxTransmissions, typename InterTransmissionProbImpl>
 template<typename GeneticsImpl>
-double NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::peekCalculateLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
+double NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::peekCalculateLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps) {
     double llik = peekCalculateLogLikelihood(child, ps);
     return llik > -std::numeric_limits<double>::infinity() ? exp(llik) : 0;
 }

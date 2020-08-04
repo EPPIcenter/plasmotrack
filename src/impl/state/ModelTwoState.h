@@ -19,7 +19,7 @@
 #include "core/parameters/Ordering.h"
 
 struct ModelTwoState {
-    static constexpr int MAX_ALLELES = 16;
+    static constexpr int MAX_ALLELES = 32;
     using LocusImpl = Locus;
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
     using InfectionEvent = Infection<GeneticsImpl, LocusImpl>;

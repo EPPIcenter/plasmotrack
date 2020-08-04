@@ -11,6 +11,7 @@
 #include "core/utils/io/Loggers/ValueLogger.h"
 #include "core/utils/io/Loggers/LambdaLogger.h"
 
+#include "core/samplers/DoubleConstrainedContinuousRandomWalk.h"
 #include "core/samplers/ConstrainedContinuousRandomWalk.h"
 #include "core/samplers/SALTSampler.h"
 #include "core/samplers/RandomizedScheduler.h"
@@ -31,7 +32,7 @@ TEST(ModelThreeTest, CoreTest) {
 
     using InfectionEvent = ModelThreeState::InfectionEvent;
     using Locus = ModelThreeState::LocusImpl;
-    using ZeroOneSampler = ConstrainedContinuousRandomWalk<0, 1, ModelThree, boost::random::mt19937>;
+    using ProbabilitySampler = DoubleConstrainedContinuousRandomWalk<ModelThree, boost::random::mt19937>;
     using ZeroBoundedSampler = ConstrainedContinuousRandomWalk<0, std::numeric_limits<int>::max(), ModelThree, boost::random::mt19937>;
     using GeneticsSampler = RandomAllelesBitSetSampler<ModelThree, boost::random::mt19937, ModelThreeState::GeneticsImpl>;
     using AddEdgeSampler = RandomAddEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
@@ -80,12 +81,12 @@ TEST(ModelThreeTest, CoreTest) {
 
     state.transmissionNetwork.addNodes(state.infections);
 
-    state.observationFalsePositiveRate.initializeValue(.5);
-    state.observationFalseNegativeRate.initializeValue(.5);
+    state.observationFalsePositiveRate.initializeValue(.05);
+    state.observationFalseNegativeRate.initializeValue(.15);
     state.geometricGenerationProb.initializeValue(.9);
-    state.lossProb.initializeValue(.5);
-    state.mutationProb.initializeValue(.5);
-    state.meanCOI.initializeValue(1);
+    state.lossProb.initializeValue(.3);
+    state.mutationProb.initializeValue(.01);
+    state.meanCOI.initializeValue(3);
 
     ModelThree model(state);
 
@@ -118,10 +119,20 @@ TEST(ModelThreeTest, CoreTest) {
     boost::random::mt19937 r;
     RandomizedScheduler scheduler(&r);
 
-    scheduler.registerSampler(new AddEdgeSampler(state.transmissionNetwork, model, &r));
-    scheduler.registerSampler(new RemoveEdgeSampler(state.transmissionNetwork, model, &r));
-    scheduler.registerSampler(new SwapEdgeSampler(state.transmissionNetwork, model, &r));
-    scheduler.registerSampler(new ReverseEdgeSampler(state.transmissionNetwork, model, &r));
+    for (int l = 0; l < 10; ++l) {
+        scheduler.registerSampler(new AddEdgeSampler(state.transmissionNetwork, model, &r));
+        scheduler.registerSampler(new RemoveEdgeSampler(state.transmissionNetwork, model, &r));
+        scheduler.registerSampler(new ReverseEdgeSampler(state.transmissionNetwork, model, &r));
+        scheduler.registerSampler(new SwapEdgeSampler(state.transmissionNetwork, model, &r));
+    }
+
+    for (int k = 0; k < 50000; ++k) {
+        scheduler.updateAndAdapt();
+        if(k % 100 == 0) {
+            std::cout << "(Network) Edge and Genotypes Current LLik: " << model.value() << "\n";
+            std::cout << state.transmissionNetwork.serialize() << std::endl;
+        }
+    }
 
 
     for(auto &infection : state.infections) {
@@ -129,58 +140,40 @@ TEST(ModelThreeTest, CoreTest) {
             if (infection->latentGenotype().contains(locus)) {
                 auto &latentGenotype = infection->latentGenotype(locus);
                 scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
-                scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
-                scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
             }
         }
     }
 
-    for (int k = 0; k < 50000; ++k) {
-//        scheduler.update();
+    scheduler.registerSampler(new ProbabilitySampler(state.observationFalsePositiveRate, model, 0.0, 0.15, &r));
+    scheduler.registerSampler(new ProbabilitySampler(state.observationFalseNegativeRate, model, 0.0, 0.5, &r));
+    scheduler.registerSampler(new ProbabilitySampler(state.geometricGenerationProb, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ProbabilitySampler(state.lossProb, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ProbabilitySampler (state.mutationProb, model, 0.0, 0.5, &r));
+    scheduler.registerSampler(new ZeroBoundedSampler(state.meanCOI, model, &r, .1, .01, 1));
+
+    for(const auto& [locus_label, locus] : state.loci) {
+        scheduler.registerSampler(new SALTSampler<ModelThree>(state.alleleFrequencies.alleleFrequencies(locus), model, &r));
+    }
+
+
+
+
+    for (int k = 0; k < 5000; ++k) {
         scheduler.updateAndAdapt();
         if(k % 10 == 0) {
             std::cout << "Edge and Genotypes Current LLik: " << model.value() << "\n";
-            std::cout << state.transmissionNetwork.serialize() << "\n";
-//            std::cout << "Genotype Sampler: " << genotypeSampler->acceptanceRate() << std::endl;
+            std::cout << state.transmissionNetwork.serialize() << std::endl;
+            std::cout << state.observationFalsePositiveRate.value() << " ";
+            std::cout << state.observationFalseNegativeRate.value() << " ";
+            std::cout << state.lossProb.value() << " ";
+            std::cout << state.mutationProb.value() << std::endl;
         }
     }
 
-    scheduler.registerSampler(new ZeroOneSampler(state.observationFalsePositiveRate, model, &r));
-    scheduler.registerSampler(new ZeroOneSampler(state.observationFalseNegativeRate, model, &r));
-    scheduler.registerSampler(new ZeroOneSampler(state.geometricGenerationProb, model, &r));
-    scheduler.registerSampler(new ZeroOneSampler(state.lossProb, model, &r));
-    scheduler.registerSampler(new ZeroOneSampler (state.mutationProb, model, &r));
-    scheduler.registerSampler(new ZeroBoundedSampler(state.meanCOI, model, &r));
-
-
-    for(auto &infection : state.infections) {
-        for(const auto& [locus_label, locus] : state.loci) {
-            if (infection->latentGenotype().contains(locus)) {
-                auto &latentGenotype = infection->latentGenotype(locus);
-                scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
-            }
-        }
-    }
-
-//    const auto genotypeSampler = dynamic_cast<GeneticsSampler*>(scheduler.samplers().back());
-
-//    for(const auto& [locus_label, locus] : state.loci) {
-//        scheduler.registerSampler(new SALTSampler<ModelThree>(state.alleleFrequencies.alleleFrequencies(locus), model, &r));
-//    }
-
-    for (int k = 0; k < 50000; ++k) {
-//        scheduler.update();
-        scheduler.updateAndAdapt();
-        if(k % 10 == 0) {
-            std::cout << "Current LLik: " << model.value() << "\n";
-//            std::cout << "Genotype Sampler: " << genotypeSampler->acceptanceRate() << std::endl;
-        }
-    }
-
-    for (int i = 0; i < 50000; ++i) {
+    for (int i = 0; i < 5000; ++i) {
         scheduler.update();
         if (i % 10 == 0) {
-            std::cout << "(Writing) Current LLik: " << model.value() << "\n";
+            std::cout << "(Writing) Current LLik: " << model.value() <<  std::endl;
             for (const auto& logger : loggers) {
                 logger->logValue();
             }

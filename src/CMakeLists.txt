@@ -9,10 +9,10 @@ find_package(nlohmann_json 3.2.0 REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
-if( NOT EIGEN3_INCLUDE_DIR )
-    message( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
-endif()
-include_directories (SYSTEM ${EIGEN3_INCLUDE_DIR})
+if (NOT EIGEN3_INCLUDE_DIR)
+    message(FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
+endif ()
+include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
 
 set(SOURCE_FILES
         core/computation/PartialLikelihood.cpp
@@ -22,7 +22,7 @@ set(SOURCE_FILES
         model/observation_process/AlleleCounts.cpp
         core/samplers/ConstrainedDiscreteRandomWalk.h
         core/samplers/genetics/RandomAllelesBitSetSampler.h
-        core/utils/random_sequence.h
+        core/utils/RandomSequence.h
         core/datatypes/Simplex.cpp
         core/samplers/Scheduler.cpp
         core/samplers/Scheduler.h
@@ -35,7 +35,37 @@ set(SOURCE_FILES
         core/utils/CombinationsWithRepetitionsGenerator.cpp
         core/utils/CombinationsWithRepetitionsGenerator.h
         core/priors/Prior.h
-        core/utils/io/parse_json.h core/utils/io/Loggers/AbstractLogger.h core/utils/io/Loggers/ValueLogger.h core/utils/io/serialize.h core/utils/io/Loggers/AbstractLogger.cpp core/samplers/RandomizedScheduler.h core/utils/io/path_parsing.cpp core/utils/io/path_parsing.h model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h model/transmission_process/NetworkBasedTransmissionProcess.h impl/state/ModelTwoState.cpp impl/state/ModelTwoState.h impl/model/ModelTwo.cpp impl/model/ModelTwo.h core/distributions/ZTPoisson.h core/samplers/graph/RandomAddEdgeSampler.h core/samplers/graph/RandomRemoveEdgeSampler.h core/samplers/graph/RandomSwapEdgeSampler.h impl/model/ModelThree.cpp impl/model/ModelThree.h impl/state/ModelThreeState.cpp impl/state/ModelThreeState.h core/utils/io/Loggers/LambdaLogger.h core/samplers/graph/RandomReverseEdgeSampler.h)
+        core/utils/io/parse_json.h
+        core/utils/io/Loggers/AbstractLogger.h
+        core/utils/io/Loggers/ValueLogger.h
+        core/utils/io/serialize.h
+        core/utils/io/Loggers/AbstractLogger.cpp
+        core/samplers/RandomizedScheduler.h
+        core/utils/io/path_parsing.cpp
+        core/utils/io/path_parsing.h
+        model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h
+        model/transmission_process/NetworkBasedTransmissionProcess.h
+        impl/state/ModelTwoState.cpp
+        impl/state/ModelTwoState.h
+        impl/model/ModelTwo.cpp
+        impl/model/ModelTwo.h
+        core/distributions/ZTPoisson.h
+        core/samplers/graph/RandomAddEdgeSampler.h
+        core/samplers/graph/RandomRemoveEdgeSampler.h
+        core/samplers/graph/RandomSwapEdgeSampler.h
+        impl/model/ModelThree.cpp
+        impl/model/ModelThree.h
+        impl/state/ModelThreeState.cpp
+        impl/state/ModelThreeState.h
+        core/utils/io/Loggers/LambdaLogger.h
+        core/samplers/graph/RandomReverseEdgeSampler.h
+        core/utils/ProbAnyMissing.h
+        model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h
+        core/distributions/pdfs/BetaLogPDF.h
+        core/distributions/pdfs/BetaLogPDF.cpp
+        core/distributions/pdfs/GammaLogPDF.cpp
+        core/distributions/pdfs/GammaLogPDF.h
+        core/samplers/DoubleConstrainedContinuousRandomWalk.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

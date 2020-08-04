@@ -17,16 +17,16 @@
 
 
 template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
-class NoSuperInfectionNoMutation : public Computation<LogProbabilityMatrix<MAX_COI + 1>>,
+class NoSuperInfectionNoMutation : public Computation<LogProbabilityTransitionMatrix<MAX_COI + 1>>,
                                    public Observable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>,
                                    public Cacheable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>,
-                                   public Checkpointable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<
+                                   public Checkpointable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityTransitionMatrix<
                                  MAX_COI + 1>> {
 
 public:
     explicit NoSuperInfectionNoMutation(COITransitionProbImpl &coitp, InterTransmissionProbImpl &intp);
 
-    LogProbabilityMatrix<MAX_COI + 1> value() noexcept override;
+    LogProbabilityTransitionMatrix<MAX_COI + 1> value() noexcept override;
 
     template<typename GeneticsImpl>
     double calculateLogLikelihood(const Infection<GeneticsImpl> &child, const ParentSet<Infection<GeneticsImpl>> &ps);
@@ -47,7 +47,7 @@ public:
     }
 
 private:
-    friend class Checkpointable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityMatrix<
+    friend class Checkpointable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>, LogProbabilityTransitionMatrix<
             MAX_COI + 1>>;
 
     friend class Cacheable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>;
@@ -70,7 +70,7 @@ NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, In
 }
 
 template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
-LogProbabilityMatrix<MAX_COI + 1>
+LogProbabilityTransitionMatrix<MAX_COI + 1>
 NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::value() noexcept {
     if (this->isDirty()) {
         auto tmp = coitp_.value();

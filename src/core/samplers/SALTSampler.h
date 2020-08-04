@@ -12,7 +12,7 @@
 #include "core/samplers/AbstractSampler.h"
 #include "core/datatypes/Simplex.h"
 
-#include "core/utils/random_sequence.h"
+#include "core/utils/RandomSequence.h"
 #include "core/utils/numerics.h"
 
 

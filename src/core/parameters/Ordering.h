@@ -86,9 +86,15 @@ void Ordering<T>::notifySwap(const int left_idx, const int right_idx) noexcept {
     keyed_notify_moved_right(this->value_[left_idx], this->value_[right_idx]);
     keyed_notify_moved_left(this->value_[right_idx], this->value_[left_idx]);
     for (int i = left_idx + 1; i < right_idx; ++i) {
+
+        // value_[i] has been moved left of element at value_[right_idx]
         keyed_notify_moved_left(this->value_[right_idx], this->value_[i]);
-        keyed_notify_moved_right(this->value_[left_idx], this->value_[i]);
+        // value_[right_idx] has been moved right of element at value_[i]
         keyed_notify_moved_right(this->value_[i], this->value_[right_idx]);
+
+        // value_[i] has been moved right of element at value_[left_idx]
+        keyed_notify_moved_right(this->value_[left_idx], this->value_[i]);
+        // value_[left_idx] has been moved left of element at value_[i]
         keyed_notify_moved_left(this->value_[i], this->value_[left_idx]);
     }
 }
