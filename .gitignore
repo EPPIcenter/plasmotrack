@@ -57,3 +57,4 @@ cmake-build-*
 doc/proposal/out
 
 test/outputs/
+.Rproj.user

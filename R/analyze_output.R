@@ -7,15 +7,18 @@ does_node_precede <- function(nodes, positions, node_i, node_j) {
   return(precedes)
 }
 
-setwd('~/Workspace/transmission_nets/test/outputs/ModelTwoTests/CoreTest/')
+# setwd('~/Workspace/transmission_nets/test/outputs/ModelTwoTests/CoreTest/')
+setwd('~/Workspace/transmission_nets/test/outputs/ModelThreeTests/CoreTest/')
 llik <- read_csv('likelihood.csv', col_names = c("llik"))
 geo_gen_prob <- read_csv('geo_gen_prob.csv', col_names = c("geo_gen"))
 mean_coi <- read_csv('mean_coi.csv', col_names = c("coi"))
 loss_prob <- read_csv('loss_prob.csv', col_names = c("prob"))
 mutation_prob <- read_csv('mutation_prob.csv', col_names = c("prob"))
 orderings <- read_csv('infection_order.csv', col_names = F)
+networks <- read_csv('network.csv')
 fpr <- read_csv('fpr.csv', col_names = c("fpr"))
 fnr <- read_csv('fnr.csv', col_names = c("fnr"))
+
 
 plot(1:length(llik$llik), llik$llik, type = "l")
 qplot(geo_gen_prob$geo_gen)
@@ -24,6 +27,8 @@ qplot(mutation_prob$prob)
 qplot(loss_prob$prob)
 qplot(fpr$fpr)
 qplot(fnr$fnr)
+
+
 
 long_ord <- orderings %>%
   rowid_to_column() %>%

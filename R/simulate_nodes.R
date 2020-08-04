@@ -57,19 +57,19 @@ simulate_observed_infection <- function(latent_genotype, fpr, fnr) {
 }
 
 total_founders <- 20
-num_loci <- 10
-min_alleles <- 5
-max_alleles <- 16
+num_loci <- 20
+min_alleles <- 6
+max_alleles <- 24
 fpr = .05
 fnr = .05
-pr = .8
+pr = .9
 assoc = 1
 total_nodes_ = 0
 
 s1 <- simulate_source(num_loci, min_alleles, max_alleles)
 nodes <- lapply(1:total_founders, function(x) simulate_founder_infection(s1, runif(1, 1, 5), fpr = fpr, fnr = fnr))
 
-for(i in 1:20) {
+for (i in 1:9) {
   parents <- sample(nodes, 1)
   children <- lapply(parents, function(p) simulate_child_infection(p, pr, assoc, fpr, fnr))
   nodes <- append(nodes, children)
@@ -77,7 +77,7 @@ for(i in 1:20) {
 
 nodes_input_data <- lapply(nodes, function(n) {
   observed_genotype <- lapply(names(n$obs_genotype), function(loc) {
-    list(locus=loc, genotype=paste0(n$obs_genotype[[loc]], collapse = ''))
+    list(locus = loc, genotype = paste0(n$obs_genotype[[loc]], collapse = ''))
   })
   id <- n$id
   res = list(observed_genotype = observed_genotype, id = id)
@@ -85,16 +85,50 @@ nodes_input_data <- lapply(nodes, function(n) {
 })
 
 loci_data <- lapply(names(s1), function(x){
- res <- list(locus = x, num_alleles=length(s1[[x]]))
+ res <- list(locus = x, num_alleles = length(s1[[x]]))
 })
 
-input_data <- list(loci=loci_data, nodes=nodes_input_data)
+input_data <- list(loci = loci_data, nodes = nodes_input_data)
 
-edge_list <- t(sapply(nodes, function(n) c(n$parent, n$id)))
-tnet <- graph_from_edgelist(edge_list)
-plot(delete_vertices(tnet, "source"), vertex.size=5)
+transmission_edge_list <- t(sapply(nodes, function(n) c(n$parent, n$id)))
+obs_edge_list <- t(sapply(nodes, function(n) c(n$id, paste0(n$id, "obs"))))
+edge_list = rbind(transmission_edge_list, obs_edge_list)
 
-write_json(input_data, "~/Workspace/transmission_nets/test/resources/JSON/nodes.json", auto_unbox=T)
+# tnet <- graph_from_edgelist(edge_list)
+tnet <- graph_from_edgelist(transmission_edge_list)
+tnet <- delete_vertices(tnet, "source")
+plot(tnet)
+
+vertices <- V(tnet)
+edges <- E(tnet)
+latent_vertices <- vertices[1:105]
+obs_vertices <- vertices[106:length(vertices)]
+
+random_latent_vertices <- sample(latent_vertices, length(latent_vertices) * .5)
+
+colored_tnet <- set_vertex_attr(tnet, "color", index = latent_vertices, "#AFD2E9")
+colored_tnet <- set_vertex_attr(colored_tnet, "color", index = obs_vertices, "#C98686")
+
+png(filename = "~/Google Drive//Gradschool/Presentations/model-it meeting/latent_network.png", width = 2000, height = 2000, bg = NA)
+plot(delete_vertices(colored_tnet, obs_vertices), vertex.size = 5, vertex.label = NA, edge.arrow.size = 2)
+dev.off()
+
+png(filename = "~/Google Drive//Gradschool/Presentations/model-it meeting/obs_network.png", width = 2000, height = 2000, bg = NA)
+plot(colored_tnet, vertex.size = 5, vertex.label = NA, edge.arrow.size = 2)
+dev.off()
+
+write_json(input_data, "~/Workspace/transmission_nets/test/resources/JSON/nodes.json", auto_unbox = T)
+
+
+
+
+
+
+
+
+
+
+
 
 
 
