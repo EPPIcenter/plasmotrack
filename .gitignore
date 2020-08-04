@@ -58,3 +58,5 @@ doc/proposal/out
 
 test/outputs/
 .Rproj.user
+
+test/resources/JSON/nodes.json
