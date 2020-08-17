@@ -2,7 +2,9 @@
 // Created by Maxwell Murphy on 4/20/20.
 //
 
-#include <boost/filesystem.hpp>
+//#include <boost/filesystem.hpp>
+#include <filesystem>
+#include <fstream>
 
 #include "gtest/gtest.h"
 
@@ -20,7 +22,7 @@
 #include "impl/state/ModelOneState.h"
 
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 TEST(ModelOneTest, CoreTest) {
 
@@ -49,7 +51,7 @@ TEST(ModelOneTest, CoreTest) {
         exit(1);
     }
 
-    fs::ifstream testFile{testFilePath};
+    std::ifstream testFile{testFilePath};
 
     if(!testFile) {
         std::cout << "Cannot open file." << std::endl;

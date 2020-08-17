@@ -18,7 +18,7 @@ void CombinationsWithRepetitionsGenerator::reset(int nChoices, int k) noexcept {
     curr.resize(k_, 0);
     curr[0] = -1;
     generated = 0;
-};
+}
 
 
 void CombinationsWithRepetitionsGenerator::next() noexcept {

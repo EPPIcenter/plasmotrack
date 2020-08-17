@@ -37,10 +37,10 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
     auto p_el4 = OrderDerivedParentSet<int>(ordering, el4);
 
     for(auto& el : ordering.value()) {
-        ordering.add_keyed_moved_left_listener(el, [&](const int* tar) {
+        ordering.add_keyed_moved_left_listener(el, [&]([[maybe_unused]] const int* tar) {
           movedLeftCounter[el] += 1;
         });
-        ordering.add_keyed_moved_right_listener(el, [&](const int* tar) {
+        ordering.add_keyed_moved_right_listener(el, [&]([[maybe_unused]] const int* tar) {
           movedRightCounter[el] += 1;
         });
     };

@@ -16,10 +16,10 @@ using nlohmann::json;
 inline json loadJSON(std::istream &input) {
     auto j = json::parse(input);
     return j;
-};
+}
 
 inline bool missingGenotype(const std::string& alleleStr) {
-    bool isEmpty = alleleStr.size() == 0;
+    bool isEmpty = alleleStr.empty();
     bool isMissing = std::all_of(alleleStr.begin(), alleleStr.end(), [](const char s) { return s == '0'; });
     return isEmpty or isMissing;
 }
@@ -41,7 +41,7 @@ std::map<std::string, LocusImpl*> parseLociFromJSON(
     }
 
     return locusMap;
-};
+}
 
 template <typename InfectionEvent, typename LocusImpl>
 std::vector<InfectionEvent*> parseInfectionsFromJSON(

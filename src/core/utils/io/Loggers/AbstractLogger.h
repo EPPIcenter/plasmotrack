@@ -5,11 +5,14 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ABSTRACTLOGGER_H
 #define TRANSMISSION_NETWORKS_APP_ABSTRACTLOGGER_H
 
-#include <boost/filesystem.hpp>
+//#include <boost/filesystem.hpp>
 #include <utility>
+#include <filesystem>
+#include <fstream>
 
 
-namespace fs = boost::filesystem;
+//namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 class AbstractLogger {
 
@@ -25,7 +28,7 @@ public:
 
 protected:
     fs::path outputPath_;
-    fs::ofstream outputFile_;
+    std::ofstream outputFile_;
     bool initialized{false};
 };
 

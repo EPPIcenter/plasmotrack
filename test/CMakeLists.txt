@@ -64,6 +64,9 @@ add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
+        nlohmann_json::nlohmann_json
         transmission_networks
         gtest)
+#target_link_libraries(transmission_networks_tests PRIVATE nlohmann_json::nlohmann_json)
+
 install(TARGETS transmission_networks_tests DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

@@ -7,14 +7,21 @@ set(transmission_networks_VERSION_MINOR 0)
 
 set(CMAKE_CXX_STANDARD 17)
 
-#if ( CMAKE_COMPILER_IS_GNUCC )
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra")
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
-#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -Werror -pedantic-errors")
-#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -pedantic-errors")
-set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -march=native -pedantic-errors")
-#endif()
 
+if ( CMAKE_COMPILER_IS_GNUCC )
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -Werror -pedantic-errors")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Ofast -g -march=native -ffast-math -Werror -pedantic-errors -fno-omit-frame-pointer")
+#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -pedantic-errors")
+#set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -march=native -pedantic-errors")
+endif()
+
+#if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+#    message("Compiling Clang")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mlinker-version=305 -Wall -Wextra")
+#    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -Werror -pedantic-errors")
+#    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Ofast -march=native -ffast-math -Werror -pedantic-errors")
+#endif()
 
 set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
 

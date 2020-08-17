@@ -5,6 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_UNCACHEABLEPASSTHROUGH_H
 #define TRANSMISSION_NETWORKS_APP_UNCACHEABLEPASSTHROUGH_H
 
+#include <functional>
+
 #include "core/abstract/crtp.h"
 #include "core/abstract/observables/Observable.h"
 

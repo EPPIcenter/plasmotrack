@@ -5,10 +5,19 @@
 #ifndef TRANSMISSION_NETWORKS_APP_MULTINOMIALSOURCETRANSMISSIONPROCESS_H
 #define TRANSMISSION_NETWORKS_APP_MULTINOMIALSOURCETRANSMISSIONPROCESS_H
 
+#include <cmath>
+#include <functional>
+
 #include <boost/container/flat_map.hpp>
 #include <boost/container/flat_set.hpp>
 
 #include "core/utils/ProbAnyMissing.h"
+#include "core/utils/numerics.h"
+#include "core/computation/Computation.h"
+#include "core/containers/Locus.h"
+#include "core/abstract/observables/Observable.h"
+#include "core/abstract/observables/Cacheable.h"
+#include "core/abstract/observables/Checkpointable.h"
 
 
 template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
@@ -51,6 +60,8 @@ private:
     std::vector<double> coiPartialLlik{};
     std::vector<double> tmpLocusLlik{};
     std::vector<double> prVec{};
+
+    std::vector<double> tmpCalculationVec{};
 
     probAnyMissingFunctor probAnyMissing;
 
@@ -110,6 +121,7 @@ double MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyC
         }
 
         dirtyLoci.clear();
+        tmpCalculationVec.clear();
 
         std::fill(coiPartialLlik.begin(), coiPartialLlik.end(), 0.0);
         for (int k = 0; k < MAX_COI + 1; ++k) {
@@ -122,14 +134,11 @@ double MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyC
             }
         }
 
-
-        this->value_ = 0.0;
-
         for (int l = 0; l < MAX_COI + 1; ++l) {
-            this->value_ += exp(coiPartialLlik.at(l));
+            tmpCalculationVec.push_back(coiPartialLlik.at(l));
         }
 
-        this->value_ = log(this->value_);
+        this->value_ = logSumExp(tmpCalculationVec);
 
         this->setClean();
     }

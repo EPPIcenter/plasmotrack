@@ -2,7 +2,9 @@
 // Created by Maxwell Murphy on 6/19/20.
 //
 
-#include <boost/filesystem.hpp>
+//#include <boost/filesystem.hpp>
+#include <filesystem>
+#include <fstream>
 
 #include "gtest/gtest.h"
 
@@ -26,7 +28,7 @@
 #include "impl/model/ModelThree.h"
 #include "impl/state/ModelThreeState.h"
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 TEST(ModelThreeTest, CoreTest) {
 
@@ -44,7 +46,7 @@ TEST(ModelThreeTest, CoreTest) {
     ModelThreeState state;
 
     const auto testsDir = getPathFromEnvVar("TRANSMISSION_NETWORK_TESTS_DIR");
-    const fs::path nodesFile{"resources/JSON/nodes.json"};
+    const fs::path nodesFile{"resources/JSON/nodes3.json"};
     const fs::path outputDir{"outputs/ModelThreeTests/CoreTest"};
 
     const fs::path testFilePath = testsDir / nodesFile;
@@ -60,7 +62,7 @@ TEST(ModelThreeTest, CoreTest) {
         exit(1);
     }
 
-    fs::ifstream testFile{testFilePath};
+    std::ifstream testFile{testFilePath};
 
     if(!testFile) {
         std::cout << "Cannot open file." << std::endl;
@@ -81,8 +83,8 @@ TEST(ModelThreeTest, CoreTest) {
 
     state.transmissionNetwork.addNodes(state.infections);
 
-    state.observationFalsePositiveRate.initializeValue(.05);
-    state.observationFalseNegativeRate.initializeValue(.15);
+    state.observationFalsePositiveRate.initializeValue(.005);
+    state.observationFalseNegativeRate.initializeValue(.1);
     state.geometricGenerationProb.initializeValue(.9);
     state.lossProb.initializeValue(.3);
     state.mutationProb.initializeValue(.01);
@@ -127,13 +129,16 @@ TEST(ModelThreeTest, CoreTest) {
     }
 
     for (int k = 0; k < 50000; ++k) {
-        scheduler.updateAndAdapt();
+        scheduler.update();
         if(k % 100 == 0) {
             std::cout << "(Network) Edge and Genotypes Current LLik: " << model.value() << "\n";
             std::cout << state.transmissionNetwork.serialize() << std::endl;
         }
     }
 
+    for(const auto& [locus_label, locus] : state.loci) {
+        scheduler.registerSampler(new SALTSampler<ModelThree>(state.alleleFrequencies.alleleFrequencies(locus), model, &r));
+    }
 
     for(auto &infection : state.infections) {
         for(const auto& [locus_label, locus] : state.loci) {
@@ -144,16 +149,12 @@ TEST(ModelThreeTest, CoreTest) {
         }
     }
 
-    scheduler.registerSampler(new ProbabilitySampler(state.observationFalsePositiveRate, model, 0.0, 0.15, &r));
-    scheduler.registerSampler(new ProbabilitySampler(state.observationFalseNegativeRate, model, 0.0, 0.5, &r));
+//    scheduler.registerSampler(new ProbabilitySampler(state.observationFalsePositiveRate, model, 0.0, 1, &r));
+//    scheduler.registerSampler(new ProbabilitySampler(state.observationFalseNegativeRate, model, 0.0, 1, &r));
     scheduler.registerSampler(new ProbabilitySampler(state.geometricGenerationProb, model, 0.0, 1.0, &r));
     scheduler.registerSampler(new ProbabilitySampler(state.lossProb, model, 0.0, 1.0, &r));
     scheduler.registerSampler(new ProbabilitySampler (state.mutationProb, model, 0.0, 0.5, &r));
     scheduler.registerSampler(new ZeroBoundedSampler(state.meanCOI, model, &r, .1, .01, 1));
-
-    for(const auto& [locus_label, locus] : state.loci) {
-        scheduler.registerSampler(new SALTSampler<ModelThree>(state.alleleFrequencies.alleleFrequencies(locus), model, &r));
-    }
 
 
 

@@ -9,6 +9,7 @@ find_package(nlohmann_json 3.2.0 REQUIRED)
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
+message("Loading Eigen from $ENV{EIGEN3_INCLUDE_DIR}")
 if (NOT EIGEN3_INCLUDE_DIR)
     message(FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
 endif ()

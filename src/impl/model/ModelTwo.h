@@ -35,18 +35,18 @@ class ModelTwo {
 
     using GeneticsImpl = ModelTwoState::GeneticsImpl;
     using InfectionEvent = ModelTwoState::InfectionEvent;
-    using AlleleFrequencyContainer = ModelTwoState::AlleleFrequencyContainer;
+    using AlleleFrequencyContainerImpl = ModelTwoState::AlleleFrequencyContainerImpl;
 
-    using AlleleCounter = AlleleCounter<GeneticsImpl>;
-    using AlleleCounterAccumulator = Accumulator<AlleleCounter, AlleleCounts>;
+    using AlleleCounterImpl = AlleleCounter<GeneticsImpl>;
+    using AlleleCounterAccumulator = Accumulator<AlleleCounterImpl, AlleleCounts>;
 
-    using Ordering = Ordering<InfectionEvent>;
+    using OrderingImpl = Ordering<InfectionEvent>;
 
     using InterTransmissionProbImpl = ZTGeometric<MAX_TRANSMISSIONS>;
     using NodeTransmissionImpl = NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>;
 
     using COIProbabilityImpl = ZTPoisson<MAX_COI>;
-    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent, MAX_COI>;
+    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent, MAX_COI>;
 
     using ParentSetImpl = OrderDerivedParentSet<InfectionEvent>;
     using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
@@ -63,7 +63,7 @@ public:
     Accumulator<PartialLikelihood, double> likelihood;
 
     // Observation Process
-    std::vector<AlleleCounter *> alleleCounters{};
+    std::vector<AlleleCounterImpl *> alleleCounters{};
     AlleleCounterAccumulator alleleCountAccumulator;
     ObservationProcessLikelihood<AlleleCounterAccumulator>* observationProcessLikelihood{};
 

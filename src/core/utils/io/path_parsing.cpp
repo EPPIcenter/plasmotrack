@@ -4,7 +4,6 @@
 
 #include "path_parsing.h"
 
-namespace fs = boost::filesystem;
 
 fs::path getPathFromEnvVar(const char *envVar) {
     const auto dirStr = getenv(envVar);
@@ -15,7 +14,8 @@ fs::path getPathFromEnvVar(const char *envVar) {
 
     fs::path dir{dirStr};
 
-    if(!fs::exists(dir)) {
+    std::cout << "Loading Path: " << dir << std::endl;
+    if(!fs::is_directory(dir)) {
         std::cerr << "Please set " << envVar << " to an appropriate directory.\n";
         exit(1);
     }

@@ -5,12 +5,15 @@
 #ifndef TRANSMISSION_NETWORKS_APP_VALUELOGGER_H
 #define TRANSMISSION_NETWORKS_APP_VALUELOGGER_H
 
+#include <filesystem>
+#include <fstream>
+
 #include "core/utils/io/serialize.h"
 
 #include "AbstractLogger.h"
 
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 template<typename T>
 class ValueLogger : public AbstractLogger {
@@ -36,7 +39,7 @@ ValueLogger<T>::ValueLogger(fs::path outputPath, T &target) : AbstractLogger(out
         initialized = true;
     }
 
-    outputFile_.open(outputPath, fs::ofstream::app);
+    outputFile_.open(outputPath, std::ofstream::app);
 }
 
 template<typename T>

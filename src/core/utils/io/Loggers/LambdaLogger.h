@@ -5,6 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_LAMBDALOGGER_H
 #define TRANSMISSION_NETWORKS_APP_LAMBDALOGGER_H
 
+#include <fstream>
+
 #include "AbstractLogger.h"
 
 template<typename Loggable>
@@ -35,7 +37,7 @@ LambdaLogger<Loggable>::LambdaLogger(const fs::path &outputPath, Loggable f) : A
         initialized = true;
     }
 
-    outputFile_.open(outputPath, fs::ofstream::app);
+    outputFile_.open(outputPath, std::ofstream::app);
 }
 
 

@@ -101,11 +101,17 @@ double NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::ca
         return -std::numeric_limits<double>::infinity();
     }
     double llik = 0.0;
-    auto const &childGenotype = child.latentGenotype();
+    auto const &childGenotypes = child.latentGenotype();
+
+    auto const childGenotypesIter = childGenotypes.begin();
     for (auto const &parent : ps) {
         auto const &parentGenotypes = parent->latentGenotype();
-        for (auto const& [locus, parentGenotypeAtLocus] : parentGenotypes) {
-            auto const &childGenotypeAtLocus = childGenotype.at(locus); // this is bad, slow lookup in tight loop -> could represent locus genetic data as one big vector instead?
+
+        auto const parentGenotypesIter = parentGenotypes.begin();
+        for (size_t i = 0; i < parentGenotypes.size(); ++i) {
+            // assume loci are ordered the same
+            auto const &parentGenotypeAtLocus = (*(parentGenotypesIter + i)).second;
+            auto const &childGenotypeAtLocus = (*(childGenotypesIter + i)).second;
             const unsigned int t00 = GeneticsImpl::trueNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
             const unsigned int t01 = GeneticsImpl::falsePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
             const unsigned int t10 = GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
@@ -123,6 +129,26 @@ double NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::ca
             // no loss
             llik += t11 * value()(1,1);
         }
+
+//        for (auto const& [locus, parentGenotypeAtLocus] : parentGenotypes) {
+//            auto const &childGenotypeAtLocus = childGenotypes.at(locus); // this is bad, slow lookup in tight loop -> could represent locus genetic data as one big vector instead?
+//            const unsigned int t00 = GeneticsImpl::trueNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+//            const unsigned int t01 = GeneticsImpl::falsePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+//            const unsigned int t10 = GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+//            const unsigned int t11 = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus.value(), childGenotypeAtLocus.value());
+//
+//            // no mutation
+//            llik += t00 * value()(0,0);
+//
+//            // mutation
+//            llik += t01 * value()(0,1);
+//
+//            // loss
+//            llik += t10 * value()(1,0);
+//
+//            // no loss
+//            llik += t11 * value()(1,1);
+//        }
     }
     return llik;
 }

@@ -17,13 +17,13 @@ public:
     template <typename Args, ENABLE_IF(NonSelf<Args, Data<T>>())>
     explicit Data(Args&& args) : value_(std::forward<Args>(args)) {
 //        std::cout << "data forward c'tor" << std::endl;
-    };
+    }
 
     void setLabel(const std::string& label) noexcept {
         label_ = label;
     }
 
-    [[nodiscard]] constexpr T value() const noexcept {
+    [[nodiscard]] T value() const noexcept {
         return value_;
     }
 

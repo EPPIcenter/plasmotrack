@@ -8,7 +8,7 @@
 #include "Locus.h"
 
 Locus::Locus(std::string label, int total_alleles) : uid(newUID++), label(std::move(label)),
-                                                     total_alleles_(total_alleles) {};
+                                                     total_alleles_(total_alleles) {}
 
 unsigned int Locus::newUID = 0;
 

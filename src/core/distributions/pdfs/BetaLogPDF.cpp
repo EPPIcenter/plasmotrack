@@ -23,5 +23,6 @@ Likelihood BetaLogPDF::value() {
                  logDenominator_;
         setClean();
     }
+
     return value_;
 }

@@ -23,22 +23,22 @@
 
 
 class ModelThree {
-    static constexpr int MAX_COI = 8;
+    static constexpr int MAX_COI = 10;
     static constexpr int MAX_PARENTS = 1;
     static constexpr int MAX_TRANSMISSIONS = 5;
 
     using GeneticsImpl = ModelThreeState::GeneticsImpl;
     using InfectionEvent = ModelThreeState::InfectionEvent;
-    using AlleleFrequencyContainer = ModelThreeState::AlleleFrequencyContainer;
+    using AlleleFrequencyContainerImpl = ModelThreeState::AlleleFrequencyContainerImpl;
 
-    using AlleleCounter = AlleleCounter<GeneticsImpl>;
-    using AlleleCounterAccumulator = Accumulator<AlleleCounter, AlleleCounts>;
+    using AlleleCounterImpl = AlleleCounter<GeneticsImpl>;
+    using AlleleCounterAccumulator = Accumulator<AlleleCounterImpl, AlleleCounts>;
 
     using InterTransmissionProbImpl = ZTGeometric<MAX_TRANSMISSIONS>;
     using NodeTransmissionImpl = NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>;
 
     using COIProbabilityImpl = ZTPoisson<MAX_COI>;
-    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent, MAX_COI>;
+    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent, MAX_COI>;
 
     using ParentSetImpl = ParentSet<InfectionEvent>;
     using TransmissionProcess = NetworkBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
@@ -57,7 +57,7 @@ public:
     Accumulator<PartialLikelihood, double> likelihood;
 
     // Observation Process
-    std::vector<AlleleCounter *> alleleCounters{};
+    std::vector<AlleleCounterImpl *> alleleCounters{};
     AlleleCounterAccumulator alleleCountAccumulator;
     ObservationProcessLikelihood<AlleleCounterAccumulator>* observationProcessLikelihood{};
 

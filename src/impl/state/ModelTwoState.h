@@ -24,13 +24,13 @@ struct ModelTwoState {
     using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
     using InfectionEvent = Infection<GeneticsImpl, LocusImpl>;
     using AlleleFrequencyImpl = Simplex;
-    using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
+    using AlleleFrequencyContainerImpl = AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
 
 
     std::map<std::string, LocusImpl *> loci{};
     std::vector<InfectionEvent *> infections{};
 
-    AlleleFrequencyContainer alleleFrequencies;
+    AlleleFrequencyContainerImpl alleleFrequencies;
 
     // Network Structure
     Ordering<InfectionEvent> infectionEventOrdering;

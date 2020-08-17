@@ -14,17 +14,18 @@ class AllelesBitSet {
 public:
     explicit AllelesBitSet(const std::string &bitstr);
 
-    AllelesBitSet& operator=(AllelesBitSet other) {
-        assert(total_alleles_ == other.total_alleles_);
-        if(&other == this) {
-            return *this;
-        }
+//    AllelesBitSet& operator=(AllelesBitSet other) {
+//        assert(total_alleles_ == other.total_alleles_);
+//        if(&other == this) {
+//            return *this;
+//        }
+//
+//        alleles_ = other.alleles_;
+//        return *this;
+//    }
 
-        alleles_ = other.alleles_;
-        return *this;
-    }
-
-    friend std::ostream &operator<<(std::ostream &os, const AllelesBitSet &alleles) noexcept;
+    template<int T>
+    friend std::ostream &operator<<(std::ostream &os, const AllelesBitSet<T> &alleles) noexcept;
 
     const std::string serialize() const noexcept;
 
