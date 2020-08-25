@@ -84,7 +84,7 @@ void Accumulator<Input, Output>::addTarget(Input *target) {
     targets_.insert(target);
     dirty_targets_.insert(target);
 
-    target->add_set_dirty_listener([=]() {
+    target->add_set_dirty_listener([=, this]() {
         const auto& [_, inserted] = dirty_targets_.insert(target);
         if (inserted) {
             this->setDirty();
@@ -102,7 +102,7 @@ inline void Accumulator<PartialLikelihood, double>::addTarget(PartialLikelihood 
     if(!inserted) assert(!"Target added more than once. Check model specification.");
     dirty_targets_.insert(target);
 
-    target->add_set_dirty_listener([=]() {
+    target->add_set_dirty_listener([=, this]() {
         const auto& [_, inserted] = dirty_targets_.insert(target);
         if (inserted) {
             this->setDirty();

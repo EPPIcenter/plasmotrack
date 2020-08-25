@@ -61,10 +61,10 @@ NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, In
         COITransitionProbImpl &coitp, InterTransmissionProbImpl &intp)
         : coitp_(coitp), intp_(intp) {
     coitp_.registerCacheableCheckpointTarget(this);
-    coitp_.add_set_dirty_listener([=]() { this->setDirty(); });
+    coitp_.add_set_dirty_listener([=, this]() { this->setDirty(); });
 
     intp_.registerCacheableCheckpointTarget(this);
-    intp_.add_set_dirty_listener([=]() { this->setDirty(); });
+    intp_.add_set_dirty_listener([=, this]() { this->setDirty(); });
     this->setDirty();
     this->value();
 }

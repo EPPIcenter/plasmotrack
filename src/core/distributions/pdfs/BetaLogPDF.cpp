@@ -8,7 +8,7 @@
 
 BetaLogPDF::BetaLogPDF(Parameter<double> &target, double alpha, double beta) : target_(target), alpha_(alpha), beta_(beta) {
     target_.registerCacheableCheckpointTarget(this);
-    target_.add_post_change_listener([=]() { this->setDirty(); });
+    target_.add_post_change_listener([=, this]() { this->setDirty(); });
 
     logDenominator_ = lgamma(alpha_) + lgamma(beta_) - lgamma(alpha_ + beta_);
 

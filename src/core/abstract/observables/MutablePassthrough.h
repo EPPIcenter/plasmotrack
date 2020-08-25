@@ -2,9 +2,10 @@
 // Created by Maxwell Murphy on 3/10/20.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_MUTABLE_H
-#define TRANSMISSION_NETWORKS_APP_MUTABLE_H
+#ifndef TRANSMISSION_NETWORKS_APP_MUTABLEPASSTHROUGH_H
+#define TRANSMISSION_NETWORKS_APP_MUTABLEPASSTHROUGH_H
 
+#include <tuple>
 
 #include "core/abstract/crtp.h"
 #include "core/abstract/observables/Observable.h"
@@ -32,9 +33,9 @@ public:
 template<typename T>
 template<typename T0>
 std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> MutablePassthrough<T>::registerCheckpointTarget(T0 &target) {
-    ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=]() { target.saveState(); });
-    ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=]() { target.acceptState(); });
-    ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=]() { target.restoreState(); });
+    ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=, this]() { target.saveState(); });
+    ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=, this]() { target.acceptState(); });
+    ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=, this]() { target.restoreState(); });
     return std::make_tuple(saveStateEventId, acceptStateEventId, restoreStateEventId);
 }
 
@@ -53,4 +54,4 @@ void MutablePassthrough<T>::acceptState() noexcept {
     this->underlying().notify_accept_state();
 }
 
-#endif //TRANSMISSION_NETWORKS_APP_MUTABLE_H
+#endif //TRANSMISSION_NETWORKS_APP_MUTABLEPASSTHROUGH_H

@@ -32,7 +32,7 @@ private:
 template<typename Distribution, typename TargetParam, typename...Args>
 Prior<Distribution, TargetParam, Args...>::Prior(TargetParam &target, Args&&... args) : target_(target), dist_(std::forward<Args>(args)...) {
     target_.registerCacheableCheckpointTarget(this);
-    target_.add_post_change_listener([=]() { this->setDirty(); });
+    target_.add_post_change_listener([=, this]() { this->setDirty(); });
     this->setDirty();
 }
 

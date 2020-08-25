@@ -16,6 +16,7 @@
 
 #include "core/utils/CombinationIndicesGenerator.h"
 #include "core/utils/numerics.h"
+#include "core/utils/io/serialize.h"
 
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
@@ -102,26 +103,26 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         OrderDerivedParentSet<InfectionEventImpl> &parent_set) :
         ntp_(ntp), stp_(stp), child_(child), parentSet_(parent_set) {
 
-    ntp_.add_set_dirty_listener([=]() { nodeTransmissionProcessSetDirty(); });
-    ntp_.add_save_state_listener([=]() { customSaveState(); });
-    ntp_.add_restore_state_listener([=]() { customRestoreState(); });
-    ntp_.add_accept_state_listener([=]() { customAcceptState(); });
+    ntp_.add_set_dirty_listener([=, this]() { nodeTransmissionProcessSetDirty(); });
+    ntp_.add_save_state_listener([=, this]() { customSaveState(); });
+    ntp_.add_restore_state_listener([=, this]() { customRestoreState(); });
+    ntp_.add_accept_state_listener([=, this]() { customAcceptState(); });
 
-    stp_.add_set_dirty_listener([=]() { sourceTransmissionProcessSetDirty(); });
-    stp_.add_save_state_listener([=]() { customSaveState(); });
-    stp_.add_restore_state_listener([=]() { customRestoreState(); });
-    stp_.add_accept_state_listener([=]() { customAcceptState(); });
+    stp_.add_set_dirty_listener([=, this]() { sourceTransmissionProcessSetDirty(); });
+    stp_.add_save_state_listener([=, this]() { customSaveState(); });
+    stp_.add_restore_state_listener([=, this]() { customRestoreState(); });
+    stp_.add_accept_state_listener([=, this]() { customAcceptState(); });
 
-    child_.add_post_change_listener([=]() { childSetDirty(); });
-    child_.add_save_state_listener([=]() { customSaveState(); });
-    child_.add_restore_state_listener([=]() { customRestoreState(); });
-    child_.add_accept_state_listener([=]() { customAcceptState(); });
+    child_.add_post_change_listener([=, this]() { childSetDirty(); });
+    child_.add_save_state_listener([=, this]() { customSaveState(); });
+    child_.add_restore_state_listener([=, this]() { customRestoreState(); });
+    child_.add_accept_state_listener([=, this]() { customAcceptState(); });
 
-    parentSet_.add_element_added_listener([=](InfectionEventImpl *parent) { addParent(parent); });
-    parentSet_.add_element_removed_listener([=](InfectionEventImpl *parent) { removeParent(parent); });
-    parentSet_.add_save_state_listener([=]() { customSaveState(); });
-    parentSet_.add_restore_state_listener([=]() { customRestoreState(); });
-    parentSet_.add_accept_state_listener([=]() { customAcceptState(); });
+    parentSet_.add_element_added_listener([=, this](InfectionEventImpl *parent) { addParent(parent); });
+    parentSet_.add_element_removed_listener([=, this](InfectionEventImpl *parent) { removeParent(parent); });
+    parentSet_.add_save_state_listener([=, this]() { customSaveState(); });
+    parentSet_.add_restore_state_listener([=, this]() { customRestoreState(); });
+    parentSet_.add_accept_state_listener([=, this]() { customAcceptState(); });
 
 
     for (auto &parent : parentSet_.value()) {
@@ -148,6 +149,7 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         if(calculatedParentValues_.size() > 0) {
             this->value_ = logSumExp(calculatedParentValues_ | boost::adaptors::map_values);
         }
+
 
         this->value_ = logSumExp(this->value_, stp_.value());
         this->setClean();
@@ -220,11 +222,11 @@ template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, type
 void
 OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::addParentListeners(
         InfectionEventImpl *parent) {
-//    const auto preChangeListenerId = parent->add_pre_change_listener([=]() { parentUpdated(parent); });
-    const auto postChangeListenerId = parent->add_post_change_listener([=]() { parentUpdated(parent); });
-    const auto saveStateListenerId = parent->add_save_state_listener([=]() { customSaveState(); });
-    const auto acceptStateListenerId = parent->add_accept_state_listener([=]() { customAcceptState(); });
-    const auto restoreStateListenerId = parent->add_restore_state_listener([=]() { customRestoreState(); });
+//    const auto preChangeListenerId = parent->add_pre_change_listener([=, this]() { parentUpdated(parent); });
+    const auto postChangeListenerId = parent->add_post_change_listener([=, this]() { parentUpdated(parent); });
+    const auto saveStateListenerId = parent->add_save_state_listener([=, this]() { customSaveState(); });
+    const auto acceptStateListenerId = parent->add_accept_state_listener([=, this]() { customAcceptState(); });
+    const auto restoreStateListenerId = parent->add_restore_state_listener([=, this]() { customRestoreState(); });
 
 //    preChangeListenerIdMap[parent] = preChangeListenerId;
     postChangeListenerIdMap[parent] = postChangeListenerId;
@@ -313,7 +315,9 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
             parentLikelihoodContribution_.push_back(ntp_.calculateLogLikelihood(child_, tmpPs_));
         }
     }
-    return logSumExpKnownMax(parentLikelihoodContribution_.begin(), parentLikelihoodContribution_.end(), max_llik);
+    double val = logSumExpKnownMax(parentLikelihoodContribution_.begin(), parentLikelihoodContribution_.end(), max_llik);
+    assert(val < std::numeric_limits<double>::infinity());
+    return val;
 }
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>

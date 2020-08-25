@@ -5,7 +5,7 @@ project(transmission_networks_app)
 set(transmission_networks_VERSION_MAJOR 1)
 set(transmission_networks_VERSION_MINOR 0)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 
 if ( CMAKE_COMPILER_IS_GNUCC )

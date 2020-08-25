@@ -50,16 +50,16 @@ template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, type
 NetworkBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::NetworkBasedTransmissionProcess(
         NodeTransmissionProcessImpl &ntp, SourceTransmissionProcessImpl &stp, InfectionEventImpl &child,
         Parameter<ParentSet<InfectionEventImpl>> &parentSet):ntp_(ntp), stp_(stp), child_(child), parentSet_(parentSet) {
-            ntp_.add_set_dirty_listener([=]() { setDirty(); });
+            ntp_.add_set_dirty_listener([=, this]() { setDirty(); });
             ntp_.registerCacheableCheckpointTarget(this);
 
-            stp_.add_set_dirty_listener([=]() { setDirty(); });
+            stp_.add_set_dirty_listener([=, this]() { setDirty(); });
             stp_.registerCacheableCheckpointTarget(this);
 
-            child_.add_post_change_listener([=]() { setDirty(); });
+            child_.add_post_change_listener([=, this]() { setDirty(); });
             child_.registerCacheableCheckpointTarget(this);
 
-            parentSet_.add_post_change_listener([=]() { setDirty(); });
+            parentSet_.add_post_change_listener([=, this]() { setDirty(); });
             parentSet_.registerCacheableCheckpointTarget(this);
         }
 

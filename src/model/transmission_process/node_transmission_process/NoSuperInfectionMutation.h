@@ -55,13 +55,13 @@ template<int MaxTransmissions, typename InterTransmissionProbImpl>
 NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::NoSuperInfectionMutation(
         Parameter<double> &mutProb, Parameter<double> &lossProb, InterTransmissionProbImpl &intp):mutProb_(mutProb), lossProb_(lossProb), intp_(intp) {
             mutProb_.registerCacheableCheckpointTarget(this);
-            mutProb_.add_post_change_listener([=]() { this->setDirty(); });
+            mutProb_.add_post_change_listener([=, this]() { this->setDirty(); });
 
             lossProb_.registerCacheableCheckpointTarget(this);
-            lossProb_.add_post_change_listener([=]() { this->setDirty(); });
+            lossProb_.add_post_change_listener([=, this]() { this->setDirty(); });
 
             intp_.registerCacheableCheckpointTarget(this);
-            intp_.add_set_dirty_listener([=]() { this->setDirty(); });
+            intp_.add_set_dirty_listener([=, this]() { this->setDirty(); });
 
             value_.setZero();
             this->setDirty();

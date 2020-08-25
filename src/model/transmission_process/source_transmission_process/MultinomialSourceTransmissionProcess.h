@@ -81,7 +81,7 @@ MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContaine
 
 
     coiProb_.registerCacheableCheckpointTarget(this);
-    coiProb_.add_set_dirty_listener([=]() {
+    coiProb_.add_set_dirty_listener([=, this]() {
       this->setDirty();
       this->dirtyLoci.insert(founder.loci().begin(), founder.loci().end());
     });
@@ -93,13 +93,13 @@ MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContaine
         idx++;
 
         alleleFrequenciesContainer_.alleleFrequencies(locus).registerCacheableCheckpointTarget(this);
-        alleleFrequenciesContainer_.alleleFrequencies(locus).add_post_change_listener([=]() {
+        alleleFrequenciesContainer_.alleleFrequencies(locus).add_post_change_listener([=, this]() {
           this->setDirty();
           this->dirtyLoci.insert(locus);
         });
 
         founder_.latentGenotype(locus).registerCacheableCheckpointTarget(this);
-        founder_.latentGenotype(locus).add_post_change_listener([=]() {
+        founder_.latentGenotype(locus).add_post_change_listener([=, this]() {
           this->setDirty();
           this->dirtyLoci.insert(locus);
         });

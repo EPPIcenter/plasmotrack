@@ -42,7 +42,7 @@ ZTGeometric<MAX_COUNT>::ZTGeometric(Parameter<double> &prob) noexcept : prob_(
         prob) {
     this->value_(0) = 0;
     prob_.registerCacheableCheckpointTarget(this);
-    prob_.add_post_change_listener([=]() { this->setDirty(); });
+    prob_.add_post_change_listener([=, this]() { this->setDirty(); });
     this->setDirty();
     this->value();
 }

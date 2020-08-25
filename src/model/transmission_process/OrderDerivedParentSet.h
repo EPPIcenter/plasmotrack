@@ -32,13 +32,13 @@ public:
     explicit OrderDerivedParentSet(Ordering<ElementType> &ordering, ElementType &child) : ordering_(ordering), child_(child) {
         ordering_.registerCacheableCheckpointTarget(this);
 
-        ordering_.add_keyed_moved_left_listener(&child_, [=](ElementType* element) {
+        ordering_.add_keyed_moved_left_listener(&child_, [=, this](ElementType* element) {
             this->setDirty();
             this->value_.insert(element);
             this->notify_element_added(element);
         });
 
-        ordering_.add_keyed_moved_right_listener(&child_, [=](ElementType* element) {
+        ordering_.add_keyed_moved_right_listener(&child_, [=, this](ElementType* element) {
             this->setDirty();
             this->value_.erase(element);
             this->notify_element_removed(element);

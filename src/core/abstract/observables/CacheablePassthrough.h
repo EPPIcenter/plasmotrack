@@ -29,7 +29,7 @@ void CacheablePassthrough<T>::setDirty() noexcept {
 template<typename T>
 template<typename T0>
 void CacheablePassthrough<T>::registerDirtyTarget(T0 &target) {
-    this->underlying().add_set_dirty_listener([=]() { target.setDirty();});
+    this->underlying().add_set_dirty_listener([=, this]() { target.setDirty();});
 }
 
 

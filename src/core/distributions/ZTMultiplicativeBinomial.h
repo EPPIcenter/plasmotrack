@@ -114,10 +114,10 @@ const SquareMatrix<double, MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::c
 template<int MAX_COUNT>
 ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(Parameter<double> &prob, Parameter<double> &assoc): prob_(prob), assoc_(assoc) {
     prob_.registerCacheableCheckpointTarget(this);
-    prob_.add_post_change_listener([=]() { this->setDirty(); });
+    prob_.add_post_change_listener([=, this]() { this->setDirty(); });
     
     assoc_.registerCacheableCheckpointTarget(this);
-    assoc_.add_post_change_listener([=]() { this->setDirty(); });
+    assoc_.add_post_change_listener([=, this]() { this->setDirty(); });
     this->setDirty();
     this->value();
 }

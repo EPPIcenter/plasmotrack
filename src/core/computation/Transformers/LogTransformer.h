@@ -21,7 +21,7 @@ template<typename Input>
 struct LogTransformer : PartialLikelihood {
 
     explicit LogTransformer(Input &target) : target_(target) {
-        target.add_set_dirty_listener([=]() { this->setDirty(); });
+        target.add_set_dirty_listener([=, this]() { this->setDirty(); });
         target.registerCacheableCheckpointTarget(this);
     }
 

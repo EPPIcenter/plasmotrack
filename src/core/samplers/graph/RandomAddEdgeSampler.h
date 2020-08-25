@@ -61,7 +61,6 @@ void RandomAddEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeValueImpl>:
         network_.addEdge(parentNode, childNode);
 
         const double acceptanceRatio = target_.value() - curLik;
-//        std::cout << "Curr: " << curLik << " Prop: " << target_.value() << " Ratio: " << acceptanceRatio << std::endl;
         const double logProbAccept = log(uniformDist_(*rng_));
         const bool accept = logProbAccept <= acceptanceRatio;
 
