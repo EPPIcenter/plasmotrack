@@ -56,9 +56,12 @@ void RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept
     double curLik = target_.value();
     parameter_.saveState();
 
+
     auto proposal = sampleProposal(parameter_.value());
 
+    assert(!target_.isDirty());
     parameter_.setValue(proposal);
+    assert(target_.isDirty());
 
     const double acceptanceRatio = target_.value() - curLik;
     const double logProbAccept = log(uniform_dist_(*rng_));
@@ -71,6 +74,7 @@ void RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept
         rejections_++;
         parameter_.restoreState();
     }
+    assert(!target_.isDirty());
 
     total_updates_++;
 }

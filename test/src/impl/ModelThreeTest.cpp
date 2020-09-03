@@ -119,7 +119,7 @@ TEST(ModelThreeTest, CoreTest) {
 
 
     boost::random::mt19937 r;
-    RandomizedScheduler scheduler(&r);
+    RandomizedScheduler scheduler(&r, 500);
 
     for (int l = 0; l < 10; ++l) {
         scheduler.registerSampler(new AddEdgeSampler(state.transmissionNetwork, model, &r));
@@ -129,8 +129,8 @@ TEST(ModelThreeTest, CoreTest) {
     }
 
     for (int k = 0; k < 50000; ++k) {
-        scheduler.update();
-        if(k % 100 == 0) {
+        scheduler.step();
+        if(k % 1000 == 0) {
             std::cout << "(Network) Edge and Genotypes Current LLik: " << model.value() << "\n";
             std::cout << state.transmissionNetwork.serialize() << std::endl;
         }
@@ -149,8 +149,8 @@ TEST(ModelThreeTest, CoreTest) {
         }
     }
 
-//    scheduler.registerSampler(new ProbabilitySampler(state.observationFalsePositiveRate, model, 0.0, 1, &r));
-//    scheduler.registerSampler(new ProbabilitySampler(state.observationFalseNegativeRate, model, 0.0, 1, &r));
+    scheduler.registerSampler(new ProbabilitySampler(state.observationFalsePositiveRate, model, 0.0, 1, &r));
+    scheduler.registerSampler(new ProbabilitySampler(state.observationFalseNegativeRate, model, 0.0, 1, &r));
     scheduler.registerSampler(new ProbabilitySampler(state.geometricGenerationProb, model, 0.0, 1.0, &r));
     scheduler.registerSampler(new ProbabilitySampler(state.lossProb, model, 0.0, 1.0, &r));
     scheduler.registerSampler(new ProbabilitySampler (state.mutationProb, model, 0.0, 0.5, &r));
@@ -160,8 +160,8 @@ TEST(ModelThreeTest, CoreTest) {
 
 
     for (int k = 0; k < 5000; ++k) {
-        scheduler.updateAndAdapt();
-        if(k % 10 == 0) {
+        scheduler.step();
+        if(k % 100 == 0) {
             std::cout << "Edge and Genotypes Current LLik: " << model.value() << "\n";
             std::cout << state.transmissionNetwork.serialize() << std::endl;
             std::cout << state.observationFalsePositiveRate.value() << " ";
@@ -172,8 +172,8 @@ TEST(ModelThreeTest, CoreTest) {
     }
 
     for (int i = 0; i < 5000; ++i) {
-        scheduler.update();
-        if (i % 10 == 0) {
+        scheduler.step();
+        if (i % 100 == 0) {
             std::cout << "(Writing) Current LLik: " << model.value() <<  std::endl;
             for (const auto& logger : loggers) {
                 logger->logValue();

@@ -66,7 +66,7 @@ set(SOURCE_FILES
         core/distributions/pdfs/BetaLogPDF.cpp
         core/distributions/pdfs/GammaLogPDF.cpp
         core/distributions/pdfs/GammaLogPDF.h
-        core/samplers/DoubleConstrainedContinuousRandomWalk.h)
+        core/samplers/DoubleConstrainedContinuousRandomWalk.h core/mcmc/Chain.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

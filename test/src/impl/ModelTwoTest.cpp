@@ -112,30 +112,74 @@ TEST(ModelTwoTest, CoreTest) {
 
 
     boost::random::mt19937 r;
-    RandomizedScheduler scheduler(&r);
-    for (int l = 1; l < (int)state.infections.size() / 2; ++l) {
-        scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, l));
+    RandomizedScheduler scheduler(&r, 2000);
+
+    scheduler.registerSampler({.sampler = new ProbabilitySampler(state.observationFalsePositiveRate, model, 0.0, .2, &r),
+                               .adaptationStart = 0,
+                               .adaptationEnd = 0,
+                               .weight = 1});
+
+    scheduler.registerSampler({.sampler = new ProbabilitySampler(state.observationFalseNegativeRate, model, 0.0, .2, &r),
+                               .adaptationStart = 0,
+                               .adaptationEnd = 0,
+                               .weight = 1});
+
+    scheduler.registerSampler({.sampler = new ProbabilitySampler(state.geometricGenerationProb, model, 0.0, 1.0, &r),
+                               .adaptationStart = 0,
+                               .adaptationEnd = 0,
+                               .weight = 1});
+
+    scheduler.registerSampler({.sampler = new ProbabilitySampler(state.lossProb, model, 0.0, 1.0, &r),
+                               .adaptationStart = 0,
+                               .adaptationEnd = 0,
+                               .weight = 1});
+
+    scheduler.registerSampler({.sampler = new ProbabilitySampler(state.mutationProb, model, 0.0, .1, &r),
+                               .adaptationStart = 0,
+                               .adaptationEnd = 0,
+                               .weight = 1});
+
+    scheduler.registerSampler({.sampler = new ZeroBoundedSampler(state.meanCOI, model, &r),
+                               .adaptationStart = 0,
+                               .adaptationEnd = 0,
+                               .weight = 1});
+
+    for (int l = 1; l < (int) state.infections.size() / 2; ++l) {
+        scheduler.registerSampler({.sampler = new OrderSampler(state.infectionEventOrdering, model, &r, l),
+                                   .adaptationStart = 0,
+                                   .adaptationEnd = 0,
+                                   .weight = 1});
     }
 
-    for(auto &infection : state.infections) {
-        for(const auto& [locus_label, locus] : state.loci) {
-            if (infection->latentGenotype().contains(locus)) {
-                auto &latentGenotype = infection->latentGenotype(locus);
-                scheduler.registerSampler(new GeneticsSampler(latentGenotype, model, &r));
-            }
-        }
-    }
+//    for (auto &infection : state.infections) {
+//        for (const auto &[locus_label, locus] : state.loci) {
+//            if (infection->latentGenotype().contains(locus)) {
+//                auto &latentGenotype = infection->latentGenotype(locus);
+//                scheduler.registerSampler({
+//                        .sampler = new GeneticsSampler(latentGenotype, model, &r),
+//                        .updateStart = 0,
+//                        .weight = 1
+//                });
+//            }
+//        }
+//    }
 
     for(const auto& [locus_label, locus] : state.loci) {
-        scheduler.registerSampler(new SALTSampler<ModelTwo>(state.alleleFrequencies.alleleFrequencies(locus), model, &r));
+        scheduler.registerSampler({.sampler = new SALTSampler<ModelTwo>(state.alleleFrequencies.alleleFrequencies(locus), model, &r),
+            .adaptationStart = 0,
+            .adaptationEnd = 20000,
+            .scaledAdaptation = true,
+            .weight = 1});
     }
 
-    for (int k = 0; k < 1000; ++k) {
-//        scheduler.updateAndAdapt();
-        scheduler.update();
+    std::cout << "Current LLik: " << model.value() << std::endl;
+    for (int k = 0; k < 20000; ++k) {
+        scheduler.step();
+        std::cout << "Current LLik: " << model.value() << std::endl;
         if(k % 10 == 0) {
             std::cout << "Current LLik: " << model.value() << std::endl;
             std::cout << serialize(state.infectionEventOrdering.value()) << std::endl;
+            std::cout << serialize(state.alleleFrequencies.alleleFrequencies(state.loci.begin()->second).value()) << std::endl;
             std::cout << state.observationFalsePositiveRate.value() << " ";
             std::cout << state.observationFalseNegativeRate.value() << " ";
             std::cout << state.lossProb.value() << " ";
@@ -143,31 +187,9 @@ TEST(ModelTwoTest, CoreTest) {
         }
     }
 
-    scheduler.registerSampler(new ProbabilitySampler(state.observationFalsePositiveRate, model, 0.0, 1, &r));
-    scheduler.registerSampler(new ProbabilitySampler(state.observationFalseNegativeRate, model, 0.0, 1, &r));
-    scheduler.registerSampler(new ProbabilitySampler(state.geometricGenerationProb, model, 0.0, 1.0, &r));
-    scheduler.registerSampler(new ProbabilitySampler(state.lossProb, model, 0.0, 1.0, &r));
-    scheduler.registerSampler(new ProbabilitySampler (state.mutationProb, model, 0.0, 0.5, &r));
-    scheduler.registerSampler(new ZeroBoundedSampler(state.meanCOI, model, &r));
-
-
-
-
-    for (int k = 0; k < 5000; ++k) {
-//        scheduler.update();
-        scheduler.updateAndAdapt();
-        if (k % 10 == 0) {
-            std::cout << "Current LLik: " << model.value() << std::endl;
-            std::cout << serialize(state.infectionEventOrdering.value()) << std::endl;
-            std::cout << state.observationFalsePositiveRate.value() << " ";
-            std::cout << state.observationFalseNegativeRate.value() << " ";
-            std::cout << state.lossProb.value() << " ";
-            std::cout << state.mutationProb.value() << std::endl;
-        }
-    }
-
-    for (int i = 0; i < 5000; ++i) {
-        scheduler.update();
+    for (int i = 0; i < 50000; ++i) {
+        scheduler.step();
+        std::cout << "Current LLik: " << model.value() << std::endl;
         if (i % 10 == 0) {
             std::cout << "Current LLik: " << model.value() << std::endl;
             std::cout << serialize(state.infectionEventOrdering.value()) << std::endl;

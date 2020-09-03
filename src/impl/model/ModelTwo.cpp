@@ -15,9 +15,9 @@ ModelTwo::ModelTwo(ModelTwoState& state) : state(state) {
 
 
     // Register Priors
-    likelihood.addTarget(new BetaLogPDF(state.observationFalsePositiveRate, 1, 10));
-    likelihood.addTarget(new BetaLogPDF(state.observationFalseNegativeRate, 1, 10));
-    likelihood.addTarget(new BetaLogPDF(state.mutationProb, 1, 50));
+    likelihood.addTarget(new BetaLogPDF(state.observationFalsePositiveRate, 1, 100));
+    likelihood.addTarget(new BetaLogPDF(state.observationFalseNegativeRate, 1, 100));
+    likelihood.addTarget(new BetaLogPDF(state.mutationProb, 1, 500));
     likelihood.addTarget(new BetaLogPDF(state.lossProb, 1, 1));
     likelihood.addTarget(new GammaLogPDF(state.meanCOI, 1, 1));
     likelihood.addTarget(new BetaLogPDF(state.geometricGenerationProb, 1, 1));

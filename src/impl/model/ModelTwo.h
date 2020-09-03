@@ -40,7 +40,7 @@ class ModelTwo {
     using AlleleCounterImpl = AlleleCounter<GeneticsImpl>;
     using AlleleCounterAccumulator = Accumulator<AlleleCounterImpl, AlleleCounts>;
 
-    using OrderingImpl = Ordering<InfectionEvent>;
+//    using OrderingImpl = Ordering<InfectionEvent>;
 
     using InterTransmissionProbImpl = ZTGeometric<MAX_TRANSMISSIONS>;
     using NodeTransmissionImpl = NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>;

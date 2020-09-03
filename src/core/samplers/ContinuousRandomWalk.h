@@ -99,6 +99,7 @@ void ContinuousRandomWalk<T, Engine>::update() noexcept {
     const double currentVal = parameter_.value();
     const double proposal = sampleProposal();
 
+    assert(!target_.isDirty());
     parameter_.setValue(proposal);
 
     assert(target_.isDirty());
@@ -114,6 +115,7 @@ void ContinuousRandomWalk<T, Engine>::update() noexcept {
         parameter_.restoreState();
         assert(curLik == target_.value());
     }
+    assert(!target_.isDirty());
 
     total_updates_++;
 }

@@ -96,18 +96,21 @@ void SALTSampler<T, Engine>::update() noexcept {
         double prop = std::max(expit(logitProp), 1e-8); // technically incorrect to bound like this without correcting, but probably close enough
 
         currentVal.set(idx, prop);
+
         parameter_.saveState();
+
+        assert(!target_.isDirty());
         parameter_.setValue(currentVal);
+        assert(target_.isDirty());
+
 
         const double adjRatio = logMetropolisHastingsAdjustment(logitCurr, logitProp, currentVal.totalElements());
         const double acceptanceRatio = target_.value() - curLik + adjRatio;
-
         const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
 
 
         if (accept) {
-//            std::cout << target_.value() << " | " << curLik << "\n";
             acceptances_.at(idx)++;
             parameter_.acceptState();
         } else {
@@ -115,6 +118,7 @@ void SALTSampler<T, Engine>::update() noexcept {
             parameter_.restoreState();
             assert(curLik == target_.value());
         }
+        assert(!target_.isDirty());
     }
 
     total_updates_++;

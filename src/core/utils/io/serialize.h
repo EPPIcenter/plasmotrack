@@ -52,6 +52,17 @@ std::string serialize(const std::vector<T*> val) {
     return out;
 }
 
+template<typename T>
+std::string serialize(const std::vector<T> val) {
+    std::string out;
+    for (const auto& el : val) {
+        out += serialize(el);
+        out += ",";
+    }
+    out.pop_back();
+    return out;
+}
+
 
 
 #endif //TRANSMISSION_NETWORKS_APP_SERIALIZE_H

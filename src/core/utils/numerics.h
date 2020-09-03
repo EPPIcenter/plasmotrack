@@ -5,8 +5,9 @@
 #ifndef TRANSMISSION_NETWORKS_APP_NUMERICS_H
 #define TRANSMISSION_NETWORKS_APP_NUMERICS_H
 
-#include <numeric>
+#include <algorithm>
 #include <cmath>
+#include <numeric>
 
 /**
  * Does not assume the iterable is sorted.

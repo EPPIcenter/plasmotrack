@@ -166,7 +166,7 @@ TEST(ModelOneTest, CoreTest) {
 
 
     boost::random::mt19937 r;
-    RandomizedScheduler scheduler(&r);
+    RandomizedScheduler scheduler(&r, 500);
     scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 1));
     scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 2));
     scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 3));
@@ -199,14 +199,14 @@ TEST(ModelOneTest, CoreTest) {
 
     for (int k = 0; k < 50000; ++k) {
 //        scheduler.update();
-        scheduler.updateAndAdapt();
+        scheduler.step();
         if(k % 10 == 0) {
             std::cout << "Current LLik: " << model.value() << std::endl;
         }
     }
 
     for (int i = 0; i < 50000; ++i) {
-        scheduler.update();
+        scheduler.step();
         if (i % 10 == 0) {
             for (const auto& logger : loggers) {
                 logger->logValue();

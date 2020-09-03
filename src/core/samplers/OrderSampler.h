@@ -52,8 +52,9 @@ void OrderSampler<T, OrderingElement, Engine>::update() noexcept {
 
     auto [pivot, offset] = sampleProposal();
 
-
+    assert(!target_.isDirty());
     parameter_.swap(pivot + offset, pivot);
+    assert(target_.isDirty());
 
     const double acceptanceRatio = target_.value() - curLik;
 
@@ -67,6 +68,9 @@ void OrderSampler<T, OrderingElement, Engine>::update() noexcept {
         parameter_.restoreState();
         assert(curLik == target_.value());
     }
+
+    assert(!target_.isDirty());
+
 
     total_updates_++;
 }
