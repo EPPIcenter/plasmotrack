@@ -51,13 +51,14 @@ RandomAddEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeImpl>::RandomAdd
 
 template<int MAX_PARENT_SET_CARDINALITY, typename T, typename Engine, typename NodeValueImpl>
 void RandomAddEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeValueImpl>::update() noexcept {
+    const std::string stateId = "AddEdge1";
     double curLik = target_.value();
 
     auto parentNode = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
     auto childNode = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
 
     if (network_.parentSet(childNode)->value().size() < MAX_PARENT_SET_CARDINALITY and !network_.createsCycle(parentNode, childNode)) {
-        network_.parentSet(childNode)->saveState();
+        network_.parentSet(childNode)->saveState(stateId);
         network_.addEdge(parentNode, childNode);
 
         const double acceptanceRatio = target_.value() - curLik;
@@ -69,7 +70,7 @@ void RandomAddEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeValueImpl>:
             network_.parentSet(childNode)->acceptState();
         } else {
             rejections_++;
-            network_.parentSet(childNode)->restoreState();
+            network_.parentSet(childNode)->restoreState(stateId);
             assert(curLik == target_.value());
         }
 

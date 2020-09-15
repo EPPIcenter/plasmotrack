@@ -49,13 +49,13 @@ TEST(MultinomialSourceTransmissionProcessTest, BasicTest) {
     MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, Infection, MAX_COI> mstp(coip, alleleFreqs, inf1);
 
     std::cout << "LogLikelihood: " << mstp.value() << std::endl;
-    coiProb.saveState();
+    coiProb.saveState("state1");
     EXPECT_FALSE(mstp.isDirty());
     coiProb.setValue(.001);
     EXPECT_TRUE(mstp.isDirty());
     EXPECT_TRUE(coip.isDirty());
     std::cout << "LogLikelihood: " << mstp.value() << std::endl;
-    coiProb.restoreState();
+    coiProb.restoreState("state1");
     EXPECT_FALSE(mstp.isDirty());
     EXPECT_FALSE(coip.isDirty());
     std::cout << "LogLikelihood: " << mstp.value() << std::endl;

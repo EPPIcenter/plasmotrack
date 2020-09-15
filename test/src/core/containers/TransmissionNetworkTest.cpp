@@ -45,15 +45,15 @@ TEST(TransmissionNetworkTest, CoreTest) {
     ASSERT_FALSE(inf3ParentSetChanged);
     ASSERT_FALSE(inf4ParentSetChanged);
 
-    network.parentSet(inf2)->saveState();
+    network.parentSet(inf2)->saveState("state1");
     network.addEdge(inf1, inf2);
     network.parentSet(inf2)->acceptState();
 
-    network.parentSet(inf3)->saveState();
+    network.parentSet(inf3)->saveState("state1");
     network.addEdge(inf2, inf3);
     network.parentSet(inf3)->acceptState();
 
-    network.parentSet(inf4)->saveState();
+    network.parentSet(inf4)->saveState("state1");
     network.addEdge(inf3, inf4);
     network.parentSet(inf4)->acceptState();
 

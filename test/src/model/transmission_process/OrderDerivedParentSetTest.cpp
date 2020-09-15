@@ -15,15 +15,15 @@ TEST(OrderDerivedParentSetTest, HandlesReorder) {
     OrderDerivedParentSet ops(ordering, el1);
     ASSERT_EQ(ops.value().size(), 0);
 
-    ordering.saveState();
+    ordering.saveState("state1");
     ordering.swap(0, 1);
     ASSERT_EQ(ops.value().size(), 1);
     ordering.acceptState();
 
-    ordering.saveState();
+    ordering.saveState("state1");
     ordering.swap(1, 2);
     ASSERT_EQ(ops.value().size(), 2);
-    ordering.restoreState();
+    ordering.restoreState("state1");
     ASSERT_EQ(ops.value().size(), 1);
 
 }

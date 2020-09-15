@@ -98,68 +98,68 @@ TEST(ModelOneTest, CoreTest) {
         logger->clearFile();
     }
 
-    state.observationFalsePositiveRate.saveState();
+    state.observationFalsePositiveRate.saveState("state1");
     auto currLik = model.value();
     state.observationFalsePositiveRate.setValue(.2);
     ASSERT_TRUE(model.isDirty());
     auto newLik = model.value();
-    state.observationFalsePositiveRate.restoreState();
+    state.observationFalsePositiveRate.restoreState("state1");
     auto oldLik = model.value();
     std::cout << "FPR Old/New: " << oldLik << " ||| " << newLik << std::endl;
     ASSERT_DOUBLE_EQ(currLik, oldLik);
 
 
-    state.observationFalseNegativeRate.saveState();
+    state.observationFalseNegativeRate.saveState("state1");
     currLik = model.value();
     state.observationFalseNegativeRate.setValue(.2);
     ASSERT_TRUE(model.isDirty());
     newLik = model.value();
     ASSERT_FALSE(model.isDirty());
-    state.observationFalseNegativeRate.restoreState();
+    state.observationFalseNegativeRate.restoreState("state1");
     oldLik = model.value();
     std::cout << "FNR Old/New: " << oldLik << " ||| " << newLik << std::endl;
     ASSERT_DOUBLE_EQ(currLik, oldLik);
 
-    state.geometricGenerationProb.saveState();
+    state.geometricGenerationProb.saveState("state1");
     currLik = model.value();
     state.geometricGenerationProb.setValue(.99999);
     ASSERT_TRUE(model.isDirty());
     newLik = model.value();
     ASSERT_FALSE(model.isDirty());
-    state.geometricGenerationProb.restoreState();
+    state.geometricGenerationProb.restoreState("state1");
     oldLik = model.value();
     std::cout << "Geo Gen Prob Old/New: " << oldLik << " ||| " << newLik << std::endl;
     ASSERT_DOUBLE_EQ(currLik, oldLik);
 
-    state.ztMultiplicativeBinomialProb.saveState();
+    state.ztMultiplicativeBinomialProb.saveState("state1");
     currLik = model.value();
     state.ztMultiplicativeBinomialProb.setValue(.9);
     ASSERT_TRUE(model.isDirty());
     newLik = model.value();
     ASSERT_FALSE(model.isDirty());
-    state.ztMultiplicativeBinomialProb.restoreState();
+    state.ztMultiplicativeBinomialProb.restoreState("state1");
     oldLik = model.value();
     std::cout << "ZTMB Prob Old/New: " << oldLik << " ||| " << newLik << std::endl;
     ASSERT_DOUBLE_EQ(currLik, oldLik);
 
-    state.ztMultiplicativeBinomialAssoc.saveState();
+    state.ztMultiplicativeBinomialAssoc.saveState("state1");
     currLik = model.value();
     state.ztMultiplicativeBinomialAssoc.setValue(.2);
     ASSERT_TRUE(model.isDirty());
     newLik = model.value();
     ASSERT_FALSE(model.isDirty());
-    state.ztMultiplicativeBinomialAssoc.restoreState();
+    state.ztMultiplicativeBinomialAssoc.restoreState("state1");
     oldLik = model.value();
     std::cout << "ZTMB Assoc Old/New: " << oldLik << " ||| " << newLik << std::endl;
     ASSERT_DOUBLE_EQ(currLik, oldLik);
 
-    state.geometricCOIProb.saveState();
+    state.geometricCOIProb.saveState("state1");
     currLik = model.value();
     state.geometricCOIProb.setValue(.99999);
     ASSERT_TRUE(model.isDirty());
     newLik = model.value();
     ASSERT_FALSE(model.isDirty());
-    state.geometricCOIProb.restoreState();
+    state.geometricCOIProb.restoreState("state1");
     oldLik = model.value();
     std::cout << "Geo COI Prob Old/New: " << oldLik << " ||| " << newLik << std::endl;
     ASSERT_DOUBLE_EQ(currLik, oldLik);

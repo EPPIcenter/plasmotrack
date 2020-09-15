@@ -19,7 +19,7 @@ TEST(GeometricTest, CoreTest) {
     ASSERT_DOUBLE_EQ(geoProb.value().sum(), 1);
 
     ASSERT_FALSE(geoProb.isDirty());
-    pGeoGenProb.saveState();
+    pGeoGenProb.saveState("state1");
     pGeoGenProb.setValue(.75);
     ASSERT_TRUE(geoProb.isDirty());
     ASSERT_DOUBLE_EQ(geoProb.value().sum(), 1);

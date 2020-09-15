@@ -151,18 +151,18 @@ TEST(ModelTwoTest, CoreTest) {
                                    .weight = 1});
     }
 
-//    for (auto &infection : state.infections) {
-//        for (const auto &[locus_label, locus] : state.loci) {
-//            if (infection->latentGenotype().contains(locus)) {
-//                auto &latentGenotype = infection->latentGenotype(locus);
-//                scheduler.registerSampler({
-//                        .sampler = new GeneticsSampler(latentGenotype, model, &r),
-//                        .updateStart = 0,
-//                        .weight = 1
-//                });
-//            }
-//        }
-//    }
+    for (auto &infection : state.infections) {
+        for (const auto &[locus_label, locus] : state.loci) {
+            if (infection->latentGenotype().contains(locus)) {
+                auto &latentGenotype = infection->latentGenotype(locus);
+                scheduler.registerSampler({
+                        .sampler = new GeneticsSampler(latentGenotype, model, &r),
+                        .updateStart = 0,
+                        .weight = 1
+                });
+            }
+        }
+    }
 
     for(const auto& [locus_label, locus] : state.loci) {
         scheduler.registerSampler({.sampler = new SALTSampler<ModelTwo>(state.alleleFrequencies.alleleFrequencies(locus), model, &r),

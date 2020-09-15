@@ -56,11 +56,11 @@ private:
 
     void parentUpdated(InfectionEventImpl *parent);
 
-    void customSaveState();
+    void postSaveState();
 
-    void customAcceptState();
+    void postAcceptState();
 
-    void customRestoreState();
+    void postRestoreState();
 
     double
     calculateParentLogLikelihoodContribution(InfectionEventImpl *parent, ParentSet<InfectionEventImpl> others);
@@ -71,18 +71,23 @@ private:
     ListenerIdMap acceptStateListenerIdMap{};
     ListenerIdMap restoreStateListenerIdMap{};
 
+    using InfectionEventSet = boost::container::flat_set<InfectionEventImpl*>;
+    using InfectionEventMap = boost::container::flat_map<InfectionEventImpl*, double>;
+
     // Track parent deltas between save and accept/restore
-    boost::container::flat_set<InfectionEventImpl*> addedParents_{};
-    boost::container::flat_set<InfectionEventImpl*> removedParents_{};
+    InfectionEventSet addedParents_{};
+    InfectionEventSet removedParents_{};
 
+    std::vector<InfectionEventSet> addedParentsCache_{};
+    std::vector<InfectionEventSet> removedParentsCache_{};
 
-    boost::container::flat_set<InfectionEventImpl*> toCalculate_{};
-    boost::container::flat_set<InfectionEventImpl*> calculated_{};
-    boost::container::flat_map<InfectionEventImpl*, double> calculatedParentValues_{};
+    InfectionEventSet toCalculate_{};
+    InfectionEventSet calculated_{};
+    InfectionEventMap calculatedParentValues_{};
 
-    boost::container::flat_set<InfectionEventImpl*> toCalculateCache_{};
-    boost::container::flat_set<InfectionEventImpl*> calculatedCache_{};
-    boost::container::flat_map<InfectionEventImpl*, double> calculatedParentValuesCache_{};
+    std::vector<InfectionEventSet> toCalculateCache_{};
+    std::vector<InfectionEventSet> calculatedCache_{};
+    std::vector<InfectionEventMap> calculatedParentValuesCache_{};
 
 
     NodeTransmissionProcessImpl &ntp_;
@@ -104,26 +109,33 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         ntp_(ntp), stp_(stp), child_(child), parentSet_(parent_set) {
 
     ntp_.add_set_dirty_listener([=, this]() { nodeTransmissionProcessSetDirty(); });
-    ntp_.add_save_state_listener([=, this]() { customSaveState(); });
-    ntp_.add_restore_state_listener([=, this]() { customRestoreState(); });
-    ntp_.add_accept_state_listener([=, this]() { customAcceptState(); });
+    ntp_.registerCacheableCheckpointTarget(this);
+//    ntp_.add_save_state_listener([=, this]() { customSaveState("NTP"); });
+//    ntp_.add_restore_state_listener([=, this]() { customRestoreState(); });
+//    ntp_.add_accept_state_listener([=, this]() { customAcceptState(); });
 
     stp_.add_set_dirty_listener([=, this]() { sourceTransmissionProcessSetDirty(); });
-    stp_.add_save_state_listener([=, this]() { customSaveState(); });
-    stp_.add_restore_state_listener([=, this]() { customRestoreState(); });
-    stp_.add_accept_state_listener([=, this]() { customAcceptState(); });
+    stp_.registerCacheableCheckpointTarget(this);
+//    stp_.add_save_state_listener([=, this]() { customSaveState("STP"); });
+//    stp_.add_restore_state_listener([=, this]() { customRestoreState(); });
+//    stp_.add_accept_state_listener([=, this]() { customAcceptState(); });
 
     child_.add_post_change_listener([=, this]() { childSetDirty(); });
-    child_.add_save_state_listener([=, this]() { customSaveState(); });
-    child_.add_restore_state_listener([=, this]() { customRestoreState(); });
-    child_.add_accept_state_listener([=, this]() { customAcceptState(); });
+    child_.registerCacheableCheckpointTarget(this);
+//    child_.add_save_state_listener([=, this]() { customSaveState("Child"); });
+//    child_.add_restore_state_listener([=, this]() { customRestoreState(); });
+//    child_.add_accept_state_listener([=, this]() { customAcceptState(); });
 
     parentSet_.add_element_added_listener([=, this](InfectionEventImpl *parent) { addParent(parent); });
     parentSet_.add_element_removed_listener([=, this](InfectionEventImpl *parent) { removeParent(parent); });
-    parentSet_.add_save_state_listener([=, this]() { customSaveState(); });
-    parentSet_.add_restore_state_listener([=, this]() { customRestoreState(); });
-    parentSet_.add_accept_state_listener([=, this]() { customAcceptState(); });
+    parentSet_.registerCacheableCheckpointTarget(this);
+//    parentSet_.add_save_state_listener([=, this]() { customSaveState("ParentSet"); });
+//    parentSet_.add_restore_state_listener([=, this]() { customRestoreState(); });
+//    parentSet_.add_accept_state_listener([=, this]() { customAcceptState(); });
 
+    this->addPostSaveHook([=, this]() { this->postSaveState(); });
+    this->addPostRestoreHook([=, this]() { this->postRestoreState(); });
+    this->addPostAcceptHook([=, this]() { this->postAcceptState(); });
 
     for (auto &parent : parentSet_.value()) {
         addParent(parent);
@@ -224,9 +236,9 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
         InfectionEventImpl *parent) {
 //    const auto preChangeListenerId = parent->add_pre_change_listener([=, this]() { parentUpdated(parent); });
     const auto postChangeListenerId = parent->add_post_change_listener([=, this]() { parentUpdated(parent); });
-    const auto saveStateListenerId = parent->add_save_state_listener([=, this]() { customSaveState(); });
-    const auto acceptStateListenerId = parent->add_accept_state_listener([=, this]() { customAcceptState(); });
-    const auto restoreStateListenerId = parent->add_restore_state_listener([=, this]() { customRestoreState(); });
+    const auto saveStateListenerId = parent->add_save_state_listener([=, this](const std::string& savedStateId) { saveState(savedStateId); });
+    const auto acceptStateListenerId = parent->add_accept_state_listener([=, this]() { acceptState(); });
+    const auto restoreStateListenerId = parent->add_restore_state_listener([=, this](const std::string& savedStateId) { restoreState(savedStateId); });
 
 //    preChangeListenerIdMap[parent] = preChangeListenerId;
     postChangeListenerIdMap[parent] = postChangeListenerId;
@@ -322,60 +334,65 @@ OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessIm
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
 void
-OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::customSaveState() {
-    if (!this->isSaved()) {
-        this->notify_save_state();
-        this->saved_state_ = this->value();
+OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::postSaveState() {
+        calculatedParentValuesCache_.emplace_back(calculatedParentValues_);
+        toCalculateCache_.emplace_back(toCalculate_);
+        calculatedCache_.emplace_back(calculated_);
+        addedParentsCache_.emplace_back(addedParents_);
+        removedParentsCache_.emplace_back(removedParents_);
 
-        calculatedParentValuesCache_ = calculatedParentValues_;
-        toCalculateCache_ = toCalculate_;
-        calculatedCache_ = calculated_;
-
-    }
+        addedParents_.clear();
+        removedParents_.clear();
 }
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
 void
-OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::customRestoreState() {
-    if (this->isSaved()) {
-        this->notify_restore_state();
-        this->value_ = *(this->saved_state_);
-
-        calculatedParentValues_ = calculatedParentValuesCache_;
-        toCalculate_ = toCalculateCache_;
-        calculated_ = calculatedCache_;
-
-        for (const auto& parent : addedParents_) {
-            removeParentListeners(parent);
-        }
-
-        for (const auto& parent : removedParents_) {
-            addParentListeners(parent);
-        }
-
-        removedParents_.clear();
-        addedParents_.clear();
-
-        this->saved_state_.reset();
-        this->value();
-        this->setClean();
+OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::postRestoreState() {
+    for (const auto& parent : addedParents_) {
+        removeParentListeners(parent);
     }
+
+    for (const auto& parent : removedParents_) {
+        addParentListeners(parent);
+    }
+
+    assert(!(calculatedParentValuesCache_.empty()));
+    assert(!(toCalculateCache_.empty()));
+    assert(!(calculatedCache_.empty()));
+    assert(!(removedParentsCache_.empty()));
+    assert(!(addedParentsCache_.empty()));
+
+    calculatedParentValues_ = calculatedParentValuesCache_.back();
+    toCalculate_ = toCalculateCache_.back();
+    calculated_ = calculatedCache_.back();
+    removedParents_ = removedParentsCache_.back();
+    addedParents_ = addedParentsCache_.back();
+
+    calculatedParentValuesCache_.pop_back();
+    toCalculateCache_.pop_back();
+    calculatedCache_.pop_back();
+    removedParentsCache_.pop_back();
+    addedParentsCache_.pop_back();
+
 }
 
 template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
 void
-OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::customAcceptState() {
-    if (this->isSaved()) {
-        this->notify_accept_state();
+OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::postAcceptState() {
 
-        removedParents_.clear();
-        addedParents_.clear();
+//  Clear caches
+    calculatedParentValuesCache_.clear();
+    toCalculateCache_.clear();
+    calculatedCache_.clear();
+    addedParentsCache_.clear();
+    removedParentsCache_.clear();
 
-        this->saved_state_.reset();
-        this->value();
-        this->setClean();
+    addedParents_.clear();
+    removedParents_.clear();
 
-    }
+//    this->value();
+//    this->setClean();
+
 }
 
 #endif //TRANSMISSION_NETWORKS_APP_ORDERBASEDTRANSMISSIONPROCESS_H

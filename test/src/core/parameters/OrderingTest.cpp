@@ -51,7 +51,7 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
     ASSERT_EQ(el1, 1);
     ASSERT_EQ(el2, 2);
 
-    ordering.saveState();
+    ordering.saveState("state1");
 
     ordering.swap(0, 2);
     p_el1.printSet();
@@ -59,7 +59,7 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
     p_el3.printSet();
     p_el4.printSet();
 
-    ordering.restoreState();
+    ordering.restoreState("state1");
     p_el1.printSet();
     p_el2.printSet();
     p_el3.printSet();

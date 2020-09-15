@@ -92,8 +92,9 @@ double DiscreteRandomWalk<T, Engine>::logMetropolisHastingsAdjustment(
 
 template<typename T, typename Engine>
 void DiscreteRandomWalk<T, Engine>::update() noexcept {
+    const std::string stateId = "State1";
     double curLik = target_.value();
-    parameter_.saveState();
+    parameter_.saveState(stateId);
 
     const int stride = sampleStride(parameter_.value());
     double mhAdjustment = logMetropolisHastingsAdjustment(parameter_.value(), parameter_.value() + stride);
@@ -108,7 +109,7 @@ void DiscreteRandomWalk<T, Engine>::update() noexcept {
         parameter_.acceptState();
     } else {
         rejections_ += 1;
-        parameter_.restoreState();
+        parameter_.restoreState(stateId);
         assert(curLik == target_.value());
     }
 

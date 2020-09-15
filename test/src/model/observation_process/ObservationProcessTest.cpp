@@ -64,7 +64,7 @@ TEST(ObservationProcessTest, CoreTest) {
 
     auto oldValue = target.value();
 
-    infections.at(0)->latentGenotype(loci.at(0)).saveState();
+    infections.at(0)->latentGenotype(loci.at(0)).saveState("state1");
     infections.at(0)->latentGenotype(loci.at(0)).setValue(GeneticsImpl("100000"));
 
     EXPECT_EQ(alleleCountAccumulator.value().true_positive_count, 34);
@@ -78,7 +78,7 @@ TEST(ObservationProcessTest, CoreTest) {
 
     EXPECT_GT(oldValue, newValue);
 
-    infections.at(0)->latentGenotype(loci.at(0)).restoreState();
+    infections.at(0)->latentGenotype(loci.at(0)).restoreState("state1");
 
     EXPECT_FALSE(target.isDirty());
     EXPECT_EQ(alleleCountAccumulator.value().true_positive_count, 36);

@@ -75,9 +75,9 @@ AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>::AlleleFrequencyContain
         // pass through notifications
 //        alleleFrequencies_.at(locus).add_pre_change_listener([=, this]() { this->notify_pre_change(); });
         alleleFrequencies_.at(locus).add_post_change_listener([=, this]() { this->notify_post_change(); });
-        alleleFrequencies_.at(locus).add_save_state_listener([=, this]() { this->notify_save_state(); });
+        alleleFrequencies_.at(locus).add_save_state_listener([=, this](const std::string saveStateId) { this->notify_save_state(saveStateId); });
         alleleFrequencies_.at(locus).add_accept_state_listener([=, this]() { this->notify_accept_state(); });
-        alleleFrequencies_.at(locus).add_restore_state_listener([=, this]() { this->notify_restore_state(); });
+        alleleFrequencies_.at(locus).add_restore_state_listener([=, this](const std::string saveStateId) { this->notify_restore_state(saveStateId); });
     }
 }
 
@@ -89,9 +89,9 @@ void AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>::addLocus(LocusImp
     alleleFrequencies_.at(&locus).add_post_change_listener([=, this]() {
         this->notify_post_change();
     });
-    alleleFrequencies_.at(&locus).add_save_state_listener([=, this]() { this->notify_save_state(); });
+    alleleFrequencies_.at(&locus).add_save_state_listener([=, this](const std::string saveStateId) { this->notify_save_state(saveStateId); });
     alleleFrequencies_.at(&locus).add_accept_state_listener([=, this]() { this->notify_accept_state(); });
-    alleleFrequencies_.at(&locus).add_restore_state_listener([=, this]() { this->notify_restore_state(); });
+    alleleFrequencies_.at(&locus).add_restore_state_listener([=, this](const std::string saveStateId) { this->notify_restore_state(saveStateId); });
 }
 
 template<typename AlleleFrequencyImpl, typename LocusImpl>
@@ -102,9 +102,9 @@ void AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>::addLocus(LocusImp
     alleleFrequencies_.at(locus).add_post_change_listener([=, this]() {
         this->notify_post_change();
     });
-    alleleFrequencies_.at(locus).add_save_state_listener([=, this]() { this->notify_save_state(); });
+    alleleFrequencies_.at(locus).add_save_state_listener([=, this](const std::string saveStateId) { this->notify_save_state(saveStateId); });
     alleleFrequencies_.at(locus).add_accept_state_listener([=, this]() { this->notify_accept_state(); });
-    alleleFrequencies_.at(locus).add_restore_state_listener([=, this]() { this->notify_restore_state(); });
+    alleleFrequencies_.at(locus).add_restore_state_listener([=, this](const std::string saveStateId) { this->notify_restore_state(saveStateId); });
 }
 
 //template<typename AlleleFrequencyImpl, typename LocusImpl>

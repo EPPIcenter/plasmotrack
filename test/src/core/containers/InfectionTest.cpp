@@ -34,7 +34,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     tmp1.flip(0);
     EXPECT_FALSE(allelesChanged);
 
-    inf1.latentGenotype(&as1).saveState();
+    inf1.latentGenotype(&as1).saveState("State1");
     inf1.latentGenotype(&as1).setValue(tmp1);
 
     EXPECT_TRUE(allelesChanged);
@@ -47,7 +47,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     tmp2.flip(0);
     EXPECT_FALSE(allelesChanged);
 
-    inf1.latentGenotype(&as2).saveState();
+    inf1.latentGenotype(&as2).saveState("State1");
     inf1.latentGenotype(&as2).setValue(tmp2);
 
     EXPECT_TRUE(allelesChanged);
@@ -56,7 +56,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     inf1.latentGenotype(&as2).acceptState();
 
     allelesChanged = false;
-    inf1.latentGenotype(&as2).saveState();
+    inf1.latentGenotype(&as2).saveState("State1");
     inf1.latentGenotype(&as2).setValue(GeneticsImpl("00000011"));
     EXPECT_TRUE(allelesChanged);
     inf1.latentGenotype(&as2).acceptState();

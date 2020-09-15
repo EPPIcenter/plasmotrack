@@ -54,6 +54,7 @@ RandomRemoveEdgeSampler<T, Engine, NodeImpl>::RandomRemoveEdgeSampler(Transmissi
 
 template<typename T, typename Engine, typename NodeValueImpl>
 void RandomRemoveEdgeSampler<T, Engine, NodeValueImpl>::update() noexcept {
+    const std::string stateId = "RemoveEdge1";
     double curLik = target_.value();
 
     auto childNode = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
@@ -65,7 +66,7 @@ void RandomRemoveEdgeSampler<T, Engine, NodeValueImpl>::update() noexcept {
         const unsigned int idx = parentSetIndexSamplingDist_(*rng_);
         const auto& parentNode = *(parentSet.begin() + idx);
 
-        param->saveState();
+        param->saveState(stateId);
         network_.removeEdge(parentNode, childNode);
 
         const double acceptanceRatio = target_.value() - curLik;
@@ -77,7 +78,7 @@ void RandomRemoveEdgeSampler<T, Engine, NodeValueImpl>::update() noexcept {
             param->acceptState();
         } else {
             rejections_++;
-            param->restoreState();
+            param->restoreState(stateId);
             assert(curLik == target_.value());
         }
 

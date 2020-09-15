@@ -17,11 +17,11 @@ public:
 
     explicit Simplex(std::vector<double> freqs);
 
-    friend std::ostream &operator<<(std::ostream &os, const Simplex &simplex);
-
     explicit Simplex(DynamicArray freqs);
 
     Simplex(std::initializer_list<double> freqs);
+
+    friend std::ostream &operator<<(std::ostream &os, const Simplex &simplex);
 
     void set(std::vector<double> valueArray);
 
@@ -37,7 +37,7 @@ public:
 
     [[nodiscard]] double max() const noexcept;
 
-    const std::string serialize() const noexcept;
+    [[nodiscard]] const std::string serialize() const noexcept;
 
 private:
     unsigned int total_elements_;

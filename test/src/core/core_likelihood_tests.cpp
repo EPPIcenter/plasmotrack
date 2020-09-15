@@ -77,16 +77,16 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
 
     std::cout << llik.value() << std::endl;
 
-    fpr.saveState();
+    fpr.saveState("state1");
     std::cout << "setting fpr value" << std::endl;
     fpr.setValue(.1);
     std::cout << "set fpr value" << std::endl;
     std::cout << llik.value() << std::endl;
 
-    fpr.restoreState();
+    fpr.restoreState("state1");
     std::cout << llik.value() << std::endl;
 
-    fnr.saveState();
+    fnr.saveState("state1");
     fnr.setValue(.99);
     std::cout << llik.value() << std::endl;
     fnr.acceptState();
@@ -121,13 +121,13 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     ZTMultiplicativeBinomial<10> ztmb(tcp, tca);
     std::cout << ztmb.value()(5, 3) << std::endl;
 
-    tcp.saveState();
-    tca.saveState();
+    tcp.saveState("state1");
+    tca.saveState("state1");
     tcp.setValue(.95);
     tca.setValue(2.0);
     std::cout << ztmb.value()(5, 3) << std::endl;
-    tcp.restoreState();
-    tca.restoreState();
+    tcp.restoreState("state1");
+    tca.restoreState("state1");
     std::cout << ztmb.value() << std::endl;
 
     DoubleParameter gp_prob(.6);
@@ -150,28 +150,28 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     ParentSet<Infection> ps1{&inf1};
 
     std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
-    tcp.saveState();
+    tcp.saveState("state1");
     tcp.setValue(.05);
     std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
-    tcp.restoreState();
+    tcp.restoreState("state1");
     std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
 
-    inf1.latentGenotype(&as1).saveState();
+    inf1.latentGenotype(&as1).saveState("state1");
     std::cout << "Saved State" << std::endl;
     inf1.latentGenotype(&as1).setValue(GeneticsImpl("111111"));
     std::cout << "Set Value" << std::endl;
     std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
-    inf1.latentGenotype(&as1).restoreState();
+    inf1.latentGenotype(&as1).restoreState("state1");
     std::cout << "Parent Set: " << tp.calculateLikelihood(inf2, ps1) << std::endl;
 
 
     std::cout << "Geometric Prob: " << gp.value() << std::endl;
     std::cout << "Geometric Prob Sum: " << gp.value().sum() << std::endl;
-    gp_prob.saveState();
+    gp_prob.saveState("state1");
     gp_prob.setValue(.1);
     std::cout << "Geometric Prob: " << gp.value() << std::endl;
     std::cout << "Geometric Prob Sum: " << gp.value().sum() << std::endl;
-    gp_prob.restoreState();
+    gp_prob.restoreState("state1");
     std::cout << "Geometric Prob: " << gp.value() << std::endl;
     std::cout << "Geometric Prob Sum: " << gp.value().sum() << std::endl;
 

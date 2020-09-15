@@ -28,22 +28,22 @@ TEST(SimplexTest, ParameterTest) {
     Parameter<Simplex> p2({.33, .33, .33});
     ASSERT_DOUBLE_EQ(p2.value().frequencies(0), 1.0/3.0);
 
-    p2.saveState();
+    p2.saveState("state1");
     p2.setValue({.5, .6, .7});
     ASSERT_DOUBLE_EQ(p2.value().frequencies(0), .5 / (.5 + .6 + .7));
-    p2.restoreState();
+    p2.restoreState("state1");
     ASSERT_DOUBLE_EQ(p2.value().frequencies(0), 1.0/3.0);
 
-    p2.saveState();
+    p2.saveState("state1");
     p2.setValue(Simplex({1.0, 2.0, 3.0}));
     ASSERT_DOUBLE_EQ(p2.value().frequencies(0), 1.0 / 6.0);
-    p2.restoreState();
+    p2.restoreState("state1");
     ASSERT_DOUBLE_EQ(p2.value().frequencies(0), 1.0/3.0);
 
-    p2.saveState();
+    p2.saveState("state1");
     p2.setValue(Simplex(std::vector<double>({.1, .4, .6})));
     ASSERT_DOUBLE_EQ(p2.value().frequencies(0), .1 / (.1 + .4 + .6));
-    p2.restoreState();
+    p2.restoreState("state1");
     ASSERT_DOUBLE_EQ(p2.value().frequencies(0), 1.0/3.0);
 }
 

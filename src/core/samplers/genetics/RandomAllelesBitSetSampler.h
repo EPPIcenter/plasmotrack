@@ -53,8 +53,9 @@ RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::RandomAllelesBitSetSam
 
 template<typename T, typename Engine, typename AllelesBitSetImpl>
 void RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept {
+    const std::string stateId = "State1";
     double curLik = target_.value();
-    parameter_.saveState();
+    parameter_.saveState(stateId);
 
 
     auto proposal = sampleProposal(parameter_.value());
@@ -72,7 +73,7 @@ void RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept
         parameter_.acceptState();
     } else {
         rejections_++;
-        parameter_.restoreState();
+        parameter_.restoreState(stateId);
     }
     assert(!target_.isDirty());
 

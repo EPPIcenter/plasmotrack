@@ -86,6 +86,7 @@ private:
 
 template<typename T, typename Engine>
 void SALTSampler<T, Engine>::update() noexcept {
+    const std::string stateId = "SALT1";
     auto indices = randomSequence(0, parameter_.value().totalElements(), rng_);
     for(const auto idx : indices) {
         Simplex currentVal(parameter_.value());
@@ -97,25 +98,24 @@ void SALTSampler<T, Engine>::update() noexcept {
 
         currentVal.set(idx, prop);
 
-        parameter_.saveState();
+        parameter_.saveState(stateId);
 
         assert(!target_.isDirty());
         parameter_.setValue(currentVal);
         assert(target_.isDirty());
 
-
         const double adjRatio = logMetropolisHastingsAdjustment(logitCurr, logitProp, currentVal.totalElements());
-        const double acceptanceRatio = target_.value() - curLik + adjRatio;
+        const double newLik = target_.value();
+        const double acceptanceRatio = newLik - curLik + adjRatio;
         const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
-
-
 
         if (accept) {
             acceptances_.at(idx)++;
             parameter_.acceptState();
         } else {
             rejections_.at(idx)++;
-            parameter_.restoreState();
+            parameter_.restoreState(stateId);
+            assert(!(target_.isDirty()));
             assert(curLik == target_.value());
         }
         assert(!target_.isDirty());

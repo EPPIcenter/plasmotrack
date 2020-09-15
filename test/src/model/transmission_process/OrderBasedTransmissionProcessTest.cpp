@@ -85,7 +85,6 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     Parameter<double> geoCOIProb(.9);
     COIProbabilityImpl geoCOI(geoCOIProb);
 
-    std::cout << "AFC Addr: " << &afc << std::endl;
     SourceTransmissionImpl mstp1(geoCOI, afc, inf1);
     SourceTransmissionImpl mstp2(geoCOI, afc, inf2);
     SourceTransmissionImpl mstp3(geoCOI, afc, inf3);
@@ -105,7 +104,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp2.isDirty());
 
 
-    geoCOIProb.saveState();
+    geoCOIProb.saveState("state1");
     geoCOIProb.setValue(.5);
     EXPECT_TRUE(geoCOI.isDirty());
     EXPECT_TRUE(mstp1.isDirty());
@@ -128,7 +127,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
 
-    ztmbAssoc.saveState();
+    ztmbAssoc.saveState("state1");
     ztmbAssoc.setValue(.5);
     EXPECT_TRUE(ztmbCTP.isDirty());
     EXPECT_TRUE(nodeTransmission.isDirty());
@@ -152,7 +151,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp4.isDirty());
 
 
-    ztmbProb.saveState();
+    ztmbProb.saveState("state1");
     ztmbProb.setValue(.5);
     EXPECT_TRUE(ztmbCTP.isDirty());
     EXPECT_TRUE(nodeTransmission.isDirty());
@@ -175,7 +174,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
 
-    geoGenProb.saveState();
+    geoGenProb.saveState("state1");
     geoGenProb.setValue(.25);
     EXPECT_TRUE(tp1.isDirty());
     EXPECT_TRUE(tp2.isDirty());
@@ -187,9 +186,8 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp3.isDirty());
     EXPECT_FALSE(tp4.isDirty());
 
-    afc.alleleFrequencies(as1).saveState();
+    afc.alleleFrequencies(as1).saveState("state1");
     afc.alleleFrequencies(as1).setValue(Simplex({.01, .01, .999996, .01, .01}));
-    std::cout << "Allele Freqs address: " << &(afc.alleleFrequencies(as1)) << std::endl;
     EXPECT_TRUE(tp1.isDirty());
     EXPECT_TRUE(tp2.isDirty());
     EXPECT_TRUE(tp3.isDirty());
@@ -201,7 +199,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp4.isDirty());
 
 
-    afc.alleleFrequencies(as2).saveState();
+    afc.alleleFrequencies(as2).saveState("state1");
     afc.alleleFrequencies(as2).setValue(Simplex({.01, .01, .9999999996, .01, .01, .01}));
     EXPECT_TRUE(tp1.isDirty());
     EXPECT_TRUE(tp2.isDirty());
@@ -214,7 +212,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp4.isDirty());
 
 
-    infectionOrder.saveState();
+    infectionOrder.saveState("state1");
     infectionOrder.swap(2, 3);
     EXPECT_FALSE(tp1.isDirty());
     EXPECT_FALSE(tp2.isDirty());

@@ -26,10 +26,10 @@ class MultinomialSourceTransmissionProcess : public Computation<double>,
                                              public Observable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>>,
                                              public Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>>,
                                              public Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>, double> {
-    using CallbackType = std::function<void()>;
-    CREATE_EVENT(save_state, CallbackType)
-    CREATE_EVENT(accept_state, CallbackType)
-    CREATE_EVENT(restore_state, CallbackType)
+//    using CallbackType = std::function<void()>;
+//    CREATE_EVENT(save_state, CallbackType)
+//    CREATE_EVENT(accept_state, CallbackType)
+//    CREATE_EVENT(restore_state, CallbackType)
 
 public:
     MultinomialSourceTransmissionProcess(COIProbabilityImpl &coiProb,
@@ -50,12 +50,13 @@ private:
     // update founder -> update estimates at locus
     // update COI -> update estimates across loci
 
+    boost::container::flat_map<Locus *, int> locusIdxMap_{};
 
     boost::container::flat_set<Locus *> dirtyLoci_{};
 
     // loci independent conditional on COI
+    // buffers for calculations
     std::vector<double> llikMatrix_{};
-    boost::container::flat_map<Locus *, int> locusIdxMap_{};
     int totalLoci_;
 
     std::vector<double> coiPartialLlik_{};
@@ -105,6 +106,14 @@ MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContaine
           this->dirtyLoci_.insert(locus);
         });
     }
+
+//    this->addPreSaveHook([=, this]() {
+//            std::cout << "Saving Multinomial Source Transmission Process" << std::endl;
+//    });
+//
+//    this->addPreRestoreHook([=, this]() {
+//      std::cout << "Restoring Multinomial Source Transmission Process" << std::endl;
+//    });
 
     this->setDirty();
 

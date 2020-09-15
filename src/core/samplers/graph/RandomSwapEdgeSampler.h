@@ -54,6 +54,7 @@ RandomSwapEdgeSampler<T, Engine, NodeImpl>::RandomSwapEdgeSampler(TransmissionNe
 
 template<typename T, typename Engine, typename NodeValueImpl>
 void RandomSwapEdgeSampler<T, Engine, NodeValueImpl>::update() noexcept {
+    const std::string stateId = "SwapEdge1";
     double curLik = target_.value();
 
     const auto nodeA = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
@@ -74,9 +75,9 @@ void RandomSwapEdgeSampler<T, Engine, NodeValueImpl>::update() noexcept {
             NodeValueImpl* nodeAParentNode = *(nodeAParentSet.begin() + nodeAParentIdx);
             NodeValueImpl* nodeBParentNode = *(nodeBParentSet.begin() + nodeBParentIdx);
 
-            nodeAParentSetParam->saveState();
+            nodeAParentSetParam->saveState(stateId);
             assert(nodeAParentSetParam->isSaved());
-            nodeBParentSetParam->saveState();
+            nodeBParentSetParam->saveState(stateId);
             assert(nodeBParentSetParam->isSaved());
             assert(!target_.isDirty());
             network_.removeEdge(nodeAParentNode, nodeA);
@@ -84,8 +85,8 @@ void RandomSwapEdgeSampler<T, Engine, NodeValueImpl>::update() noexcept {
 
             if (network_.createsCycle(nodeAParentNode, nodeB) or network_.createsCycle(nodeBParentNode, nodeA)) {
                 rejections_++;
-                nodeAParentSetParam->restoreState();
-                nodeBParentSetParam->restoreState();
+                nodeAParentSetParam->restoreState(stateId);
+                nodeBParentSetParam->restoreState(stateId);
                 assert(!target_.isDirty());
                 assert(curLik == target_.value());
             } else {
@@ -100,8 +101,8 @@ void RandomSwapEdgeSampler<T, Engine, NodeValueImpl>::update() noexcept {
                     nodeBParentSetParam->acceptState();
                 } else {
                     rejections_++;
-                    nodeAParentSetParam->restoreState();
-                    nodeBParentSetParam->restoreState();
+                    nodeAParentSetParam->restoreState(stateId);
+                    nodeBParentSetParam->restoreState(stateId);
                     assert(!target_.isDirty());
                     assert(curLik == target_.value());
                 }

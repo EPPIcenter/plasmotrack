@@ -22,11 +22,14 @@ class Accumulator : public Computation<Output>,
                     public Checkpointable<Accumulator<Input, Output>, Output> {
 
 public:
-
+    Accumulator();
     void addTarget(Input &target);
 
     void addTarget(Input *target);
 
+    void postSaveState();
+    void postAcceptState();
+    void postRestoreState();
 
     Output value() noexcept override;
 
@@ -37,8 +40,13 @@ private:
 
     friend class Checkpointable<Accumulator<Input, Output>, Output>;
 
-    boost::container::flat_set<Input *> targets_{};
-    boost::container::flat_set<Input *> dirty_targets_{};
+    using TargetSet = boost::container::flat_set<Input *>;
+
+    TargetSet targets_{};
+    TargetSet dirtyTargets_{};
+
+    std::vector<TargetSet> targetsCache_{};
+    std::vector<TargetSet> dirtyTargetsCachce_{};
 
 };
 
@@ -46,10 +54,10 @@ template<typename Input, typename Output>
 void Accumulator<Input, Output>::addTarget(Input &target) {
     this->setDirty();
     targets_.insert(&target);
-    dirty_targets_.insert(&target);
+    dirtyTargets_.insert(&target);
 
     target.add_set_dirty_listener([&]() {
-        const auto& [_, inserted] = dirty_targets_.insert(&target);
+        const auto& [_, inserted] = dirtyTargets_.insert(&target);
         if (inserted) {
             this->value_ -= target.peek();
             this->setDirty();
@@ -82,10 +90,10 @@ template<typename Input, typename Output>
 void Accumulator<Input, Output>::addTarget(Input *target) {
     this->setDirty();
     targets_.insert(target);
-    dirty_targets_.insert(target);
+    dirtyTargets_.insert(target);
 
     target->add_set_dirty_listener([=, this]() {
-        const auto& [_, inserted] = dirty_targets_.insert(target);
+        const auto& [_, inserted] = dirtyTargets_.insert(target);
         if (inserted) {
             this->setDirty();
             this->value_ -= target->peek();
@@ -100,10 +108,10 @@ inline void Accumulator<PartialLikelihood, double>::addTarget(PartialLikelihood 
     this->setDirty();
     const auto& [_, inserted] = targets_.insert(target);
     if(!inserted) assert(!"Target added more than once. Check model specification.");
-    dirty_targets_.insert(target);
+    dirtyTargets_.insert(target);
 
     target->add_set_dirty_listener([=, this]() {
-        const auto& [_, inserted] = dirty_targets_.insert(target);
+        const auto& [_, inserted] = dirtyTargets_.insert(target);
         if (inserted) {
             this->setDirty();
             assert(target->peek() > -std::numeric_limits<double>::infinity());
@@ -118,30 +126,49 @@ inline void Accumulator<PartialLikelihood, double>::addTarget(PartialLikelihood 
 
 template<typename Input, typename Output>
 Output Accumulator<Input, Output>::value() noexcept {
-    if(this->isDirty()) {
-        for (auto el : dirty_targets_) {
-            this->value_ += el->value();
-        }
-        this->setClean();
+
+    for (auto el : dirtyTargets_) {
+        this->value_ += el->value();
     }
-    dirty_targets_.clear();
+    this->setClean();
+    dirtyTargets_.clear();
 
     return this->value_;
+}
+
+template<typename Input, typename Output>
+void Accumulator<Input, Output>::postSaveState() {
+    targetsCache_.emplace_back(targets_);
+    dirtyTargetsCachce_.emplace_back(dirtyTargets_);
+}
+
+template<typename Input, typename Output>
+void Accumulator<Input, Output>::postRestoreState() {
+    targets_ = targetsCache_.back();
+    dirtyTargets_ = dirtyTargetsCachce_.back();
+
+    targetsCache_.pop_back();
+    dirtyTargetsCachce_.pop_back();
+}
+
+template<typename Input, typename Output>
+void Accumulator<Input, Output>::postAcceptState() {
+    targetsCache_.clear();
+    dirtyTargetsCachce_.clear();
 }
 
 
 template<>
 inline double Accumulator<PartialLikelihood, double>::value() noexcept {
     assert(this->value_ < std::numeric_limits<double>::infinity());
-    if (this->isDirty()) {
-        for (auto &el : dirty_targets_) {
-            assert(this->value_ < std::numeric_limits<double>::infinity());
-            this->value_ += std::isnan(el->value()) ? -std::numeric_limits<double>::infinity() : el->value();
-            assert(this->value_ < std::numeric_limits<double>::infinity());
-        }
-        this->setClean();
+
+    for (auto &el : dirtyTargets_) {
+        assert(this->value_ < std::numeric_limits<double>::infinity());
+        this->value_ += std::isnan(el->value()) ? -std::numeric_limits<double>::infinity() : el->value();
+        assert(this->value_ < std::numeric_limits<double>::infinity());
     }
-    dirty_targets_.clear();
+    this->setClean();
+    dirtyTargets_.clear();
 
     return this->value_;
 }
@@ -149,6 +176,12 @@ inline double Accumulator<PartialLikelihood, double>::value() noexcept {
 template<typename Input, typename Output>
 int Accumulator<Input, Output>::getNumTargets() const {
     return targets_.size();
+}
+template<typename Input, typename Output>
+Accumulator<Input, Output>::Accumulator() {
+    this->addPostSaveHook([=, this]() { this->postSaveState(); });
+    this->addPostRestoreHook([=, this]() { this->postRestoreState(); });
+    this->addPostAcceptHook([=, this]() { this->postAcceptState(); });
 }
 
 #endif //TRANSMISSION_NETWORKS_APP_ACCUMULATOR_H

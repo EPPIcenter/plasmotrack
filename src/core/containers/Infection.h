@@ -30,9 +30,9 @@ public:
     using LocusGeneticsAssignment = std::pair<LocusImpl *, GeneticImpl>;
 
     template<typename LocusDataIter>
-    Infection(std::string id, const LocusDataIter obs, const LocusDataIter latent);
+    Infection(std::string id, LocusDataIter obs, LocusDataIter latent);
 
-    Infection(std::string id);
+    explicit Infection(std::string id);
 
     template<typename T>
     void addGenetics(LocusImpl *locus, const T &obs, const T &latent);
@@ -72,11 +72,11 @@ public:
         return loci_;
     }
 
-    std::string id() const {
+    [[nodiscard]] std::string id() const {
         return id_;
     }
 
-    std::string serialize() const {
+    [[nodiscard]] std::string serialize() const {
         return id_;
     }
 
@@ -101,9 +101,9 @@ Infection<GeneticImpl, LocusImpl>::Infection(const std::string id, const LocusDa
         // Creating pass through of notifications
         latentGenotype_.at(locus).add_pre_change_listener([=, this]() { this->notify_pre_change(); });
         latentGenotype_.at(locus).add_post_change_listener([=, this]() { this->notify_post_change(); });
-        latentGenotype_.at(locus).add_save_state_listener([=, this]() { this->notify_save_state(); });
+        latentGenotype_.at(locus).add_save_state_listener([=, this](std::string savedStateId) { this->notify_save_state(savedStateId); });
         latentGenotype_.at(locus).add_accept_state_listener([=, this]() { this->notify_accept_state(); });
-        latentGenotype_.at(locus).add_restore_state_listener([=, this]() { this->notify_restore_state(); });
+        latentGenotype_.at(locus).add_restore_state_listener([=, this](std::string savedStateId) { this->notify_restore_state(savedStateId); });
     }
 }
 
@@ -116,9 +116,9 @@ void Infection<GeneticImpl, LocusImpl>::addGenetics(LocusImpl *locus, const T &o
     // Creating pass through of notifications
     latentGenotype_.at(locus).add_pre_change_listener([=, this]() { this->notify_pre_change(); });
     latentGenotype_.at(locus).add_post_change_listener([=, this]() { this->notify_post_change(); });
-    latentGenotype_.at(locus).add_save_state_listener([=, this]() { this->notify_save_state(); });
+    latentGenotype_.at(locus).add_save_state_listener([=, this](std::string savedStateId) { this->notify_save_state(savedStateId); });
     latentGenotype_.at(locus).add_accept_state_listener([=, this]() { this->notify_accept_state(); });
-    latentGenotype_.at(locus).add_restore_state_listener([=, this]() { this->notify_restore_state(); });
+    latentGenotype_.at(locus).add_restore_state_listener([=, this](std::string savedStateId) { this->notify_restore_state(savedStateId); });
 }
 
 template<typename GeneticImpl, typename LocusImpl>
@@ -132,9 +132,9 @@ void Infection<GeneticImpl, LocusImpl>::addGenetics(LocusImpl *locus, const T &o
     latentGenotype_.emplace(locus, GeneticImpl(obs));
     latentGenotype_.at(locus).add_pre_change_listener([=, this]() { this->notify_pre_change(); });
     latentGenotype_.at(locus).add_post_change_listener([=, this]() { this->notify_post_change(); });
-    latentGenotype_.at(locus).add_save_state_listener([=, this]() { this->notify_save_state(); });
+    latentGenotype_.at(locus).add_save_state_listener([=, this](std::string savedStateId) { this->notify_save_state(savedStateId); });
     latentGenotype_.at(locus).add_accept_state_listener([=, this]() { this->notify_accept_state(); });
-    latentGenotype_.at(locus).add_restore_state_listener([=, this]() { this->notify_restore_state(); });
+    latentGenotype_.at(locus).add_restore_state_listener([=, this](std::string savedStateId) { this->notify_restore_state(savedStateId); });
 }
 
 template<typename GeneticImpl, typename LocusImpl>
@@ -144,9 +144,9 @@ void Infection<GeneticImpl, LocusImpl>::addLatentGenetics(LocusImpl *locus, cons
     latentGenotype_.emplace(locus, GeneticImpl(latent));
     latentGenotype_.at(locus).add_pre_change_listener([=, this]() { this->notify_pre_change(); });
     latentGenotype_.at(locus).add_post_change_listener([=, this]() { this->notify_post_change(); });
-    latentGenotype_.at(locus).add_save_state_listener([=, this]() { this->notify_save_state(); });
+    latentGenotype_.at(locus).add_save_state_listener([=, this](std::string savedStateId) { this->notify_save_state(savedStateId); });
     latentGenotype_.at(locus).add_accept_state_listener([=, this]() { this->notify_accept_state(); });
-    latentGenotype_.at(locus).add_restore_state_listener([=, this]() { this->notify_restore_state(); });
+    latentGenotype_.at(locus).add_restore_state_listener([=, this](std::string savedStateId) { this->notify_restore_state(savedStateId); });
 }
 
 #endif //TRANSMISSION_NETWORKS_APP_INFECTION_H

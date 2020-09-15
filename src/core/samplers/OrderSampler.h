@@ -47,8 +47,9 @@ private:
 
 template<typename T, typename OrderingElement, typename Engine>
 void OrderSampler<T, OrderingElement, Engine>::update() noexcept {
+    const std::string stateId = "OrderSampler";
     double curLik = target_.value();
-    parameter_.saveState();
+    parameter_.saveState(stateId);
 
     auto [pivot, offset] = sampleProposal();
 
@@ -65,12 +66,11 @@ void OrderSampler<T, OrderingElement, Engine>::update() noexcept {
         parameter_.acceptState();
     } else {
         rejections_++;
-        parameter_.restoreState();
+        parameter_.restoreState(stateId);
         assert(curLik == target_.value());
     }
 
     assert(!target_.isDirty());
-
 
     total_updates_++;
 }

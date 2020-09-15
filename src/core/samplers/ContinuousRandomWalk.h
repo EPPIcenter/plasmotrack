@@ -93,8 +93,9 @@ ContinuousRandomWalk<T, Engine>::ContinuousRandomWalk(Parameter<double> &paramet
 
 template<typename T, typename Engine>
 void ContinuousRandomWalk<T, Engine>::update() noexcept {
+    const std::string stateId = "ContinuousRW";
     double curLik = target_.value();
-    parameter_.saveState();
+    parameter_.saveState(stateId);
 
     const double currentVal = parameter_.value();
     const double proposal = sampleProposal();
@@ -112,7 +113,7 @@ void ContinuousRandomWalk<T, Engine>::update() noexcept {
         parameter_.acceptState();
     } else {
         rejections_ += 1;
-        parameter_.restoreState();
+        parameter_.restoreState(stateId);
         assert(curLik == target_.value());
     }
     assert(!target_.isDirty());

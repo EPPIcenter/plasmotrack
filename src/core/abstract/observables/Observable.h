@@ -52,8 +52,9 @@ private:                                                                        
 
 #define CRTP_CREATE_EVENT(callback_name, callback_type)                                     \
 public:                                                                                     \
-    void notify_##callback_name() const noexcept {                                          \
-        this->underlying().notify(this->callback_name##_callbacks_);                        \
+    template<typename ...Args>                                                              \
+    void notify_##callback_name(Args... args) const noexcept {                              \
+        this->underlying().notify(this->callback_name##_callbacks_, args...);               \
     }                                                                                       \
                                                                                             \
     auto add_##callback_name##_listener(const callback_type& cb) noexcept -> ListenerId {   \

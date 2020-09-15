@@ -2,11 +2,11 @@
 // Created by Maxwell Murphy on 4/9/20.
 //
 
-#include "gtest/gtest.h"
 
 #include <boost/random.hpp>
-#include <boost/math/distributions.hpp>
-#include "Eigen/Core"
+#include <Eigen/Core>
+
+#include "gtest/gtest.h"
 
 #include "core/parameters/Parameter.h"
 
@@ -14,26 +14,34 @@
 
 #include "core/samplers/SALTSampler.h"
 
+#include "core/utils/io/serialize.h"
+
 
 TEST(SALTSamplerTest, SimplexTest) {
 
     struct SimplexTestTarget {
-        SimplexTestTarget(Parameter<Simplex> &freqs) : freqs(freqs) {}
+        explicit SimplexTestTarget(Parameter<Simplex> &freqs) : freqs(freqs) {
+            freqs.add_post_change_listener([=, this]() {
+                this->is_dirty = true;
+            });
+        }
 
         double value() {
             double llik = 0;
             for (unsigned int i = 0; i < target.size(); i++) {
                 llik += target.at(i) * log(freqs.value().frequencies(i));
             }
+            is_dirty = false;
             return llik;
         }
 
-        bool isDirty() {
-            return true;
+        [[nodiscard]] bool isDirty() const {
+            return is_dirty;
         }
 
         std::vector<int> target{1, 2000, 3000, 4000};
         Parameter<Simplex> &freqs;
+        bool is_dirty{true};
     };
 
     Parameter<Simplex> mySimplex{.1, .1, .1, .1};
@@ -51,15 +59,17 @@ TEST(SALTSamplerTest, SimplexTest) {
 
     Eigen::Array<double, 4, 1> results;
     results.setZero();
-    i = 1000;
+    int total_samples = 100000;
+    i = total_samples;
     while (i > 0) {
         i--;
         sampler.update();
         for (unsigned int j = 0; j < mySimplex.value().totalElements(); ++j) {
-            results(j) += mySimplex.value().frequencies(j) / 1000.0;
+            results(j) += mySimplex.value().frequencies(j) / total_samples;
         }
     }
 
+    std::cout << serialize(std::vector<double>{results(0), results(1), results(2), results(3)}) << std::endl;
     EXPECT_NEAR(results(0), 1.0 / 9001, .015);
     EXPECT_NEAR(results(1), 2000.0 / 9001, .015);
     EXPECT_NEAR(results(2), 3000.0 / 9001, .015);

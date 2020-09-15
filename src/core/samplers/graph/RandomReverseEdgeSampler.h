@@ -54,6 +54,7 @@ RandomReverseEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeImpl>::Rando
 
 template<int MAX_PARENT_SET_CARDINALITY, typename T, typename Engine, typename NodeValueImpl>
 void RandomReverseEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeValueImpl>::update() noexcept {
+    const std::string stateId = "ReverseEdge1";
     double curLik = target_.value();
 
     auto childNode = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
@@ -67,13 +68,13 @@ void RandomReverseEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeValueIm
         auto parentParentSetParam = network_.parentSet(parentNode);
 
         if (parentParentSetParam->value().size() < MAX_PARENT_SET_CARDINALITY) {
-            childParentSetParam->saveState();
-            parentParentSetParam->saveState();
+            childParentSetParam->saveState(stateId);
+            parentParentSetParam->saveState(stateId);
             network_.removeEdge(parentNode, childNode);
             if (network_.createsCycle(childNode, parentNode)) {
                 rejections_++;
-                childParentSetParam->restoreState();
-                parentParentSetParam->restoreState();
+                childParentSetParam->restoreState(stateId);
+                parentParentSetParam->restoreState(stateId);
                 assert(curLik == target_.value());
             } else {
                 network_.addEdge(childNode, parentNode);
@@ -87,8 +88,8 @@ void RandomReverseEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeValueIm
                     parentParentSetParam->acceptState();
                 } else {
                     rejections_++;
-                    childParentSetParam->restoreState();
-                    parentParentSetParam->restoreState();
+                    childParentSetParam->restoreState(stateId);
+                    parentParentSetParam->restoreState(stateId);
                     assert(curLik == target_.value());
                 }
             }

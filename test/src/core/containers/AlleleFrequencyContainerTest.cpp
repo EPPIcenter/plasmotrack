@@ -25,8 +25,8 @@ TEST(AlleleFrequencyContainerTest, HandlesChangedFrequencies) {
     AlleleFrequencyContainer afc(lfas);
     afc.add_post_change_listener([&]() { frequencyChanged = true; });
 
-    afc.alleleFrequencies(as1).saveState();
+    afc.alleleFrequencies(as1).saveState("state1");
     afc.alleleFrequencies(as1).setValue({.1, .2, .3, .4});
     EXPECT_TRUE(frequencyChanged);
-    afc.alleleFrequencies(as1).restoreState();
+    afc.alleleFrequencies(as1).restoreState("state1");
 }
