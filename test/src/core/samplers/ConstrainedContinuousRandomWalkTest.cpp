@@ -11,6 +11,9 @@
 #include "core/parameters/Parameter.h"
 #include "core/samplers/ConstrainedContinuousRandomWalk.h"
 
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::samplers;
+
 constexpr double TEST_PROB = .15;
 constexpr int TOTAL_DATA_POINTS = 100;
 TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {

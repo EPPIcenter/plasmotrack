@@ -9,9 +9,11 @@
 
 #include "gtest/gtest.h"
 
-#include "core/utils/io/parse_json.h"
-#include "core/utils/io/Loggers/ValueLogger.h"
-#include "core/utils/io/path_parsing.h"
+#include "core/io/parse_json.h"
+#include "core/io/loggers/ValueLogger.h"
+#include "core/io/path_parsing.h"
+#include "core/io/serialize.h"
+
 
 #include "core/samplers/DoubleConstrainedContinuousRandomWalk.h"
 #include "core/samplers/ConstrainedContinuousRandomWalk.h"
@@ -23,10 +25,13 @@
 #include "impl/model/ModelTwo.h"
 #include "impl/state/ModelTwoState.h"
 
-#include "core/utils/io/serialize.h"
 
 
 namespace fs = std::filesystem;
+
+using namespace transmission_nets::impl;
+using namespace transmission_nets::core::io;
+using namespace transmission_nets::core::samplers;
 
 TEST(ModelTwoTest, CoreTest) {
 
@@ -34,7 +39,7 @@ TEST(ModelTwoTest, CoreTest) {
     using Locus = ModelTwoState::LocusImpl;
     using ProbabilitySampler = DoubleConstrainedContinuousRandomWalk<ModelTwo, boost::random::mt19937>;
     using ZeroBoundedSampler = ConstrainedContinuousRandomWalk<0, std::numeric_limits<int>::max(), ModelTwo, boost::random::mt19937>;
-    using GeneticsSampler = RandomAllelesBitSetSampler<ModelTwo, boost::random::mt19937, ModelTwoState::GeneticsImpl>;
+    using GeneticsSampler = genetics::RandomAllelesBitSetSampler<ModelTwo, boost::random::mt19937, ModelTwoState::GeneticsImpl>;
 
     ModelTwoState state;
 

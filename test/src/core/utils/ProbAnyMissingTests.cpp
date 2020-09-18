@@ -6,6 +6,7 @@
 
 #include "core/utils/ProbAnyMissing.h"
 
+using namespace transmission_nets::core::utils;
 
 TEST(ProbAnyMissingTests, TestSimpleVec) {
 

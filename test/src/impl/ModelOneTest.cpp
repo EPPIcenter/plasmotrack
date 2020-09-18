@@ -8,9 +8,9 @@
 
 #include "gtest/gtest.h"
 
-#include "core/utils/io/parse_json.h"
-#include "core/utils/io/Loggers/ValueLogger.h"
-#include "core/utils/io/path_parsing.h"
+#include "core/io/parse_json.h"
+#include "core/io/loggers/ValueLogger.h"
+#include "core/io/path_parsing.h"
 
 #include "core/samplers/ConstrainedContinuousRandomWalk.h"
 #include "core/samplers/SALTSampler.h"
@@ -21,6 +21,10 @@
 #include "impl/model/ModelOne.h"
 #include "impl/state/ModelOneState.h"
 
+using namespace transmission_nets::impl;
+using namespace transmission_nets::core::io;
+using namespace transmission_nets::core::samplers;
+//using namespace transmission_nets::core::samplers::genetics;
 
 namespace fs = std::filesystem;
 
@@ -30,7 +34,7 @@ TEST(ModelOneTest, CoreTest) {
     using Locus = ModelOneState::LocusImpl;
     using ZeroOneSampler = ConstrainedContinuousRandomWalk<0, 1, ModelOne, boost::random::mt19937>;
     using ZeroBoundedSampler = ConstrainedContinuousRandomWalk<0, std::numeric_limits<int>::max(), ModelOne, boost::random::mt19937>;
-    using GeneticsSampler = RandomAllelesBitSetSampler<ModelOne, boost::random::mt19937, ModelOneState::GeneticsImpl>;
+    using GeneticsSampler = genetics::RandomAllelesBitSetSampler<ModelOne, boost::random::mt19937, ModelOneState::GeneticsImpl>;
 
     ModelOneState state;
 

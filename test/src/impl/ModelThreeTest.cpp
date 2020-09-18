@@ -8,10 +8,10 @@
 
 #include "gtest/gtest.h"
 
-#include "core/utils/io/parse_json.h"
-#include "core/utils/io/path_parsing.h"
-#include "core/utils/io/Loggers/ValueLogger.h"
-#include "core/utils/io/Loggers/LambdaLogger.h"
+#include "core/io/parse_json.h"
+#include "core/io/path_parsing.h"
+#include "core/io/loggers/ValueLogger.h"
+#include "core/io/loggers/LambdaLogger.h"
 
 #include "core/samplers/DoubleConstrainedContinuousRandomWalk.h"
 #include "core/samplers/ConstrainedContinuousRandomWalk.h"
@@ -30,17 +30,21 @@
 
 namespace fs = std::filesystem;
 
+using namespace transmission_nets::impl;
+using namespace transmission_nets::core::io;
+using namespace transmission_nets::core::samplers;
+
 TEST(ModelThreeTest, CoreTest) {
 
     using InfectionEvent = ModelThreeState::InfectionEvent;
     using Locus = ModelThreeState::LocusImpl;
     using ProbabilitySampler = DoubleConstrainedContinuousRandomWalk<ModelThree, boost::random::mt19937>;
     using ZeroBoundedSampler = ConstrainedContinuousRandomWalk<0, std::numeric_limits<int>::max(), ModelThree, boost::random::mt19937>;
-    using GeneticsSampler = RandomAllelesBitSetSampler<ModelThree, boost::random::mt19937, ModelThreeState::GeneticsImpl>;
-    using AddEdgeSampler = RandomAddEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
-    using RemoveEdgeSampler = RandomRemoveEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
-    using ReverseEdgeSampler = RandomReverseEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
-    using SwapEdgeSampler = RandomSwapEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using GeneticsSampler = genetics::RandomAllelesBitSetSampler<ModelThree, boost::random::mt19937, ModelThreeState::GeneticsImpl>;
+    using AddEdgeSampler = graph::RandomAddEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using RemoveEdgeSampler = graph::RandomRemoveEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using ReverseEdgeSampler = graph::RandomReverseEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using SwapEdgeSampler = graph::RandomSwapEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
 
 
     ModelThreeState state;

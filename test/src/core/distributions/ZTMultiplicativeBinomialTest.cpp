@@ -8,6 +8,9 @@
 
 #include "core/distributions/ZTMultiplicativeBinomial.h"
 
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::distributions;
+
 constexpr int MAX_COI = 15;
 
 TEST(ZTMultiplicativeBinomialTest, CoreTest) {

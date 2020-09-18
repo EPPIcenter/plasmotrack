@@ -7,7 +7,12 @@
 
 #include <boost/container/flat_set.hpp>
 
-template<typename ElementType>
-using ParentSet = boost::container::flat_set<ElementType*>;
+
+namespace transmission_nets::core::containers {
+
+    template<typename ElementType>
+    using ParentSet = boost::container::flat_set<ElementType*>;
+
+}
 
 #endif //TRANSMISSION_NETWORKS_APP_PARENTSET_H

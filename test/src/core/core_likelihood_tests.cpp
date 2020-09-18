@@ -28,14 +28,24 @@
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/ObservationProcessLikelihood.h"
 
+#include "core/computation/OrderDerivedParentSet.h"
 #include "core/distributions/ZTGeometric.h"
 #include "core/distributions/ZTMultiplicativeBinomial.h"
 #include "model/transmission_process/OrderBasedTransmissionProcess.h"
-#include "model/transmission_process/OrderDerivedParentSet.h"
 #include "model/transmission_process/TransmissionProcessLikelihood.h"
 #include "model/transmission_process/node_transmission_process/NoSuperInfectionNoMutation.h"
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
+
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::containers;
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::computation;
+using namespace transmission_nets::core::utils;
+using namespace transmission_nets::core::samplers;
+using namespace transmission_nets::core::distributions;
+using namespace transmission_nets::model::observation_process;
+using namespace transmission_nets::model::transmission_process;
 
 using GeneticsImpl = AllelesBitSet<16>;
 using DoubleParameter = Parameter<double>;

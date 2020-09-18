@@ -8,18 +8,20 @@
 #include "core/computation/PartialLikelihood.h"
 #include "core/parameters/Parameter.h"
 
-class BetaLogPDF : public PartialLikelihood {
-public:
-    BetaLogPDF(Parameter<double> &target, double alpha, double beta);
-    Likelihood value() override;
+namespace transmission_nets::core::distributions {
 
-private:
-    Parameter<double> &target_;
-    double alpha_;
-    double beta_;
-    double logDenominator_;
-};
+    class BetaLogPDF : public computation::PartialLikelihood {
+    public:
+        BetaLogPDF(parameters::Parameter<double> &target, double alpha, double beta);
+        computation::Likelihood value() override;
 
+    private:
+        parameters::Parameter<double> &target_;
+        double alpha_;
+        double beta_;
+        double logDenominator_;
+    };
 
+}
 
 #endif//TRANSMISSION_NETWORKS_APP_BETALOGPDF_H

@@ -18,35 +18,42 @@
 #include "core/parameters/Parameter.h"
 #include "core/parameters/Ordering.h"
 
-struct ModelTwoState {
-    static constexpr int MAX_ALLELES = 32;
-    using LocusImpl = Locus;
-    using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
-    using InfectionEvent = Infection<GeneticsImpl, LocusImpl>;
-    using AlleleFrequencyImpl = Simplex;
-    using AlleleFrequencyContainerImpl = AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
+
+namespace transmission_nets::impl {
+
+    struct ModelTwoState {
+        static constexpr int MAX_ALLELES = 32;
+        using LocusImpl = core::containers::Locus;
+        using GeneticsImpl = core::datatypes::AllelesBitSet<MAX_ALLELES>;
+        using InfectionEvent = core::containers::Infection<GeneticsImpl, LocusImpl>;
+        using AlleleFrequencyImpl = core::datatypes::Simplex;
+        using AlleleFrequencyContainerImpl = core::containers::AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
 
 
-    std::map<std::string, LocusImpl *> loci{};
-    std::vector<InfectionEvent *> infections{};
+        std::map<std::string, LocusImpl *> loci{};
+        std::vector<InfectionEvent *> infections{};
 
-    AlleleFrequencyContainerImpl alleleFrequencies;
+        AlleleFrequencyContainerImpl alleleFrequencies;
 
-    // Network Structure
-    Ordering<InfectionEvent> infectionEventOrdering;
+        // Network Structure
+        core::parameters::Ordering<InfectionEvent> infectionEventOrdering;
 
-    // Observation Process
-    Parameter<double> observationFalsePositiveRate;
-    Parameter<double> observationFalseNegativeRate;
+        // Observation Process
+        core::parameters::Parameter<double> observationFalsePositiveRate;
+        core::parameters::Parameter<double> observationFalseNegativeRate;
 
-    // Node Transmission Process
-    Parameter<double> geometricGenerationProb;
-    Parameter<double> lossProb;
-    Parameter<double> mutationProb;
+        // Node Transmission Process
+        core::parameters::Parameter<double> geometricGenerationProb;
+        core::parameters::Parameter<double> lossProb;
+        core::parameters::Parameter<double> mutationProb;
 
-    // Source Transmission Process
-    Parameter<double> meanCOI;
-};
+        // Source Transmission Process
+        core::parameters::Parameter<double> meanCOI;
+    };
+
+}
+
+
 
 
 #endif //TRANSMISSION_NETWORKS_APP_MODELTWOSTATE_H

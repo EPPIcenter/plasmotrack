@@ -7,6 +7,9 @@
 #include "core/datatypes/Alleles.h"
 #include "core/containers/Infection.h"
 
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::containers;
+using namespace transmission_nets::core::parameters;
 
 TEST(InfectionTest, HandlesChangedLatentAlleles) {
     using GeneticsImpl = AllelesBitSet<16>;

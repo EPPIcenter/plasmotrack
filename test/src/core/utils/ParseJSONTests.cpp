@@ -6,12 +6,15 @@
 
 #include "gtest/gtest.h"
 
-#include "core/utils/io/parse_json.h"
+#include "core/io/parse_json.h"
 
 #include "core/containers/Locus.h"
 #include "core/containers/Infection.h"
 #include "core/datatypes/Alleles.h"
 
+using namespace transmission_nets::core::containers;
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::io;
 
 TEST(ParseJSONTests, TestParseLoci) {
     using InfectionEvent = Infection<AllelesBitSet<32>>;

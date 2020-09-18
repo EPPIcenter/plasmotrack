@@ -5,6 +5,8 @@
 #include "gtest/gtest.h"
 #include "core/utils/CombinationsWithRepetitionsGenerator.h"
 
+using namespace transmission_nets::core::utils;
+
 TEST(CombinationsWithRepetitionsTest, CoreTest) {
     CombinationsWithRepetitionsGenerator cs(4, 3);
 

@@ -16,50 +16,55 @@
 #include "core/parameters/Parameter.h"
 
 
-template<int MAX_COUNT>
-class ZTGeometric : public Computation<ProbabilityVector<MAX_COUNT + 1>>,
-                    public Observable<ZTGeometric<MAX_COUNT>>,
-                    public Cacheable<ZTGeometric<MAX_COUNT>>,
-                    public Checkpointable<ZTGeometric<MAX_COUNT>, ProbabilityVector<
-                                               MAX_COUNT + 1>> {
+namespace transmission_nets::core::distributions {
 
-public:
-    explicit ZTGeometric(Parameter<double> &prob) noexcept;
+    template<int MAX_COUNT>
+    class ZTGeometric : public computation::Computation<datatypes::ProbabilityVector<MAX_COUNT + 1>>,
+                        public abstract::Observable<ZTGeometric<MAX_COUNT>>,
+                        public abstract::Cacheable<ZTGeometric<MAX_COUNT>>,
+                        public abstract::Checkpointable<ZTGeometric<MAX_COUNT>, datatypes::ProbabilityVector<
+                                MAX_COUNT + 1>> {
 
-    ProbabilityVector<MAX_COUNT + 1> value() noexcept;
+    public:
+        explicit ZTGeometric(parameters::Parameter<double> &prob) noexcept;
 
-private:
-    friend class Checkpointable<ZTGeometric<MAX_COUNT>, ProbabilityVector<
-            MAX_COUNT + 1>>;
+        datatypes::ProbabilityVector<MAX_COUNT + 1> value() noexcept;
 
-    friend class Cacheable<ZTGeometric<MAX_COUNT>>;
+    private:
+        friend class abstract::Checkpointable<ZTGeometric<MAX_COUNT>, datatypes::ProbabilityVector<
+                MAX_COUNT + 1>>;
 
-    Parameter<double> &prob_;
-};
+        friend class abstract::Cacheable<ZTGeometric<MAX_COUNT>>;
 
-template<int MAX_COUNT>
-ZTGeometric<MAX_COUNT>::ZTGeometric(Parameter<double> &prob) noexcept : prob_(
-        prob) {
-    this->value_(0) = 0;
-    prob_.registerCacheableCheckpointTarget(this);
-    prob_.add_post_change_listener([=, this]() { this->setDirty(); });
-    this->setDirty();
-    this->value();
-}
+        parameters::Parameter<double> &prob_;
+    };
 
-
-template<int MAX_COUNT>
-ProbabilityVector<MAX_COUNT + 1> ZTGeometric<MAX_COUNT>::value() noexcept {
-    if (this->isDirty()) {
-        double denominator = 0.0;
-        for (int j = 1; j < MAX_COUNT + 1; ++j) {
-            this->value_(j) = pow(1 - prob_.value(), j) * (prob_.value()); // geometric distribution pmf(j)
-            denominator += this->value_(j);
-        }
-        this->value_ = this->value_ / denominator;
-        this->setClean();
+    template<int MAX_COUNT>
+    ZTGeometric<MAX_COUNT>::ZTGeometric(parameters::Parameter<double> &prob) noexcept : prob_(
+            prob) {
+        this->value_(0) = 0;
+        prob_.registerCacheableCheckpointTarget(this);
+        prob_.add_post_change_listener([=, this]() { this->setDirty(); });
+        this->setDirty();
+        this->value();
     }
-    return this->value_;
+
+
+    template<int MAX_COUNT>
+    datatypes::ProbabilityVector<MAX_COUNT + 1> ZTGeometric<MAX_COUNT>::value() noexcept {
+        if (this->isDirty()) {
+            double denominator = 0.0;
+            for (int j = 1; j < MAX_COUNT + 1; ++j) {
+                this->value_(j) = pow(1 - prob_.value(), j) * (prob_.value()); // geometric distribution pmf(j)
+                denominator += this->value_(j);
+            }
+            this->value_ = this->value_ / denominator;
+            this->setClean();
+        }
+        return this->value_;
+    }
+
 }
+
 
 #endif //TRANSMISSION_NETWORKS_APP_ZTGEOMETRIC_H

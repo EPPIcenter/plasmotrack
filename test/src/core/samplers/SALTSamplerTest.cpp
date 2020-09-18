@@ -9,13 +9,15 @@
 #include "gtest/gtest.h"
 
 #include "core/parameters/Parameter.h"
-
 #include "core/datatypes/Simplex.h"
-
 #include "core/samplers/SALTSampler.h"
+#include "core/io/serialize.h"
 
-#include "core/utils/io/serialize.h"
 
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::samplers;
+using namespace transmission_nets::core::io;
 
 TEST(SALTSamplerTest, SimplexTest) {
 

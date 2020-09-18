@@ -6,12 +6,14 @@
 #define TRANSMISSION_NETWORKS_APP_PATH_PARSING_H
 
 
-#include <iostream>
-//#include <boost/filesystem.hpp>
 #include <filesystem>
 
-namespace fs = std::filesystem;
+namespace transmission_nets::core::io {
 
-fs::path getPathFromEnvVar(const char *envVar);
+    namespace fs = std::filesystem;
+    fs::path getPathFromEnvVar(const char *envVar);
+
+}
+
 
 #endif //TRANSMISSION_NETWORKS_APP_PATH_PARSING_H

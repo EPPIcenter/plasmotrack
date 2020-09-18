@@ -4,9 +4,11 @@
 
 #include "gtest/gtest.h"
 
+#include "core/computation/OrderDerivedParentSet.h"
 #include "core/parameters/Ordering.h"
-#include "model/transmission_process/OrderDerivedParentSet.h"
 
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::computation;
 
 TEST(OrderingTest, HandlesSwapsNotifies) {
     int el1 = 1;

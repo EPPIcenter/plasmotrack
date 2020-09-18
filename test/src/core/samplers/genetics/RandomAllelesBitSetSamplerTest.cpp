@@ -11,28 +11,41 @@
 #include "core/datatypes/Alleles.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::samplers;
+
 TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
     using Alleles = AllelesBitSet<24>;
 
     struct AllelesBitSetTestTarget {
-        explicit AllelesBitSetTestTarget(Parameter<Alleles> &alleles) : alleles_(alleles) {}
+        explicit AllelesBitSetTestTarget(Parameter<Alleles> &alleles) : alleles_(alleles) {
+            alleles_.add_post_change_listener([=, this]() {
+                dirty = true;
+            });
+        }
 
         double value() {
-            double llik = 0;
-            for (unsigned int i = 0; i < target.totalAlleles(); ++i) {
-                if(target.allele(i) == alleles_.value().allele(i)) {
-                    llik += 10;
+            if (dirty) {
+                value_ = 0;
+                for (unsigned int i = 0; i < target.totalAlleles(); ++i) {
+                    if(target.allele(i) == alleles_.value().allele(i)) {
+                        value_ += 10;
+                    }
                 }
+                dirty = false;
             }
-            return llik;
+            return value_;
         };
 
-        bool isDirty() {
-            return true;
+        [[nodiscard]] bool isDirty() const {
+            return dirty;
         }
 
         Alleles target{"011010"};
         Parameter<Alleles> &alleles_;
+        bool dirty{true};
+        double value_{0};
 
     };
 
@@ -41,7 +54,7 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
     AllelesBitSetTestTarget myTestTar(myAlleles);
     boost::random::mt19937 r;
 
-    RandomAllelesBitSetSampler sampler(myAlleles, myTestTar, &r);
+    genetics::RandomAllelesBitSetSampler sampler(myAlleles, myTestTar, &r);
 
     int i = 5000;
     while (i > 0) {

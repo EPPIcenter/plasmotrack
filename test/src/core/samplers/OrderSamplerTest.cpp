@@ -11,31 +11,42 @@
 #include "core/samplers/OrderSampler.h"
 
 
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::samplers;
 
 TEST(OrderSamplerTest, OrderTest) {
     struct OrderingTestTarget {
 
-        explicit OrderingTestTarget(Ordering<int> &ordering) : ordering_(ordering) {};
+        explicit OrderingTestTarget(Ordering<int> &ordering) : ordering_(ordering) {
+            ordering_.add_post_change_listener([=, this]() {
+                dirty = true;
+            });
+        };
 
         double value() {
-            double llik = 0;
-            for (unsigned int j = 0; j < ordering_.value().size() - 1; ++j) {
-                for (unsigned int k = j + 1; k < ordering_.value().size(); ++k) {
-                    if (*(ordering_.value().at(j)) < *(ordering_.value().at(k))) {
-                        llik += 10;
-                    } else {
-                        llik -= 10;
+            if (dirty) {
+                value_ = 0;
+                for (unsigned int j = 0; j < ordering_.value().size() - 1; ++j) {
+                    for (unsigned int k = j + 1; k < ordering_.value().size(); ++k) {
+                        if (*(ordering_.value().at(j)) < *(ordering_.value().at(k))) {
+                            value_ += 10;
+                        } else {
+                            value_ -= 10;
+                        }
                     }
                 }
+                dirty = false;
             }
-            return llik;
+            return value_;
         }
 
         bool isDirty() {
-            return true;
+            return dirty;
         }
 
         Ordering<int> &ordering_;
+        bool dirty{true};
+        double value_{0};
     };
 
     int a = 1;

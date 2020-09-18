@@ -36,14 +36,14 @@ set(SOURCE_FILES
         core/utils/CombinationsWithRepetitionsGenerator.cpp
         core/utils/CombinationsWithRepetitionsGenerator.h
         core/priors/Prior.h
-        core/utils/io/parse_json.h
-        core/utils/io/Loggers/AbstractLogger.h
-        core/utils/io/Loggers/ValueLogger.h
-        core/utils/io/serialize.h
-        core/utils/io/Loggers/AbstractLogger.cpp
+        core/io/parse_json.h
+        core/io/Loggers/AbstractLogger.h
+        core/io/Loggers/ValueLogger.h
+        core/io/serialize.h
+        core/io/Loggers/AbstractLogger.cpp
         core/samplers/RandomizedScheduler.h
-        core/utils/io/path_parsing.cpp
-        core/utils/io/path_parsing.h
+        core/io/path_parsing.cpp
+        core/io/path_parsing.h
         model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h
         model/transmission_process/NetworkBasedTransmissionProcess.h
         impl/state/ModelTwoState.cpp
@@ -58,7 +58,7 @@ set(SOURCE_FILES
         impl/model/ModelThree.h
         impl/state/ModelThreeState.cpp
         impl/state/ModelThreeState.h
-        core/utils/io/Loggers/LambdaLogger.h
+        core/io/Loggers/LambdaLogger.h
         core/samplers/graph/RandomReverseEdgeSampler.h
         core/utils/ProbAnyMissing.h
         model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h
@@ -66,7 +66,9 @@ set(SOURCE_FILES
         core/distributions/pdfs/BetaLogPDF.cpp
         core/distributions/pdfs/GammaLogPDF.cpp
         core/distributions/pdfs/GammaLogPDF.h
-        core/samplers/DoubleConstrainedContinuousRandomWalk.h core/mcmc/Chain.h)
+        core/samplers/DoubleConstrainedContinuousRandomWalk.h
+        core/mcmc/Chain.h
+        core/utils/ProbAnyMissing.cpp)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

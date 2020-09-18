@@ -8,6 +8,8 @@
 
 #include "core/distributions/ZTGeometric.h"
 
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::distributions;
 
 constexpr int MAX_TRANSMISSIONS = 20;
 

@@ -4,9 +4,11 @@
 
 #include <boost/random.hpp>
 
-#include "core/utils/RandomSequence.h"
 #include "gtest/gtest.h"
 
+#include "core/utils/RandomSequence.h"
+
+using namespace transmission_nets::core::utils;
 
 TEST(RandomSequenceTest, HandlesZeroIndexed) {
 
