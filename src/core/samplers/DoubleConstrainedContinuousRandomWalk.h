@@ -6,6 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_DOUBLECONSTRAINEDCONTINUOUSRANDOMWALK_H
 
 #include <cmath>
+#include <algorithm>
 
 #include "ContinuousRandomWalk.h"
 
@@ -49,8 +50,15 @@ namespace transmission_nets::core::samplers {
         double unconstrained = log(parameter_.value() - lower_bound_) - log(upper_bound_ - parameter_.value());
         double exp_prop = exp(eps + unconstrained);
         double prop = (upper_bound_ * exp_prop + lower_bound_) / (exp_prop + 1);
-        assert(prop <= upper_bound_);
-        assert(prop >= lower_bound_);
+        prop = std::clamp(prop, lower_bound_, upper_bound_);
+#ifndef NDEBUG
+        if(prop > upper_bound_) {
+            std::cerr << "Proposal " << prop << " exceeds upper bound " << upper_bound_ << std::endl;
+        }
+        if(prop < lower_bound_) {
+            std::cerr << "Proposal " << prop << " below lower bound " << lower_bound_ << std::endl;
+        }
+#endif
         return prop;
     }
 

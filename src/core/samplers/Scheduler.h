@@ -33,7 +33,7 @@ namespace transmission_nets::core::samplers {
 
 
     inline bool isBetween(int val, int lower, int upper) {
-        return val >= lower and val <= upper;
+        return val >= lower and val < upper;
     }
 
     inline bool isUpdateStep(int frequency, int currentStep) {

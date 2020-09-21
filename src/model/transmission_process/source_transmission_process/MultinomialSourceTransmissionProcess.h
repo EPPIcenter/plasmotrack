@@ -39,6 +39,11 @@ namespace transmission_nets::model::transmission_process {
         friend class core::abstract::Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>>;
         friend class core::abstract::Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>, double>;
 
+        void calculateLocusLogLikelihood(core::containers::Locus *locus);
+        void postSaveState();
+        void postAcceptState();
+        void postRestoreState();
+
         COIProbabilityImpl &coiProb_;
         AlleleFrequencyContainer &alleleFrequenciesContainer_;
         InfectionEventImpl &founder_;
@@ -52,19 +57,23 @@ namespace transmission_nets::model::transmission_process {
         boost::container::flat_set<core::containers::Locus *> dirtyLoci_{};
 
         // loci independent conditional on COI
-        // buffers for calculations
-        std::vector<double> llikMatrix_{};
         int totalLoci_;
 
+        // buffers for calculations
         std::vector<double> coiPartialLlik_{};
-        std::vector<double> locusLlikBuffer_{};
         std::vector<double> prVec_{};
+
+        // stateful -- must be cached
+        std::vector<double> locusLlikBuffer_{};
+        std::vector<double> llikMatrix_{};
+        std::vector<std::vector<double>> locusLlikBufferCache_{};
+        std::vector<std::vector<double>> llikMatrixCache_{};
+
 
         std::vector<double> tmpCalculationVec_{};
 
         core::utils::probAnyMissingFunctor probAnyMissing_;
 
-        void calculateLocusLogLikelihood(core::containers::Locus *locus);
 
     };
 
@@ -81,8 +90,8 @@ namespace transmission_nets::model::transmission_process {
 
         coiProb_.registerCacheableCheckpointTarget(this);
         coiProb_.add_set_dirty_listener([=, this]() {
-          this->setDirty();
-          this->dirtyLoci_.insert(founder.loci().begin(), founder.loci().end());
+            this->setDirty();
+            this->dirtyLoci_.insert(founder.loci().begin(), founder.loci().end());
         });
 
         int idx = 0;
@@ -93,16 +102,20 @@ namespace transmission_nets::model::transmission_process {
 
             alleleFrequenciesContainer_.alleleFrequencies(locus).registerCacheableCheckpointTarget(this);
             alleleFrequenciesContainer_.alleleFrequencies(locus).add_post_change_listener([=, this]() {
-              this->setDirty();
-              this->dirtyLoci_.insert(locus);
+                this->setDirty();
+                this->dirtyLoci_.insert(locus);
             });
 
             founder_.latentGenotype(locus).registerCacheableCheckpointTarget(this);
             founder_.latentGenotype(locus).add_post_change_listener([=, this]() {
-              this->setDirty();
-              this->dirtyLoci_.insert(locus);
+                this->setDirty();
+                this->dirtyLoci_.insert(locus);
             });
         }
+
+        this->addPostSaveHook([=, this]() { this->postSaveState(); });
+        this->addPostRestoreHook([=, this]() { this->postRestoreState(); });
+        this->addPostAcceptHook([=, this]() { this->postAcceptState(); });
 
         this->setDirty();
 
@@ -142,7 +155,7 @@ namespace transmission_nets::model::transmission_process {
 
             this->setClean();
         }
-
+//        std::cout << "STP: " << value_ << std::endl;
         return this->value_;
     }
 
@@ -181,6 +194,26 @@ namespace transmission_nets::model::transmission_process {
             std::fill(locusLlikBuffer_.begin(), locusLlikBuffer_.end(), -std::numeric_limits<double>::infinity());
         }
 
+    }
+
+    template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
+    void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::postSaveState() {
+        locusLlikBufferCache_.emplace_back(locusLlikBuffer_);
+        llikMatrixCache_.emplace_back(llikMatrix_);
+    }
+
+    template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
+    void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::postAcceptState() {
+        locusLlikBufferCache_.clear();
+        llikMatrixCache_.clear();
+    }
+
+    template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
+    void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::postRestoreState() {
+        locusLlikBuffer_ = locusLlikBufferCache_.back();
+        llikMatrix_ = llikMatrixCache_.back();
+        locusLlikBufferCache_.pop_back();
+        llikMatrixCache_.pop_back();
     }
 }
 

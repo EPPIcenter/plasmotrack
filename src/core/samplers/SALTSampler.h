@@ -36,6 +36,7 @@ namespace transmission_nets::core::samplers {
     class SALTSampler : public AbstractSampler {
     public:
         SALTSampler(parameters::Parameter<datatypes::Simplex> &parameter, T &target, Engine *rng);
+        SALTSampler(parameters::Parameter<datatypes::Simplex> &parameter, T &target, Engine *rng, double variance);
 
         double sampleProposal(double current, double variance) noexcept;
 
@@ -96,6 +97,7 @@ namespace transmission_nets::core::samplers {
             double logitCurr = utils::logit(currentVal.frequencies(idx));
             double logitProp = sampleProposal(logitCurr, variances_[idx]);
             double prop = std::max(utils::expit(logitProp), 1e-8); // technically incorrect to bound like this without correcting, but probably close enough
+
 
             currentVal.set(idx, prop);
 
@@ -205,6 +207,16 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename Engine>
     void SALTSampler<T, Engine>::setMaxVariance(double maxVariance) {
         max_variance_ = maxVariance;
+    }
+
+    template<typename T, typename Engine>
+    SALTSampler<T, Engine>::SALTSampler(parameters::Parameter<datatypes::Simplex> &parameter, T &target, Engine *rng, double variance) : parameter_(
+            parameter), target_(target), rng_(rng) {
+        for (size_t j = 0; j < parameter_.value().totalElements(); ++j) {
+            variances_.push_back(variance);
+            acceptances_.push_back(0);
+            rejections_.push_back(0);
+        }
     }
 }
 
