@@ -31,21 +31,21 @@ namespace transmission_nets::model::transmission_process {
         core::datatypes::LogProbabilityTransitionMatrix<MAX_COI + 1> value() noexcept override;
 
         template<typename GeneticsImpl>
-        double calculateLogLikelihood(const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps);
+        Likelihood calculateLogLikelihood(const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps);
 
         template<typename GeneticsImpl>
-        double peekCalculateLogLikelihood(const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps);
+        Likelihood peekCalculateLogLikelihood(const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps);
 
         template<typename GeneticsImpl>
-        double calculateLikelihood(const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
-            double llik = calculateLogLikelihood(child, ps);
-            return llik > -std::numeric_limits<double>::infinity() ? exp(llik) : 0;
+        Likelihood calculateLikelihood(const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
+            Likelihood llik = calculateLogLikelihood(child, ps);
+            return llik > -std::numeric_limits<Likelihood>::infinity() ? exp(llik) : 0;
         }
 
         template<typename GeneticsImpl>
-        double peekCalculateLikelihood(const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
-            double llik = peekCalculateLogLikelihood(child, ps);
-            return llik > -std::numeric_limits<double>::infinity() ? exp(llik) : 0;
+        Likelihood peekCalculateLikelihood(const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
+            Likelihood llik = peekCalculateLogLikelihood(child, ps);
+            return llik > -std::numeric_limits<Likelihood>::infinity() ? exp(llik) : 0;
         }
 
     private:
@@ -93,11 +93,11 @@ namespace transmission_nets::model::transmission_process {
 
     template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
     template<typename GeneticsImpl>
-    double
+    Likelihood
     NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::calculateLogLikelihood(
             const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
         assert(ps.size() <= 1);
-        double llik = 0.0;
+        Likelihood llik = 0.0;
         auto const &childGenotype = child.latentGenotype();
         for (auto const &parent : ps) {
             auto const &parentGenotypes = parent->latentGenotype();
@@ -116,11 +116,11 @@ namespace transmission_nets::model::transmission_process {
 
     template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
     template<typename GeneticsImpl>
-    double
+    Likelihood
     NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::peekCalculateLogLikelihood(
             const core::containers::Infection<GeneticsImpl> &child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
         assert(ps.size() == 1);
-        double llik = 0.0;
+        Likelihood llik = 0.0;
         auto const &childGenotype = child.latentGenotype();
         for (auto const &parent : ps) {
             auto const &parentGenotypes = parent->latentGenotype();

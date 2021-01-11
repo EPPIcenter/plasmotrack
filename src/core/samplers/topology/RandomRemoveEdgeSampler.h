@@ -15,7 +15,7 @@
 #include "core/containers/ParentSet.h"
 #include "core/parameters/TransmissionNetwork.h"
 
-namespace transmission_nets::core::samplers::graph {
+namespace transmission_nets::core::samplers::topology {
 
     template<typename T, typename Engine, typename NodeValueImpl>
     class RandomRemoveEdgeSampler : public AbstractSampler {
@@ -56,7 +56,7 @@ namespace transmission_nets::core::samplers::graph {
     template<typename T, typename Engine, typename NodeValueImpl>
     void RandomRemoveEdgeSampler<T, Engine, NodeValueImpl>::update() noexcept {
         const std::string stateId = "RemoveEdge1";
-        double curLik = target_.value();
+        Likelihood curLik = target_.value();
 
         auto childNode = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
         auto param = network_.parentSet(childNode);
@@ -70,8 +70,8 @@ namespace transmission_nets::core::samplers::graph {
             param->saveState(stateId);
             network_.removeEdge(parentNode, childNode);
 
-            const double acceptanceRatio = target_.value() - curLik;
-            const double logProbAccept = log(uniformDist_(*rng_));
+            const Likelihood acceptanceRatio = target_.value() - curLik;
+            const Likelihood logProbAccept = log(uniformDist_(*rng_));
             const bool accept = logProbAccept <= acceptanceRatio;
 
             if (accept) {

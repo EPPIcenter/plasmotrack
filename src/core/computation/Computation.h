@@ -10,7 +10,7 @@ namespace transmission_nets::core::computation {
     template <typename T>
     class Computation {
     public:
-        [[nodiscard]] T peek() noexcept {
+        virtual T peek() noexcept {
             return value_;
         };
 

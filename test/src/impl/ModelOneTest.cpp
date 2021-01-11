@@ -12,11 +12,11 @@
 #include "core/io/loggers/ValueLogger.h"
 #include "core/io/path_parsing.h"
 
-#include "core/samplers/ConstrainedContinuousRandomWalk.h"
-#include "core/samplers/SALTSampler.h"
-#include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
-#include "core/samplers/OrderSampler.h"
 #include "core/samplers/RandomizedScheduler.h"
+#include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
+#include "core/samplers/general/SALTSampler.h"
+#include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
+#include "core/samplers/topology/OrderSampler.h"
 
 #include "impl/model/ModelOne.h"
 #include "impl/state/ModelOneState.h"
@@ -24,6 +24,7 @@
 using namespace transmission_nets::impl;
 using namespace transmission_nets::core::io;
 using namespace transmission_nets::core::samplers;
+using namespace transmission_nets::core::samplers::topology;
 //using namespace transmission_nets::core::samplers::genetics;
 
 namespace fs = std::filesystem;
@@ -32,8 +33,6 @@ TEST(ModelOneTest, CoreTest) {
 
     using InfectionEvent = ModelOneState::InfectionEvent;
     using Locus = ModelOneState::LocusImpl;
-    using ZeroOneSampler = ConstrainedContinuousRandomWalk<0, 1, ModelOne, boost::random::mt19937>;
-    using ZeroBoundedSampler = ConstrainedContinuousRandomWalk<0, std::numeric_limits<int>::max(), ModelOne, boost::random::mt19937>;
     using GeneticsSampler = genetics::RandomAllelesBitSetSampler<ModelOne, boost::random::mt19937, ModelOneState::GeneticsImpl>;
 
     ModelOneState state;
@@ -180,12 +179,12 @@ TEST(ModelOneTest, CoreTest) {
     scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 7));
     scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 8));
     scheduler.registerSampler(new OrderSampler(state.infectionEventOrdering, model, &r, 9));
-    scheduler.registerSampler(new ZeroOneSampler(state.observationFalsePositiveRate, model, &r));
-    scheduler.registerSampler(new ZeroOneSampler(state.observationFalseNegativeRate, model, &r));
-    scheduler.registerSampler(new ZeroOneSampler(state.geometricGenerationProb, model, &r));
-    scheduler.registerSampler(new ZeroOneSampler(state.ztMultiplicativeBinomialProb, model, &r));
-    scheduler.registerSampler(new ZeroBoundedSampler(state.ztMultiplicativeBinomialAssoc, model, &r));
-    scheduler.registerSampler(new ZeroOneSampler(state.geometricCOIProb, model, &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.observationFalsePositiveRate, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.observationFalseNegativeRate, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.geometricGenerationProb, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.ztMultiplicativeBinomialProb, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.ztMultiplicativeBinomialAssoc, model, 0.0, std::numeric_limits<double>::max(), &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.geometricCOIProb, model, 0.0, 1.0, &r));
 
 
     for(auto &infection : state.infections) {

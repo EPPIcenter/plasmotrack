@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.17)
 project(transmission_networks)
 
 
-find_package(Boost 1.72 REQUIRED container math_c99l random filesystem)
+find_package(Boost 1.74 REQUIRED container math_c99l random filesystem)
 find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
+find_package(OpenMP REQUIRED)
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -21,7 +22,7 @@ set(SOURCE_FILES
         core/containers/Locus.cpp
         core/utils/CombinationIndicesGenerator.cpp
         model/observation_process/AlleleCounts.cpp
-        core/samplers/ConstrainedDiscreteRandomWalk.h
+        core/samplers/general/ConstrainedDiscreteRandomWalk.h
         core/samplers/genetics/RandomAllelesBitSetSampler.h
         core/utils/RandomSequence.h
         core/datatypes/Simplex.cpp
@@ -46,34 +47,33 @@ set(SOURCE_FILES
         core/io/path_parsing.h
         model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h
         model/transmission_process/NetworkBasedTransmissionProcess.h
-        impl/state/ModelTwoState.cpp
-        impl/state/ModelTwoState.h
         impl/model/ModelTwo.cpp
         impl/model/ModelTwo.h
         core/distributions/ZTPoisson.h
-        core/samplers/graph/RandomAddEdgeSampler.h
-        core/samplers/graph/RandomRemoveEdgeSampler.h
-        core/samplers/graph/RandomSwapEdgeSampler.h
+        core/samplers/topology/RandomAddEdgeSampler.h
+        core/samplers/topology/RandomRemoveEdgeSampler.h
+        core/samplers/topology/RandomSwapEdgeSampler.h
         impl/model/ModelThree.cpp
         impl/model/ModelThree.h
         impl/state/ModelThreeState.cpp
         impl/state/ModelThreeState.h
         core/io/Loggers/LambdaLogger.h
-        core/samplers/graph/RandomReverseEdgeSampler.h
+        core/samplers/topology/RandomReverseEdgeSampler.h
         core/utils/ProbAnyMissing.h
         model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h
         core/distributions/pdfs/BetaLogPDF.h
         core/distributions/pdfs/BetaLogPDF.cpp
         core/distributions/pdfs/GammaLogPDF.cpp
         core/distributions/pdfs/GammaLogPDF.h
-        core/samplers/DoubleConstrainedContinuousRandomWalk.h
+        core/samplers/general/DoubleConstrainedContinuousRandomWalk.h
         core/mcmc/Chain.h
-        core/utils/ProbAnyMissing.cpp)
+        core/utils/ProbAnyMissing.cpp core/samplers/genetics/ZanellaAllelesBitSetSampler.h core/samplers/topology/ZanellaNeighborOrderSampler.h core/samplers/specialized/ZanellaJointGeneticsGraphSampler.h core/samplers/topology/ZanellaOrderSampler.h core/samplers/general/SimplexSampler.h core/computation/ConstrainedOrderDerivedParentSet.h core/io/loggers/ParentSetDistLogger.h impl/model/ModelFour.cpp impl/model/ModelFour.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})
-target_link_libraries(transmission_networks PRIVATE nlohmann_json::nlohmann_json)
-target_link_libraries(transmission_networks)
+target_link_libraries(transmission_networks PRIVATE nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX)
+#target_link_libraries(transmission_networks PRIVATE )
+#target_link_libraries(transmission_networks)
 
 #target_link_libraries(transmission_networks transmission_network_model)
 

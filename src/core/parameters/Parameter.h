@@ -52,7 +52,7 @@ namespace transmission_nets::core::parameters {
         friend class abstract::Checkpointable<Parameter<T>, T>;
         friend class abstract::Uncacheable<Parameter<T>, T>;
 
-        T value_;
+        T value_{};
         std::string label_{};
     };
 }

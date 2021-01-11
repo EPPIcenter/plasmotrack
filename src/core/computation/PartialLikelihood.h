@@ -12,7 +12,7 @@
 
 namespace transmission_nets::core::computation {
 
-    using Likelihood = double;
+    using Likelihood = long double;
 
     class PartialLikelihood : public Computation<Likelihood>,
                               public abstract::Observable<PartialLikelihood>,
@@ -23,6 +23,7 @@ namespace transmission_nets::core::computation {
 //    explicit PartialLikelihood() = default;
 
         Likelihood value() override = 0;
+        virtual std::string identifier() = 0;
 
     protected:
         friend class abstract::Cacheable<PartialLikelihood>;

@@ -20,10 +20,10 @@
 
 #include "core/utils/CombinationIndicesGenerator.h"
 
-#include "core/samplers/ContinuousRandomWalk.h"
-#include "core/samplers/ConstrainedContinuousRandomWalk.h"
-#include "core/samplers/SALTSampler.h"
-#include "core/samplers/DiscreteRandomWalk.h"
+#include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
+#include "core/samplers/general/ContinuousRandomWalk.h"
+#include "core/samplers/general/DiscreteRandomWalk.h"
+#include "core/samplers/general/SALTSampler.h"
 
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/ObservationProcessLikelihood.h"
@@ -111,19 +111,19 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     OrderDerivedParentSet ps(op2, c);
 
     std::cout << "Printing Parent Set" << std::endl;
-    ps.printSet();
+    ps.serialize();
     std::cout << op2 << std::endl;
     op2.swap(0, 3);
     std::cout << "Printing Parent Set" << std::endl;
-    ps.printSet();
+    ps.serialize();
     std::cout << op2 << std::endl;
     op2.swap(2, 3);
     std::cout << "Printing Parent Set" << std::endl;
-    ps.printSet();
+    ps.serialize();
     std::cout << op2 << std::endl;
     op2.swap(3, 0);
     std::cout << "Printing Parent Set" << std::endl;
-    ps.printSet();
+    ps.serialize();
     std::cout << op2 << std::endl;
 
     DoubleParameter tcp(.85);

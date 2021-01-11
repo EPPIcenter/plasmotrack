@@ -1,9 +1,9 @@
 //
-// Created by Maxwell Murphy on 6/5/20.
+// Created by Maxwell Murphy on 12/10/20.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_MODELTWO_H
-#define TRANSMISSION_NETWORKS_APP_MODELTWO_H
+#ifndef TRANSMISSION_NETWORKS_APP_MODELFOUR_H
+#define TRANSMISSION_NETWORKS_APP_MODELFOUR_H
 
 #include <utility>
 
@@ -30,9 +30,9 @@
 
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
-namespace transmission_nets::impl {
 
-    class ModelTwo {
+namespace transmission_nets::impl {
+    class ModelFour {
     public:
         static constexpr int MAX_ALLELES = 32;
         static constexpr int MAX_COI = 8;
@@ -59,10 +59,10 @@ namespace transmission_nets::impl {
         using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
 
         struct State {
-            State(std::map<std::string, LocusImpl *>& loci, std::vector<InfectionEvent *>& infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>>& disallowedParents);
+            State(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &disallowedParents);
             std::map<std::string, LocusImpl *> loci{};
             std::vector<InfectionEvent *> infections{};
-            std::map<InfectionEvent *, std::vector<InfectionEvent*>> disallowedParents{};
+            std::map<InfectionEvent *, std::vector<InfectionEvent *>> disallowedParents{};
 
             AlleleFrequencyContainerImpl alleleFrequencies;
 
@@ -70,8 +70,8 @@ namespace transmission_nets::impl {
             core::parameters::Ordering<InfectionEvent> infectionEventOrdering;
 
             // Observation Process
-            core::parameters::Parameter<double> observationFalsePositiveRate;
-            core::parameters::Parameter<double> observationFalseNegativeRate;
+            std::vector<core::parameters::Parameter<double>> observationFalsePositiveRates{};
+            std::vector<core::parameters::Parameter<double>> observationFalseNegativeRates{};
 
             // Node Transmission Process
             core::parameters::Parameter<double> geometricGenerationProb;
@@ -82,7 +82,7 @@ namespace transmission_nets::impl {
             core::parameters::Parameter<double> meanCOI;
         };
 
-        ModelTwo(std::map<std::string, LocusImpl *>& loci, std::vector<InfectionEvent *>& infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>>& disallowedParents);
+        ModelFour(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &disallowedParents);
         Likelihood value();
         bool isDirty();
 
@@ -92,25 +92,21 @@ namespace transmission_nets::impl {
 
         // Observation Process
         std::vector<AlleleCounterImpl *> alleleCounters{};
-        AlleleCounterAccumulator alleleCountAccumulator;
-        model::observation_process::ObservationProcessLikelihood<AlleleCounterAccumulator>* observationProcessLikelihood{};
+        std::vector<AlleleCounterAccumulator *> alleleCountAccumulators{};
+        model::observation_process::ObservationProcessLikelihood<AlleleCounterAccumulator> *observationProcessLikelihood{};
 
         // Node Transmission Process
-        InterTransmissionProbImpl* intp{};
-        NodeTransmissionImpl* nodeTransmissionProcess{};
+        InterTransmissionProbImpl *intp{};
+        NodeTransmissionImpl *nodeTransmissionProcess{};
 
         // Source Transmission Process
-        COIProbabilityImpl* coiProb{};
+        COIProbabilityImpl *coiProb{};
         std::vector<SourceTransmissionImpl *> sourceTransmissionProcessList;
 
         // Transmission Process
         std::vector<ParentSetImpl *> parentSetList{};
         std::vector<TransmissionProcess *> transmissionProcessList{};
-
-
     };
-
 }
 
-
-#endif //TRANSMISSION_NETWORKS_APP_MODELTWO_H
+#endif//TRANSMISSION_NETWORKS_APP_MODELFOUR_H

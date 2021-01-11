@@ -27,6 +27,9 @@ namespace transmission_nets::core::distributions {
 
         return value_;
     }
+    std::string BetaLogPDF::identifier() {
+        return std::string("BetaLogPDF");
+    }
 
 }
 

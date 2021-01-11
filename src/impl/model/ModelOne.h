@@ -33,14 +33,16 @@
 
 namespace transmission_nets::impl {
 
+    using Likelihood = core::computation::Likelihood;
     class ModelOne {
+        using State = ModelOneState;
         static constexpr int MAX_COI = 32;
         static constexpr int MAX_PARENTS = 1;
         static constexpr int MAX_TRANSMISSIONS = 5;
 
-        using GeneticsImpl = ModelOneState::GeneticsImpl;
-        using InfectionEvent = ModelOneState::InfectionEvent;
-        using AlleleFrequencyContainerImpl = ModelOneState::AlleleFrequencyContainerImpl;
+        using GeneticsImpl = State::GeneticsImpl;
+        using InfectionEvent = State::InfectionEvent;
+        using AlleleFrequencyContainerImpl = State::AlleleFrequencyContainerImpl;
 
         using AlleleCounterImpl = model::observation_process::AlleleCounter<GeneticsImpl>;
         using AlleleCounterAccumulator = core::computation::Accumulator<AlleleCounterImpl, model::observation_process::AlleleCounts>;
@@ -61,14 +63,14 @@ namespace transmission_nets::impl {
         using GammaPrior = core::priors::Prior<boost::math::gamma_distribution<>, core::parameters::Parameter<double>, double, double>;
 
     public:
-        explicit ModelOne(ModelOneState& state);
+        explicit ModelOne(State& state);
 
-        double value();
+        Likelihood value();
 
         bool isDirty();
 
-        ModelOneState& state;
-        core::computation::Accumulator<core::computation::PartialLikelihood, double> likelihood;
+        State& state;
+        core::computation::Accumulator<core::computation::PartialLikelihood, Likelihood> likelihood;
 
         // Observation Process
         std::vector<AlleleCounterImpl *> alleleCounters{};

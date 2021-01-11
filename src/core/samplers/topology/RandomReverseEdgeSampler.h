@@ -15,7 +15,7 @@
 #include "core/containers/ParentSet.h"
 #include "core/parameters/TransmissionNetwork.h"
 
-namespace transmission_nets::core::samplers::graph {
+namespace transmission_nets::core::samplers::topology {
 
     template<int MAX_PARENT_SET_CARDINALITY, typename T, typename Engine, typename NodeValueImpl>
     class RandomReverseEdgeSampler : public AbstractSampler {
@@ -56,7 +56,7 @@ namespace transmission_nets::core::samplers::graph {
     template<int MAX_PARENT_SET_CARDINALITY, typename T, typename Engine, typename NodeValueImpl>
     void RandomReverseEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeValueImpl>::update() noexcept {
         const std::string stateId = "ReverseEdge1";
-        double curLik = target_.value();
+        Likelihood curLik = target_.value();
 
         auto childNode = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
         auto childParentSetParam = network_.parentSet(childNode);
@@ -79,8 +79,8 @@ namespace transmission_nets::core::samplers::graph {
                     assert(curLik == target_.value());
                 } else {
                     network_.addEdge(childNode, parentNode);
-                    const double acceptanceRatio = target_.value() - curLik;
-                    const double logProbAccept = log(uniformDist_(*rng_));
+                    const Likelihood acceptanceRatio = target_.value() - curLik;
+                    const Likelihood logProbAccept = log(uniformDist_(*rng_));
                     const bool accept = logProbAccept <= acceptanceRatio;
 
                     if (accept) {

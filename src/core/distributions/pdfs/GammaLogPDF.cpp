@@ -27,4 +27,8 @@ namespace transmission_nets::core::distributions {
         return value_;
     }
 
+    std::string GammaLogPDF::identifier() {
+        return std::string("GammaLogPDF");
+    }
+
 }

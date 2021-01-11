@@ -12,10 +12,11 @@
 
 namespace transmission_nets::core::utils {
     /**
+     * Numerically stable log(∑(exp(a)))
      * Does not assume the iterable is sorted.
-     * @tparam Iter
-     * @param begin
-     * @param end
+     * @tparam Iter implements iterable
+     * @param begin iterator pointer to beginning
+     * @param end iterator pointer to end
      * @return
      */
     template<typename Iter>
@@ -28,8 +29,8 @@ namespace transmission_nets::core::utils {
 
         auto max_el = *std::max_element(begin, end);
 
-        if (max_el == -std::numeric_limits<double>::infinity()) {
-            return -std::numeric_limits<double>::infinity();
+        if (max_el == -std::numeric_limits<ValueType>::infinity()) {
+            return -std::numeric_limits<ValueType>::infinity();
         }
 
         auto sum = std::accumulate(
@@ -52,6 +53,26 @@ namespace transmission_nets::core::utils {
 
         double sum = std::exp(a - max_el) + std::exp(b - max_el);
         return max_el + std::log(sum);
+    }
+
+    template<typename T>
+    T logDiffExp(const T a, const T b) {
+        /**
+         * return the numerically stable log(exp(a) - exp(b))
+         * if b > a, returns -inf
+         */
+        if (b > a) {
+//#ifndef NDEBUG
+//            std::cerr << "Warning -- b > a : " << b << " " << a << " " << b + std::log(1 - std::exp(a - b)) << std::endl;
+//#endif
+            return -std::numeric_limits<T>::infinity();
+        }
+        return a + std::log(1 - std::exp(b - a));
+    }
+
+    template<typename T>
+    T absLogDiff(const T a, const T b) {
+        return b > a ? b + std::log(1 - std::exp(a - b)) : a + std::log(1 - std::exp(b - a));
     }
 
     /**
@@ -91,10 +112,35 @@ namespace transmission_nets::core::utils {
             return ValueType{};
         }
 
+        if (max_el == -std::numeric_limits<ValueType>::infinity()) {
+            return -std::numeric_limits<ValueType>::infinity();
+        }
+
         auto sum = std::accumulate(
                 begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); }
         );
         return max_el + std::log(sum);
+    }
+
+
+    template<typename T>
+    std::vector<double> expNormalize(const T& iterable) {
+        std::vector<double> out{};
+        out.reserve(iterable.size());
+
+        double sum = 0.0;
+        auto max_el = *std::max_element(iterable.begin(), iterable.end());
+
+        for (auto& el : iterable) {
+            out.push_back(std::exp(el - max_el));
+            sum += out.back();
+        }
+
+        for (auto& el : out) {
+            el = el / sum;
+        }
+
+        return out;
     }
 
 
@@ -120,7 +166,7 @@ namespace transmission_nets::core::utils {
             return x - log(-expm1(x));
         }
     }
-}
 
+}
 
 #endif //TRANSMISSION_NETWORKS_APP_NUMERICS_H

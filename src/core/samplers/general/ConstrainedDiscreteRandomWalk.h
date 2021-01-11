@@ -10,8 +10,8 @@
 #include "DiscreteRandomWalk.h"
 
 
-namespace transmission_nets::core::samplers {
 
+namespace transmission_nets::core::samplers {
 // Discrete Random Walk constrained to a range [lower, upper]
 
     template<int LOWER_BOUND, int UPPER_BOUND, typename T, typename Engine>
@@ -32,7 +32,7 @@ namespace transmission_nets::core::samplers {
 
         double sampleStride(int current) noexcept override;
 
-        double logMetropolisHastingsAdjustment(int current, int proposed) noexcept override;
+        Likelihood logMetropolisHastingsAdjustment(int current, int proposed) noexcept override;
 
     protected:
         using DiscreteRandomWalk<T, Engine>::uniform_dist_;
@@ -58,7 +58,7 @@ namespace transmission_nets::core::samplers {
     }
 
     template<int LOWER_BOUND, int UPPER_BOUND, typename T, typename Engine>
-    double
+    Likelihood
     ConstrainedDiscreteRandomWalk<LOWER_BOUND, UPPER_BOUND, T, Engine>::logMetropolisHastingsAdjustment(int current,
                                                                                                         int proposed) noexcept {
         auto curr_range = std::min(current - LOWER_BOUND, int(max_distance_)) + std::min(UPPER_BOUND - current, int(max_distance_));

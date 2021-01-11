@@ -61,7 +61,7 @@ namespace transmission_nets::impl {
         }
     }
 
-    double ModelOne::value() {
+    Likelihood ModelOne::value() {
         return likelihood.value();
     }
 

@@ -24,13 +24,14 @@
 namespace transmission_nets::impl {
 
     class ModelThree {
+        using State = ModelThreeState;
         static constexpr int MAX_COI = 10;
         static constexpr int MAX_PARENTS = 1;
         static constexpr int MAX_TRANSMISSIONS = 5;
 
-        using GeneticsImpl = ModelThreeState::GeneticsImpl;
-        using InfectionEvent = ModelThreeState::InfectionEvent;
-        using AlleleFrequencyContainerImpl = ModelThreeState::AlleleFrequencyContainerImpl;
+        using GeneticsImpl = State::GeneticsImpl;
+        using InfectionEvent = State::InfectionEvent;
+        using AlleleFrequencyContainerImpl = State::AlleleFrequencyContainerImpl;
 
         using AlleleCounterImpl = model::observation_process::AlleleCounter<GeneticsImpl>;
         using AlleleCounterAccumulator = core::computation::Accumulator<AlleleCounterImpl, model::observation_process::AlleleCounts>;
@@ -48,13 +49,13 @@ namespace transmission_nets::impl {
 //    using GammaPrior = Prior<boost::math::gamma_distribution<>, Parameter<double>, double, double>;
 
     public:
-        explicit ModelThree(ModelThreeState& state);
+        explicit ModelThree(State& state);
 
         double value();
 
         bool isDirty();
 
-        ModelThreeState& state;
+        State& state;
         core::computation::Accumulator<core::computation::PartialLikelihood, double> likelihood;
 
         // Observation Process

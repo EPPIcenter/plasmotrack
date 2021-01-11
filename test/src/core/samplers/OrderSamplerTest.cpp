@@ -8,11 +8,12 @@
 #include "gtest/gtest.h"
 
 #include "core/parameters/Ordering.h"
-#include "core/samplers/OrderSampler.h"
+#include "core/samplers/topology/OrderSampler.h"
 
 
 using namespace transmission_nets::core::parameters;
 using namespace transmission_nets::core::samplers;
+using namespace transmission_nets::core::samplers::topology;
 
 TEST(OrderSamplerTest, OrderTest) {
     struct OrderingTestTarget {

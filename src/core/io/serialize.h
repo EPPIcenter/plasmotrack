@@ -18,6 +18,10 @@ namespace transmission_nets::core::io {
         return std::to_string(val);
     }
 
+    inline std::string serialize(const long double val) noexcept {
+        return std::to_string(val);
+    }
+
     inline std::string serialize(const int val) noexcept {
         return std::to_string(val);
     }
@@ -39,7 +43,19 @@ namespace transmission_nets::core::io {
 
     template<typename NodeValueImpl>
     std::string serialize(const parameters::TransmissionNetwork<NodeValueImpl>& val) {
-        return val->serialize();
+        return val.serialize();
+    }
+
+    template<typename T>
+    std::string serialize(const containers::ParentSet<T> ps) {
+        std::string out = "{";
+        for (const auto& p : ps) {
+            out += serialize(p);
+            out += ",";
+        }
+        out.pop_back();
+        out += "}";
+        return out;
     }
 
 

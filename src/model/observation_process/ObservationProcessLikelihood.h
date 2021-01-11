@@ -21,10 +21,11 @@ namespace transmission_nets::model::observation_process {
                                      core::parameters::Parameter<double> &falsePositiveRate,
                                      core::parameters::Parameter<double> &falseNegativeRate);
 
-        double value() override;
+        core::computation::Likelihood value() override;
+        std::string identifier() override;
 
     private:
-        AlleleCounter &total_alleles;
+        AlleleCounter &total_alleles_;
         core::parameters::Parameter<double> &false_positive_rate_;
         core::parameters::Parameter<double> &false_negative_rate_;
     };
@@ -32,12 +33,14 @@ namespace transmission_nets::model::observation_process {
     template<typename AlleleCounter>
     ObservationProcessLikelihood<AlleleCounter>::ObservationProcessLikelihood(AlleleCounter &totalAlleles,
                                                                               core::parameters::Parameter<double> &falsePositiveRate,
-                                                                              core::parameters::Parameter<double> &falseNegativeRate) :
-            total_alleles(totalAlleles),
+                                                                              core::parameters::Parameter<double> &falseNegativeRate) : total_alleles_(totalAlleles),
             false_positive_rate_(falsePositiveRate),
             false_negative_rate_(falseNegativeRate) {
-        total_alleles.add_set_dirty_listener([=, this]() { this->setDirty(); });
-        total_alleles.registerCacheableCheckpointTarget(this);
+
+        total_alleles_.add_set_dirty_listener([=, this]() {
+            this->setDirty();
+        });
+        total_alleles_.registerCacheableCheckpointTarget(this);
 
         false_positive_rate_.add_post_change_listener([=, this]() { this->setDirty(); });
         false_positive_rate_.registerCacheableCheckpointTarget(this);
@@ -50,16 +53,32 @@ namespace transmission_nets::model::observation_process {
     }
 
     template<typename AlleleCounter>
-    double ObservationProcessLikelihood<AlleleCounter>::value() {
+    std::string ObservationProcessLikelihood<AlleleCounter>::identifier() {
+        return std::string("ObservationProcessLikelihood");
+    }
+
+    template<typename AlleleCounter>
+    core::computation::Likelihood ObservationProcessLikelihood<AlleleCounter>::value() {
         if (this->isDirty()) {
-            value_ = total_alleles.value().true_positive_count * log(1 - false_positive_rate_.value()) +
-                     total_alleles.value().true_negative_count * log(1 - false_negative_rate_.value()) +
-                     total_alleles.value().false_positive_count * log(false_positive_rate_.value()) +
-                     total_alleles.value().false_negative_count * log(false_negative_rate_.value());
+//            std::cout << "OBS: " << value_ << " | ";
+            value_ = total_alleles_.value().true_positive_count * log(1 - false_positive_rate_.value()) +
+                     total_alleles_.value().true_negative_count * log(1 - false_negative_rate_.value()) +
+                     total_alleles_.value().false_positive_count * log(false_positive_rate_.value()) +
+                     total_alleles_.value().false_negative_count * log(false_negative_rate_.value());
+//            std::cout << value_ << std::endl;
+//            std::cout << total_alleles_.value().true_positive_count << ", ";
+//            std::cout << total_alleles_.value().true_negative_count << ", ";
+//            std::cout << total_alleles_.value().false_positive_count << ", ";
+//            std::cout << total_alleles_.value().false_negative_count << ", ";
+//            std::cout << total_alleles_.value().true_positive_count +
+//                         total_alleles_.value().true_negative_count +
+//                         total_alleles_.value().false_positive_count +
+//                         total_alleles_.value().false_negative_count << std::endl;
+
             this->setClean();
         }
 
-        assert(this->value_ < std::numeric_limits<double>::infinity());
+        assert(value_ < std::numeric_limits<core::computation::Likelihood>::infinity());
 
         return value_;
     }

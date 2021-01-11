@@ -17,6 +17,7 @@
 #include "core/abstract/observables/Observable.h"
 
 namespace transmission_nets::core::computation {
+    using Likelihood = core::computation::Likelihood;
 
     template<typename Input, typename Output>
     class Accumulator : public Computation<Output>,
@@ -79,10 +80,15 @@ namespace transmission_nets::core::computation {
 
         target->add_set_dirty_listener([=, this]() {
           const auto& [_, inserted] = dirtyTargets_.insert(target);
-          if (inserted) {
-              this->setDirty();
-              this->value_ -= target->peek();
-          }
+          assert(inserted);
+          this->setDirty();
+          this->value_ -= target->peek();
+//          if (inserted) {
+//              this->setDirty();
+//              this->value_ -= target->peek();
+//          } else {
+//              std::cerr << "Something went wrong" << std::endl;
+//          }
         });
 
         target->registerCacheableCheckpointTarget(this);
@@ -90,7 +96,7 @@ namespace transmission_nets::core::computation {
 
 
     template<>
-    inline void Accumulator<PartialLikelihood, double>::addTarget(PartialLikelihood *target) {
+    inline void Accumulator<PartialLikelihood, Likelihood>::addTarget(PartialLikelihood *target) {
         this->setDirty();
         const auto& [_, inserted] = targets_.insert(target);
         if(!inserted) assert(!"Target added more than once. Check model specification.");
@@ -100,7 +106,10 @@ namespace transmission_nets::core::computation {
           const auto& [_, inserted] = dirtyTargets_.insert(target);
           if (inserted) {
               this->setDirty();
-              assert(target->peek() > -std::numeric_limits<double>::infinity());
+              if (target->peek() <= -std::numeric_limits<Likelihood>::infinity()) {
+                  std::cerr << target->identifier() << " returns -inf" << std::endl;
+              }
+              assert(target->peek() > -std::numeric_limits<Likelihood>::infinity());
               this->value_ -= target->peek();
           }
         });
@@ -147,13 +156,13 @@ namespace transmission_nets::core::computation {
 
 
     template<>
-    inline double Accumulator<PartialLikelihood, double>::value() noexcept {
-        assert(this->value_ < std::numeric_limits<double>::infinity());
+    inline Likelihood Accumulator<PartialLikelihood, Likelihood>::value() noexcept {
+        assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
 
         for (auto &el : dirtyTargets_) {
-            assert(this->value_ < std::numeric_limits<double>::infinity());
-            this->value_ += std::isnan(el->value()) ? -std::numeric_limits<double>::infinity() : el->value();
-            assert(this->value_ < std::numeric_limits<double>::infinity());
+            assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
+            this->value_ += std::isnan(el->value()) ? -std::numeric_limits<Likelihood>::infinity() : el->value();
+            assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
         }
         this->setClean();
         dirtyTargets_.clear();

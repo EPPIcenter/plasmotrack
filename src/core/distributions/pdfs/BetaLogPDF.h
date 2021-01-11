@@ -14,6 +14,7 @@ namespace transmission_nets::core::distributions {
     public:
         BetaLogPDF(parameters::Parameter<double> &target, double alpha, double beta);
         computation::Likelihood value() override;
+        std::string identifier() override;
 
     private:
         parameters::Parameter<double> &target_;

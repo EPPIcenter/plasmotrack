@@ -9,7 +9,7 @@
 #include <Eigen/Core>
 
 #include "core/parameters/Parameter.h"
-#include "core/samplers/ContinuousRandomWalk.h"
+#include "core/samplers/general/ContinuousRandomWalk.h"
 
 using namespace transmission_nets::core::parameters;
 using namespace transmission_nets::core::samplers;

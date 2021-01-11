@@ -14,6 +14,7 @@ namespace transmission_nets::core::distributions {
     public:
         GammaLogPDF(parameters::Parameter<double> &target, double shape, double scale);
         computation::Likelihood value() override;
+        std::string identifier() override;
 
     private:
         parameters::Parameter<double> &target_;

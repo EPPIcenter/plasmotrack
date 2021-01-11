@@ -10,6 +10,8 @@
 
 namespace transmission_nets::model::transmission_process {
 
+    using Likelihood = core::computation::Likelihood;
+
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
     class NetworkBasedTransmissionProcess : public core::computation::PartialLikelihood {
 
@@ -17,7 +19,8 @@ namespace transmission_nets::model::transmission_process {
         NetworkBasedTransmissionProcess(NodeTransmissionProcessImpl &ntp, SourceTransmissionProcessImpl &stp,
                                         InfectionEventImpl &child, core::parameters::Parameter<core::containers::ParentSet<InfectionEventImpl>> &parentSet);
 
-        double value() override;
+        Likelihood value() override;
+        std::string identifier() override;
 
     private:
         NodeTransmissionProcessImpl &ntp_;
@@ -29,7 +32,13 @@ namespace transmission_nets::model::transmission_process {
     };
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
-    double
+    std::string NetworkBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::identifier() {
+        return "NetworkBasedTransmissionProcess";
+    }
+
+
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl>
+    Likelihood
     NetworkBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl>::value() {
         if (isDirty()) {
             if(parentSet_.value().size() == 0) {

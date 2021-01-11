@@ -20,13 +20,17 @@ namespace transmission_nets::core::computation {
             target.registerCacheableCheckpointTarget(this);
         }
 
-        double value() override {
+        core::computation::Likelihood value() override {
             if (this->isDirty()) {
                 this->value_ = log(target_.value());
                 this->setClean();
             };
             return this->value_;
         }
+
+        std::string identifier() override {
+            return "LogTransfomer(" + this->target_.identifier() + ")";
+        };
 
         Input& target_;
     };

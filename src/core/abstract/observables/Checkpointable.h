@@ -106,16 +106,16 @@ namespace transmission_nets::core::abstract {
     template<typename T, typename ValueType>
     template<typename T0>
     std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType>::registerCacheableCheckpointTarget(T0 *target) {
-        ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=, this](std::string savedStateId) {
+        ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=](std::string savedStateId) {
           target->saveState(savedStateId);
         });
 
-        ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=, this]() {
+        ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=]() {
           target->acceptState();
           target->setClean();
         });
 
-        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=, this](std::string savedStateId) {
+        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=](std::string savedStateId) {
           target->restoreState(savedStateId);
           target->setClean();
         });
@@ -126,8 +126,8 @@ namespace transmission_nets::core::abstract {
 
     template<typename T, typename ValueType>
     void Checkpointable<T, ValueType>::saveState(std::string savedStateId) noexcept {
-//    assert(!(this->underlying().isDirty()));
         if(!isSaved() or saved_states_stack_.back().saved_state_id != savedStateId) {
+//            this->underlying().value();
             for (auto &cb: pre_save_hooks_) {
                 cb();
             }
@@ -144,7 +144,6 @@ namespace transmission_nets::core::abstract {
     template<typename T, typename ValueType>
     void Checkpointable<T, ValueType>::restoreState(std::string savedStateId) noexcept {
         if(isSaved() and saved_states_stack_.back().saved_state_id == savedStateId) {
-
             for (auto &cb: pre_restore_hooks_) {
                 cb();
             }

@@ -65,6 +65,7 @@ namespace transmission_nets::core::parameters {
     template<typename NodeValueImpl>
     void TransmissionNetwork<NodeValueImpl>::addEdge(NodeValueImpl* parent, NodeValueImpl* child) noexcept {
         assert(parentSet(child)->value().find(parent) == parentSet(child)->value().end());
+        assert(!createsCycle(parent, child));
         auto tmpParentSet = parentSet(child)->value();
         tmpParentSet.insert(parent);
         parentSet(child)->setValue(tmpParentSet);
@@ -85,19 +86,28 @@ namespace transmission_nets::core::parameters {
         // is potential child topologically before parent
 
         if(parent == child) {
+            // loopy edge
             return true;
         }
 
+        // begin with the parent set of the parent
         auto tmpParentTracker_ = parentSet(parent)->value();
-        while(tmpParentTracker_.size() > 0) {
+        while (tmpParentTracker_.size() > 0) {
             auto el = tmpParentTracker_.begin();
+
+            // check if the next node is equal to the child
             if (*el == child) {
                 return true;
             } else {
+                // if not, erase from tracking set, and if el has parents, add those to the tracking set
                 tmpParentTracker_.erase(el);
-                tmpParentTracker_.insert(parentSet(*el)->value().begin(), parentSet(*el)->value().end());
+                tmpParentTracker_.insert(
+                        parentSet(*el)->value().begin(),
+                        parentSet(*el)->value().end()
+                        );
             }
         }
+        // if we exhaust all nodes that are toplogically before the parent, return false
         return false;
     }
 

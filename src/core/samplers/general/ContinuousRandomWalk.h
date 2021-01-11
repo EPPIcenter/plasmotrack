@@ -18,7 +18,7 @@
 // Random Walk Metropolis Hastings using a gaussian proposal distribution centered at the current value
 
 namespace transmission_nets::core::samplers {
-    template<typename T, typename Engine=boost::random::mt19937>
+    template<typename T, typename Engine=boost::random::mt19937, typename U=double>
     class ContinuousRandomWalk : public AbstractSampler {
 
     public:
@@ -44,8 +44,8 @@ namespace transmission_nets::core::samplers {
 
         virtual double sampleProposal() noexcept;
 
-        virtual double
-        logMetropolisHastingsAdjustment([[maybe_unused]] double curr, [[maybe_unused]] double proposed) noexcept;
+        [[nodiscard]] virtual Likelihood
+        logMetropolisHastingsAdjustment([[maybe_unused]] U curr, [[maybe_unused]] U proposed) const noexcept;
 
         void update() noexcept override;
 
@@ -73,40 +73,58 @@ namespace transmission_nets::core::samplers {
 
     };
 
-    template<typename T, typename Engine>
-    ContinuousRandomWalk<T, Engine>::ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng) noexcept
+    template<typename T, typename Engine, typename U>
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng) noexcept
             : parameter_(parameter),
               target_(target), rng_(rng) {}
 
-    template<typename T, typename Engine>
-    ContinuousRandomWalk<T, Engine>::ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng,
+    template<typename T, typename Engine, typename U>
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng,
                                                           double variance) noexcept : parameter_(
             parameter), target_(target), rng_(rng), variance_(variance) {
         assert(variance > 0);
     }
 
-    template<typename T, typename Engine>
-    ContinuousRandomWalk<T, Engine>::ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng,
+    template<typename T, typename Engine, typename U>
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng,
                                                           double variance, double minVariance,
                                                           double maxVariance) noexcept :
             parameter_(parameter), target_(target), rng_(rng), variance_(variance), min_variance_(minVariance),
             max_variance_(maxVariance) {}
 
-    template<typename T, typename Engine>
-    void ContinuousRandomWalk<T, Engine>::update() noexcept {
+    template<typename T, typename Engine, typename U>
+    void ContinuousRandomWalk<T, Engine, U>::update() noexcept {
         const std::string stateId = "ContinuousRW";
-        double curLik = target_.value();
+        Likelihood curLik = target_.value();
         parameter_.saveState(stateId);
 
         const double currentVal = parameter_.value();
         const double proposal = sampleProposal();
 
-//    assert(!target_.isDirty());
+//        double k = 0.05;
+//        std::cout << "Grad: ";
+//        while(k <= .95) {
+//            parameter_.saveState("test");
+//            parameter_.setValue(k);
+//            std::cout << "(" << k << " " << target_.value() << "), ";
+//            parameter_.restoreState("test");
+//            k += .05;
+//        }
+//        std::cout << std::endl;
+
+        assert(!target_.isDirty());
         parameter_.setValue(proposal);
+//        assert(target_.isDirty());
+        const Likelihood adj = logMetropolisHastingsAdjustment(currentVal, proposal);
 
-//    assert(target_.isDirty());
-        const double acceptanceRatio = target_.value() - curLik + logMetropolisHastingsAdjustment(currentVal, proposal);
 
+        const Likelihood acceptanceRatio = target_.value() - curLik + adj;
+        assert(!target_.isDirty());
+//        std::cout << "Curr: " << currentVal << std::endl;
+//        std::cout << "Prop: " << proposal << std::endl;
+//        std::cout << "Var: " << variance() << std::endl;
+//        std::cout << "LLik: " << curLik << " " << target_.value() << " " << adj << " " << acceptanceRatio << std::endl;
+//        std::cout << "----------------------------------------------------" << std::endl;
         const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
         if (accept) {
@@ -115,64 +133,64 @@ namespace transmission_nets::core::samplers {
         } else {
             rejections_ += 1;
             parameter_.restoreState(stateId);
-//        assert(curLik == target_.value());
+            assert(curLik == target_.value());
         }
-//    assert(!target_.isDirty());
+        assert(!target_.isDirty());
 
         total_updates_++;
     }
 
-    template<typename T, typename Engine>
-    void ContinuousRandomWalk<T, Engine>::adapt() noexcept {
+    template<typename T, typename Engine, typename U>
+    void ContinuousRandomWalk<T, Engine, U>::adapt() noexcept {
         variance_ += (acceptanceRate() - target_acceptance_rate_) / std::pow(total_updates_ + 1, adaptation_rate_);
         variance_ = std::clamp(variance_, min_variance_, max_variance_);
     }
 
-    template<typename T, typename Engine>
-    void ContinuousRandomWalk<T, Engine>::adapt(unsigned int idx) noexcept {
+    template<typename T, typename Engine, typename U>
+    void ContinuousRandomWalk<T, Engine, U>::adapt(unsigned int idx) noexcept {
         variance_ += (acceptanceRate() - target_acceptance_rate_) / std::pow(idx, adaptation_rate_);
         variance_ = std::clamp(variance_, min_variance_, max_variance_);
     }
 
-    template<typename T, typename Engine>
-    unsigned int ContinuousRandomWalk<T, Engine>::acceptances() const noexcept {
+    template<typename T, typename Engine, typename U>
+    unsigned int ContinuousRandomWalk<T, Engine, U>::acceptances() const noexcept {
         return acceptances_;
     }
 
-    template<typename T, typename Engine>
-    unsigned int ContinuousRandomWalk<T, Engine>::rejections() const noexcept {
+    template<typename T, typename Engine, typename U>
+    unsigned int ContinuousRandomWalk<T, Engine, U>::rejections() const noexcept {
         return rejections_;
     }
 
-    template<typename T, typename Engine>
-    double ContinuousRandomWalk<T, Engine>::acceptanceRate() const noexcept {
+    template<typename T, typename Engine, typename U>
+    double ContinuousRandomWalk<T, Engine, U>::acceptanceRate() const noexcept {
         return double(acceptances_) / double(rejections_ + acceptances_);
     }
 
-    template<typename T, typename Engine>
-    double ContinuousRandomWalk<T, Engine>::sampleProposal() noexcept {
+    template<typename T, typename Engine, typename U>
+    double ContinuousRandomWalk<T, Engine, U>::sampleProposal() noexcept {
         return parameter_.value() + normal_dist_(*rng_) * variance_;
     }
 
-    template<typename T, typename Engine>
-    double
-    ContinuousRandomWalk<T, Engine>::logMetropolisHastingsAdjustment([[maybe_unused]] double curr,
-                                                                     [[maybe_unused]] double proposed) noexcept {
+    template<typename T, typename Engine, typename U>
+    Likelihood
+    ContinuousRandomWalk<T, Engine, U>::logMetropolisHastingsAdjustment([[maybe_unused]] U curr,
+                                                                     [[maybe_unused]] U proposed) const noexcept {
         return 0;
     }
 
-    template<typename T, typename Engine>
-    double ContinuousRandomWalk<T, Engine>::variance() const noexcept {
+    template<typename T, typename Engine, typename U>
+    double ContinuousRandomWalk<T, Engine, U>::variance() const noexcept {
         return variance_;
     }
 
-    template<typename T, typename Engine>
-    void ContinuousRandomWalk<T, Engine>::setTargetAcceptanceRate(double target) noexcept {
+    template<typename T, typename Engine, typename U>
+    void ContinuousRandomWalk<T, Engine, U>::setTargetAcceptanceRate(double target) noexcept {
         target_acceptance_rate_ = target;
     }
 
-    template<typename T, typename Engine>
-    void ContinuousRandomWalk<T, Engine>::setAdaptationRate(double rate) noexcept {
+    template<typename T, typename Engine, typename U>
+    void ContinuousRandomWalk<T, Engine, U>::setAdaptationRate(double rate) noexcept {
         adaptation_rate_ = rate;
     }
 }

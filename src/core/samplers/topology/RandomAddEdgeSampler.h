@@ -13,7 +13,7 @@
 #include "core/parameters/TransmissionNetwork.h"
 #include "core/samplers/AbstractSampler.h"
 
-namespace transmission_nets::core::samplers::graph {
+namespace transmission_nets::core::samplers::topology {
 
     template<int MAX_PARENT_SET_CARDINALITY, typename T, typename Engine, typename NodeValueImpl>
     class RandomAddEdgeSampler : public AbstractSampler {
@@ -53,7 +53,7 @@ namespace transmission_nets::core::samplers::graph {
     template<int MAX_PARENT_SET_CARDINALITY, typename T, typename Engine, typename NodeValueImpl>
     void RandomAddEdgeSampler<MAX_PARENT_SET_CARDINALITY, T, Engine, NodeValueImpl>::update() noexcept {
         const std::string stateId = "AddEdge1";
-        double curLik = target_.value();
+        Likelihood curLik = target_.value();
 
         auto parentNode = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
         auto childNode = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
@@ -62,8 +62,8 @@ namespace transmission_nets::core::samplers::graph {
             network_.parentSet(childNode)->saveState(stateId);
             network_.addEdge(parentNode, childNode);
 
-            const double acceptanceRatio = target_.value() - curLik;
-            const double logProbAccept = log(uniformDist_(*rng_));
+            const Likelihood acceptanceRatio = target_.value() - curLik;
+            const Likelihood logProbAccept = log(uniformDist_(*rng_));
             const bool accept = logProbAccept <= acceptanceRatio;
 
             if (accept) {

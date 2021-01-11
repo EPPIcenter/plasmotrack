@@ -12,7 +12,7 @@
 #include "core/samplers/AbstractSampler.h"
 #include "core/parameters/Ordering.h"
 
-namespace transmission_nets::core::samplers {
+namespace transmission_nets::core::samplers::topology {
 
     template<typename T,  typename OrderingElement, typename Engine=boost::random::mt19937>
     class OrderSampler : public AbstractSampler {
@@ -50,16 +50,16 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename OrderingElement, typename Engine>
     void OrderSampler<T, OrderingElement, Engine>::update() noexcept {
         const std::string stateId = "OrderSampler";
-        double curLik = target_.value();
+        Likelihood curLik = target_.value();
         parameter_.saveState(stateId);
 
         auto [pivot, offset] = sampleProposal();
 
         assert(!target_.isDirty());
         parameter_.swap(pivot + offset, pivot);
-        assert(target_.isDirty());
+//        assert(target_.isDirty());
 
-        const double acceptanceRatio = target_.value() - curLik;
+        const Likelihood acceptanceRatio = target_.value() - curLik;
 
         const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 

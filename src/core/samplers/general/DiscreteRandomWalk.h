@@ -13,6 +13,7 @@
 
 #include "core/samplers/AbstractSampler.h"
 
+
 namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine=boost::random::mt19937>
@@ -32,7 +33,7 @@ namespace transmission_nets::core::samplers {
 
         virtual double sampleStride([[maybe_unused]] int current) noexcept;
 
-        virtual double logMetropolisHastingsAdjustment([[maybe_unused]] int curr, [[maybe_unused]] int proposed) noexcept;
+        virtual Likelihood logMetropolisHastingsAdjustment([[maybe_unused]] int curr, [[maybe_unused]] int proposed) noexcept;
 
         void update() noexcept override;
 
@@ -87,7 +88,7 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    double DiscreteRandomWalk<T, Engine>::logMetropolisHastingsAdjustment(
+    Likelihood DiscreteRandomWalk<T, Engine>::logMetropolisHastingsAdjustment(
             [[maybe_unused]] int curr, [[maybe_unused]] int proposed) noexcept {
         return 0;
     }
@@ -95,15 +96,15 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename Engine>
     void DiscreteRandomWalk<T, Engine>::update() noexcept {
         const std::string stateId = "State1";
-        double curLik = target_.value();
+        Likelihood curLik = target_.value();
         parameter_.saveState(stateId);
 
         const int stride = sampleStride(parameter_.value());
-        double mhAdjustment = logMetropolisHastingsAdjustment(parameter_.value(), parameter_.value() + stride);
+        Likelihood mhAdjustment = logMetropolisHastingsAdjustment(parameter_.value(), parameter_.value() + stride);
 
         parameter_.setValue(parameter_.value() + stride);
 
-        const double acceptanceRatio = target_.value() - curLik + mhAdjustment;
+        const Likelihood acceptanceRatio = target_.value() - curLik + mhAdjustment;
         const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
         if (accept) {

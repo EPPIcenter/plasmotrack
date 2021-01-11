@@ -56,30 +56,44 @@ namespace transmission_nets::core::samplers::genetics {
     template<typename T, typename Engine, typename AllelesBitSetImpl>
     void RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept {
         const std::string stateId = "State1";
-        double curLik = target_.value();
+        Likelihood curLik = target_.value();
         parameter_.saveState(stateId);
-
-
-        auto proposal = sampleProposal(parameter_.value());
+        const auto proposal = sampleProposal(parameter_.value());
 
         assert(!target_.isDirty());
         parameter_.setValue(proposal);
-        assert(target_.isDirty());
+//        if(!target_.isDirty()) {
+//            std::cerr << "Something went wrong." << std::endl;
+//            std::cerr << "#: " << total_updates_ << std::endl;
+//            std::cerr << "Prev: " << prev << std::endl;
+//            std::cerr << "Curr: " << proposal << std::endl;
+//            std::cerr << "V: " << target_.value() << std::endl;
+//        } else {
+//            std::cout << "Prev: " << prev << std::endl;
+//            std::cout << "Curr: " << proposal << std::endl;
+//        }
+//        assert(target_.isDirty());
 
-        const double acceptanceRatio = target_.value() - curLik;
-        const double logProbAccept = log(uniform_dist_(*rng_));
+        const auto acceptanceRatio = target_.value() - curLik;
+        const auto logProbAccept = log(uniform_dist_(*rng_));
         const bool accept = logProbAccept <= acceptanceRatio;
 
         if (accept) {
             acceptances_++;
             parameter_.acceptState();
+//            std::cout << "Genetics Accepted: " << acceptanceRate() << std::endl;
         } else {
             rejections_++;
             parameter_.restoreState(stateId);
         }
+//
+//        if(total_updates_ % 10 == 0) {
+//            std::cout << "AR: " << acceptanceRate() << " (" << total_updates_ << ")" << std::endl;
+//        }
         assert(!target_.isDirty());
 
         total_updates_++;
+//        std::cout << "Acceptance Rate: " << acceptanceRate() << std::endl;
     }
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
@@ -102,6 +116,11 @@ namespace transmission_nets::core::samplers::genetics {
     RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::sampleProposal(const AllelesBitSetImpl curr) noexcept {
         auto tmp = curr;
         tmp.flip(allele_index_sampling_dist_(*rng_));
+
+        while(tmp.totalPositiveCount() == 0) {
+            tmp.flip(allele_index_sampling_dist_(*rng_));
+        }
+
         return tmp;
     }
 }

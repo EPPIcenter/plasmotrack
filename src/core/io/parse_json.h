@@ -74,11 +74,38 @@ namespace transmission_nets::core::io {
                     latent_genetics[0] = '1';
                     infections.back()->addLatentGenetics(locusItr->second, latent_genetics);
                 }
-
             }
         }
 
         return infections;
+    }
+
+    template <typename InfectionEvent>
+    std::map<InfectionEvent*, std::vector<InfectionEvent*>> parseDisallowedParentsFromJSON(
+            const json &input,
+            std::vector<InfectionEvent*> infections,
+            const char infectionsKey[] = "nodes",
+            const char idKey[] = "id",
+            const char disallowedParentsKey[] = "disallowed_parents"
+            ) {
+
+        std::map<InfectionEvent*, std::vector<InfectionEvent*>> disallowedParents{};
+
+        for(const auto& targetInfection : infections) {
+            for (const auto& inf : input.at(infectionsKey)) {
+                auto infectionId = inf.at(idKey);
+                if (infectionId == targetInfection->id()) {
+                    for (const auto& parentId : inf.at(disallowedParentsKey)) {
+                        auto parentInf = std::find_if(infections.begin(), infections.end(), [&parentId](const InfectionEvent* candidateInf) {return candidateInf->id() == parentId;});
+                        disallowedParents[targetInfection].push_back(*parentInf);
+                    }
+                    break;
+                }
+            }
+        }
+
+        return disallowedParents;
+
     }
 }
 

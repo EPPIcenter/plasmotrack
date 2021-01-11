@@ -6,41 +6,66 @@
 #define TRANSMISSION_NETWORKS_APP_CHAIN_H
 
 #include <vector>
+#include "core/io/loggers/AbstractLogger.h"
 
 namespace transmission_nets::core::mcmc {
 
-    template<typename Model, typename SamplingScheduler, typename Logger>
+    template<typename Model, typename SamplingScheduler, typename StateLogger>
     class Chain {
     public:
+        void sample();
+        void log();
+        int totalSamples();
 
-        void sample() {
-            scheduler_.step();
-            totalSamples_++;
-        };
-
-        void log() {
-            for (const auto& logger : loggers_) {
-                logger->logValue();
-            }
-        };
-
-        int totalSamples() {
-            return totalSamples_;
-        }
-
-
-    //    void dumpState() {};
-    //
-    //    void restoreState() {};
+        [[nodiscard]] SamplingScheduler& getScheduler() const;
+        [[nodiscard]] Model& getModel() const;
+        [[nodiscard]] State& getState() const;
+        [[nodiscard]] StateLogger& getStateLogger() const;
 
     private:
 
-        Model& model_;
-        SamplingScheduler& scheduler_;
-        std::vector<Logger*>&  loggers_;
-        int totalSamples_ = 0;
-
+        Model model_;
+        typename Model::State state_;
+        SamplingScheduler scheduler_;
+        StateLogger stateLogger_;
     };
+
+
+    template<typename Model, typename SamplingScheduler, typename StateLogger>
+    void Chain<Model, SamplingScheduler, StateLogger >::sample() {
+        scheduler_.step();
+    }
+
+
+    template<typename Model, typename SamplingScheduler, typename StateLogger>
+    void Chain<Model, SamplingScheduler, StateLogger >::log() {
+        stateLogger_.log();
+    }
+
+    template<typename Model, typename SamplingScheduler, typename StateLogger>
+    int Chain<Model, SamplingScheduler, StateLogger >::totalSamples() {
+        return totalSamples_;
+    }
+
+    template<typename Model, typename SamplingScheduler, typename StateLogger>
+    Model& Chain<Model, SamplingScheduler, StateLogger>::getModel() const {
+        return model_;
+    }
+
+    template<typename Model, typename SamplingScheduler, typename StateLogger>
+    State& Chain<Model, SamplingScheduler, StateLogger>::getState() const {
+        return state_;
+    }
+
+    template<typename Model, typename SamplingScheduler, typename StateLogger>
+    StateLogger& Chain<Model, SamplingScheduler, StateLogger>::getStateLogger() const {
+        return stateLogger_;
+    }
+
+    template<typename Model, typename SamplingScheduler, typename StateLogger>
+    SamplingScheduler& Chain<Model, SamplingScheduler, StateLogger>::getScheduler() const {
+        return scheduler_;
+    }
 
 }
 

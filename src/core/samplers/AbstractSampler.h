@@ -5,8 +5,10 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ABSTRACTSAMPLER_H
 #define TRANSMISSION_NETWORKS_APP_ABSTRACTSAMPLER_H
 
-namespace transmission_nets::core::samplers {
+#include "core/computation/PartialLikelihood.h"
 
+namespace transmission_nets::core::samplers {
+    using Likelihood = core::computation::Likelihood;
     class AbstractSampler {
     public:
         virtual ~AbstractSampler() = default;
