@@ -60,3 +60,7 @@ test/outputs/
 .Rproj.user
 
 test/resources/JSON/nodes.json
+
+*.pyc
+
+R/.Rhistory
