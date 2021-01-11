@@ -20,22 +20,32 @@
 
 #include "core/utils/CombinationIndicesGenerator.h"
 
-#include "core/samplers/ContinuousRandomWalk.h"
-#include "core/samplers/ConstrainedContinuousRandomWalk.h"
-#include "core/samplers/SALTSampler.h"
-#include "core/samplers/DiscreteRandomWalk.h"
+#include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
+#include "core/samplers/general/ContinuousRandomWalk.h"
+#include "core/samplers/general/DiscreteRandomWalk.h"
+#include "core/samplers/general/SALTSampler.h"
 
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/ObservationProcessLikelihood.h"
 
+#include "core/computation/OrderDerivedParentSet.h"
 #include "core/distributions/ZTGeometric.h"
 #include "core/distributions/ZTMultiplicativeBinomial.h"
 #include "model/transmission_process/OrderBasedTransmissionProcess.h"
-#include "model/transmission_process/OrderDerivedParentSet.h"
 #include "model/transmission_process/TransmissionProcessLikelihood.h"
 #include "model/transmission_process/node_transmission_process/NoSuperInfectionNoMutation.h"
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
+
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::containers;
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::computation;
+using namespace transmission_nets::core::utils;
+using namespace transmission_nets::core::samplers;
+using namespace transmission_nets::core::distributions;
+using namespace transmission_nets::model::observation_process;
+using namespace transmission_nets::model::transmission_process;
 
 using GeneticsImpl = AllelesBitSet<16>;
 using DoubleParameter = Parameter<double>;
@@ -101,19 +111,19 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
     OrderDerivedParentSet ps(op2, c);
 
     std::cout << "Printing Parent Set" << std::endl;
-    ps.printSet();
+    ps.serialize();
     std::cout << op2 << std::endl;
     op2.swap(0, 3);
     std::cout << "Printing Parent Set" << std::endl;
-    ps.printSet();
+    ps.serialize();
     std::cout << op2 << std::endl;
     op2.swap(2, 3);
     std::cout << "Printing Parent Set" << std::endl;
-    ps.printSet();
+    ps.serialize();
     std::cout << op2 << std::endl;
     op2.swap(3, 0);
     std::cout << "Printing Parent Set" << std::endl;
-    ps.printSet();
+    ps.serialize();
     std::cout << op2 << std::endl;
 
     DoubleParameter tcp(.85);

@@ -9,7 +9,10 @@
 #include "Eigen/Core"
 
 #include "core/parameters/Parameter.h"
-#include "core/samplers/ConstrainedContinuousRandomWalk.h"
+#include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
+
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::samplers;
 
 constexpr double TEST_PROB = .15;
 constexpr int TOTAL_DATA_POINTS = 100;
@@ -47,7 +50,7 @@ TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {
     boost::random::mt19937 r;
 
 //    ConstrainedContinuousRandomWalk<0, 1> sampler2(myProb, myTestTar, &r, .01);
-    ConstrainedContinuousRandomWalk<0, 1, BernoulliTestTarget, boost::random::mt19937> sampler(myProb, myTestTar, &r, .01);
+    ConstrainedContinuousRandomWalk<BernoulliTestTarget, boost::random::mt19937> sampler(myProb, myTestTar, 0, 1, &r, .01);
 
     int i = 20000;
     while (i > 0) {

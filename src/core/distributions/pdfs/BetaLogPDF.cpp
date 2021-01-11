@@ -6,23 +6,30 @@
 
 #include "BetaLogPDF.h"
 
-BetaLogPDF::BetaLogPDF(Parameter<double> &target, double alpha, double beta) : target_(target), alpha_(alpha), beta_(beta) {
-    target_.registerCacheableCheckpointTarget(this);
-    target_.add_post_change_listener([=, this]() { this->setDirty(); });
+namespace transmission_nets::core::distributions {
+    BetaLogPDF::BetaLogPDF(parameters::Parameter<double> &target, double alpha, double beta) : target_(target), alpha_(alpha), beta_(beta) {
+        target_.registerCacheableCheckpointTarget(this);
+        target_.add_post_change_listener([=, this]() { this->setDirty(); });
 
-    logDenominator_ = lgamma(alpha_) + lgamma(beta_) - lgamma(alpha_ + beta_);
+        logDenominator_ = lgamma(alpha_) + lgamma(beta_) - lgamma(alpha_ + beta_);
 
-    this->setDirty();
-}
-
-
-Likelihood BetaLogPDF::value() {
-    if (isDirty()) {
-        value_ = (alpha_ - 1) * log(target_.value()) +
-                 (beta_ - 1) * log(1 - target_.value()) -
-                 logDenominator_;
-        setClean();
+        this->setDirty();
     }
 
-    return value_;
+
+    computation::Likelihood BetaLogPDF::value() {
+        if (isDirty()) {
+            value_ = (alpha_ - 1) * log(target_.value()) +
+                     (beta_ - 1) * log(1 - target_.value()) -
+                     logDenominator_;
+            setClean();
+        }
+
+        return value_;
+    }
+    std::string BetaLogPDF::identifier() {
+        return std::string("BetaLogPDF");
+    }
+
 }
+

@@ -2,8 +2,12 @@
 // Created by Maxwell Murphy on 3/6/20.
 //
 
+#include "core/parameters/Ordering.h"
+#include "core/computation/OrderDerivedParentSet.h"
 #include "gtest/gtest.h"
-#include "model/transmission_process/OrderDerivedParentSet.h"
+
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::computation;
 
 TEST(OrderDerivedParentSetTest, HandlesReorder) {
     int el1 = 1;

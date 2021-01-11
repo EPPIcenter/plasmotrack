@@ -8,39 +8,40 @@
 
 #include "gtest/gtest.h"
 
-#include "core/utils/io/parse_json.h"
-#include "core/utils/io/path_parsing.h"
-#include "core/utils/io/Loggers/ValueLogger.h"
-#include "core/utils/io/Loggers/LambdaLogger.h"
+#include "core/io/parse_json.h"
+#include "core/io/path_parsing.h"
+#include "core/io/loggers/ValueLogger.h"
+#include "core/io/loggers/LambdaLogger.h"
 
-#include "core/samplers/DoubleConstrainedContinuousRandomWalk.h"
-#include "core/samplers/ConstrainedContinuousRandomWalk.h"
-#include "core/samplers/SALTSampler.h"
 #include "core/samplers/RandomizedScheduler.h"
+#include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
+#include "core/samplers/general/SALTSampler.h"
 
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 
-#include "core/samplers/graph/RandomAddEdgeSampler.h"
-#include "core/samplers/graph/RandomRemoveEdgeSampler.h"
-#include "core/samplers/graph/RandomReverseEdgeSampler.h"
-#include "core/samplers/graph/RandomSwapEdgeSampler.h"
+#include "core/samplers/topology/RandomAddEdgeSampler.h"
+#include "core/samplers/topology/RandomRemoveEdgeSampler.h"
+#include "core/samplers/topology/RandomReverseEdgeSampler.h"
+#include "core/samplers/topology/RandomSwapEdgeSampler.h"
 
 #include "impl/model/ModelThree.h"
 #include "impl/state/ModelThreeState.h"
 
 namespace fs = std::filesystem;
 
+using namespace transmission_nets::impl;
+using namespace transmission_nets::core::io;
+using namespace transmission_nets::core::samplers;
+
 TEST(ModelThreeTest, CoreTest) {
 
     using InfectionEvent = ModelThreeState::InfectionEvent;
     using Locus = ModelThreeState::LocusImpl;
-    using ProbabilitySampler = DoubleConstrainedContinuousRandomWalk<ModelThree, boost::random::mt19937>;
-    using ZeroBoundedSampler = ConstrainedContinuousRandomWalk<0, std::numeric_limits<int>::max(), ModelThree, boost::random::mt19937>;
-    using GeneticsSampler = RandomAllelesBitSetSampler<ModelThree, boost::random::mt19937, ModelThreeState::GeneticsImpl>;
-    using AddEdgeSampler = RandomAddEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
-    using RemoveEdgeSampler = RandomRemoveEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
-    using ReverseEdgeSampler = RandomReverseEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
-    using SwapEdgeSampler = RandomSwapEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using GeneticsSampler = genetics::RandomAllelesBitSetSampler<ModelThree, boost::random::mt19937, ModelThreeState::GeneticsImpl>;
+    using AddEdgeSampler = topology::RandomAddEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using RemoveEdgeSampler = topology::RandomRemoveEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using ReverseEdgeSampler = topology::RandomReverseEdgeSampler<ModelThreeState::MAX_PARENT_SET, ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
+    using SwapEdgeSampler = topology::RandomSwapEdgeSampler<ModelThree, boost::random::mt19937, ModelThreeState::InfectionEvent>;
 
 
     ModelThreeState state;
@@ -149,12 +150,12 @@ TEST(ModelThreeTest, CoreTest) {
         }
     }
 
-    scheduler.registerSampler(new ProbabilitySampler(state.observationFalsePositiveRate, model, 0.0, 1, &r));
-    scheduler.registerSampler(new ProbabilitySampler(state.observationFalseNegativeRate, model, 0.0, 1, &r));
-    scheduler.registerSampler(new ProbabilitySampler(state.geometricGenerationProb, model, 0.0, 1.0, &r));
-    scheduler.registerSampler(new ProbabilitySampler(state.lossProb, model, 0.0, 1.0, &r));
-    scheduler.registerSampler(new ProbabilitySampler (state.mutationProb, model, 0.0, 0.5, &r));
-    scheduler.registerSampler(new ZeroBoundedSampler(state.meanCOI, model, &r, .1, .01, 1));
+//    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.observationFalsePositiveRate, model, 0.0, 1.0, &r));
+//    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.observationFalseNegativeRate, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.geometricGenerationProb, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.lossProb, model, 0.0, 1.0, &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk (state.mutationProb, model, 0.0, 0.5, &r));
+    scheduler.registerSampler(new ConstrainedContinuousRandomWalk(state.meanCOI, model, 0.0, std::numeric_limits<double>::infinity(), &r, .1, .01, 1));
 
 
 

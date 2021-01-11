@@ -7,6 +7,9 @@
 #include "core/datatypes/Simplex.h"
 #include "core/containers/AlleleFrequencyContainer.h"
 
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::containers;
+using namespace transmission_nets::core::parameters;
 
 TEST(AlleleFrequencyContainerTest, HandlesChangedFrequencies) {
     using AlleleFrequenciesVector = Simplex;

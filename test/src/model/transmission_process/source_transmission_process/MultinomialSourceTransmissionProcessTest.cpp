@@ -16,6 +16,12 @@
 
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::containers;
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::distributions;
+using namespace transmission_nets::model::transmission_process;
+
 constexpr int MAX_COI = 12;
 constexpr int MAX_ALLELES = 32;
 

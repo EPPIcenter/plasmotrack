@@ -6,27 +6,32 @@
 #define TRANSMISSION_NETWORKS_APP_COMBINATIONSWITHREPETITIONSGENERATOR_H
 
 #include <vector>
-#include <numeric>
 
-struct CombinationsWithRepetitionsGenerator {
-    using combination_t = std::vector<int>;
+namespace transmission_nets::core::utils {
 
-    bool completed = false;
-    unsigned long generated = 0;
+    struct CombinationsWithRepetitionsGenerator {
+        using combination_t = std::vector<int>;
 
-    CombinationsWithRepetitionsGenerator(int nChoices, int k);
-    CombinationsWithRepetitionsGenerator();
+        bool completed = false;
+        unsigned long generated = 0;
 
-    void next() noexcept;
-    void reset(int nChoices, int k) noexcept;
+        CombinationsWithRepetitionsGenerator(int nChoices, int k);
+        CombinationsWithRepetitionsGenerator();
 
-    combination_t curr{};
+        void next() noexcept;
+        void reset(int nChoices, int k) noexcept;
 
-private:
+        combination_t curr{};
 
-    int nChoices_;
-    int k_;
-};
+    private:
+
+        int nChoices_;
+        int k_;
+    };
+
+}
+
+
 
 
 #endif //TRANSMISSION_NETWORKS_APP_COMBINATIONSWITHREPETITIONSGENERATOR_H

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.17)
 project(transmission_networks_tests)
 
 configure_file(${CMAKE_SOURCE_DIR}/cmake/GoogleTest-CMakeLists.txt.in ${CMAKE_BINARY_DIR}/googletest-download/CMakeLists.txt)
@@ -20,9 +20,10 @@ endif()
 # settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-find_package(Boost 1.72 REQUIRED container math_c99l random filesystem)
+find_package(Boost 1.74 REQUIRED container math_c99l random filesystem)
 find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
+find_package(OpenMP)
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -58,14 +59,16 @@ set(SOURCE_FILES
         src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
         src/core/distributions/GeometricTest.cpp
         src/core/samplers/genetics/RandomAllelesBitSetSamplerTest.cpp
-        src/core/utils/RandomSequenceTests.cpp src/model/observation_process/ObservationProcessTest.cpp src/impl/ModelOneTest.cpp src/core/distributions/ZTMultiplicativeBinomialTest.cpp src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp src/core/utils/ParseJSONTests.cpp src/impl/ModelTwoTest.cpp src/model/transmission_process/NetworkBasedTransmissionProcessTest.cpp src/core/containers/TransmissionNetworkTest.cpp src/impl/ModelThreeTest.cpp src/core/utils/ProbAnyMissingTests.cpp)
+        src/core/utils/RandomSequenceTests.cpp src/model/observation_process/ObservationProcessTest.cpp src/impl/ModelOneTest.cpp src/core/distributions/ZTMultiplicativeBinomialTest.cpp src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp src/core/utils/ParseJSONTests.cpp src/impl/ModelTwoTest.cpp src/model/transmission_process/NetworkBasedTransmissionProcessTest.cpp src/core/containers/TransmissionNetworkTest.cpp src/impl/ModelThreeTest.cpp src/core/utils/ProbAnyMissingTests.cpp src/core/utils/NumericsTest.cpp src/impl/ModelFourTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests
-        ${Boost_FILESYSTEM_LIBRARY}
-        ${Boost_SYSTEM_LIBRARY}
+        PRIVATE
+#        ${Boost_FILESYSTEM_LIBRARY}
+#        ${Boost_SYSTEM_LIBRARY}
         nlohmann_json::nlohmann_json
         transmission_networks
+        OpenMP::OpenMP_CXX
         gtest)
 #target_link_libraries(transmission_networks_tests PRIVATE nlohmann_json::nlohmann_json)
 

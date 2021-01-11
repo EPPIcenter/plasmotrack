@@ -4,9 +4,11 @@
 
 #include "gtest/gtest.h"
 
+#include "core/computation/OrderDerivedParentSet.h"
 #include "core/parameters/Ordering.h"
-#include "model/transmission_process/OrderDerivedParentSet.h"
 
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::computation;
 
 TEST(OrderingTest, HandlesSwapsNotifies) {
     int el1 = 1;
@@ -54,16 +56,16 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
     ordering.saveState("state1");
 
     ordering.swap(0, 2);
-    p_el1.printSet();
-    p_el2.printSet();
-    p_el3.printSet();
-    p_el4.printSet();
+    p_el1.serialize();
+    p_el2.serialize();
+    p_el3.serialize();
+    p_el4.serialize();
 
     ordering.restoreState("state1");
-    p_el1.printSet();
-    p_el2.printSet();
-    p_el3.printSet();
-    p_el4.printSet();
+    p_el1.serialize();
+    p_el2.serialize();
+    p_el3.serialize();
+    p_el4.serialize();
 
 
 }

@@ -11,10 +11,17 @@
 
 #include "core/datatypes/Alleles.h"
 
+#include "core/parameters/Parameter.h"
+
 #include "model/observation_process/AlleleCounts.h"
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/ObservationProcessLikelihood.h"
 
+using namespace transmission_nets::core::computation;
+using namespace transmission_nets::core::containers;
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::model::observation_process;
 
 constexpr int MAX_ALLELES = 32;
 

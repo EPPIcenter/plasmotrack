@@ -8,6 +8,9 @@
 #include "core/datatypes/Simplex.h"
 #include "core/parameters/Parameter.h"
 
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::parameters;
+
 TEST(SimplexTest, BasicTest) {
     Simplex av(3);
     ASSERT_DOUBLE_EQ(av.frequencies(0), 1.0/3.0);

@@ -9,32 +9,36 @@
 
 #include "core/utils/forwarding_utils.h"
 
+namespace transmission_nets::core::datatypes {
 
-template <typename T>
-class Data {
+    template <typename T>
+    class Data {
 
-public:
-    template <typename Args, ENABLE_IF(NonSelf<Args, Data<T>>())>
-    explicit Data(Args&& args) : value_(std::forward<Args>(args)) {
+    public:
+        template <typename Args, ENABLE_IF(core::utils::NonSelf<Args, Data<T>>())>
+        explicit Data(Args&& args) : value_(std::forward<Args>(args)) {
 //        std::cout << "data forward c'tor" << std::endl;
-    }
+        }
 
-    void setLabel(const std::string& label) noexcept {
-        label_ = label;
-    }
+        void setLabel(const std::string& label) noexcept {
+            label_ = label;
+        }
 
-    [[nodiscard]] T value() const noexcept {
-        return value_;
-    }
+        [[nodiscard]] T value() const noexcept {
+            return value_;
+        }
 
-    [[nodiscard]] std::string label() const noexcept {
-        return label_;
-    }
+        [[nodiscard]] std::string label() const noexcept {
+            return label_;
+        }
 
-private:
-    T value_;
-    std::string label_;
-};
+    private:
+        T value_;
+        std::string label_;
+    };
+}
+
+
 
 
 

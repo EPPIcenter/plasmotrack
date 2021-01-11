@@ -7,7 +7,11 @@
 
 #include "core/containers/Infection.h"
 #include "core/datatypes/Alleles.h"
-#include "core/containers/TransmissionNetwork.h"
+#include "core/parameters/TransmissionNetwork.h"
+
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::containers;
+using namespace transmission_nets::core::parameters;
 
 TEST(TransmissionNetworkTest, CoreTest) {
     using NodeImpl = Infection<AllelesBitSet<16>>;

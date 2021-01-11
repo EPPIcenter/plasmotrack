@@ -6,38 +6,40 @@
 #define TRANSMISSION_NETWORKS_APP_COMBINATIONINDICESGENERATOR_H
 
 #include <vector>
-#include <boost/container/static_vector.hpp>
 
-// Adapted from https://stackoverflow.com/a/9432150/2755374
 
-struct CombinationIndicesGenerator {
-    using combination_t = std::vector<int>;
-//    using combination_t = boost::container::static_vector<int, 40>;
+namespace transmission_nets::core::utils {
+    // Adapted from https://stackoverflow.com/a/9432150/2755374
 
-    bool completed;
-    unsigned long generated = 1;
+    struct CombinationIndicesGenerator {
+        using combination_t = std::vector<int>;
 
-    /**
-     * Generate a sequences of indices representing n choose r element combinations.
-     * @param n number of elements
-     * @param r number of choices
-     */
-    CombinationIndicesGenerator(int n, int r);
+        bool completed;
+        unsigned long generated = 1;
 
-    CombinationIndicesGenerator();
+        /**
+         * Generate a sequences of indices representing n choose r element combinations.
+         * @param n number of elements
+         * @param r number of choices
+         */
+        CombinationIndicesGenerator(int n, int r);
 
-    void reset(int n, int r);
+        CombinationIndicesGenerator();
 
-    void next() noexcept;
+        void reset(int n, int r);
 
-    combination_t curr{};
+        void next() noexcept;
 
-private:
+        combination_t curr{};
 
-    int n_;
-    int r_;
+    private:
 
-};
+        int n_;
+        int r_;
+
+    };
+}
+
 
 
 #endif //TRANSMISSION_NETWORKS_APP_COMBINATIONINDICESGENERATOR_H

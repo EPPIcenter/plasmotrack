@@ -19,53 +19,57 @@
 
 #include "core/utils/numerics.h"
 
-template <int MAX_COUNT>
-class ZTPoisson : public Computation<std::array<long double, MAX_COUNT + 1>>,
-                  public Observable<ZTPoisson<MAX_COUNT>>,
-                  public Cacheable<ZTPoisson<MAX_COUNT>>,
-                  public Checkpointable<ZTPoisson<MAX_COUNT>, std::array<long double, MAX_COUNT + 1>> {
-public:
-    explicit ZTPoisson(Parameter<double> &mean) noexcept;
+namespace transmission_nets::core::distributions {
+    template <int MAX_COUNT>
+    class ZTPoisson : public computation::Computation<std::array<long double, MAX_COUNT + 1>>,
+                      public abstract::Observable<ZTPoisson<MAX_COUNT>>,
+                      public abstract::Cacheable<ZTPoisson<MAX_COUNT>>,
+                      public abstract::Checkpointable<ZTPoisson<MAX_COUNT>, std::array<long double, MAX_COUNT + 1>> {
+    public:
+        explicit ZTPoisson(parameters::Parameter<double> &mean) noexcept;
 
 //    ProbabilityVector<MAX_COUNT + 1> value() noexcept;
-    std::array<long double, MAX_COUNT + 1> value() noexcept;
+        std::array<long double, MAX_COUNT + 1> value() noexcept;
 
-private:
-    friend class Checkpointable<ZTPoisson<MAX_COUNT>,std::array<long double, MAX_COUNT + 1>>;
-    friend class Cacheable<ZTPoisson<MAX_COUNT>>;
+    private:
+        friend class abstract::Checkpointable<ZTPoisson<MAX_COUNT>,std::array<long double, MAX_COUNT + 1>>;
+        friend class abstract::Cacheable<ZTPoisson<MAX_COUNT>>;
 
-    Parameter<double> &mean_;
-};
+        parameters::Parameter<double> &mean_;
+    };
 
-template<int MAX_COUNT>
-ZTPoisson<MAX_COUNT>::ZTPoisson(Parameter<double> &mean) noexcept : mean_(mean){
-    this->value_[0] = -std::numeric_limits<long double>::infinity();
-    mean_.registerCacheableCheckpointTarget(this);
-    mean_.add_post_change_listener([=, this]() { this->setDirty(); });
-    this->setDirty();
-    this->value();
-}
-
-template<int MAX_COUNT>
-std::array<long double, MAX_COUNT + 1> ZTPoisson<MAX_COUNT>::value() noexcept {
-    if (this->isDirty()) {
-
-        long double denominator = 0.0;
-        for (int j = 1; j < MAX_COUNT + 1; ++j) {
-            this->value_[j] = j * log(mean_.value()) - mean_.value() - log(boost::math::factorial<double>(j));
-            denominator += exp(this->value_[j]);
-            assert(!std::isnan(this->value_[j]));
-        }
-
-        denominator = log(denominator);
-        for (int i = 1; i < MAX_COUNT + 1; ++i) {
-            this->value_[i] -= denominator;
-            assert(!std::isnan(this->value_[i]));
-        }
-        this->setClean();
+    template<int MAX_COUNT>
+    ZTPoisson<MAX_COUNT>::ZTPoisson(parameters::Parameter<double> &mean) noexcept : mean_(mean){
+        this->value_[0] = -std::numeric_limits<long double>::infinity();
+        mean_.registerCacheableCheckpointTarget(this);
+        mean_.add_post_change_listener([=, this]() { this->setDirty(); });
+        this->setDirty();
+        this->value();
     }
-    return this->value_;
+
+    template<int MAX_COUNT>
+    std::array<long double, MAX_COUNT + 1> ZTPoisson<MAX_COUNT>::value() noexcept {
+        if (this->isDirty()) {
+
+            long double denominator = 0.0;
+            for (int j = 1; j < MAX_COUNT + 1; ++j) {
+                this->value_[j] = j * log(mean_.value()) - mean_.value() - log(boost::math::factorial<double>(j));
+                denominator += exp(this->value_[j]);
+                assert(!std::isnan(this->value_[j]));
+            }
+
+            denominator = log(denominator);
+            for (int i = 1; i < MAX_COUNT + 1; ++i) {
+                this->value_[i] -= denominator;
+                assert(!std::isnan(this->value_[i]));
+            }
+            this->setClean();
+        }
+        return this->value_;
+    }
+
 }
+
 
 
 

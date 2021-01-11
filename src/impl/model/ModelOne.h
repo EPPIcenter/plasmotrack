@@ -31,64 +31,72 @@
 
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
-class ModelOne {
-    static constexpr int MAX_COI = 32;
-    static constexpr int MAX_PARENTS = 1;
-    static constexpr int MAX_TRANSMISSIONS = 5;
+namespace transmission_nets::impl {
 
-    using GeneticsImpl = ModelOneState::GeneticsImpl;
-    using InfectionEvent = ModelOneState::InfectionEvent;
-    using AlleleFrequencyContainerImpl = ModelOneState::AlleleFrequencyContainerImpl;
+    using Likelihood = core::computation::Likelihood;
+    class ModelOne {
+        using State = ModelOneState;
+        static constexpr int MAX_COI = 32;
+        static constexpr int MAX_PARENTS = 1;
+        static constexpr int MAX_TRANSMISSIONS = 5;
 
-    using AlleleCounterImpl = AlleleCounter<GeneticsImpl>;
-    using AlleleCounterAccumulator = Accumulator<AlleleCounterImpl, AlleleCounts>;
+        using GeneticsImpl = State::GeneticsImpl;
+        using InfectionEvent = State::InfectionEvent;
+        using AlleleFrequencyContainerImpl = State::AlleleFrequencyContainerImpl;
 
-    using OrderingImpl = Ordering<InfectionEvent>;
+        using AlleleCounterImpl = model::observation_process::AlleleCounter<GeneticsImpl>;
+        using AlleleCounterAccumulator = core::computation::Accumulator<AlleleCounterImpl, model::observation_process::AlleleCounts>;
 
-    using COITransitionProbImpl = ZTMultiplicativeBinomial<MAX_COI>;
-    using InterTransmissionProbImpl = ZTGeometric<MAX_TRANSMISSIONS>;
-    using NodeTransmissionImpl = NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>;
+        using OrderingImpl = core::parameters::Ordering<InfectionEvent>;
 
-    using COIProbabilityImpl = ZTGeometric<MAX_COI>;
-    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent, MAX_COI>;
+        using COITransitionProbImpl = core::distributions::ZTMultiplicativeBinomial<MAX_COI>;
+        using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
+        using NodeTransmissionImpl = model::transmission_process::NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>;
 
-    using ParentSetImpl = OrderDerivedParentSet<InfectionEvent>;
-    using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
+        using COIProbabilityImpl = core::distributions::ZTGeometric<MAX_COI>;
+        using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent, MAX_COI>;
 
-    using BetaPrior = Prior<boost::math::beta_distribution<>, Parameter<double>, int, int>;
-    using GammaPrior = Prior<boost::math::gamma_distribution<>, Parameter<double>, double, double>;
+        using ParentSetImpl = core::computation::OrderDerivedParentSet<InfectionEvent>;
+        using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
 
-public:
-    explicit ModelOne(ModelOneState& state);
+        using BetaPrior = core::priors::Prior<boost::math::beta_distribution<>, core::parameters::Parameter<double>, int, int>;
+        using GammaPrior = core::priors::Prior<boost::math::gamma_distribution<>, core::parameters::Parameter<double>, double, double>;
 
-    double value();
+    public:
+        explicit ModelOne(State& state);
 
-    bool isDirty();
+        Likelihood value();
 
-    ModelOneState& state;
-    Accumulator<PartialLikelihood, double> likelihood;
+        bool isDirty();
 
-    // Observation Process
-    std::vector<AlleleCounterImpl *> alleleCounters{};
-    AlleleCounterAccumulator alleleCountAccumulator;
-    ObservationProcessLikelihood<AlleleCounterAccumulator>* observationProcessLikelihood{};
+        State& state;
+        core::computation::Accumulator<core::computation::PartialLikelihood, Likelihood> likelihood;
 
-    // Node Transmission Process
-    COITransitionProbImpl* coitp{};
-    InterTransmissionProbImpl* intp{};
-    NodeTransmissionImpl* nodeTransmissionProcess{};
+        // Observation Process
+        std::vector<AlleleCounterImpl *> alleleCounters{};
+        AlleleCounterAccumulator alleleCountAccumulator;
+        model::observation_process::ObservationProcessLikelihood<AlleleCounterAccumulator>* observationProcessLikelihood{};
 
-    // Source Transmission Process
-    COIProbabilityImpl* coiProb{};
-    std::vector<SourceTransmissionImpl *> sourceTransmissionProcessList;
+        // Node Transmission Process
+        COITransitionProbImpl* coitp{};
+        InterTransmissionProbImpl* intp{};
+        NodeTransmissionImpl* nodeTransmissionProcess{};
 
-    // Transmission Process
-    std::vector<ParentSetImpl *> parentSetList{};
-    std::vector<TransmissionProcess *> transmissionProcessList{};
+        // Source Transmission Process
+        COIProbabilityImpl* coiProb{};
+        std::vector<SourceTransmissionImpl *> sourceTransmissionProcessList;
 
-    std::vector<LogTransformer<TransmissionProcess> *> logTransmissionProcessList{};
+        // Transmission Process
+        std::vector<ParentSetImpl *> parentSetList{};
+        std::vector<TransmissionProcess *> transmissionProcessList{};
 
-};
+        std::vector<core::computation::LogTransformer<TransmissionProcess> *> logTransmissionProcessList{};
+
+    };
+
+}
+
+
 
 
 #endif //TRANSMISSION_NETWORKS_APP_MODELONE_H

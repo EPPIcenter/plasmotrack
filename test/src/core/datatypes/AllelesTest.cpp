@@ -7,6 +7,12 @@
 #include "core/parameters/Parameter.h"
 
 constexpr int MAX_ALLELES = 24;
+
+
+using namespace transmission_nets::core::datatypes;
+using namespace transmission_nets::core::parameters;
+
+
 using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
 
 

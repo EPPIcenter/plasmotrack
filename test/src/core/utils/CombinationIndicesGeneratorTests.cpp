@@ -5,6 +5,8 @@
 #include "gtest/gtest.h"
 #include "core/utils/CombinationIndicesGenerator.h"
 
+using namespace transmission_nets::core::utils;
+
 TEST(CombinationsIndicesGeneratorTest, HandlesGeneratingCombos) {
     CombinationIndicesGenerator cs(10, 2);
     while(!cs.completed) {

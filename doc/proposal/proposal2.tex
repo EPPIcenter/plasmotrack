@@ -1,0 +1,83 @@
+%%% Local Variables:
+%%% mode: latex
+%%% Tex-master: t
+%%% LaTeX-command: "pdflatex -synctex=1 -aux-directory auto %s"
+%%% End:
+\documentclass{article}
+
+\input{head}
+\input{commands}
+
+\begin{document}
+
+\fancyhead[C]{}
+\hrule \medskip % Upper rule
+
+\begin{minipage}{0.295\textwidth}
+  \raggedright{} \small
+  Maxwell Murphy \hfill
+  murphy2122@berkeley.edu \hfill
+\end{minipage}
+\begin{minipage}{0.4\textwidth}
+  \centering \large Transmission Network Bayesian Inference
+\end{minipage}
+\begin{minipage}{0.295\textwidth}
+  \raggedleft{} \today \hfill
+\end{minipage}
+
+\medskip \hrule % Lower rule
+\bigskip
+
+\section{Transmission Network Simulations}
+Would like to control generating networks with the following parameters
+
+Parameters:
+\begin{itemize}
+  \item Reproduction coeff (expected branching factor) $\rightarrow$ as a surface?
+  \item Founder proportion
+  \item Observed proportion
+  \item Superinfection rate?
+\end{itemize}
+
+Huber transmission network model appears to consider random networks with epidemiological parameters overlaid. SIMPLEGEN takes epidemiological parameters and generates a transmission record.
+
+Initial plan: generate networks a la Huber with overlaid epidemiological parameters.
+
+\section{Transmission Process Model}
+Several components possible
+\begin{itemize}
+  \item Spatial --- Diffusion process, other models of connectivity, quantification of contact rate between individuals
+  \item Temporal --- Serial interval models, considering the symptomatic vs asymptomatic infections
+  \item Behavioral Risk --- Travel
+  \item Latent Genetics --- Model of malaria biology, representation reflects the type of assay used, simple model of allele retention and mutation, or direct haplotype modeling?
+  \item Augment with Superinfection --- Straight forward for spatial, temporal, less straight forward for genetics unless we treat latent genetics as separable (direct haplotype inference) otherwise consider all possible allele origins for a parent set. One thing that is nice is that including epidemiological components will naturally regularize the likelihood. Genetics only will suffer from model inflation.
+\end{itemize}
+
+A challenge of this approach is dealing with the ``unobserved'' infections. When we say a node comes from the source population, we're saying that the distance between this node and any other observed node is greater than some $n$ generations. How do we tune this $n$?
+
+\section{Observation Process Model}
+Observation process based on knowledge about the assay. Sequencing based technology will have different dynamics versus say microsatellites or snps
+
+\section{Random Thoughts}
+
+\begin{itemize}
+  \item Individual level Rc is directly calculable from the ordering
+  \item Is there something we can say re: how many observations we make? i.e.\ if we observe 20\% of all nodes at random, what are our bounds on Rc? How does our sampling scheme bias this? Could be that when we pursue related infections, are we biasing our estimates?
+  \item MERFAT, look up data and talk to sofonias
+  \item jamie lloyd smith
+\end{itemize}
+
+\newpage
+
+\section{Transmission model}
+\begin{itemize}
+  \item Distribute founder population according to some dist $P_f(\mu, \pi, G_{f})$ where $\mu$ is the mean complexity of infection, $\pi$ are the allele frequencies, and $G_{f}$ is the spatial density of founders.
+  \item Forward local transmission nodes are modeled as an inhomogeneous spatiotemporal poisson process centered around a given parent node.
+        \begin{itemize}
+          \item $\Lambda$ as a measure of transmission capacity
+          \item self-exciting point process?
+        \end{itemize}
+\end{itemize}
+
+
+\end{document}

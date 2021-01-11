@@ -9,7 +9,10 @@
 #include <Eigen/Core>
 
 #include "core/parameters/Parameter.h"
-#include "core/samplers/ConstrainedDiscreteRandomWalk.h"
+#include "core/samplers/general/ConstrainedDiscreteRandomWalk.h"
+
+using namespace transmission_nets::core::parameters;
+using namespace transmission_nets::core::samplers;
 
 TEST(ConstrainedDiscreteRandomWalkTest, NormalTest) {
     constexpr double TEST_MEAN = 5.51;
