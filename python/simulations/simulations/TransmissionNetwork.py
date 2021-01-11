@@ -96,7 +96,7 @@ for k in range(20):
 source1 = SourcePopulation(allele_frequencies=allele_frequencies, mean_coi=4, label="S")
 
 
-for i in range(100):
+for i in range(25):
     t1.add_founder(source1)
 
 while t1.parent_list:
@@ -137,7 +137,11 @@ for node, ps in allowed_parents.items():
 
 out = {
     "loci": [
-        {"locus": locus, "allele_freqs": allele_freqs, "num_alleles": len(allele_freqs)}
+        {
+            "locus": locus,
+            "allele_freqs": list(allele_freqs),
+            "num_alleles": len(allele_freqs),
+        }
         for (locus, allele_freqs) in allele_frequencies.items()
     ],
     "nodes": [
@@ -161,7 +165,7 @@ out = {
 }
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/nodes4.json",
+    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/nodes5.json",
     "w",
 ) as f:
-    json.dump(out, f)
+    json.dump(out, f, separators=(",", ":"))
