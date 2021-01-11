@@ -1,3 +1,8 @@
+%%% Local Variables:
+%%% coding: utf-8
+%%% mode: latex
+%%% TeX-engine: lualatex
+%%% End:
 \documentclass{article}
 
 \input{head}
@@ -8,28 +13,28 @@
 \fancyhead[C]{}
 \hrule \medskip % Upper rule
 \begin{minipage}{0.295\textwidth} 
-\raggedright
-\footnotesize
-Maxwell Murphy \hfill\\
-murphy2122@berkeley.edu \hfill\\
+  \raggedright
+  \footnotesize
+  Maxwell Murphy \hfill\\
+  murphy2122@berkeley.edu \hfill\\
 \end{minipage}
-\begin{minipage}{0.4\textwidth} 
-\centering 
-\large 
-Transmission Network Bayesian Inference\\ 
+\begin{minipage}{0.4\textwidth}
+  \centering
+  \large
+  Transmission Network Bayesian Inference\\
 \end{minipage}
 \begin{minipage}{0.295\textwidth} 
-\raggedleft
-\today\hfill\\
+  \raggedleft
+  \today\hfill\\
 \end{minipage}
-\medskip\hrule 
+\medskip\hrule
 \bigskip
 
 \section{Defining the Question}
 
 We are interested in estimating epidemiological parameters or features that depend on the transmission graph $G$. We do not directly observe the transmission graph, but instead observe genetic data from spatially and temporally explicit cases, implying a probabilistic interpretation of a graph $\tilde{G}$. To evaluate the probability of a feature or expectation of a epidemiological parameter given the observed data $X$, we must marginalize over possible graphs $\mathcal{G}$.
 
-For some feature $f$ of the graph $G$, such as $R_0$, number of outbreaks, or the existence of edges between nodes, we say the expectation of that feature given the data is defined
+For some feature $f$ of the graph $G$, such as $R_0$, number of outbreaks, or the existence of edges between nodes, we say the expectation of that feature given the data is defined.
 
 \begin{align*}
     \E(f | X) &= \sum_{Y \in \mathcal{Y}} \sum_{G \in \mathcal{G}} f(G) P(G | Y) P(Y | X)
@@ -123,7 +128,7 @@ It may be that there are some alleles in a child node that are not present in a 
 
 \textbf{Transmission from an Unobserved Source Population}
 
-To accommodate the fact that there will always be at least one unobserved infection, we define a "Source Population" that reflects the underlying population of unobserved infections. We say then that a node that does not have an observed ancestor is a random draw from this unobserved population. This population is parameterized by a set of vectors $\pi$ where $\pi_j$ is the vector of allele frequencies in the population at locus $j$. While we do not know the underlying complexity of infection (COI), we can bound the minimum complexity of infection of a sample as the maximum number of alleles. Furthermore, for a fixed COI, say $c$, we can calculate the probability of a particular presence/absence vector at a given locus $j$ as the probability that exactly one of each observed allele is drawn, times the probability that the remaining alleles are drawn from the realized set of alleles.
+To accommodate the fact that there will always be at least one unobserved infection, we define a ``Source Population'' that reflects the underlying population of unobserved infections. We say then that a node that does not have an observed ancestor is a random draw from this unobserved population. This population is parameterized by a set of vectors $\pi$ where $\pi_j$ is the vector of allele frequencies in the population at locus $j$. While we do not know the underlying complexity of infection (COI), we can bound the minimum complexity of infection of a sample as the maximum number of alleles. Furthermore, for a fixed COI, say $c$, we can calculate the probability of a particular presence/absence vector at a given locus $j$ as the probability that exactly one of each observed allele is drawn, times the probability that the remaining alleles are drawn from the realized set of alleles.
 
 % \begin{align*}
 %     P(Y_i | \pi, c) & = \prod_{j = 1}^l (\sum_{k = 1}^{a_j} \mathbf{1}(Y_{i, j, k}))!

@@ -61,6 +61,16 @@ test/outputs/
 
 test/resources/JSON/nodes.json
 
+*.pyc
+
 R/.Rhistory
 
-*.pyc
+python/.python-version
+
+python/simulations/.vscode/settings.json
+
+python/simulations/dist/
+
+doc/proposal/.auctex-auto/
+
+*.aux
