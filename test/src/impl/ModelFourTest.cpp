@@ -6,16 +6,20 @@
 
 #include <filesystem>
 #include <omp.h>
+#include <memory>
 #include <random>
 
 #include "gtest/gtest.h"
 
+#include "core/io/loggers/AbstractLogger.h"
+#include "core/io/loggers/FileOutput.h"
 #include "core/io/loggers/ParentSetDistLogger.h"
 #include "core/io/loggers/ValueLogger.h"
 #include "core/io/parse_json.h"
 #include "core/io/path_parsing.h"
 #include "core/io/serialize.h"
 
+#include "core/datatypes/Simplex.h"
 
 #include "core/samplers/RandomizedScheduler.h"
 #include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
@@ -33,7 +37,9 @@ namespace fs = std::filesystem;
 
 using namespace transmission_nets::impl;
 using namespace transmission_nets::core::io;
+using namespace transmission_nets::core::datatypes;
 using namespace transmission_nets::core::samplers;
+using namespace transmission_nets::core::parameters;
 
 TEST(ModelFourTest, CoreTest) {
 
@@ -90,34 +96,33 @@ TEST(ModelFourTest, CoreTest) {
 
     ModelFour model(loci, infections, disallowedParents);
 
-    std::vector<AbstractLogger *> loggers{};
-    loggers.push_back(new ValueLogger(paramOutput / "fpr.csv", model.state.observationFalsePositiveRates[0]));
-    loggers.push_back(new ValueLogger(paramOutput / "fnr.csv", model.state.observationFalseNegativeRates[0]));
-    loggers.push_back(new ValueLogger(paramOutput / "geo_gen_prob.csv", model.state.geometricGenerationProb));
-    loggers.push_back(new ValueLogger(paramOutput / "loss_prob.csv", model.state.lossProb));
-    loggers.push_back(new ValueLogger(paramOutput / "mutation_prob.csv", model.state.mutationProb));
-    loggers.push_back(new ValueLogger(paramOutput / "mean_coi.csv", model.state.meanCOI));
-    loggers.push_back(new ValueLogger(paramOutput / "infection_order.csv", model.state.infectionEventOrdering));
-    loggers.push_back(new ValueLogger(paramOutput / "likelihood.csv", model));
+    std::vector<AbstractLogger*> loggers{};
+    loggers.push_back(new ValueLogger(model.state.observationFalsePositiveRates[0], std::make_unique<FileOutput>(paramOutput / "fpr.csv")));
+    loggers.push_back(new ValueLogger(model.state.observationFalsePositiveRates[0], std::make_unique<FileOutput>(paramOutput / "fpr.csv")));
+    loggers.push_back(new ValueLogger(model.state.observationFalsePositiveRates[0], std::make_unique<FileOutput>(paramOutput / "fpr.csv")));
+    loggers.push_back(new ValueLogger(model.state.observationFalseNegativeRates[0], std::make_unique<FileOutput>(paramOutput / "fnr.csv")));
+    loggers.push_back(new ValueLogger(model.state.geometricGenerationProb, std::make_unique<FileOutput>(paramOutput / "geo_gen_prob.csv")));
+    loggers.push_back(new ValueLogger(model.state.lossProb, std::make_unique<FileOutput>(paramOutput / "loss_prob.csv")));
+    loggers.push_back(new ValueLogger(model.state.mutationProb, std::make_unique<FileOutput>(paramOutput / "mutation_prob.csv")));
+    loggers.push_back(new ValueLogger(model.state.meanCOI, std::make_unique<FileOutput>(paramOutput / "mean_coi.csv")));
+    loggers.push_back(new ValueLogger(model.state.infectionEventOrdering, std::make_unique<FileOutput>(paramOutput / "infection_order.csv")));
+    loggers.push_back(new ValueLogger(model, std::make_unique<FileOutput>(paramOutput / "likelihood.csv")));
     for (const auto &[locus_label, locus] : model.state.loci) {
-        loggers.push_back(new ValueLogger(paramOutput / (locus_label + "_frequencies.csv"), model.state.alleleFrequencies.alleleFrequencies(locus)));
+        loggers.push_back(new ValueLogger(model.state.alleleFrequencies.alleleFrequencies(locus), std::make_unique<FileOutput>(paramOutput / (locus_label + "_frequencies.csv"))));
     }
 
     for (const auto &infection : model.state.infections) {
         for (const auto &[locus_label, locus] : model.state.loci) {
             if (std::find(infection->loci().begin(), infection->loci().end(), locus) != infection->loci().end()) {
-                loggers.push_back(new ValueLogger(paramOutput / "nodes" / (infection->id() + "_" + locus_label + ".csv"), infection->latentGenotype(locus)));
+                loggers.push_back(new ValueLogger(infection->latentGenotype(locus), std::make_unique<FileOutput>(paramOutput / "nodes" / (infection->id() + "_" + locus_label + ".csv"))));
             }
         }
     }
 
     for (const auto &tp : model.transmissionProcessList) {
-        loggers.push_back(new ParentSetDistLogger(statOutput / (tp->child_.id() + "_ps.csv"), tp));
+        loggers.push_back(new ParentSetDistLogger(*tp, std::make_unique<FileOutput>(statOutput / (tp->child_.id() + "_ps.csv"), "parent_set,Llik,iter")));
     }
 
-    for (const auto &logger : loggers) {
-        logger->clearFile();
-    }
 
     boost::random::mt19937 r;
     RandomizedScheduler scheduler(&r, 5000);
@@ -206,7 +211,7 @@ TEST(ModelFourTest, CoreTest) {
     }
 
     std::cout << "Current LLik: " << model.value() << std::endl;
-    for (int k = 0; k < 30000; ++k) {
+    for (int k = 0; k < 3; ++k) {
         scheduler.step();
         std::cout << "(k=" << k << ") Current LLik: " << model.value() << std::endl;
         if (k % 10 == 0) {
@@ -248,8 +253,11 @@ TEST(ModelFourTest, CoreTest) {
             }
             std::cout << "{S}: " << std::exp(distr.sourceLlik - distr.totalLlik) << std::endl;
 
-            for (const auto &logger : loggers) {
-                logger->logValue();
+            int l = 0;
+            for (const auto& logger : loggers) {
+                std::cout << "IDX: " << l << std::endl;
+                logger->log();
+                l++;
             }
         }
     }

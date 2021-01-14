@@ -6,6 +6,11 @@ find_package(Boost 1.74 REQUIRED container math_c99l random filesystem)
 find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 find_package(OpenMP REQUIRED)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -38,10 +43,10 @@ set(SOURCE_FILES
         core/utils/CombinationsWithRepetitionsGenerator.h
         core/priors/Prior.h
         core/io/parse_json.h
-        core/io/Loggers/AbstractLogger.h
+        core/io/loggers/FileOutput.h
         core/io/Loggers/ValueLogger.h
         core/io/serialize.h
-        core/io/Loggers/AbstractLogger.cpp
+        core/io/loggers/FileOutput.cpp
         core/samplers/RandomizedScheduler.h
         core/io/path_parsing.cpp
         core/io/path_parsing.h
@@ -65,9 +70,18 @@ set(SOURCE_FILES
         core/distributions/pdfs/BetaLogPDF.cpp
         core/distributions/pdfs/GammaLogPDF.cpp
         core/distributions/pdfs/GammaLogPDF.h
-        core/samplers/general/DoubleConstrainedContinuousRandomWalk.h
         core/mcmc/Chain.h
-        core/utils/ProbAnyMissing.cpp core/samplers/genetics/ZanellaAllelesBitSetSampler.h core/samplers/topology/ZanellaNeighborOrderSampler.h core/samplers/specialized/ZanellaJointGeneticsGraphSampler.h core/samplers/topology/ZanellaOrderSampler.h core/samplers/general/SimplexSampler.h core/computation/ConstrainedOrderDerivedParentSet.h core/io/loggers/ParentSetDistLogger.h impl/model/ModelFour.cpp impl/model/ModelFour.h)
+        core/utils/ProbAnyMissing.cpp
+        core/samplers/genetics/ZanellaAllelesBitSetSampler.h
+        core/samplers/topology/ZanellaNeighborOrderSampler.h
+        core/samplers/specialized/ZanellaJointGeneticsGraphSampler.h
+        core/samplers/topology/ZanellaOrderSampler.h
+        core/samplers/general/SimplexSampler.h
+        core/computation/ConstrainedOrderDerivedParentSet.h
+        core/io/loggers/ParentSetDistLogger.h
+        impl/model/ModelFour.cpp
+        impl/model/ModelFour.h
+        core/io/loggers/AbstractLogger.h core/io/loggers/AbstractOutput.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

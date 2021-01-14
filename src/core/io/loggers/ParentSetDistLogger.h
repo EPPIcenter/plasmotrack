@@ -6,9 +6,10 @@
 #define TRANSMISSION_NETWORKS_APP_PARENTSETDISTLOGGER_H
 
 #include <fstream>
+#include <utility>
 
+#include "AbstractLogger.h"
 #include "core/io/serialize.h"
-#include "core/io/loggers/AbstractLogger.h"
 
 namespace transmission_nets::core::io {
 
@@ -16,41 +17,29 @@ namespace transmission_nets::core::io {
     class ParentSetDistLogger : public AbstractLogger {
 
     public:
-        ParentSetDistLogger(fs::path outputPath, TransmissionProcessImpl* target);
-
-        void logValue() noexcept override;
+        template<typename Output>
+        ParentSetDistLogger(TransmissionProcessImpl& target, std::unique_ptr<Output> output);
+        std::string prepareValue() noexcept override;
 
     private:
-        TransmissionProcessImpl* target_;
-        bool initialized{false};
+        TransmissionProcessImpl& target_;
         int iter = 1;
-
     };
 
     template<typename TransmissionProcessImpl>
-    ParentSetDistLogger<TransmissionProcessImpl>::ParentSetDistLogger(fs::path outputPath, TransmissionProcessImpl* target) : AbstractLogger(outputPath), target_(target) {
-        if(!fs::exists(outputPath_.parent_path())) {
-            fs::create_directory(outputPath_.parent_path());
-        }
-
-        if(fs::exists(outputPath_)) {
-            initialized = true;
-        }
-
-        outputFile_.open(outputPath, std::ofstream::app);
-        outputFile_ << "parent_set,Llik,iter\n";
-    }
+    template<typename Output>
+    ParentSetDistLogger<TransmissionProcessImpl>::ParentSetDistLogger(TransmissionProcessImpl& target, std::unique_ptr<Output> output) : AbstractLogger(std::move(output)), target_(target) {}
 
     template<typename TransmissionProcessImpl>
-    void ParentSetDistLogger<TransmissionProcessImpl>::logValue() noexcept {
+    std::string ParentSetDistLogger<TransmissionProcessImpl>::prepareValue() noexcept {
         std::string out;
-        const auto dist = target_->calcParentSetDist();
+        const auto dist = target_.calcParentSetDist();
         for (const auto& [llik, ps] : dist.parentSetLliks) {
             out += serialize(ps) + "," + std::to_string(std::exp(llik - dist.totalLlik)) + "," + std::to_string(iter) + "\n";
         }
-        out += "{S}," + std::to_string(std::exp(dist.sourceLlik - dist.totalLlik)) + "," + std::to_string(iter) + "\n";
-        outputFile_ << out;
+        out += "{S}," + std::to_string(std::exp(dist.sourceLlik - dist.totalLlik)) + "," + std::to_string(iter);
         iter++;
+        return out;
     }
 
 }

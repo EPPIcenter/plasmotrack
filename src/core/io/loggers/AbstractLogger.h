@@ -1,34 +1,29 @@
 //
-// Created by Maxwell Murphy on 5/26/20.
+// Created by Maxwell Murphy on 1/12/21.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_ABSTRACTLOGGER_H
 #define TRANSMISSION_NETWORKS_APP_ABSTRACTLOGGER_H
 
-#include <filesystem>
+#include "AbstractOutput.h"
 
 namespace transmission_nets::core::io {
-    namespace fs = std::filesystem;
-
     class AbstractLogger {
-
     public:
 
-        explicit AbstractLogger(fs::path outputPath);
+        template<typename Output>
+        explicit AbstractLogger(std::unique_ptr<Output> output) : output_(std::move(output)) {}
 
-        void clearFile();
+        virtual std::string prepareValue() noexcept = 0;
 
-        virtual void initializeFile() {};
-
-        virtual void logValue() = 0;
+        void log() {
+            output_->write(prepareValue());
+        }
 
     protected:
-        fs::path outputPath_;
-        std::ofstream outputFile_;
-        bool initialized{false};
+        std::unique_ptr<AbstractOutput> output_;
     };
 }
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_ABSTRACTLOGGER_H
+#endif//TRANSMISSION_NETWORKS_APP_ABSTRACTLOGGER_H

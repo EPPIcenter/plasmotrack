@@ -5,8 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_CHAIN_H
 #define TRANSMISSION_NETWORKS_APP_CHAIN_H
 
+#include "core/io/loggers/FileOutput.h"
 #include <vector>
-#include "core/io/loggers/AbstractLogger.h"
 
 namespace transmission_nets::core::mcmc {
 
