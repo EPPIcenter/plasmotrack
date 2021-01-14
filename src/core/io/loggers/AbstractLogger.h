@@ -21,7 +21,7 @@ namespace transmission_nets::core::io {
         }
 
     protected:
-        std::unique_ptr<AbstractOutput> output_;
+        std::unique_ptr<AbstractOutput> output_{};
     };
 }
 

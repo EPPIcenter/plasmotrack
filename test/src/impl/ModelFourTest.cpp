@@ -60,17 +60,6 @@ TEST(ModelFourTest, CoreTest) {
     const fs::path outputDir{"outputs/ModelFourTests/CoreTest"};
 
     const fs::path testFilePath = testsDir / nodesFile;
-    const fs::path paramOutput = testsDir / outputDir / "params";
-    const fs::path statOutput = testsDir / outputDir / "stats";
-
-    if (!fs::exists(paramOutput)) {
-        fs::create_directories(paramOutput);
-    }
-
-    if (!fs::exists(statOutput)) {
-        fs::create_directories(statOutput);
-    }
-
 
     if (!fs::exists(testFilePath)) {
         std::cerr << "Nodes test file does not exist." << std::endl;
@@ -89,43 +78,15 @@ TEST(ModelFourTest, CoreTest) {
     auto infections = parseInfectionsFromJSON<InfectionEvent, Locus>(j, loci);
     auto disallowedParents = parseDisallowedParentsFromJSON(j, infections);
 
-
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     auto rng = std::default_random_engine{seed};
     std::shuffle(infections.begin(), infections.end(), rng);
 
-    ModelFour model(loci, infections, disallowedParents);
-
-    std::vector<AbstractLogger*> loggers{};
-    loggers.push_back(new ValueLogger(model.state.observationFalsePositiveRates[0], std::make_unique<FileOutput>(paramOutput / "fpr.csv")));
-    loggers.push_back(new ValueLogger(model.state.observationFalsePositiveRates[0], std::make_unique<FileOutput>(paramOutput / "fpr.csv")));
-    loggers.push_back(new ValueLogger(model.state.observationFalsePositiveRates[0], std::make_unique<FileOutput>(paramOutput / "fpr.csv")));
-    loggers.push_back(new ValueLogger(model.state.observationFalseNegativeRates[0], std::make_unique<FileOutput>(paramOutput / "fnr.csv")));
-    loggers.push_back(new ValueLogger(model.state.geometricGenerationProb, std::make_unique<FileOutput>(paramOutput / "geo_gen_prob.csv")));
-    loggers.push_back(new ValueLogger(model.state.lossProb, std::make_unique<FileOutput>(paramOutput / "loss_prob.csv")));
-    loggers.push_back(new ValueLogger(model.state.mutationProb, std::make_unique<FileOutput>(paramOutput / "mutation_prob.csv")));
-    loggers.push_back(new ValueLogger(model.state.meanCOI, std::make_unique<FileOutput>(paramOutput / "mean_coi.csv")));
-    loggers.push_back(new ValueLogger(model.state.infectionEventOrdering, std::make_unique<FileOutput>(paramOutput / "infection_order.csv")));
-    loggers.push_back(new ValueLogger(model, std::make_unique<FileOutput>(paramOutput / "likelihood.csv")));
-    for (const auto &[locus_label, locus] : model.state.loci) {
-        loggers.push_back(new ValueLogger(model.state.alleleFrequencies.alleleFrequencies(locus), std::make_unique<FileOutput>(paramOutput / (locus_label + "_frequencies.csv"))));
-    }
-
-    for (const auto &infection : model.state.infections) {
-        for (const auto &[locus_label, locus] : model.state.loci) {
-            if (std::find(infection->loci().begin(), infection->loci().end(), locus) != infection->loci().end()) {
-                loggers.push_back(new ValueLogger(infection->latentGenotype(locus), std::make_unique<FileOutput>(paramOutput / "nodes" / (infection->id() + "_" + locus_label + ".csv"))));
-            }
-        }
-    }
-
-    for (const auto &tp : model.transmissionProcessList) {
-        loggers.push_back(new ParentSetDistLogger(*tp, std::make_unique<FileOutput>(statOutput / (tp->child_.id() + "_ps.csv"), "parent_set,Llik,iter")));
-    }
-
+    ModelFour::Model model(loci, infections, disallowedParents);
+    ModelFour::ParameterLogger logger(model, testsDir / outputDir);
 
     boost::random::mt19937 r;
-    RandomizedScheduler scheduler(&r, 5000);
+    RandomizedScheduler scheduler(&r, 50000);
 
     scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.geometricGenerationProb, model, 0.0, 1.0, &r, .1, .01, 2),
                                //                               .adaptationStart = 1000,
@@ -145,7 +106,7 @@ TEST(ModelFourTest, CoreTest) {
     //                               .adaptationEnd = 3000,
     //                               .weight = 5});
 
-    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.meanCOI, model, 0.0, double(model.MAX_COI), &r, .1, .01, 1),
+    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.meanCOI, model, 0.0, double(ModelFour::MAX_COI), &r, .1, .01, 1),
                                //                               .adaptationStart = 1000,
                                //                               .adaptationEnd = 3000,
                                //                               .scaledAdaptation = true,
@@ -203,7 +164,7 @@ TEST(ModelFourTest, CoreTest) {
     }
 
     for (const auto &[locus_label, locus] : model.state.loci) {
-        scheduler.registerSampler({.sampler = new SALTSampler<ModelFour>(model.state.alleleFrequencies.alleleFrequencies(locus), model, &r, .5, .01, .5),
+        scheduler.registerSampler({.sampler = new SALTSampler(model.state.alleleFrequencies.alleleFrequencies(locus), model, &r, .5, .01, .5),
                                    //                                   .adaptationStart = 100,
                                    //                                   .adaptationEnd = 3000,
 //                                   .updateStart = 1000,
@@ -214,7 +175,7 @@ TEST(ModelFourTest, CoreTest) {
     for (int k = 0; k < 3; ++k) {
         scheduler.step();
         std::cout << "(k=" << k << ") Current LLik: " << model.value() << std::endl;
-        if (k % 10 == 0) {
+        if (k % 1 == 0) {
             std::cout << "Current LLik: " << model.value() << std::endl;
             std::cout << serialize(model.state.infectionEventOrdering.value()) << std::endl;
             std::cout << serialize(model.state.alleleFrequencies.alleleFrequencies(model.state.loci.begin()->second).value()) << std::endl;
@@ -236,7 +197,7 @@ TEST(ModelFourTest, CoreTest) {
     for (int i = 0; i < 50000; ++i) {
         scheduler.step();
         std::cout << "(i=" << i << ") Current LLik: " << model.value() << std::endl;
-        if (i % 10 == 0) {
+        if (i % 1 == 0) {
             std::cout << "Current LLik: " << model.value() << std::endl;
             std::cout << serialize(model.state.infectionEventOrdering.value()) << std::endl;
             std::cout << serialize(model.state.alleleFrequencies.alleleFrequencies(model.state.loci.begin()->second).value()) << std::endl;
@@ -252,13 +213,7 @@ TEST(ModelFourTest, CoreTest) {
                 std::cout << serialize(ps) << ": " << std::exp(llik - distr.totalLlik) << std::endl;
             }
             std::cout << "{S}: " << std::exp(distr.sourceLlik - distr.totalLlik) << std::endl;
-
-            int l = 0;
-            for (const auto& logger : loggers) {
-                std::cout << "IDX: " << l << std::endl;
-                logger->log();
-                l++;
-            }
+            logger.logParameters();
         }
     }
 
