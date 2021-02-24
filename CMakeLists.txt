@@ -7,7 +7,7 @@ set(transmission_networks_VERSION_MINOR 0)
 
 set(CMAKE_CXX_STANDARD 20)
 
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -pedantic-errors")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
 if ( CMAKE_COMPILER_IS_GNUCC )
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -fno-omit-frame-pointer")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -g -march=native -frename-registers -funroll-loops -fno-omit-frame-pointer") # -Ofast is throwing nan errors

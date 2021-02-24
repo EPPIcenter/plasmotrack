@@ -14,7 +14,6 @@ TEST(NumericsTests, TestExpNormalize) {
     std::vector<double> expected{0, 0, 1};
 
     for (size_t i = 0; i < out.size(); ++i) {
-        std::cout << "Input/Output - " << input[i] << " " << out[i] << std::endl;
         ASSERT_NEAR(out[i], expected[i], 1e-6);
     }
 

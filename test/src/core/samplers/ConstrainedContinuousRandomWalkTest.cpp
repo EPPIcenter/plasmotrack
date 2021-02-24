@@ -11,46 +11,65 @@
 #include "core/parameters/Parameter.h"
 #include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
 
-using namespace transmission_nets::core::parameters;
-using namespace transmission_nets::core::samplers;
+using namespace transmission_nets;
+using namespace transmission_nets;
 
 constexpr double TEST_PROB = .15;
 constexpr int TOTAL_DATA_POINTS = 100;
 TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {
 
-    struct BernoulliTestTarget {
+    struct BernoulliTestTarget : public core::computation::Computation<core::computation::Likelihood>,
+                                 public core::abstract::Observable<BernoulliTestTarget>,
+                                 public core::abstract::Cacheable<BernoulliTestTarget>,
+                                 public core::abstract::Checkpointable<BernoulliTestTarget, core::computation::Likelihood>  {
 
-        explicit BernoulliTestTarget(Parameter<double> &prob) : prob_(prob) {
+        explicit BernoulliTestTarget(core::parameters::Parameter<double> &prob) : prob_(prob) {
             boost::random::bernoulli_distribution<> dist{TEST_PROB};
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
                 data_.push_back(dist(r));
             }
+
+            prob_.registerCacheableCheckpointTarget(this);
+            prob_.add_post_change_listener([=, this]() {
+                dirty = true;
+            });
+            value_ = calculateValue(data_, prob_.value());
         };
 
-        bool isDirty() {
-            return true;
+        [[nodiscard]] bool isDirty() const {
+            return dirty;
         }
 
-        double value() {
-            boost::math::bernoulli d(prob_.value());
-            double llik = 0;
-            for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
-                llik += log(boost::math::pdf(d, data_[i]));
+        core::computation::Likelihood value() override {
+            if (dirty) {
+                value_ = calculateValue(data_, prob_.value());
+                dirty = false;
             }
-            return llik;
+            return value_;
+        }
+
+        [[nodiscard]] static core::computation::Likelihood calculateValue(const std::vector<double> &data, double prob) {
+            boost::math::bernoulli d(prob);
+            core::computation::Likelihood val = 0;
+            for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
+                val += log(boost::math::pdf(d, data[i]));
+            }
+            return val;
         }
 
         boost::random::mt19937 r;
-        Parameter<double> &prob_;
+        core::parameters::Parameter<double> &prob_;
         std::vector<double> data_;
+        core::computation::Likelihood value_;
+        bool dirty{true};
     };
 
-    Parameter<double> myProb(.5);
+    core::parameters::Parameter<double> myProb(.5);
     BernoulliTestTarget myTestTar(myProb);
     boost::random::mt19937 r;
 
 //    ConstrainedContinuousRandomWalk<0, 1> sampler2(myProb, myTestTar, &r, .01);
-    ConstrainedContinuousRandomWalk<BernoulliTestTarget, boost::random::mt19937> sampler(myProb, myTestTar, 0, 1, &r, .01);
+    core::samplers::ConstrainedContinuousRandomWalk<BernoulliTestTarget, boost::random::mt19937> sampler(myProb, myTestTar, 0, 1, &r, .01);
 
     int i = 20000;
     while (i > 0) {

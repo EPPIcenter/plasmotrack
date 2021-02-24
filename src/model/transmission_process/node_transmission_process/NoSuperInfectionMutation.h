@@ -186,6 +186,8 @@ Likelihood NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>
             total_t11 += t11;
         }
     }
+//    std::cout << total_t11 << " " << total_t00 << " " << total_t01 << " " << total_t10 << std::endl;
+//    std::cout << value()(1,1) << " " << value_(0, 0) << " " << value_(0, 1) << " " << value_(1,0) << std::endl;
     llik += total_t00 * value()(0,0);
     llik += total_t01 * value_(0,1); // direct access after ensuring value has been set clean
     llik += total_t10 * value_(1,0);

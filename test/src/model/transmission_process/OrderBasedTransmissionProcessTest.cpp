@@ -104,14 +104,6 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     TransmissionProcess tp3(nodeTransmission, mstp3, inf3, ps3);
     TransmissionProcess tp4(nodeTransmission, mstp4, inf4, ps4);
 
-    EXPECT_TRUE(tp1.isDirty());
-    tp1.value();
-    EXPECT_FALSE(tp1.isDirty());
-
-    EXPECT_TRUE(tp2.isDirty());
-    tp2.value();
-    EXPECT_FALSE(tp2.isDirty());
-
 
     geoCOIProb.saveState("state1");
     geoCOIProb.setValue(.5);

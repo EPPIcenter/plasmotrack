@@ -90,7 +90,8 @@ namespace transmission_nets::core::datatypes {
     constexpr unsigned int AllelesBitSet<MaxAlleles>::trueNegativeCount(const AllelesBitSet<MaxAlleles> &parent,
                                                                         const AllelesBitSet<MaxAlleles> &child) noexcept {
 //        assert(child.totalAlleles() == parent.totalAlleles());
-        return ~(child.alleles_ | parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
+        return (~child.alleles_ & ~parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
+//        return ~(child.alleles_ | parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
     }
 
     template<int MaxAlleles>

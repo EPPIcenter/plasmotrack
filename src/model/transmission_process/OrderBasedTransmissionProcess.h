@@ -198,10 +198,6 @@ namespace transmission_nets::model::transmission_process {
             this->setClean();
         }
 
-        if (std::isnan(this->value_) or !(this->value_ < std::numeric_limits<Likelihood>::infinity())) {
-            std::cerr << "OBTP: " << this->value_ << std::endl;
-        }
-
         return this->value_;
     }
 

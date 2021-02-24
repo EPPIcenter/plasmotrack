@@ -62,18 +62,6 @@ namespace transmission_nets::core::samplers::genetics {
 
         assert(!target_.isDirty());
         parameter_.setValue(proposal);
-//        if(!target_.isDirty()) {
-//            std::cerr << "Something went wrong." << std::endl;
-//            std::cerr << "#: " << total_updates_ << std::endl;
-//            std::cerr << "Prev: " << prev << std::endl;
-//            std::cerr << "Curr: " << proposal << std::endl;
-//            std::cerr << "V: " << target_.value() << std::endl;
-//        } else {
-//            std::cout << "Prev: " << prev << std::endl;
-//            std::cout << "Curr: " << proposal << std::endl;
-//        }
-//        assert(target_.isDirty());
-
         const auto acceptanceRatio = target_.value() - curLik;
         const auto logProbAccept = log(uniform_dist_(*rng_));
         const bool accept = logProbAccept <= acceptanceRatio;
@@ -81,19 +69,14 @@ namespace transmission_nets::core::samplers::genetics {
         if (accept) {
             acceptances_++;
             parameter_.acceptState();
-//            std::cout << "Genetics Accepted: " << acceptanceRate() << std::endl;
         } else {
             rejections_++;
             parameter_.restoreState(stateId);
         }
-//
-//        if(total_updates_ % 10 == 0) {
-//            std::cout << "AR: " << acceptanceRate() << " (" << total_updates_ << ")" << std::endl;
-//        }
+
         assert(!target_.isDirty());
 
         total_updates_++;
-//        std::cout << "Acceptance Rate: " << acceptanceRate() << std::endl;
     }
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>

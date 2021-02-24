@@ -45,8 +45,8 @@ namespace transmission_nets::core::io {
     }
 
     void FileOutput::write(const std::string& val) const {
-        std::cout << "writing" << std::endl;
-        (*outputFile_) << val << "\n";
+//        (*outputFile_) << val << "\n";
+        (*outputFile_) << val << std::endl;
     }
 
 }

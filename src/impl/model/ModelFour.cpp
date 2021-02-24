@@ -21,17 +21,16 @@ namespace transmission_nets::impl::ModelFour {
         coiProb = new COIProbabilityImpl(state.meanCOI);
 
         // Register Priors
-//        likelihood.addTarget(new core::distributions::BetaLogPDF(state.observationFalsePositiveRate, 1, 100));
-//        likelihood.addTarget(new core::distributions::BetaLogPDF(state.observationFalseNegativeRate, 1, 100));
         likelihood.addTarget(new core::distributions::BetaLogPDF(state.mutationProb, 1, 500));
         likelihood.addTarget(new core::distributions::BetaLogPDF(state.lossProb, 1, 1));
+        likelihood.addTarget(new core::distributions::BetaLogPDF(state.mutationProb, 1, 99));
         likelihood.addTarget(new core::distributions::GammaLogPDF(state.meanCOI, 1, 5));
         likelihood.addTarget(new core::distributions::BetaLogPDF(state.geometricGenerationProb, 1, 1));
         for (auto& obs : state.observationFalsePositiveRates) {
-            likelihood.addTarget(new core::distributions::BetaLogPDF(obs, 1, 1));
+            likelihood.addTarget(new core::distributions::BetaLogPDF(obs, 10, 90));
         }
         for (auto& obs : state.observationFalseNegativeRates) {
-            likelihood.addTarget(new core::distributions::BetaLogPDF(obs, 1, 1));
+            likelihood.addTarget(new core::distributions::BetaLogPDF(obs, 1, 99));
         }
 
 
@@ -48,7 +47,9 @@ namespace transmission_nets::impl::ModelFour {
                     state.observationFalsePositiveRates[i]);
             likelihood.addTarget(observationProcessLikelihood);
             parentSetList.push_back(new ParentSetImpl(state.infectionEventOrdering, *infection));
-            parentSetList.back()->addDisallowedParents(state.disallowedParents.at(infection));
+            if (state.disallowedParents.contains(infection)) {
+                parentSetList.back()->addDisallowedParents(state.disallowedParents.at(infection));
+            }
             i++;
         }
 
@@ -93,7 +94,7 @@ namespace transmission_nets::impl::ModelFour {
             observationFalsePositiveRates.emplace_back();
             observationFalsePositiveRates.back().initializeValue(.01);
             observationFalseNegativeRates.emplace_back();
-            observationFalseNegativeRates.back().initializeValue(.1);
+            observationFalseNegativeRates.back().initializeValue(.2);
         }
 
 //        observationFalsePositiveRate.initializeValue(.001);
@@ -101,7 +102,7 @@ namespace transmission_nets::impl::ModelFour {
 
         geometricGenerationProb.initializeValue(.9);
         lossProb.initializeValue(.1);
-        mutationProb.initializeValue(1e-8);
+        mutationProb.initializeValue(.01);
         meanCOI.initializeValue(5);
     }
 

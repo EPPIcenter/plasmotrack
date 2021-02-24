@@ -72,4 +72,14 @@ target_link_libraries(transmission_networks_tests
         gtest)
 #target_link_libraries(transmission_networks_tests PRIVATE nlohmann_json::nlohmann_json)
 
+include(CheckIPOSupported)
+check_ipo_supported(RESULT supported OUTPUT error)
+
+if( supported )
+    message(STATUS "IPO / LTO enabled")
+    set_property(TARGET transmission_networks_tests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+else()
+    message(STATUS "IPO / LTO not supported: <${error}>")
+endif()
+
 install(TARGETS transmission_networks_tests DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

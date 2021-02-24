@@ -13,6 +13,7 @@ namespace transmission_nets::core::io {
         virtual void write(const std::string& val) const = 0;
         virtual void initialize() {};
         virtual void reset() {};
+        virtual ~AbstractOutput() = default;
     };
 }
 

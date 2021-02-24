@@ -4,45 +4,48 @@
 
 #include "gtest/gtest.h"
 
-#include <boost/random.hpp>
-#include <boost/math/distributions.hpp>
 #include <Eigen/Core>
+#include <boost/math/distributions.hpp>
+#include <boost/random.hpp>
 
 #include "core/parameters/Parameter.h"
 #include "core/samplers/general/ContinuousRandomWalk.h"
 
-using namespace transmission_nets::core::parameters;
-using namespace transmission_nets::core::samplers;
+//using namespace transmission_nets::core::parameters;
+//using namespace transmission_nets::core::samplers;
+//using namespace transmission_nets::core::computation;
+using namespace transmission_nets;
 
 TEST(ContinuousRandomWalkTest, NormalTest) {
     constexpr double TEST_MEAN = 5;
     constexpr double TEST_VARIANCE = 1;
     constexpr int TOTAL_DATA_POINTS = 100;
 
-    struct NormalTestTarget {
+    struct NormalTestTarget : public core::computation::Computation<core::computation::Likelihood>,
+                              public core::abstract::Observable<NormalTestTarget>,
+                              public core::abstract::Cacheable<NormalTestTarget>,
+                              public core::abstract::Checkpointable<NormalTestTarget, core::computation::Likelihood> {
 
-        explicit NormalTestTarget(Parameter<double> &mean) : mean_(mean) {
+        explicit NormalTestTarget(core::parameters::Parameter<double> &mean) : mean_(mean) {
             boost::random::normal_distribution<> dist{0, 1};
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
                 data_(i) = dist(r) * TEST_VARIANCE + TEST_MEAN;
             }
 
+            mean_.registerCacheableCheckpointTarget(this);
             mean_.add_post_change_listener([=, this]() {
                 dirty = true;
             });
+            value_ = calculateValue(data_, mean_.value());
         };
 
-        bool isDirty() {
+        [[nodiscard]] bool isDirty() const {
             return dirty;
         }
 
-        double value() {
+        core::computation::Likelihood value() {
             if (dirty) {
-                boost::math::normal d(mean_.value(), TEST_VARIANCE);
-                value_ = 0;
-                for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
-                    value_ += log(boost::math::pdf(d, data_[i]));
-                }
+                value_ = calculateValue(data_, mean_.value());
                 dirty = false;
                 std::cout << value_ << " " << mean_.value() << std::endl;
             }
@@ -50,20 +53,29 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
             return value_;
         }
 
+        [[nodiscard]] static core::computation::Likelihood calculateValue(const Eigen::Array<double, TOTAL_DATA_POINTS, 1> &data, double mean) {
+            boost::math::normal d(mean, TEST_VARIANCE);
+            core::computation::Likelihood val = 0;
+            for (auto i = 0; i < data.size(); ++i) {
+                val += log(boost::math::pdf(d, data[i]));
+            }
+            return val;
+        }
+
         boost::random::mt19937 r;
-        Parameter<double> &mean_;
+        core::parameters::Parameter<double> &mean_;
         Eigen::Array<double, TOTAL_DATA_POINTS, 1> data_;
-        double value_;
+        core::computation::Likelihood value_;
         bool dirty{true};
     };
 
 
-    Parameter<double> myMean(30);
+    core::parameters::Parameter<double> myMean(30);
     NormalTestTarget myTestTar(myMean);
     boost::random::mt19937 r;
 
 
-    ContinuousRandomWalk sampler(myMean, myTestTar, &r, 3);
+    core::samplers::ContinuousRandomWalk sampler(myMean, myTestTar, &r, 3);
     sampler.setAdaptationRate(2);
 
     int i = 20000;
@@ -83,7 +95,7 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
     }
 
     auto resultsMean = results.mean();
-    auto resultsStdDev = std::sqrt( (results - results.mean()).square().sum() / results.size() );
+    auto resultsStdDev = std::sqrt((results - results.mean()).square().sum() / results.size());
     std::cout << "Mean: " << resultsMean << std::endl;
     std::cout << "StdDev: " << resultsStdDev << std::endl;
     std::cout << "Variance: " << sampler.variance() << std::endl;
@@ -93,52 +105,61 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
 }
 
 TEST(ContinuousRandomWalkTest, DoubleWellTest) {
-    struct DoubleWellTestTarget {
+    struct DoubleWellTestTarget :  public core::computation::Computation<core::computation::Likelihood>,
+                                   public core::abstract::Observable<DoubleWellTestTarget>,
+                                   public core::abstract::Cacheable<DoubleWellTestTarget>,
+                                   public core::abstract::Checkpointable<DoubleWellTestTarget, core::computation::Likelihood> {
 
-        DoubleWellTestTarget(Parameter<double> &x, Parameter<double> &y) : x_(x), y_(y) {
+        DoubleWellTestTarget(core::parameters::Parameter<double> &x, core::parameters::Parameter<double> &y) : x_(x), y_(y) {
+            x_.registerCacheableCheckpointTarget(this);
             x_.add_post_change_listener([=, this]() {
                 this->dirty = true;
             });
 
+            y_.registerCacheableCheckpointTarget(this);
             y_.add_post_change_listener([=, this]() {
                 this->dirty = true;
             });
+
+            this->value_ = calculateValue(x_.value(), y_.value());
         };
 
-        double value() {
+        core::computation::Likelihood value() override {
             if (dirty) {
-                value_ =  -(
-                        (.25 * a_ * std::pow(x_.value(), 4)) -
-                        (.5 * b_ * std::pow(x_.value(), 2)) +
-                        (c_ * x_.value()) +
-                        (.5 * d_ * std::pow(y_.value(), 2))
-                );
+                value_ = calculateValue(x_.value(), y_.value());
                 dirty = false;
             }
             return value_;
         }
 
-        bool isDirty() {
+        [[nodiscard]] double calculateValue(double x, double y) const {
+            return -((.25 * a_ * std::pow(x, 4)) -
+                     (.5 * b_ * std::pow(x, 2)) +
+                     (c_ * x) +
+                     (.5 * d_ * std::pow(y, 2)));
+        }
+
+        [[nodiscard]] bool isDirty() const {
             return dirty;
         }
 
-        Parameter<double> &x_;
-        Parameter<double> &y_;
+        core::parameters::Parameter<double> &x_;
+        core::parameters::Parameter<double> &y_;
         double a_ = 1;
         double b_ = 6;
         double c_ = 1;
         double d_ = 1;
         bool dirty = true;
-        double value_;
+        core::computation::Likelihood value_;
     };
 
-    Parameter<double> x(0);
-    Parameter<double> y(0);
+    core::parameters::Parameter<double> x(0);
+    core::parameters::Parameter<double> y(0);
     DoubleWellTestTarget myTestTar(x, y);
     boost::random::mt19937 r;
 
-    ContinuousRandomWalk xSampler(x, myTestTar, &r, 10, 3, 100);
-    ContinuousRandomWalk ySampler(y, myTestTar, &r, 10, 3, 100);
+    core::samplers::ContinuousRandomWalk xSampler(x, myTestTar, &r, 10, .1, 100);
+    core::samplers::ContinuousRandomWalk ySampler(y, myTestTar, &r, 10, .1, 100);
 
     int i = 20000;
     while (i > 0) {
@@ -162,7 +183,7 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
     }
 
     auto resultsMean = xResults.mean();
-    auto resultsStdDev = std::sqrt( (xResults - xResults.mean()).square().sum() / xResults.size() );
+    auto resultsStdDev = std::sqrt((xResults - xResults.mean()).square().sum() / xResults.size());
     std::cout << "Mean: " << resultsMean << std::endl;
     std::cout << "StdDev: " << resultsStdDev << std::endl;
     std::cout << "Variance: " << xSampler.variance() << std::endl;

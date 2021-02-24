@@ -65,7 +65,8 @@ namespace transmission_nets::model::observation_process {
                      total_alleles_.value().true_negative_count * log(1 - false_negative_rate_.value()) +
                      total_alleles_.value().false_positive_count * log(false_positive_rate_.value()) +
                      total_alleles_.value().false_negative_count * log(false_negative_rate_.value());
-//            std::cout << value_ << std::endl;
+//            std::cout << value_;
+//            std::cout << "(" << false_positive_rate_.value() << " " << false_negative_rate_.value() << ")" << std::endl;
 //            std::cout << total_alleles_.value().true_positive_count << ", ";
 //            std::cout << total_alleles_.value().true_negative_count << ", ";
 //            std::cout << total_alleles_.value().false_positive_count << ", ";
