@@ -8,7 +8,8 @@
 #include <numeric>
 
 namespace transmission_nets::core::utils {
-    CombinationIndicesGenerator::CombinationIndicesGenerator(int n, int r) : completed(n < 1 or r > n or r == 0), n_(n),
+    CombinationIndicesGenerator::CombinationIndicesGenerator(int n, int r) : completed(n < 1 or r > n or r == 0),
+                                                                             n_(n),
                                                                              r_(r) {
         curr.resize(r_);
         std::iota(curr.begin(), curr.end(), 0);

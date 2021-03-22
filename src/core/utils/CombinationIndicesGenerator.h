@@ -7,7 +7,6 @@
 
 #include <vector>
 
-
 namespace transmission_nets::core::utils {
     // Adapted from https://stackoverflow.com/a/9432150/2755374
 

@@ -24,6 +24,7 @@ namespace transmission_nets::core::utils {
 
         prob = 0.0;
 
+//      Calculate via inclusion-exclusion principle
         for (int i = 1; i <= totalEvents; ++i) {
             c.reset(totalEvents, i);
             while(!c.completed) {

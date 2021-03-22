@@ -5,7 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PROBANYMISSING_H
 #define TRANSMISSION_NETWORKS_APP_PROBANYMISSING_H
 
-
 #include "CombinationIndicesGenerator.h"
 
 namespace transmission_nets::core::utils {

@@ -83,7 +83,7 @@ set(SOURCE_FILES
         core/io/loggers/ParentSetDistLogger.h
         impl/model/ModelFour.cpp
         impl/model/ModelFour.h
-        core/io/loggers/AbstractLogger.h core/io/loggers/AbstractOutput.h)
+        core/io/loggers/AbstractLogger.h core/io/loggers/AbstractOutput.h model/OrderingLikelihood.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})
