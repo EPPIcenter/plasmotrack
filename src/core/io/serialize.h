@@ -26,9 +26,13 @@ namespace transmission_nets::core::io {
         return std::to_string(val);
     }
 
-
     template<int MAX_COI>
     std::string serialize(const datatypes::AllelesBitSet<MAX_COI>& val) noexcept {
+        return val.serialize();
+    }
+
+    template<int MAX_COI>
+    std::string serialize(datatypes::AllelesBitSet<MAX_COI>& val) noexcept {
         return val.serialize();
     }
 
@@ -38,6 +42,11 @@ namespace transmission_nets::core::io {
 
     template<typename GeneticImpl, typename LocusImpl = containers::Locus>
     std::string serialize(const containers::Infection<GeneticImpl, LocusImpl>* val) {
+        return val->serialize();
+    }
+
+    template<typename GeneticImpl, typename LocusImpl = containers::Locus>
+    std::string serialize(containers::Infection<GeneticImpl, LocusImpl>* val) {
         return val->serialize();
     }
 
@@ -80,7 +89,6 @@ namespace transmission_nets::core::io {
         out.pop_back();
         return out;
     }
-
 }
 
 

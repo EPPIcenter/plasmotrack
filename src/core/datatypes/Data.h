@@ -16,9 +16,7 @@ namespace transmission_nets::core::datatypes {
 
     public:
         template <typename Args, ENABLE_IF(core::utils::NonSelf<Args, Data<T>>())>
-        explicit Data(Args&& args) : value_(std::forward<Args>(args)) {
-//        std::cout << "data forward c'tor" << std::endl;
-        }
+        explicit Data(Args&& args) : value_(std::forward<Args>(args)) {}
 
         void setLabel(const std::string& label) noexcept {
             label_ = label;
@@ -34,8 +32,9 @@ namespace transmission_nets::core::datatypes {
 
     private:
         T value_;
-        std::string label_;
+        std::string label_{};
     };
+
 }
 
 

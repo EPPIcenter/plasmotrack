@@ -13,7 +13,7 @@
 #include <boost/range/algorithm.hpp>
 
 
-namespace transmission_nets::core::utils {
+namespace transmission_nets::core::utils::generators {
 
     /**
      * Generate a random sequence of values from [min, max). Useful for randomly indexing into a vector

@@ -7,7 +7,7 @@
 
 #include <vector>
 
-namespace transmission_nets::core::utils {
+namespace transmission_nets::core::utils::generators {
 
     struct CombinationsWithRepetitionsGenerator {
         using combination_t = std::vector<int>;

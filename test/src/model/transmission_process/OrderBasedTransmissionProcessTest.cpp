@@ -46,7 +46,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
 
     using COIProbabilityImpl = ZTGeometric<MAX_COI>;
     using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent, MAX_COI>;
-    using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
+    using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, OrderDerivedParentSet<InfectionEvent, Ordering>>;
 
     Locus as1("AS1", 5);
     Locus as2("AS2", 6);
@@ -61,17 +61,17 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
             {&as2, GeneticsImpl("000011")}
     };
 
-    InfectionEvent inf1("inf1", dlas, plas);
-    InfectionEvent inf2("inf2", dlas, plas);
-    InfectionEvent inf3("inf3", dlas, plas);
-    InfectionEvent inf4("inf4", dlas, plas);
+    InfectionEvent inf1("inf1", 10.0, dlas, plas);
+    InfectionEvent inf2("inf2", 10.0, dlas, plas);
+    InfectionEvent inf3("inf3", 10.0, dlas, plas);
+    InfectionEvent inf4("inf4", 10.0, dlas, plas);
 
     Ordering infectionOrder({&inf1, &inf2, &inf3, &inf4});
 
-    OrderDerivedParentSet ps1(infectionOrder, inf1);
-    OrderDerivedParentSet ps2(infectionOrder, inf2);
-    OrderDerivedParentSet ps3(infectionOrder, inf3);
-    OrderDerivedParentSet ps4(infectionOrder, inf4);
+    OrderDerivedParentSet ps1(&infectionOrder, &inf1);
+    OrderDerivedParentSet ps2(&infectionOrder, &inf2);
+    OrderDerivedParentSet ps3(&infectionOrder, &inf3);
+    OrderDerivedParentSet ps4(&infectionOrder, &inf4);
 
 //    std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> lfas {
 //            {&as1, Simplex(as1.totalAlleles())},

@@ -6,9 +6,9 @@
 
 #include "gtest/gtest.h"
 
-#include "core/utils/RandomSequence.h"
+#include "core/utils/generators/RandomSequence.h"
 
-using namespace transmission_nets::core::utils;
+using namespace transmission_nets::core::utils::generators;
 
 TEST(RandomSequenceTest, HandlesZeroIndexed) {
 

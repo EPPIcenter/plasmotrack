@@ -162,7 +162,6 @@ Likelihood NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>
     auto const childGenotypesIter = childGenotypes.begin();
     for (auto const &parent : ps) {
         auto const &parentGenotypes = parent->latentGenotype();
-
         auto const parentGenotypesIter = parentGenotypes.begin();
         for (size_t i = 0; i < parentGenotypes.size(); ++i) {
             // assume loci are ordered the same

@@ -15,21 +15,19 @@ namespace transmission_nets::core::datatypes {
     public:
         explicit Simplex(unsigned int totalElements);
 
-        explicit Simplex(std::vector<double> freqs);
+        explicit Simplex(const std::vector<double>& freqs);
 
-        explicit Simplex(DynamicArray freqs);
-
-        Simplex(std::initializer_list<double> freqs);
+        Simplex(const std::initializer_list<double>& freqs);
 
         friend std::ostream &operator<<(std::ostream &os, const Simplex &simplex);
 
-        void set(std::vector<double> valueArray);
+        void set(const std::vector<double>& valueArray);
 
         void set(unsigned int idx, double value);
 
         [[nodiscard]] double frequencies(unsigned int idx) const noexcept;
 
-        [[nodiscard]] const DynamicArray& frequencies() const noexcept;
+        [[nodiscard]] const std::vector<double>& frequencies() const noexcept;
 
         [[nodiscard]] unsigned int totalElements() const noexcept;
 
@@ -37,12 +35,14 @@ namespace transmission_nets::core::datatypes {
 
         [[nodiscard]] double max() const noexcept;
 
-        [[nodiscard]] const std::string serialize() const noexcept;
+        [[nodiscard]] std::string serialize() const noexcept;
 
     private:
+        std::vector<double> coefficients_{};
         unsigned int total_elements_;
-        DynamicArray coefficients_{};
-        Eigen::IOFormat fmt{4, 0, ",", ","};
+        double min_;
+        double max_;
+
     };
 
 }

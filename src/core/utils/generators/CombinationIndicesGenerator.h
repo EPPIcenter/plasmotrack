@@ -7,9 +7,9 @@
 
 #include <vector>
 
-namespace transmission_nets::core::utils {
-    // Adapted from https://stackoverflow.com/a/9432150/2755374
 
+namespace transmission_nets::core::utils::generators {
+    // Adapted from https://stackoverflow.com/a/9432150/2755374
     struct CombinationIndicesGenerator {
         using combination_t = std::vector<int>;
 

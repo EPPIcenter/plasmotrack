@@ -5,7 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PROBANYMISSING_H
 #define TRANSMISSION_NETWORKS_APP_PROBANYMISSING_H
 
-#include "CombinationIndicesGenerator.h"
+#include "core/utils/generators/CombinationIndicesGenerator.h"
 
 namespace transmission_nets::core::utils {
 
@@ -23,7 +23,7 @@ namespace transmission_nets::core::utils {
 
         double prob{};
         double eventCombo{};
-        CombinationIndicesGenerator c;
+        generators::CombinationIndicesGenerator c;
     };
 
 }

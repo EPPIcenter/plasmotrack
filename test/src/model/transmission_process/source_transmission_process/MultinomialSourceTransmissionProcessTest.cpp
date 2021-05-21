@@ -40,7 +40,7 @@ TEST(MultinomialSourceTransmissionProcessTest, BasicTest) {
             {&as2, GeneticsImpl("0011")}
     };
 
-    Infection inf1("inf1", dlas, dlas);
+    Infection inf1("inf1", 10.0, dlas, dlas);
 
 
     std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> freqPairs{

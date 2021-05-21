@@ -46,6 +46,7 @@ namespace transmission_nets::core::datatypes {
         falseNegativeCount(const AllelesBitSet<MaxAlleles> &parent, const AllelesBitSet<MaxAlleles> &child) noexcept;
 
         [[nodiscard]] inline std::string allelesStr() const noexcept;
+        [[nodiscard]] inline std::string compactAllelesStr() const noexcept;
 
         [[nodiscard]] constexpr unsigned int totalAlleles() const noexcept;
 
@@ -110,6 +111,11 @@ namespace transmission_nets::core::datatypes {
     template<int MaxAlleles>
     std::string AllelesBitSet<MaxAlleles>::allelesStr() const noexcept {
         return alleles_.to_string().substr(MaxAlleles - total_alleles_, total_alleles_);
+    }
+
+    template<int MaxAlleles>
+    std::string AllelesBitSet<MaxAlleles>::compactAllelesStr() const noexcept {
+       return  std::to_string(std::stoll(allelesStr()));
     }
 
     template<int MaxAlleles>

@@ -16,7 +16,7 @@ TEST(OrderDerivedParentSetTest, HandlesReorder) {
     int el4 = 4;
 
     Ordering<int> ordering({&el1, &el2, &el3, &el4});
-    OrderDerivedParentSet ops(ordering, el1);
+    OrderDerivedParentSet ops(&ordering, &el1);
     ASSERT_EQ(ops.value().size(), 0);
 
     ordering.saveState("state1");

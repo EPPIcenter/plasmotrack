@@ -71,6 +71,28 @@ protected:                                                                      
     core::abstract::ObserverMap<core::abstract::ListenerId_t, callback_type> callback_name##_callbacks_{};                  \
 
 
+#define CRTP_CREATE_KEYED_EVENT(callback_name, KeyType, CallbackType)                                                                                               \
+public:                                                                                                                                                             \
+    template<typename ...Args>                                                                                                                                      \
+    void keyed_notify_##callback_name(KeyType key, Args... args) const noexcept {                                                                                   \
+        this->underlying().keyed_notify(key, this->keyed_##callback_name##_callbacks_, args...);                                                                    \
+    }                                                                                                                                                               \
+                                                                                                                                                                    \
+    auto add_keyed_##callback_name##_listener(KeyType key, const CallbackType& cb) noexcept -> core::abstract::ListenerId {                                         \
+        return this->underlying().add_keyed_listener(key, cb, this->keyed_##callback_name##_callbacks_);                                                            \
+    }                                                                                                                                                               \
+                                                                                                                                                                    \
+    auto remove_keyed_##callback_name##_listener(KeyType key, const core::abstract::ListenerId_t id) noexcept -> bool {                                             \
+        return this->underlying().remove_keyed_listener(key, id, this->keyed_##callback_name##_callbacks_);                                                         \
+    }                                                                                                                                                               \
+                                                                                                                                                                    \
+    void register_##callback_name##_listener_key(KeyType key) noexcept {                                                                                            \
+        this->keyed_##callback_name##_callbacks_.emplace(key, core::abstract::ObserverMap<core::abstract::ListenerId_t, CallbackType>{});                           \
+    }                                                                                                                                                               \
+                                                                                                                                                                    \
+private:                                                                                                                                                            \
+    core::abstract::ObserverMap<KeyType, core::abstract::ObserverMap<core::abstract::ListenerId_t, CallbackType>> keyed_##callback_name##_callbacks_{};             \
+
 
 namespace transmission_nets::core::abstract {
     // Data structures to support listener storage

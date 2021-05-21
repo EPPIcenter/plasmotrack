@@ -8,6 +8,7 @@
 #include "core/abstract/crtp.h"
 #include "core/abstract/observables/Observable.h"
 
+#include <functional>
 
 namespace transmission_nets::core::abstract {
 

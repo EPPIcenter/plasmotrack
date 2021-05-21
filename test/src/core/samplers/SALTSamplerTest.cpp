@@ -50,9 +50,9 @@ TEST(SALTSamplerTest, SimplexTest) {
     SimplexTestTarget st(mySimplex);
     boost::random::mt19937 r;
 
-    SALTSampler sampler(mySimplex, st, &r);
+    SALTSampler sampler(mySimplex, st, &r, 1, .1, 10);
 
-    int i = 5000;
+    int i = 50000;
     while (i > 0) {
         i--;
         sampler.update();
@@ -72,6 +72,16 @@ TEST(SALTSamplerTest, SimplexTest) {
     }
 
     std::cout << serialize(std::vector<double>{results(0), results(1), results(2), results(3)}) << std::endl;
+    std::cout << "Acceptances: ";
+    for (int j = 0; j < 4; ++j) {
+        std::cout << sampler.acceptanceRate(j) << ", ";
+    }
+    std::cout << std::endl;
+    std::cout << "Variances: ";
+    for (int j = 0; j < 4; ++j) {
+        std::cout << sampler.getVariance(j) << ", ";
+    }
+    std::cout << std::endl;
     EXPECT_NEAR(results(0), 1.0 / 9001, .015);
     EXPECT_NEAR(results(1), 2000.0 / 9001, .015);
     EXPECT_NEAR(results(2), 3000.0 / 9001, .015);

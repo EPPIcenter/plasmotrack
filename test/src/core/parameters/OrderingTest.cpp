@@ -33,10 +33,10 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
     Ordering<int> ordering;
     ordering.addElements({&el1, &el2, &el3, &el4});
 
-    auto p_el1 = OrderDerivedParentSet<int>(ordering, el1);
-    auto p_el2 = OrderDerivedParentSet<int>(ordering, el2);
-    auto p_el3 = OrderDerivedParentSet<int>(ordering, el3);
-    auto p_el4 = OrderDerivedParentSet<int>(ordering, el4);
+    auto p_el1 = OrderDerivedParentSet<int, Ordering<int>>(&ordering, &el1);
+    auto p_el2 = OrderDerivedParentSet<int, Ordering<int>>(&ordering, &el2);
+    auto p_el3 = OrderDerivedParentSet<int, Ordering<int>>(&ordering, &el3);
+    auto p_el4 = OrderDerivedParentSet<int, Ordering<int>>(&ordering, &el4);
 
     for(auto& el : ordering.value()) {
         ordering.add_keyed_moved_left_listener(el, [&]([[maybe_unused]] const int* tar) {

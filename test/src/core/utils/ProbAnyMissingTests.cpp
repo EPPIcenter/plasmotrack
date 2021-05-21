@@ -10,11 +10,9 @@ using namespace transmission_nets::core::utils;
 
 TEST(ProbAnyMissingTests, TestSimpleVec) {
 
-    std::vector<double> pvec = {.1, .2, .3, .4};
-    int n_trials = 5;
     probAnyMissingFunctor probAnyMissing;
 
-    double prob = probAnyMissing(pvec, n_trials);
-    ASSERT_NEAR(prob, 0.856, 1e-3);
+    ASSERT_NEAR(probAnyMissing({.1, .2, .3, .4}, 5), 0.856, 1e-3);
+    ASSERT_NEAR(probAnyMissing({.1, .2, .7}, 4), .832, 1e-3);
 
 }

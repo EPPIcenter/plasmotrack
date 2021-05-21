@@ -18,7 +18,7 @@
 
 #include "core/computation/Accumulator.h"
 
-#include "core/utils/CombinationIndicesGenerator.h"
+#include "core/utils/generators/CombinationIndicesGenerator.h"
 
 #include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
 #include "core/samplers/general/ContinuousRandomWalk.h"
@@ -108,7 +108,7 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
 
     Ordering<int> op2;
     op2.addElements({&a, &b, &c, &d});
-    OrderDerivedParentSet ps(op2, c);
+    OrderDerivedParentSet ps(&op2, &c);
 
     std::cout << "Printing Parent Set" << std::endl;
     ps.serialize();
@@ -152,10 +152,10 @@ TEST(CoreLikelihoodTest, LikelihoodTest) {
 
     std::vector<Infection::LocusGeneticsAssignment> dlas{{&as1, GeneticsImpl("011010")}};
     std::vector<Infection::LocusGeneticsAssignment> plas{{&as1, GeneticsImpl("011010")}};
-    Infection inf1("inf1", dlas, plas);
-    Infection inf2("inf2", dlas, plas);
-    Infection inf3("inf3", dlas, plas);
-    Infection inf4("inf4", dlas, plas);
+    Infection inf1("inf1", 10.0, dlas, plas);
+    Infection inf2("inf2", 10.0, dlas, plas);
+    Infection inf3("inf3", 10.0, dlas, plas);
+    Infection inf4("inf4", 10.0, dlas, plas);
 
     ParentSet<Infection> ps1{&inf1};
 

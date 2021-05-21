@@ -22,10 +22,10 @@ TEST(TransmissionNetworkTest, CoreTest) {
     bool inf3ParentSetChanged = false;
     bool inf4ParentSetChanged = false;
 
-    auto inf1 = new NodeImpl("node1");
-    auto inf2 = new NodeImpl("node2");
-    auto inf3 = new NodeImpl("node3");
-    auto inf4 = new NodeImpl("node4");
+    auto inf1 = new NodeImpl("node1", 1);
+    auto inf2 = new NodeImpl("node2", 1);
+    auto inf3 = new NodeImpl("node3", 1);
+    auto inf4 = new NodeImpl("node4", 1);
 
 
     network.addNode(inf1);

@@ -5,10 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PARAMETER3_H
 #define TRANSMISSION_NETWORKS_APP_PARAMETER3_H
 
-#include <boost/container/flat_map.hpp>
-#include <functional>
-#include <optional>
-
 #include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/Uncacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
@@ -38,7 +34,6 @@ namespace transmission_nets::core::parameters {
         Parameter() {
 //        std::cout << "parameter empty c'tor" << std::endl;
         }
-
 
         void setLabel(const std::string& label) noexcept {
             label_ = label;

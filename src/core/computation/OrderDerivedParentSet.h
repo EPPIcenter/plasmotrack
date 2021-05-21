@@ -18,11 +18,11 @@
 
 namespace transmission_nets::core::computation {
 
-    template<typename ElementType>
+    template<typename ElementType, typename OrderingImpl>
     class OrderDerivedParentSet : public Computation<containers::ParentSet<ElementType>>,
-                                  public abstract::Observable<OrderDerivedParentSet<ElementType>>,
-                                  public abstract::Cacheable<OrderDerivedParentSet<ElementType>>,
-                                  public abstract::Checkpointable<OrderDerivedParentSet<ElementType>, containers::ParentSet<ElementType>> {
+                                  public abstract::Observable<OrderDerivedParentSet<ElementType, OrderingImpl>>,
+                                  public abstract::Cacheable<OrderDerivedParentSet<ElementType, OrderingImpl>>,
+                                  public abstract::Checkpointable<OrderDerivedParentSet<ElementType, OrderingImpl>, containers::ParentSet<ElementType>> {
 
         using ElementAddedCallback = std::function<void(ElementType *element)>;
         using ElementRemovedCallback = std::function<void(ElementType *element)>;
@@ -32,7 +32,7 @@ namespace transmission_nets::core::computation {
         CREATE_EVENT(element_removed, ElementRemovedCallback)
 
     public:
-        explicit OrderDerivedParentSet(parameters::Ordering<ElementType> &ordering, ElementType &child);
+        explicit OrderDerivedParentSet(OrderingImpl *ordering, ElementType *child);
         containers::ParentSet<ElementType> value() noexcept override;
         void addDisallowedParent(ElementType* p);
         void addDisallowedParents(std::vector<ElementType*> p);
@@ -40,20 +40,20 @@ namespace transmission_nets::core::computation {
         void serialize() noexcept;
 
     protected:
-        friend class abstract::Checkpointable<OrderDerivedParentSet<ElementType>, containers::ParentSet<ElementType>>;
-        friend class abstract::Cacheable<OrderDerivedParentSet<ElementType>>;
+        friend class abstract::Checkpointable<OrderDerivedParentSet<ElementType, OrderingImpl>, containers::ParentSet<ElementType>>;
+        friend class abstract::Cacheable<OrderDerivedParentSet<ElementType, OrderingImpl>>;
 
         std::set<ElementType *> disallowedParents_{};
-        parameters::Ordering<ElementType> &ordering_;
-        ElementType &child_;
+        OrderingImpl *ordering_;
+        ElementType *child_;
     };
 
 
-    template<typename ElementType>
-    OrderDerivedParentSet<ElementType>::OrderDerivedParentSet(parameters::Ordering<ElementType> &ordering, ElementType &child) : ordering_(ordering), child_(child) {
-        ordering_.registerCacheableCheckpointTarget(this);
+    template<typename ElementType, typename OrderingImpl>
+    OrderDerivedParentSet<ElementType, OrderingImpl>::OrderDerivedParentSet(OrderingImpl *ordering, ElementType *child) : ordering_(ordering), child_(child) {
+        ordering_->registerCacheableCheckpointTarget(this);
 
-        ordering_.add_keyed_moved_left_listener(&child_, [=, this](ElementType *element) {
+        ordering_->add_keyed_moved_left_listener(child_, [=, this](ElementType *element) {
             if (!disallowedParents_.contains(element)) {
                 this->setDirty();
                 this->value_.insert(element);
@@ -61,7 +61,7 @@ namespace transmission_nets::core::computation {
             }
         });
 
-        ordering_.add_keyed_moved_right_listener(&child_, [=, this](ElementType *element) {
+        ordering_->add_keyed_moved_right_listener(child_, [=, this](ElementType *element) {
             if (!disallowedParents_.contains(element)) {
                 this->setDirty();
                 this->value_.erase(element);
@@ -70,8 +70,8 @@ namespace transmission_nets::core::computation {
         });
 
         // Initialize the current parent set from the ordering
-        for (auto &el : ordering.value()) {
-            if (el != &child_) {
+        for (auto &el : ordering_->value()) {
+            if (el != child_) {
                 this->value_.insert(el);
             } else {
                 this->setClean();
@@ -82,34 +82,34 @@ namespace transmission_nets::core::computation {
         this->setDirty();
     }
 
-    template<typename ElementType>
-    void computation::OrderDerivedParentSet<ElementType>::addDisallowedParent(ElementType *p) {
+    template<typename ElementType, typename OrderingImpl>
+    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addDisallowedParent(ElementType *p) {
         disallowedParents_.insert(p);
         if(this->value_.contains(p)) {
             this->value_.erase(p);
         }
     }
 
-    template<typename ElementType>
-    void computation::OrderDerivedParentSet<ElementType>::addDisallowedParents(std::vector<ElementType*> p) {
+    template<typename ElementType, typename OrderingImpl>
+    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addDisallowedParents(std::vector<ElementType*> p) {
         for (const auto el : p) {
            addDisallowedParent(el);
         }
     }
 
-    template<typename ElementType>
-    void computation::OrderDerivedParentSet<ElementType>::removeDisallowedParent(ElementType *p) {
+    template<typename ElementType, typename OrderingImpl>
+    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::removeDisallowedParent(ElementType *p) {
         disallowedParents_.erase(p);
     }
 
-    template<typename ElementType>
-    containers::ParentSet<ElementType> computation::OrderDerivedParentSet<ElementType>::value() noexcept {
+    template<typename ElementType, typename OrderingImpl>
+    containers::ParentSet<ElementType> computation::OrderDerivedParentSet<ElementType, OrderingImpl>::value() noexcept {
         this->setClean();
         return this->value_;
     }
 
-    template<typename ElementType>
-    void computation::OrderDerivedParentSet<ElementType>::serialize() noexcept {
+    template<typename ElementType, typename OrderingImpl>
+    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::serialize() noexcept {
         std::cout << "{ ";
         for (auto &p : this->value()) {
             std::cout << *p << ", ";

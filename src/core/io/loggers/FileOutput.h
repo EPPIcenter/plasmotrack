@@ -23,8 +23,10 @@ namespace transmission_nets::core::io {
 
         void write(const std::string&) const override;
 
+
     protected:
-        static std::map<std::string, std::shared_ptr<std::ofstream>>* outputFiles_;
+//        static std::map<std::string, std::shared_ptr<std::ofstream>> outputFiles_;
+        static std::map<std::string, std::shared_ptr<std::ofstream>>& getOutputFiles();
         fs::path outputPath_;
         std::string header_;
         std::shared_ptr<std::ofstream> outputFile_;

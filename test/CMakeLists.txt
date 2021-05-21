@@ -25,6 +25,13 @@ find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 find_package(OpenMP)
 
+
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
+
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
@@ -59,7 +66,21 @@ set(SOURCE_FILES
         src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
         src/core/distributions/GeometricTest.cpp
         src/core/samplers/genetics/RandomAllelesBitSetSamplerTest.cpp
-        src/core/utils/RandomSequenceTests.cpp src/model/observation_process/ObservationProcessTest.cpp src/impl/ModelOneTest.cpp src/core/distributions/ZTMultiplicativeBinomialTest.cpp src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp src/core/utils/ParseJSONTests.cpp src/impl/ModelTwoTest.cpp src/model/transmission_process/NetworkBasedTransmissionProcessTest.cpp src/core/containers/TransmissionNetworkTest.cpp src/impl/ModelThreeTest.cpp src/core/utils/ProbAnyMissingTests.cpp src/core/utils/NumericsTest.cpp src/impl/ModelFourTest.cpp)
+        src/core/utils/RandomSequenceTests.cpp
+        src/model/observation_process/ObservationProcessTest.cpp
+        src/impl/ModelOneTest.cpp
+        src/core/distributions/ZTMultiplicativeBinomialTest.cpp
+        src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp
+        src/core/utils/ParseJSONTests.cpp
+        src/impl/ModelTwoTest.cpp
+        src/model/transmission_process/NetworkBasedTransmissionProcessTest.cpp
+        src/core/containers/TransmissionNetworkTest.cpp
+        src/impl/ModelThreeTest.cpp
+        src/core/utils/ProbAnyMissingTests.cpp
+        src/core/utils/NumericsTest.cpp
+        src/impl/ModelFourTest.cpp
+        src/core/computation/ObservationTimeDerivedOrderingTest.cpp
+        src/impl/ModelFiveTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests

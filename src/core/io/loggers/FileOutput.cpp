@@ -10,7 +10,7 @@
 
 namespace transmission_nets::core::io {
 
-    std::map<std::string, std::shared_ptr<std::ofstream>>*FileOutput::outputFiles_ = new std::map<std::string, std::shared_ptr<std::ofstream>>();
+//    std::map<std::string, std::shared_ptr<std::ofstream>>*FileOutput::outputFiles_ = new std::map<std::string, std::shared_ptr<std::ofstream>>();
 
     /*
      * Takes as arguments a path and optionally a header to be written immediately.
@@ -18,22 +18,28 @@ namespace transmission_nets::core::io {
      * written even if passed in.
      */
     FileOutput::FileOutput(fs::path outputPath, std::string header) : outputPath_(std::move(outputPath)), header_(std::move(header)) {
-        if (outputFiles_->contains(outputPath_)) {
-            outputFile_ = outputFiles_->at(outputPath_);
-            std::cout << "Using old path!" << std::endl;
+        auto& outputFiles = getOutputFiles();
+        if (outputFiles.contains(outputPath_)) {
+            outputFile_ = outputFiles.at(outputPath_);
         } else {
             initialize();
         }
     }
 
+    std::map<std::string, std::shared_ptr<std::ofstream>>& FileOutput::getOutputFiles() {
+        static std::map<std::string, std::shared_ptr<std::ofstream>> outputFiles_{};
+        return outputFiles_;
+    }
+
     void FileOutput::initialize() {
+        auto& outputFiles = getOutputFiles();
         if(!fs::exists(outputPath_.parent_path())) {
             fs::create_directory(outputPath_.parent_path());
         }
 
         outputFile_ = std::make_shared<std::ofstream>();
         outputFile_->open(outputPath_, std::ofstream::out | std::ofstream::trunc);
-        outputFiles_->insert({outputPath_, outputFile_});
+        outputFiles.insert({outputPath_, outputFile_});
         if(!header_.empty()) {
             write(header_);
         }

@@ -3,55 +3,75 @@
 //
 
 #include "Simplex.h"
+#include "core/io/serialize.h"
 
 namespace transmission_nets::core::datatypes {
 
     Simplex::Simplex(const unsigned int totalElements) : total_elements_(totalElements) {
-        coefficients_.resize(total_elements_);
         assert(total_elements_ > 0);
-        coefficients_.setOnes();
-        coefficients_ = coefficients_ / coefficients_.sum();
+        coefficients_.assign(total_elements_, 1.0 / total_elements_);
+        min_ = coefficients_[0];
+        max_ = coefficients_[0];
     }
 
-    Simplex::Simplex(const std::initializer_list<double> freqs) : total_elements_(freqs.size()) {
+    Simplex::Simplex(const std::initializer_list<double>& freqs) : total_elements_(freqs.size()), min_(std::numeric_limits<double>::max()), max_(std::numeric_limits<double>::min()) {
         coefficients_.resize(total_elements_);
         assert(total_elements_ > 0);
-        coefficients_.setZero();
         set(freqs);
     }
 
-    Simplex::Simplex(const std::vector<double> freqs) : total_elements_(freqs.size()) {
+    Simplex::Simplex(const std::vector<double>& freqs) : total_elements_(freqs.size()), min_(std::numeric_limits<double>::max()), max_(std::numeric_limits<double>::min()) {
         coefficients_.resize(total_elements_);
         assert(total_elements_ > 0);
-        coefficients_.setZero();
         set(freqs);
     }
 
-    Simplex::Simplex(DynamicArray freqs) : total_elements_(freqs.size()), coefficients_(freqs) {}
+//    Simplex::Simplex(const DynamicArray& freqs) : total_elements_(freqs.size()), coefficients_(freqs) {}
 
-
-    void Simplex::set(const std::vector<double> valueArray) {
+    void Simplex::set(const std::vector<double>& valueArray) {
         assert(valueArray.size() == total_elements_);
-        for (unsigned int i = 0; i < total_elements_; ++i) {
-            coefficients_(i) = valueArray[i];
+        min_ = std::numeric_limits<double>::max();
+        max_ = std::numeric_limits<double>::min();
+        double sum = 0;
+        for (unsigned int ii = 0; ii < total_elements_; ++ii) {
+            coefficients_[ii] = valueArray[ii];
+            sum += valueArray[ii];
+            min_ = std::min(min_, coefficients_[ii]);
+            max_ = std::max(max_, coefficients_[ii]);
         }
-        coefficients_ = coefficients_ / coefficients_.sum();
-    }
 
+        if (sum != 1.0) {
+            min_ = std::numeric_limits<double>::max();
+            max_ = std::numeric_limits<double>::min();
+            for (unsigned int ii = 0; ii < total_elements_; ++ii) {
+                coefficients_[ii] = coefficients_[ii] / sum;
+                min_ = std::min(min_, coefficients_[ii]);
+                max_ = std::max(max_, coefficients_[ii]);
+            }
+        }
+    }
 
     void Simplex::set(const unsigned int idx, const double value) {
         assert(idx < total_elements_);
-//    assert(value < 1);
-        coefficients_(idx) = 0;
-        coefficients_ = (coefficients_ / coefficients_.sum()) * (1 - value);
-        coefficients_(idx) = value;
+        min_ = std::numeric_limits<double>::max();
+        max_ = std::numeric_limits<double>::min();
+        double prev_value = coefficients_[idx];
+        coefficients_[idx] = 0;
+        for (unsigned int ii = 0; ii < total_elements_; ++ii) {
+            coefficients_[ii] = (coefficients_[ii] / (1 - prev_value)) * (1 - value);
+            min_ = std::min(min_, coefficients_[ii]);
+            max_ = std::max(max_, coefficients_[ii]);
+        }
+        coefficients_[idx] = value;
+        min_ = std::min(min_, coefficients_[idx]);
+        max_ = std::max(max_, coefficients_[idx]);
     }
 
     double Simplex::frequencies(const unsigned int idx) const noexcept {
-        return coefficients_(idx);
+        return coefficients_[idx];
     }
 
-    const DynamicArray& Simplex::frequencies() const noexcept {
+    const std::vector<double>& Simplex::frequencies() const noexcept {
         return coefficients_;
     }
 
@@ -60,21 +80,21 @@ namespace transmission_nets::core::datatypes {
     }
 
     std::ostream &operator<<(std::ostream &os, const Simplex &simplex) {
-        os << "frequencies: " << simplex.coefficients_;
+        os << "frequencies: " << core::io::serialize(simplex.coefficients_);
         return os;
     }
 
     double Simplex::min() const noexcept {
-        return coefficients_.minCoeff();
+        return min_;
     }
 
     double Simplex::max() const noexcept {
-        return coefficients_.maxCoeff();
+        return max_;
     }
 
-    const std::string Simplex::serialize() const noexcept {
+    std::string Simplex::serialize() const noexcept {
         std::stringstream ss;
-        ss << coefficients_.format(fmt);
+        ss << core::io::serialize(coefficients_);
         return ss.str();
     }
 

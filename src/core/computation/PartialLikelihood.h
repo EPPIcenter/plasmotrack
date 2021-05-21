@@ -12,7 +12,7 @@
 
 namespace transmission_nets::core::computation {
 
-    using Likelihood = long double;
+    using Likelihood = double;
 
     class PartialLikelihood : public Computation<Likelihood>,
                               public abstract::Observable<PartialLikelihood>,
@@ -29,8 +29,6 @@ namespace transmission_nets::core::computation {
         friend class abstract::Cacheable<PartialLikelihood>;
         friend class abstract::Checkpointable<PartialLikelihood, Likelihood>;
     };
-
-
 }
 
 

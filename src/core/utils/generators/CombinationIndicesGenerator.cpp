@@ -7,7 +7,7 @@
 #include <cassert>
 #include <numeric>
 
-namespace transmission_nets::core::utils {
+namespace transmission_nets::core::utils::generators {
     CombinationIndicesGenerator::CombinationIndicesGenerator(int n, int r) : completed(n < 1 or r > n or r == 0),
                                                                              n_(n),
                                                                              r_(r) {

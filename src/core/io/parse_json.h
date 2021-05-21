@@ -51,12 +51,13 @@ namespace transmission_nets::core::io {
             const char infectionsKey[] = "nodes",
             const char obsGenotypesKey[] = "observed_genotype",
             const char idKey[] = "id",
+            const char observationDateKey[] = "observation_time",
             const char genotypeKey[] = "genotype",
             const char locusKey[] = "locus") {
 
         std::vector<InfectionEvent*> infections{};
         for (const auto& inf : input.at(infectionsKey)) {
-            infections.push_back(new InfectionEvent(inf.at(idKey)));
+            infections.push_back(new InfectionEvent(inf.at(idKey), inf.at(observationDateKey)));
 
             for (const auto& genetics : inf.at(obsGenotypesKey)) {
                 auto locusLabel = genetics.at(locusKey);

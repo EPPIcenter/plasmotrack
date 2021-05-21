@@ -150,11 +150,11 @@ namespace transmission_nets::model::transmission_process {
 
             this->value_ = core::utils::logSumExp(tmpCalculationVec_);
 
-            if(std::isnan(this->value_)) {
+            if (std::isnan(this->value_)) {
                 std::cerr << "NaN encountered -- MSTP\n";
+                std::cout << core::io::serialize(tmpCalculationVec_) << std::endl;
                 this->value_ = -std::numeric_limits<Likelihood>::infinity();
             }
-
 
             this->setClean();
         }
@@ -173,21 +173,23 @@ namespace transmission_nets::model::transmission_process {
         const auto& alleleFreqs = alleleFrequenciesContainer_.alleleFrequencies(locus).value();
         const auto& genotype = founder_.latentGenotype(locus).value();
 
-        double denominator = 0.0;
+        double constrainedSetProb = 0.0;
+        bool zeroProbEvent = false;
 
         prVec_.clear();
         prVec_.reserve(alleleFreqs.totalElements());
         for (size_t j = 0; j < alleleFreqs.totalElements(); ++j) {
             if (genotype.allele(j)) {
                 prVec_.push_back(alleleFreqs.frequencies(j));
-                denominator += alleleFreqs.frequencies(j);
+                constrainedSetProb += alleleFreqs.frequencies(j);
+                zeroProbEvent = std::abs(alleleFreqs.frequencies(j)) < 1e-5;
             }
         }
 
-        if (denominator > 0) {
-            // Normalize the vector
+        if (constrainedSetProb > 0 and !zeroProbEvent) {
+            // Normalize the probability density
             for (double& k : prVec_) {
-                k = k / denominator;
+                k = k / constrainedSetProb;
             }
 
             for (int i = 0; i < MAX_COI + 1; i++) {
@@ -195,7 +197,8 @@ namespace transmission_nets::model::transmission_process {
                 Likelihood pam = probAnyMissing_(prVec_, i);
 
                 // prob that after i draws all alleles are drawn at least once conditional on all draws come from the constrained set.
-                locusLlikBuffer_.at(i) = log(1 - pam) + log(denominator) * i;
+                locusLlikBuffer_[i] = std::log(1 - pam) + std::log(constrainedSetProb) * i;
+
             }
 
         } else {

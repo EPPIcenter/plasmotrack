@@ -5,7 +5,7 @@
 #include "CombinationsWithRepetitionsGenerator.h"
 
 
-namespace transmission_nets::core::utils {
+namespace transmission_nets::core::utils::generators {
     CombinationsWithRepetitionsGenerator::CombinationsWithRepetitionsGenerator(int nChoices, int k) : nChoices_(nChoices),
                                                                                                       k_(k) {
         curr = std::vector<int>(k_, 0);

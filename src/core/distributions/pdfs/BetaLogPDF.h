@@ -12,14 +12,14 @@ namespace transmission_nets::core::distributions {
 
     class BetaLogPDF : public computation::PartialLikelihood {
     public:
-        BetaLogPDF(parameters::Parameter<double> &target, double alpha, double beta);
+        BetaLogPDF(parameters::Parameter<double> &target, parameters::Parameter<double> &alpha, parameters::Parameter<double> &beta);
         computation::Likelihood value() override;
         std::string identifier() override;
 
     private:
         parameters::Parameter<double> &target_;
-        double alpha_;
-        double beta_;
+        parameters::Parameter<double> &alpha_;
+        parameters::Parameter<double> &beta_;
         double logDenominator_;
     };
 
