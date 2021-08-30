@@ -8,6 +8,7 @@ authors = ["Maxwell Murphy <murphy2122@berkeley.edu>"]
 python = "^3.8"
 numpy = "^1.19.4"
 matplotlib = "^3.3.3"
+jupyterlab = "^3.0.14"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

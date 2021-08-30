@@ -55,14 +55,15 @@ namespace transmission_nets::impl::ModelFour {
     using COIProbabilityImpl = core::distributions::ZTPoisson<MAX_COI>;
     using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent, MAX_COI>;
 
-    using ParentSetImpl = core::computation::OrderDerivedParentSet<InfectionEvent>;
-    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
+    using OrderingImpl = core::parameters::Ordering<InfectionEvent>;
+    using ParentSetImpl = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
+    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
 
     struct State {
-        State(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &disallowedParents);
+        State(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &allowedParents);
         std::map<std::string, LocusImpl *> loci{};
         std::vector<InfectionEvent *> infections{};
-        std::map<InfectionEvent *, std::vector<InfectionEvent *>> disallowedParents{};
+        std::map<InfectionEvent *, std::vector<InfectionEvent *>> allowedParents{};
 
         AlleleFrequencyContainerImpl alleleFrequencies;
 
@@ -71,19 +72,35 @@ namespace transmission_nets::impl::ModelFour {
 
         // Observation Process
         std::vector<core::parameters::Parameter<double>> observationFalsePositiveRates{};
+        core::parameters::Parameter<double> obsFPRPriorAlpha;
+        core::parameters::Parameter<double> obsFPRPriorBeta;
+
         std::vector<core::parameters::Parameter<double>> observationFalseNegativeRates{};
+        core::parameters::Parameter<double> obsFNRPriorAlpha;
+        core::parameters::Parameter<double> obsFNRPriorBeta;
 
         // Node Transmission Process
         core::parameters::Parameter<double> geometricGenerationProb;
+        core::parameters::Parameter<double> geometricGenerationProbPriorAlpha;
+        core::parameters::Parameter<double> geometricGenerationProbPriorBeta;
+
         core::parameters::Parameter<double> lossProb;
+        core::parameters::Parameter<double> lossProbPriorAlpha;
+        core::parameters::Parameter<double> lossProbPriorBeta;
+
+
         core::parameters::Parameter<double> mutationProb;
+        core::parameters::Parameter<double> mutationProbPriorAlpha;
+        core::parameters::Parameter<double> mutationProbPriorBeta;
 
         // Source Transmission Process
         core::parameters::Parameter<double> meanCOI;
+        core::parameters::Parameter<double> meanCOIPriorShape;
+        core::parameters::Parameter<double> meanCOIPriorScale;
     };
 
     struct Model {
-        Model(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &disallowedParents);
+        Model(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &allowedParents);
         Likelihood value();
         bool isDirty();
 

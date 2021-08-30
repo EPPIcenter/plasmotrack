@@ -33,7 +33,7 @@
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
 namespace transmission_nets::impl::ModelFive {
-    static constexpr int MAX_ALLELES = 32;
+    static constexpr int MAX_ALLELES = 64;
     static constexpr int MAX_COI = 8;
     static constexpr int MAX_PARENTS = 1;
     static constexpr int MAX_TRANSMISSIONS = 5;
@@ -61,10 +61,10 @@ namespace transmission_nets::impl::ModelFive {
     using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
 
     struct State {
-        State(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &disallowedParents);
+        State(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &allowedParents);
         std::map<std::string, LocusImpl *> loci{};
         std::vector<InfectionEvent *> infections{};
-        std::map<InfectionEvent *, std::vector<InfectionEvent *>> disallowedParents{};
+        std::map<InfectionEvent *, std::vector<InfectionEvent *>> allowedParents{};
 
         AlleleFrequencyContainerImpl alleleFrequencies;
 
@@ -109,7 +109,7 @@ namespace transmission_nets::impl::ModelFive {
    };
 
     struct Model {
-        Model(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &disallowedParents);
+        Model(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &allowedParents);
         Likelihood value();
         bool isDirty();
 

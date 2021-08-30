@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.17)
 project(transmission_networks)
 
 
-find_package(Boost 1.74 REQUIRED container math_c99l random filesystem)
+find_package(Boost 1.76 REQUIRED container math_c99l random filesystem)
 find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 find_package(OpenMP REQUIRED)

@@ -15,22 +15,22 @@ namespace transmission_nets::impl::ModelFour {
 
     Model::Model(std::map<std::string, LocusImpl *>& loci,
                        std::vector<InfectionEvent *>& infections,
-                       std::map<InfectionEvent *, std::vector<InfectionEvent *>>& disallowedParents) : state(loci, infections, disallowedParents) {
+                       std::map<InfectionEvent *, std::vector<InfectionEvent *>>& allowedParents) : state(loci, infections, allowedParents) {
         intp = new InterTransmissionProbImpl(state.geometricGenerationProb);
         nodeTransmissionProcess = new NodeTransmissionImpl(state.mutationProb, state.lossProb, *intp);
         coiProb = new COIProbabilityImpl(state.meanCOI);
 
         // Register Priors
-        likelihood.addTarget(new core::distributions::BetaLogPDF(state.mutationProb, 1, 500));
-        likelihood.addTarget(new core::distributions::BetaLogPDF(state.lossProb, 1, 1));
-        likelihood.addTarget(new core::distributions::BetaLogPDF(state.mutationProb, 1, 99));
-        likelihood.addTarget(new core::distributions::GammaLogPDF(state.meanCOI, 1, 5));
-        likelihood.addTarget(new core::distributions::BetaLogPDF(state.geometricGenerationProb, 1, 1));
+        likelihood.addTarget(new core::distributions::BetaLogPDF(state.mutationProb, state.mutationProbPriorAlpha, state.mutationProbPriorBeta));
+        likelihood.addTarget(new core::distributions::BetaLogPDF(state.lossProb, state.lossProbPriorAlpha, state.lossProbPriorBeta));
+        likelihood.addTarget(new core::distributions::BetaLogPDF(state.mutationProb, state.mutationProbPriorAlpha, state.mutationProbPriorBeta));
+        likelihood.addTarget(new core::distributions::GammaLogPDF(state.meanCOI, state.meanCOIPriorShape, state.meanCOIPriorScale));
+        likelihood.addTarget(new core::distributions::BetaLogPDF(state.geometricGenerationProb, state.geometricGenerationProbPriorAlpha, state.geometricGenerationProbPriorBeta));
         for (auto& obs : state.observationFalsePositiveRates) {
-            likelihood.addTarget(new core::distributions::BetaLogPDF(obs, 10, 90));
+            likelihood.addTarget(new core::distributions::BetaLogPDF(obs, state.obsFPRPriorAlpha, state.obsFPRPriorBeta));
         }
         for (auto& obs : state.observationFalseNegativeRates) {
-            likelihood.addTarget(new core::distributions::BetaLogPDF(obs, 1, 99));
+            likelihood.addTarget(new core::distributions::BetaLogPDF(obs, state.obsFNRPriorAlpha, state.obsFNRPriorBeta));
         }
 
 
@@ -46,9 +46,9 @@ namespace transmission_nets::impl::ModelFour {
                     state.observationFalseNegativeRates[i],
                     state.observationFalsePositiveRates[i]);
             likelihood.addTarget(observationProcessLikelihood);
-            parentSetList.push_back(new ParentSetImpl(state.infectionEventOrdering, *infection));
-            if (state.disallowedParents.contains(infection)) {
-                parentSetList.back()->addDisallowedParents(state.disallowedParents.at(infection));
+            parentSetList.push_back(new ParentSetImpl(&(state.infectionEventOrdering), infection));
+            if (state.allowedParents.contains(infection)) {
+                parentSetList.back()->addAllowedParents(state.allowedParents.at(infection));
             }
             i++;
         }
@@ -83,7 +83,25 @@ namespace transmission_nets::impl::ModelFour {
 
     State::State(std::map<std::string, LocusImpl *>& loci,
                            std::vector<InfectionEvent *>& infections,
-                           std::map<InfectionEvent *, std::vector<InfectionEvent *>>& disallowedParents) : loci(loci), infections(infections), disallowedParents(disallowedParents) {
+                           std::map<InfectionEvent *, std::vector<InfectionEvent *>>& allowedParents) : loci(loci), infections(infections), allowedParents(allowedParents) {
+        obsFPRPriorAlpha.initializeValue(10);
+        obsFPRPriorBeta.initializeValue(90);
+
+        obsFNRPriorAlpha.initializeValue(1);
+        obsFNRPriorBeta.initializeValue(99);
+
+        geometricGenerationProbPriorAlpha.initializeValue(1);
+        geometricGenerationProbPriorBeta.initializeValue(1);
+
+        lossProbPriorAlpha.initializeValue(10);
+        lossProbPriorBeta.initializeValue(90);
+
+        mutationProbPriorAlpha.initializeValue(1);
+        mutationProbPriorBeta.initializeValue(99);
+
+        meanCOIPriorShape.initializeValue(1);
+        meanCOIPriorShape.initializeValue(5);
+
         for (const auto &[locus_label, locus] : loci) {
             alleleFrequencies.addLocus(locus);
         }

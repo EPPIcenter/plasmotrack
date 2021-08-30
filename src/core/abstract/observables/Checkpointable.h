@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include <boost/pool/pool_alloc.hpp>
 #include <boost/container/flat_set.hpp>
 
 #include "core/abstract/crtp.h"
@@ -62,31 +63,29 @@ namespace transmission_nets::core::abstract {
             this->post_accept_hooks_.emplace_back(cb);
         }
 
+        void saveState(const std::string& savedStateId) noexcept;
 
-        void saveState(std::string savedStateId) noexcept;
-
-        void restoreState(std::string savedStateId) noexcept;
+        void restoreState(const std::string& savedStateId) noexcept;
 
         void acceptState() noexcept;
 
         bool constexpr isSaved() noexcept;
 
     protected:
-        std::vector<StateCheckpoint> saved_states_stack_{};
+        std::vector<StateCheckpoint, boost::pool_allocator<StateCheckpoint>> saved_states_stack_{};
         std::vector<CallbackType> pre_save_hooks_{};
         std::vector<CallbackType> post_save_hooks_{};
         std::vector<CallbackType> pre_restore_hooks_{};
         std::vector<CallbackType> post_restore_hooks_{};
         std::vector<CallbackType> pre_accept_hooks_{};
         std::vector<CallbackType> post_accept_hooks_{};
-
     };
 
 
     template<typename T, typename ValueType>
     template<typename T0>
     std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType>::registerCheckpointTarget(T0 *target) {
-        ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=, this](std::string savedStateId) {
+        ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=, this](const std::string& savedStateId) {
           target->saveState(savedStateId);
         });
 
@@ -94,7 +93,7 @@ namespace transmission_nets::core::abstract {
           target->acceptState();
         });
 
-        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=, this](std::string savedStateId) {
+        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=, this](const std::string& savedStateId) {
           target->restoreState(savedStateId);
         });
 
@@ -106,7 +105,7 @@ namespace transmission_nets::core::abstract {
     template<typename T, typename ValueType>
     template<typename T0>
     std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType>::registerCacheableCheckpointTarget(T0 *target) {
-        ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=](std::string savedStateId) {
+        ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=](const std::string& savedStateId) {
           target->saveState(savedStateId);
         });
 
@@ -115,7 +114,7 @@ namespace transmission_nets::core::abstract {
           target->setClean();
         });
 
-        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=](std::string savedStateId) {
+        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=](const std::string& savedStateId) {
           target->restoreState(savedStateId);
           target->setClean();
         });
@@ -125,9 +124,8 @@ namespace transmission_nets::core::abstract {
     }
 
     template<typename T, typename ValueType>
-    void Checkpointable<T, ValueType>::saveState(std::string savedStateId) noexcept {
+    void Checkpointable<T, ValueType>::saveState(const std::string& savedStateId) noexcept {
         if(!isSaved() or saved_states_stack_.back().saved_state_id != savedStateId) {
-//            this->underlying().value();
             for (auto &cb: pre_save_hooks_) {
                 cb();
             }
@@ -142,14 +140,14 @@ namespace transmission_nets::core::abstract {
     }
 
     template<typename T, typename ValueType>
-    void Checkpointable<T, ValueType>::restoreState(std::string savedStateId) noexcept {
+    void Checkpointable<T, ValueType>::restoreState(const std::string& savedStateId) noexcept {
         if(isSaved() and saved_states_stack_.back().saved_state_id == savedStateId) {
             for (auto &cb: pre_restore_hooks_) {
                 cb();
             }
 
             this->underlying().notify_restore_state(savedStateId);
-            this->underlying().value_ = saved_states_stack_.back().saved_state;
+            this->underlying().value_ = std::move(saved_states_stack_.back().saved_state);
             saved_states_stack_.pop_back();
 
             for (auto &cb: post_restore_hooks_) {

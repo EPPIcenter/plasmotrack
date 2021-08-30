@@ -446,12 +446,14 @@ namespace transmission_nets::model::transmission_process {
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     Likelihood OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::peek() noexcept {
 
+#ifndef NDEBUG
         if(this->value_ <= -std::numeric_limits<Likelihood>::infinity()) {
             std::cerr << "Saved States: " << this->saved_states_stack_.size() << std::endl;
             for (const auto& savedState : this->saved_states_stack_) {
                 std::cerr << "State: " << savedState.saved_state << " " << savedState.saved_state_id << std::endl;
             }
         }
+#endif
         return Computation::peek();
     }
 

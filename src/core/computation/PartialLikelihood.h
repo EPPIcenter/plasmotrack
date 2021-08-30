@@ -22,7 +22,7 @@ namespace transmission_nets::core::computation {
 
 //    explicit PartialLikelihood() = default;
 
-        Likelihood value() override = 0;
+        virtual Likelihood value() override = 0;
         virtual std::string identifier() = 0;
 
     protected:

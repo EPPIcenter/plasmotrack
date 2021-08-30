@@ -149,16 +149,20 @@ namespace transmission_nets::model::transmission_process {
             }
 
             this->value_ = core::utils::logSumExp(tmpCalculationVec_);
+//            if(this->value_ <= std::numeric_limits<Likelihood>::infinity()) {
+//                std::cout << "Inf Encountered" << std::endl;
+//                std::cout << core::io::serialize(tmpCalculationVec_) << std::endl;
+//                std::cout << core::utils::logSumExp(tmpCalculationVec_) << std::endl;
+//            }
 
-            if (std::isnan(this->value_)) {
-                std::cerr << "NaN encountered -- MSTP\n";
-                std::cout << core::io::serialize(tmpCalculationVec_) << std::endl;
-                this->value_ = -std::numeric_limits<Likelihood>::infinity();
-            }
+//            if (std::isnan(this->value_)) {
+//                std::cerr << "NaN encountered -- MSTP\n";
+//                std::cout << core::io::serialize(tmpCalculationVec_) << std::endl;
+//                this->value_ = -std::numeric_limits<Likelihood>::infinity();
+//            }
 
             this->setClean();
         }
-//        std::cout << "STP: " << value_ << std::endl;
         return this->value_;
     }
 
@@ -169,10 +173,9 @@ namespace transmission_nets::model::transmission_process {
 
 
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
-    void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::calculateLocusLogLikelihood(core::containers::Locus *locus) {
+__attribute__((flatten)) void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::calculateLocusLogLikelihood(core::containers::Locus *locus) {
         const auto& alleleFreqs = alleleFrequenciesContainer_.alleleFrequencies(locus).value();
         const auto& genotype = founder_.latentGenotype(locus).value();
-
         double constrainedSetProb = 0.0;
         bool zeroProbEvent = false;
 
@@ -182,7 +185,7 @@ namespace transmission_nets::model::transmission_process {
             if (genotype.allele(j)) {
                 prVec_.push_back(alleleFreqs.frequencies(j));
                 constrainedSetProb += alleleFreqs.frequencies(j);
-                zeroProbEvent = std::abs(alleleFreqs.frequencies(j)) < 1e-5;
+                zeroProbEvent = std::abs(alleleFreqs.frequencies(j)) < 1e-12;
             }
         }
 
@@ -221,9 +224,9 @@ namespace transmission_nets::model::transmission_process {
 
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
     void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::postRestoreState() {
-        locusLlikBuffer_ = locusLlikBufferCache_.back();
-        llikMatrix_ = llikMatrixCache_.back();
+        locusLlikBuffer_ = std::move(locusLlikBufferCache_.back());
         locusLlikBufferCache_.pop_back();
+        llikMatrix_ = std::move(llikMatrixCache_.back());
         llikMatrixCache_.pop_back();
     }
 }

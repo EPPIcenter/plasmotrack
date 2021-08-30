@@ -38,11 +38,11 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine, typename U>
     Likelihood ConstrainedContinuousRandomWalk<T, Engine, U>::logMetropolisHastingsAdjustment(U curr, U proposed) const noexcept {
-        auto prop = log(proposed - lower_bound_) +
+        auto adj = log(proposed - lower_bound_) +
                     log(upper_bound_ - proposed) -
                     log(curr - lower_bound_) -
                     log(upper_bound_ - curr);
-        return prop;
+        return adj;
     }
 
     template<typename T, typename Engine, typename U>

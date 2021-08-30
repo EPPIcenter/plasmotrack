@@ -1,0 +1,119 @@
+%%% Local Variables:
+%%% coding: utf-8
+%%% mode: latex
+%%% TeX-engine: luatex
+%%% End:
+\documentclass{article}
+
+\input{head}
+\input{commands}
+
+\begin{document}
+
+\fancyhead[C]{}
+\hrule \medskip % Upper rule
+\begin{minipage}{0.295\textwidth}
+  \raggedright\footnotesize
+  Maxwell Murphy \hfill\\
+  murphy2122@berkeley.edu \hfill\\
+\end{minipage}
+\begin{minipage}{0.4\textwidth}
+  \centering
+  \large
+  Transmission Network Inference\\
+\end{minipage}
+\begin{minipage}{0.295\textwidth}
+  \raggedleft\today\hfill\\
+\end{minipage}
+\medskip\hrule
+\bigskip
+
+\section[Parameter]{Parameter: basic reproduction number}\label{sec:parameter}
+We are interested in estimating the basic reproduction number ($R_{0}$), that is, the average number of resultant infections. Given a transmission tree, we can calculate this as follows:
+
+\[
+  \bar{R_{G}}(X) = \frac{1}{|X|} \sum_{x \in X} |Ch_{G}(x)|
+\]
+
+where $Ch(x)$ is the child set of node $x$. We may also think about the node specific branching factor, which we would express as
+
+\[
+  R_{G}(X, x_{j}) = \sum_{x_{i} \in X} I(x_{j} \in Pa_{G}(x_{i}))
+\]
+
+The above could then be reexpressed as
+
+\[
+ \bar{R_{G}}(X) = \frac{1}{|X|}\sum_{x_{i} \in X}\sum_{x_{j} \in X} I(x_{j} \in Pa_{G}(x_{i}))
+\]
+
+We don't have access to the true tree though, so instead we can calculate the following
+
+
+\[
+  \bar{R}(X) = \frac{1}{|X|} \sum_{x_{i} \in X} \sum_{x_{j} \in X} P(x_{j} \in Pa(x_{i}))
+\]
+
+or for node specific branching factor
+
+\[
+  R(X, x_{j}) = \sum_{x_{i} \in X}P(x_{j} \in Pa(x_{i}))
+\]
+
+where $P(x_{j} \in Pa(x_{i}))$ is the probability of a directed edge from $x_{j} \rightarrow x_{i}$. Under a direct graph sampling approach, the probability of an edge is simply the proportion of graphs where an edge exists. Under the order sampling approach, we can calculate the probability of an edge as:
+
+\[
+P(x_{j} \in Pa(x_{i}) | \nodeord) = \frac{\sum_{\mathbf{U} \in \mathcal{U}_{i, \nodeord} : x_{j} \in \mathbf{U}}P(X_{i}, \mathbf{U})}{\sum_{\mathbf{U}' \in \mathcal{U}_{i, \nodeord}}P(X_{i}, \mathbf{U}')}
+\]
+
+where $\mathcal{U}_{i, \nodeord}$ is the set of all possible parent sets for node $i$ compatible with the node ordering $\nodeord$. In other words, the top expression calculates the sum of the probabilities of parent sets containing the node $x_{j}$ while the bottom expression calculates the sum of the probabilities of all parent sets, a quantity we calculate as we're doing inference anyway.
+
+
+\section{Temporal inference}\label{sec:temporal-inference}
+
+\subsection{Graphs}\label{sec:graphs}
+
+We're facing challenges incorporating temporal data into the direct tree based approach where connections are inferred only because of temporal relation, but not genetic relation. Something along the lines of the following is used
+
+\begin{align*}
+  P(X | G) &= \prod_{x \in X} P(x | Pa(x)) \\
+  P(x | Pa(x)) &= P(x_{g} | Pa(x_{g})) P(x_{t} | Pa(x_{t}))
+\end{align*}
+
+where the $x_{g}$ is the genetic data and $x_{t}$ is the temporal data. This independence assumption of the two components is inappropriate, we really should be calculating something like
+
+\[
+  P(x | Pa(x)) = P(x_{t} | Pa(x_{g, t}), x_{g}) P(x_{g} | Pa(x_{g}))
+\]
+
+Intuitively, it should be that greater genetic distance implies a greater temporal distance (i.e.\ there is some minimum amount of time between infections, especially if they're infections where recombination is occurring) --- but a greater temporal distance does not imply a greater genetic distance necssarily (i.e.\ a stream of monoclonal infections). This is challenging to encode in a convincing manner.
+
+\subsection{Orderings}\label{sec:orderings}
+
+With the ordering based approach, we don't necessarily need to incorporate knowledge about time directly into an edge probability with assumptions about connectivity. Rather, the temporal information would dictate the likelihood that one infection occurred before the other, not whether the infection occurred before the other \textit{and} resulted in a forward infection. This is naturally incorporated into the likelihood of a given topological ordering, $P(\nodeord | X_{t})$ where $X_{t}$ is the available temporal data, such as the observed time of infection, as well as perhaps other epidemiological data.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[scale=.75]{figs/temporal_ordering.png}
+  \caption{\label{fig:temporal_ordering} The time between original infection and the time of observation is distributed according to some distribution $P$}
+\end{figure}
+
+Let $X$ be the time of observation of an infection, and $X'$ the time of actual infection. We assume the time between $X$ and $X'$, denoted as $Y$, to be distributed according to some distribution $P$ with support $> 0$. The quantity we are interested in is $P(\nodeord | X)$ which we define as $P(X'_{\nodeord_{1}} < \cdots < X'_{\nodeord_{n}} | X)$ where $\nodeord_{i}$ is the index of the node at element $i$ in the node ordering vector. This can be decomposed as
+\[
+  P(X'_{\nodeord_{1}} < X'_{\nodeord_{2}} | X'_{\nodeord_{2}} < X'_{\nodeord_{3}} < \cdots < X'_{\nodeord_{n}}) \cdots P(X'_{\nodeord_{n - 2}} < X'_{\nodeord_{n - 1}} | X'_{\nodeord_{n - 1}} < X'_{\nodeord_{n}})P(X'_{\nodeord_{n - 1}} < X'_{\nodeord_{n}})
+\]
+
+Given this decomposition, all we must be able to calculate then are the individual contiguous paired comparisons.
+
+\begin{align*}
+  (X - X' | X = x) &= Y \sim P \text{ (gamma for example, may be observation dependent) }\\
+  (Y_{1} - Y_{2}) &= U \sim H \text{ (something like a Laplace distribution, maybe not symmetric) }\\
+  P(X'_{1} < X'_{2}) &= P(X'_{1} + x_{1} - x_{1} < X'_{2} + x_{2} - x_{2}) \\
+           &= P(x_{1} - x_{1} - X'_{1} > x_{2} - x_{2} - X'_{2}) \\
+           &= P(Y_{1} - x_{1} > Y_{2} - x_{2}) \\
+           &= P(Y_{1} - Y_{2} > x_{1} - x_{2}) \\
+  &= 1 - F_{U}(x_{1} - x_{2})
+\end{align*}
+
+
+\end{document}

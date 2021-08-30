@@ -25,6 +25,21 @@ namespace transmission_nets::core::io {
         return isEmpty or isMissing;
     }
 
+    inline std::string constrainCOI(std::string genotype, int max_coi) {
+        std::string out;
+        int total_coi = 0;
+        for (const auto& allele : genotype) {
+            if (allele == '1') {
+                total_coi += 1;
+            }
+            if (total_coi < max_coi) {
+                out += allele;
+            } else {
+                out += '0';
+            }
+        }
+        return out;
+    }
 
     template <typename LocusImpl>
     std::map<std::string, LocusImpl*> parseLociFromJSON(
@@ -47,6 +62,7 @@ namespace transmission_nets::core::io {
     template <typename InfectionEvent, typename LocusImpl>
     std::vector<InfectionEvent*> parseInfectionsFromJSON(
             const json &input,
+            const int max_coi,
             std::map<std::string, LocusImpl*> loci,
             const char infectionsKey[] = "nodes",
             const char obsGenotypesKey[] = "observed_genotype",
@@ -68,7 +84,7 @@ namespace transmission_nets::core::io {
                 }
                 if (!missingGenotype(genetics.at(genotypeKey))) {
                     std::string obs_genetics = genetics.at(genotypeKey);
-                    infections.back()->addGenetics(locusItr->second, obs_genetics, obs_genetics);
+                    infections.back()->addGenetics(locusItr->second, obs_genetics, constrainCOI(obs_genetics, max_coi));
                 } else {
                     std::string latent_genetics;
                     latent_genetics.resize(locusItr->second->totalAlleles(), '0');
@@ -82,30 +98,30 @@ namespace transmission_nets::core::io {
     }
 
     template <typename InfectionEvent>
-    std::map<InfectionEvent*, std::vector<InfectionEvent*>> parseDisallowedParentsFromJSON(
+    std::map<InfectionEvent*, std::vector<InfectionEvent*>> parseAllowedParentsFromJSON(
             const json &input,
             std::vector<InfectionEvent*> infections,
             const char infectionsKey[] = "nodes",
             const char idKey[] = "id",
-            const char disallowedParentsKey[] = "disallowed_parents"
+            const char allowedParentsKey[] = "allowed_parents"
             ) {
 
-        std::map<InfectionEvent*, std::vector<InfectionEvent*>> disallowedParents{};
+        std::map<InfectionEvent*, std::vector<InfectionEvent*>> allowedParents{};
 
         for(const auto& targetInfection : infections) {
             for (const auto& inf : input.at(infectionsKey)) {
                 auto infectionId = inf.at(idKey);
                 if (infectionId == targetInfection->id()) {
-                    for (const auto& parentId : inf.at(disallowedParentsKey)) {
+                    for (const auto& parentId : inf.at(allowedParentsKey)) {
                         auto parentInf = std::find_if(infections.begin(), infections.end(), [&parentId](const InfectionEvent* candidateInf) {return candidateInf->id() == parentId;});
-                        disallowedParents[targetInfection].push_back(*parentInf);
+                        allowedParents[targetInfection].push_back(*parentInf);
                     }
                     break;
                 }
             }
         }
 
-        return disallowedParents;
+        return allowedParents;
 
     }
 }

@@ -6,6 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_SCHEDULER_H
 
 #include <vector>
+#include <numeric>
 
 #include "AbstractSampler.h"
 

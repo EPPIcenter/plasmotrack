@@ -16,7 +16,10 @@ TEST(CombinationsWithRepetitionsTest, CoreTest) {
         cs.next();
         for (auto i : cs.curr) {
             tmp[i]++;
+            std::cout << i << ",";
         }
+        std::cout << std::endl;
+
    }
     ASSERT_EQ(cs.generated, 20);
 }

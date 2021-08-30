@@ -16,7 +16,7 @@ namespace transmission_nets::impl::ModelFive {
 
     Model::Model(std::map<std::string, LocusImpl *>& loci,
                  std::vector<InfectionEvent *>& infections,
-                 std::map<InfectionEvent *, std::vector<InfectionEvent *>>& disallowedParents) : state(loci, infections, disallowedParents) {
+                 std::map<InfectionEvent *, std::vector<InfectionEvent *>>& allowedParents) : state(loci, infections, allowedParents) {
         intp = new InterTransmissionProbImpl(state.geometricGenerationProb);
         nodeTransmissionProcess = new NodeTransmissionImpl(state.mutationProb, state.lossProb, *intp);
         coiProb = new COIProbabilityImpl(state.meanCOI);
@@ -50,8 +50,8 @@ namespace transmission_nets::impl::ModelFive {
                     state.observationFalsePositiveRates[i]);
             likelihood.addTarget(observationProcessLikelihood);
             parentSetList.push_back(new ParentSetImpl(&(state.infectionEventOrdering), infection));
-            if (state.disallowedParents.contains(infection)) {
-                parentSetList.back()->addDisallowedParents(state.disallowedParents.at(infection));
+            if (state.allowedParents.contains(infection)) {
+                parentSetList.back()->addAllowedParents(state.allowedParents.at(infection));
             }
             i++;
         }
@@ -86,7 +86,7 @@ namespace transmission_nets::impl::ModelFive {
 
     State::State(std::map<std::string, LocusImpl *>& loci,
                  std::vector<InfectionEvent *>& infections,
-                 std::map<InfectionEvent *, std::vector<InfectionEvent *>>& disallowedParents) : loci(loci), infections(infections), disallowedParents(disallowedParents) {
+                 std::map<InfectionEvent *, std::vector<InfectionEvent *>>& allowedParents) : loci(loci), infections(infections), allowedParents(allowedParents) {
         obsFPRPriorAlpha.initializeValue(10);
         obsFPRPriorBeta.initializeValue(990);
 

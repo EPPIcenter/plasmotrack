@@ -26,7 +26,7 @@ TEST(ParseJSONTests, TestParseLoci) {
 
     auto j = loadJSON(testFile);
     auto locusMap = parseLociFromJSON<Locus>(j);
-    auto infections = parseInfectionsFromJSON<InfectionEvent, Locus>(j, locusMap);
+    auto infections = parseInfectionsFromJSON<InfectionEvent, Locus>(j, 8, locusMap);
 
     ASSERT_TRUE(missingGenotype("0000000"));
     ASSERT_TRUE(missingGenotype(""));

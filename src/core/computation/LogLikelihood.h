@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <optional>
+#include <string>
 #include <utility>
 #include <boost/container/flat_map.hpp>
 

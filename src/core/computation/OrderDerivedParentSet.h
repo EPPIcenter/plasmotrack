@@ -34,16 +34,16 @@ namespace transmission_nets::core::computation {
     public:
         explicit OrderDerivedParentSet(OrderingImpl *ordering, ElementType *child);
         containers::ParentSet<ElementType> value() noexcept override;
-        void addDisallowedParent(ElementType* p);
-        void addDisallowedParents(std::vector<ElementType*> p);
-        void removeDisallowedParent(ElementType* p);
+        void addAllowedParent(ElementType* p);
+        void addAllowedParents(std::vector<ElementType*> p);
+        void removeAllowedParent(ElementType* p);
         void serialize() noexcept;
 
     protected:
         friend class abstract::Checkpointable<OrderDerivedParentSet<ElementType, OrderingImpl>, containers::ParentSet<ElementType>>;
         friend class abstract::Cacheable<OrderDerivedParentSet<ElementType, OrderingImpl>>;
 
-        std::set<ElementType *> disallowedParents_{};
+        std::set<ElementType *> allowedParents_{};
         OrderingImpl *ordering_;
         ElementType *child_;
     };
@@ -54,7 +54,7 @@ namespace transmission_nets::core::computation {
         ordering_->registerCacheableCheckpointTarget(this);
 
         ordering_->add_keyed_moved_left_listener(child_, [=, this](ElementType *element) {
-            if (!disallowedParents_.contains(element)) {
+            if (allowedParents_.contains(element)) {
                 this->setDirty();
                 this->value_.insert(element);
                 notify_element_added(element);
@@ -62,7 +62,7 @@ namespace transmission_nets::core::computation {
         });
 
         ordering_->add_keyed_moved_right_listener(child_, [=, this](ElementType *element) {
-            if (!disallowedParents_.contains(element)) {
+            if (allowedParents_.contains(element)) {
                 this->setDirty();
                 this->value_.erase(element);
                 notify_element_removed(element);
@@ -71,7 +71,7 @@ namespace transmission_nets::core::computation {
 
         // Initialize the current parent set from the ordering
         for (auto &el : ordering_->value()) {
-            if (el != child_) {
+            if (el != child_ and allowedParents_.contains(el)) {
                 this->value_.insert(el);
             } else {
                 this->setClean();
@@ -83,23 +83,23 @@ namespace transmission_nets::core::computation {
     }
 
     template<typename ElementType, typename OrderingImpl>
-    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addDisallowedParent(ElementType *p) {
-        disallowedParents_.insert(p);
-        if(this->value_.contains(p)) {
-            this->value_.erase(p);
-        }
+    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParent(ElementType *p) {
+        allowedParents_.insert(p);
+//        if(!(this->value_.contains(p))) {
+//            this->value_.insert(p);
+//        }
     }
 
     template<typename ElementType, typename OrderingImpl>
-    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addDisallowedParents(std::vector<ElementType*> p) {
+    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParents(std::vector<ElementType*> p) {
         for (const auto el : p) {
-           addDisallowedParent(el);
+           addAllowedParent(el);
         }
     }
 
     template<typename ElementType, typename OrderingImpl>
-    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::removeDisallowedParent(ElementType *p) {
-        disallowedParents_.erase(p);
+    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::removeAllowedParent(ElementType *p) {
+        allowedParents_.erase(p);
     }
 
     template<typename ElementType, typename OrderingImpl>

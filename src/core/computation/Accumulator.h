@@ -79,18 +79,16 @@ namespace transmission_nets::core::computation {
         dirtyTargets_.insert(target);
 
         target->add_set_dirty_listener([=, this]() {
-          const auto& [_, inserted] = dirtyTargets_.insert(target);
-          assert(inserted);
+          // suppress compiler warning for unused "_" var
+          [[maybe_unused]] const auto& [_, inserted] = dirtyTargets_.insert(target);
           this->setDirty();
           this->value_ -= target->peek();
-//          if (inserted) {
-//              this->setDirty();
-//              this->value_ -= target->peek();
-//          } else {
-//              std::cerr << "Something went wrong" << std::endl;
-//          }
+#ifndef DNDEBUG
+          if (!inserted) {
+              std::cerr << "Model misspecified. Attempting to insert target likelihood more than once." << std::endl;
+          }
+#endif
         });
-
         target->registerCacheableCheckpointTarget(this);
     }
 
@@ -99,17 +97,20 @@ namespace transmission_nets::core::computation {
     inline void Accumulator<PartialLikelihood, Likelihood>::addTarget(PartialLikelihood *target) {
         this->setDirty();
         const auto& [_, inserted] = targets_.insert(target);
+#ifndef DNDEBUG
         if(!inserted) assert(!"Target added more than once. Check model specification.");
+#endif
         dirtyTargets_.insert(target);
 
         target->add_set_dirty_listener([=, this]() {
           const auto& [_, inserted] = dirtyTargets_.insert(target);
           if (inserted) {
               this->setDirty();
+#ifndef DNDEBUG
               if (target->peek() <= -std::numeric_limits<Likelihood>::infinity()) {
                   std::cerr << target->identifier() << " returns -inf" << std::endl;
               }
-              assert(target->peek() > -std::numeric_limits<Likelihood>::infinity());
+#endif
               this->value_ -= target->peek();
           }
         });
