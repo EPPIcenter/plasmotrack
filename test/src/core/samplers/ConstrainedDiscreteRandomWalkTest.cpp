@@ -21,7 +21,7 @@ TEST(ConstrainedDiscreteRandomWalkTest, NormalTest) {
 
     struct NormalTestTarget {
 
-        explicit NormalTestTarget(Parameter<int> &mean) : mean_(mean) {
+        explicit NormalTestTarget(std::shared_ptr<Parameter<int>> mean) : mean_(std::move(mean)) {
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
                 data_(i) = dist(r) * TEST_VARIANCE + TEST_MEAN;
             }
@@ -32,7 +32,7 @@ TEST(ConstrainedDiscreteRandomWalkTest, NormalTest) {
         }
 
         double value() {
-            boost::math::normal d(mean_.value(), TEST_VARIANCE);
+            boost::math::normal d(mean_->value(), TEST_VARIANCE);
             double llik = 0;
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
                 llik += log(boost::math::pdf(d, data_[i]));
@@ -42,16 +42,16 @@ TEST(ConstrainedDiscreteRandomWalkTest, NormalTest) {
 
         boost::random::normal_distribution<> dist{0, 1};
         boost::random::mt19937 r;
-        Parameter<int> &mean_;
+        std::shared_ptr<Parameter<int>> mean_;
         Eigen::Array<double, TOTAL_DATA_POINTS, 1> data_;
     };
 
 
-    Parameter<int> myMean(5);
-    NormalTestTarget myTestTar(myMean);
-    boost::random::mt19937 r;
+    auto myMean = std::make_shared<Parameter<int>>(5);
+    auto myTestTar = std::make_shared<NormalTestTarget>(myMean);
+    auto r = std::make_shared<boost::random::mt19937>();
 
-    ConstrainedDiscreteRandomWalk<3, 11, NormalTestTarget, boost::random::mt19937> sampler(myMean, myTestTar, &r, 3);
+    ConstrainedDiscreteRandomWalk<3, 11, NormalTestTarget, boost::random::mt19937> sampler(myMean, myTestTar, r, 3);
 
     int i = 2000;
     while (i > 0) {
@@ -66,7 +66,7 @@ TEST(ConstrainedDiscreteRandomWalkTest, NormalTest) {
     while (i > 0) {
         i--;
         sampler.update();
-        results(i) = myMean.value();
+        results(i) = myMean->value();
     }
 
     auto resultsMean = results.mean();
@@ -81,14 +81,14 @@ TEST(ConstrainedDiscreteRandomWalkTest, NormalTest) {
 TEST(ConstrainedDiscreteRandomWalkTest, DoubleWellTest) {
     struct DoubleWellTestTarget {
 
-        explicit DoubleWellTestTarget(Parameter<int> &x, Parameter<int> &y) : x_(x), y_(y) {};
+        explicit DoubleWellTestTarget(std::shared_ptr<Parameter<int>> x, std::shared_ptr<Parameter<int>> y) : x_(std::move(x)), y_(std::move(y)) {};
 
         double value() {
             return -(
-                    (.25 * a_ * std::pow(x_.value(), 4)) -
-                    (.5 * b_ * std::pow(x_.value(), 2)) +
-                    (c_ * x_.value()) +
-                    (.5 * d_ * std::pow(y_.value(), 2))
+                    (.25 * a_ * std::pow(x_->value(), 4)) -
+                    (.5 * b_ * std::pow(x_->value(), 2)) +
+                    (c_ * x_->value()) +
+                    (.5 * d_ * std::pow(y_->value(), 2))
             );
         }
 
@@ -96,21 +96,21 @@ TEST(ConstrainedDiscreteRandomWalkTest, DoubleWellTest) {
             return true;
         }
 
-        Parameter<int> &x_;
-        Parameter<int> &y_;
+        std::shared_ptr<Parameter<int>> x_;
+        std::shared_ptr<Parameter<int>> y_;
         double a_ = 1;
         double b_ = 6;
         double c_ = 1;
         double d_ = 1;
     };
 
-    Parameter<int> x(0);
-    Parameter<int> y(0);
-    DoubleWellTestTarget myTestTar(x, y);
-    boost::random::mt19937 r;
+    auto x = std::make_shared<Parameter<int>>(0);
+    auto y = std::make_shared<Parameter<int>>(0);
+    auto myTestTar = std::make_shared<DoubleWellTestTarget>(x, y);
+    auto r = std::make_shared<boost::random::mt19937>();
 
-    ConstrainedDiscreteRandomWalk< -5, 5, DoubleWellTestTarget, boost::random::mt19937> xSampler(x, myTestTar, &r, 3);
-    ConstrainedDiscreteRandomWalk< -5, 5, DoubleWellTestTarget, boost::random::mt19937> ySampler(y, myTestTar, &r, 3);
+    ConstrainedDiscreteRandomWalk< -5, 5, DoubleWellTestTarget, boost::random::mt19937> xSampler(x, myTestTar, r, 3);
+    ConstrainedDiscreteRandomWalk< -5, 5, DoubleWellTestTarget, boost::random::mt19937> ySampler(y, myTestTar, r, 3);
 
     int i = 2000;
     while (i > 0) {
@@ -129,8 +129,8 @@ TEST(ConstrainedDiscreteRandomWalkTest, DoubleWellTest) {
         i--;
         xSampler.update();
         ySampler.update();
-        xResults(i) = x.value();
-        yResults(i) = y.value();
+        xResults(i) = x->value();
+        yResults(i) = y->value();
     }
 
     auto resultsMean = xResults.mean();
@@ -138,7 +138,4 @@ TEST(ConstrainedDiscreteRandomWalkTest, DoubleWellTest) {
     std::cout << "Mean: " << resultsMean << std::endl;
     std::cout << "StdDev: " << resultsStdDev << std::endl;
     std::cout << "Acceptance Ratio: " << xSampler.acceptanceRate() << std::endl;
-//    std::cout << xResults << std::endl;
-//    EXPECT_GE(resultsStdDev * 3, resultsMean - TEST_MEAN);
-//    EXPECT_LE(-resultsStdDev * 3, resultsMean - TEST_MEAN);
 }

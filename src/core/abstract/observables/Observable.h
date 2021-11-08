@@ -60,13 +60,13 @@ private:                                                                        
             this->underlying().notify(this->callback_name##_callbacks_, args...);                                           \
         }                                                                                                                   \
                                                                                                                             \
-    auto add_##callback_name##_listener(const callback_type& cb) noexcept -> core::abstract::ListenerId {                   \
-        return this->underlying().add_listener(cb, this->callback_name##_callbacks_);                                       \
-    }                                                                                                                       \
+        auto add_##callback_name##_listener(const callback_type& cb) noexcept -> core::abstract::ListenerId {                   \
+            return this->underlying().add_listener(cb, this->callback_name##_callbacks_);                                       \
+        }                                                                                                                       \
                                                                                                                             \
-    auto remove_##callback_name##_listener(const core::abstract::ListenerId_t id) noexcept -> bool {                        \
-        return this->underlying().remove_listener(id, this->callback_name##_callbacks_);                                    \
-    }                                                                                                                       \
+        auto remove_##callback_name##_listener(const core::abstract::ListenerId_t id) noexcept -> bool {                        \
+            return this->underlying().remove_listener(id, this->callback_name##_callbacks_);                                    \
+        }                                                                                                                       \
 protected:                                                                                                                  \
     core::abstract::ObserverMap<core::abstract::ListenerId_t, callback_type> callback_name##_callbacks_{};                  \
 
@@ -99,8 +99,7 @@ namespace transmission_nets::core::abstract {
     template<typename Key, typename Value> using ObserverMap = boost::container::flat_map<Key, Value>;
 
     using ListenerId_t = uint_fast32_t;
-    enum ListenerId : ListenerId_t {
-    };
+    enum ListenerId : ListenerId_t {};
 
     template<typename T>
     class Observable : public crtp<T, Observable> {

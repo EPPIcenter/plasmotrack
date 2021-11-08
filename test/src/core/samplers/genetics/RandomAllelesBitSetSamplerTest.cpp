@@ -1,7 +1,7 @@
 //
 // Created by Maxwell Murphy on 4/16/20.
 //
-
+//
 #include <boost/random.hpp>
 #include <Eigen/Core>
 
@@ -19,8 +19,8 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
     using Alleles = AllelesBitSet<24>;
 
     struct AllelesBitSetTestTarget {
-        explicit AllelesBitSetTestTarget(Parameter<Alleles> &alleles) : alleles_(alleles) {
-            alleles_.add_post_change_listener([=, this]() {
+        explicit AllelesBitSetTestTarget(std::shared_ptr<Parameter<Alleles>> alleles) : alleles_(alleles) {
+            alleles_->add_post_change_listener([=, this]() {
                 dirty = true;
             });
         }
@@ -29,8 +29,8 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
             if (dirty) {
                 value_ = 0;
                 for (unsigned int i = 0; i < target.totalAlleles(); ++i) {
-                    if(target.allele(i) == alleles_.value().allele(i)) {
-                        value_ += 10;
+                    if(target.allele(i) == alleles_->value().allele(i)) {
+                        value_ += 100;
                     }
                 }
                 dirty = false;
@@ -43,18 +43,18 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
         }
 
         Alleles target{"011010"};
-        Parameter<Alleles> &alleles_;
+        std::shared_ptr<Parameter<Alleles>> alleles_;
         bool dirty{true};
         double value_{0};
 
     };
 
 
-    Parameter<Alleles> myAlleles("000000");
-    AllelesBitSetTestTarget myTestTar(myAlleles);
-    boost::random::mt19937 r;
+    auto myAlleles = std::make_shared<Parameter<Alleles>>("000000");
+    auto myTestTar = std::make_shared<AllelesBitSetTestTarget>(myAlleles);
+    auto r = std::make_shared<boost::random::mt19937>();
 
-    genetics::RandomAllelesBitSetSampler sampler(myAlleles, myTestTar, &r);
+    genetics::RandomAllelesBitSetSampler sampler(myAlleles, myTestTar, r);
 
     int i = 5000;
     while (i > 0) {
@@ -68,8 +68,8 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
     while (i > 0) {
         i--;
         sampler.update();
-        for (unsigned int j = 0; j < myAlleles.value().totalAlleles(); ++j) {
-            results(j) += (myAlleles.value().allele(j)) / 1000.0;
+        for (unsigned int j = 0; j < myAlleles->value().totalAlleles(); ++j) {
+            results(j) += (myAlleles->value().allele(j)) / 1000.0;
         }
     }
 

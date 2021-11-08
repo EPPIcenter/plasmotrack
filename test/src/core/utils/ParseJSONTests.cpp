@@ -16,18 +16,7 @@ using namespace transmission_nets::core::containers;
 using namespace transmission_nets::core::datatypes;
 using namespace transmission_nets::core::io;
 
-TEST(ParseJSONTests, TestParseLoci) {
-    using InfectionEvent = Infection<AllelesBitSet<32>>;
-    std::ifstream testFile("/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/nodes.json");
-    if(!testFile) {
-        std::cout << "Cannot open file." << std::endl;
-        exit(1);
-    }
-
-    auto j = loadJSON(testFile);
-    auto locusMap = parseLociFromJSON<Locus>(j);
-    auto infections = parseInfectionsFromJSON<InfectionEvent, Locus>(j, 8, locusMap);
-
+TEST(ParseJSONTests, TestMissingGenotype) {
     ASSERT_TRUE(missingGenotype("0000000"));
     ASSERT_TRUE(missingGenotype(""));
     ASSERT_FALSE(missingGenotype("00001"));

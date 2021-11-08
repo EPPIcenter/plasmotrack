@@ -1,8 +1,8 @@
 //
 // Created by Maxwell Murphy on 4/9/20.
 //
-
-
+//
+//
 #include <boost/random.hpp>
 #include <Eigen/Core>
 
@@ -22,8 +22,8 @@ using namespace transmission_nets::core::io;
 TEST(SALTSamplerTest, SimplexTest) {
 
     struct SimplexTestTarget {
-        explicit SimplexTestTarget(Parameter<Simplex> &freqs) : freqs(freqs) {
-            freqs.add_post_change_listener([=, this]() {
+        explicit SimplexTestTarget(std::shared_ptr<Parameter<Simplex>> freqs) : freqs_(std::move(freqs)) {
+            freqs_->add_post_change_listener([=, this]() {
                 this->is_dirty = true;
             });
         }
@@ -31,7 +31,7 @@ TEST(SALTSamplerTest, SimplexTest) {
         double value() {
             double llik = 0;
             for (unsigned int i = 0; i < target.size(); i++) {
-                llik += target.at(i) * log(freqs.value().frequencies(i));
+                llik += target.at(i) * log(freqs_->value().frequencies(i));
             }
             is_dirty = false;
             return llik;
@@ -42,15 +42,15 @@ TEST(SALTSamplerTest, SimplexTest) {
         }
 
         std::vector<int> target{1, 2000, 3000, 4000};
-        Parameter<Simplex> &freqs;
+        std::shared_ptr<Parameter<Simplex>> freqs_;
         bool is_dirty{true};
     };
 
-    Parameter<Simplex> mySimplex{.1, .1, .1, .1};
-    SimplexTestTarget st(mySimplex);
-    boost::random::mt19937 r;
+    auto mySimplex = std::make_shared<Parameter<Simplex>>(std::vector{.1, .1, .1, .1});
+    auto st = std::make_shared<SimplexTestTarget>(mySimplex);
+    auto r = std::make_shared<boost::random::mt19937>();
 
-    SALTSampler sampler(mySimplex, st, &r, 1, .1, 10);
+    SALTSampler sampler(mySimplex, st, r, 1, .1, 10);
 
     int i = 50000;
     while (i > 0) {
@@ -66,8 +66,8 @@ TEST(SALTSamplerTest, SimplexTest) {
     while (i > 0) {
         i--;
         sampler.update();
-        for (unsigned int j = 0; j < mySimplex.value().totalElements(); ++j) {
-            results(j) += mySimplex.value().frequencies(j) / total_samples;
+        for (unsigned int j = 0; j < mySimplex->value().totalElements(); ++j) {
+            results(j) += mySimplex->value().frequencies(j) / total_samples;
         }
     }
 

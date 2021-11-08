@@ -12,8 +12,6 @@ set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra ")
 if ( CMAKE_COMPILER_IS_GNUCC )
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -fno-omit-frame-pointer -fopenmp")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Werror -O3 -DNDEBUG -g -march=native -frename-registers -funroll-loops -fno-omit-frame-pointer -fopenmp") # -Ofast is throwing nan errors
-#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -ffast-math -pedantic-errors")
-#set(CMAKE_CXX_FLAGS_RELEASE "-Ofast -march=native -pedantic-errors")
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -21,7 +19,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(Clang_DIR "/usr/local/opt/llvm/lib/cmake/clang")
     find_package(Clang)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -fno-omit-frame-pointer")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Ofast -g -march=native -ffast-math")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -g -march=native")
 endif()
 
 #if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
@@ -48,3 +46,4 @@ include_directories(${PROJECT_BINARY_DIR})
 
 add_subdirectory(src)
 add_subdirectory(test)
+add_subdirectory(tools/cli)

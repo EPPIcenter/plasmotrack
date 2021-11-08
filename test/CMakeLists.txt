@@ -20,8 +20,8 @@ endif()
 # settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-find_package(Boost 1.76 REQUIRED container math_c99l random filesystem)
-find_package(Eigen3 REQUIRED)
+#find_package(Boost 1.74 REQUIRED container math_c99l random)
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 find_package(OpenMP)
 
@@ -34,11 +34,11 @@ endif()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
-set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
-if( NOT EIGEN3_INCLUDE_DIR )
-    message( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
-endif()
-include_directories (SYSTEM ${EIGEN3_INCLUDE_DIR})
+#set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
+#if( NOT EIGEN3_INCLUDE_DIR )
+#    message( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
+#endif()
+#include_directories (SYSTEM ${EIGEN3_INCLUDE_DIR})
 
 add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
         ${CMAKE_BINARY_DIR}/googletest-build
@@ -88,6 +88,7 @@ target_link_libraries(transmission_networks_tests
 #        ${Boost_FILESYSTEM_LIBRARY}
 #        ${Boost_SYSTEM_LIBRARY}
         nlohmann_json::nlohmann_json
+        Eigen3::Eigen
         transmission_networks
         OpenMP::OpenMP_CXX
         gtest)

@@ -50,16 +50,16 @@ TEST(OrderSamplerTest, OrderTest) {
         double value_{0};
     };
 
-    int a = 1;
-    int b = 2;
-    int c = 3;
-    int d = 4;
-    int e = 5;
-    int f = 6;
-    int g = 7;
+    auto a = std::make_shared<int>(1);
+    auto b = std::make_shared<int>(2);
+    auto c = std::make_shared<int>(3);
+    auto d = std::make_shared<int>(4);
+    auto e = std::make_shared<int>(5);
+    auto f = std::make_shared<int>(6);
+    auto g = std::make_shared<int>(7);
 
 
-    Ordering<int> myOrdering({&d, &b, &c, &a, &e, &g, &f});
+    Ordering<int> myOrdering({d, b, c, a, e, g, f});
     OrderingTestTarget myTestTar(myOrdering);
     boost::random::mt19937 r;
 

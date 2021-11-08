@@ -25,8 +25,9 @@ namespace transmission_nets::core::distributions {
                       public abstract::Observable<ZTPoisson<MAX_COUNT>>,
                       public abstract::Cacheable<ZTPoisson<MAX_COUNT>>,
                       public abstract::Checkpointable<ZTPoisson<MAX_COUNT>, std::array<long double, MAX_COUNT + 1>> {
+        using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
     public:
-        explicit ZTPoisson(parameters::Parameter<double> &mean) noexcept;
+        explicit ZTPoisson(p_ParameterDouble mean) noexcept;
 
 //    ProbabilityVector<MAX_COUNT + 1> value() noexcept;
         std::array<long double, MAX_COUNT + 1> value() noexcept;
@@ -35,14 +36,16 @@ namespace transmission_nets::core::distributions {
         friend class abstract::Checkpointable<ZTPoisson<MAX_COUNT>,std::array<long double, MAX_COUNT + 1>>;
         friend class abstract::Cacheable<ZTPoisson<MAX_COUNT>>;
 
-        parameters::Parameter<double> &mean_;
+        p_ParameterDouble mean_;
     };
 
     template<int MAX_COUNT>
-    ZTPoisson<MAX_COUNT>::ZTPoisson(parameters::Parameter<double> &mean) noexcept : mean_(mean){
+    ZTPoisson<MAX_COUNT>::ZTPoisson(p_ParameterDouble mean) noexcept : mean_(std::move(mean)){
         this->value_[0] = -std::numeric_limits<long double>::infinity();
-        mean_.registerCacheableCheckpointTarget(this);
-        mean_.add_post_change_listener([=, this]() { this->setDirty(); });
+        mean_->registerCacheableCheckpointTarget(this);
+        mean_->add_post_change_listener([=, this]() {
+            this->setDirty();
+        });
         this->setDirty();
         this->value();
     }
@@ -53,7 +56,7 @@ namespace transmission_nets::core::distributions {
 
             long double denominator = 0.0;
             for (int j = 1; j < MAX_COUNT + 1; ++j) {
-                this->value_[j] = j * log(mean_.value()) - mean_.value() - log(boost::math::factorial<double>(j));
+                this->value_[j] = j * log(mean_->value()) - mean_->value() - log(boost::math::factorial<double>(j));
                 denominator += exp(this->value_[j]);
                 assert(!std::isnan(this->value_[j]));
             }

@@ -17,11 +17,11 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename Engine=boost::random::mt19937, typename U=double>
     class ConstrainedContinuousRandomWalk : public ContinuousRandomWalk<T, Engine> {
     public:
-        ConstrainedContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, U lower_bound, U upper_bound, Engine *rng);
+        ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng);
 
-        ConstrainedContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target,  U lower_bound, U upper_bound, Engine *rng, double variance);
+        ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target,  U lower_bound, U upper_bound, std::shared_ptr<Engine> rng, double variance);
 
-        ConstrainedContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, U lower_bound, U upper_bound, Engine *rng, double variance, double minVariance, double maxVariance);
+        ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng, double variance, double minVariance, double maxVariance);
 
     private:
         using ContinuousRandomWalk<T, Engine>::rng_;
@@ -48,7 +48,7 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename Engine, typename U>
     double ConstrainedContinuousRandomWalk<T, Engine, U>::sampleProposal() noexcept {
         double eps = normal_dist_(*rng_) * variance_;
-        double unconstrained = log(parameter_.value() - lower_bound_) - log(upper_bound_ - parameter_.value());
+        double unconstrained = log(parameter_->value() - lower_bound_) - log(upper_bound_ - parameter_->value());
         double exp_prop = exp(eps + unconstrained);
         double prop = (upper_bound_ * exp_prop + lower_bound_) / (exp_prop + 1);
         prop = std::clamp(prop, lower_bound_, upper_bound_);
@@ -64,20 +64,20 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine, typename U>
-    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, U lower_bound, U upper_bound, Engine *rng)
+    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng)
             : ContinuousRandomWalk<T, Engine>(parameter, target, rng), lower_bound_(lower_bound), upper_bound_(upper_bound) {}
 
 
     template<typename T, typename Engine, typename U>
-    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(parameters::Parameter<double> &parameter,
-                                                                                   T &target, U lower_bound, U upper_bound, Engine *rng,
+    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter,
+                                                                                   std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng,
                                                                                    double variance)
             : ContinuousRandomWalk<T, Engine>(parameter, target, rng, variance), lower_bound_(lower_bound), upper_bound_(upper_bound) {}
 
 
     template<typename T, typename Engine, typename U>
-    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(parameters::Parameter<double> &parameter,
-                                                                                   T &target, U lower_bound, U upper_bound, Engine *rng,
+    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter,
+                                                                                   std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng,
                                                                                    double variance,
                                                                                    double minVariance,
                                                                                    double maxVariance)

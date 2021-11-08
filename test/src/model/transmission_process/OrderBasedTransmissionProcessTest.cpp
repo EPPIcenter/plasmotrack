@@ -1,7 +1,7 @@
 //
 // Created by Maxwell Murphy on 3/6/20.
 //
-
+//
 #include "gtest/gtest.h"
 
 #include "core/datatypes/Alleles.h"
@@ -48,181 +48,180 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent, MAX_COI>;
     using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, OrderDerivedParentSet<InfectionEvent, Ordering>>;
 
-    Locus as1("AS1", 5);
-    Locus as2("AS2", 6);
+    auto as1 = std::make_shared<Locus>("AS1", 5);
+    auto as2 = std::make_shared<Locus>("AS2", 6);
 
-    std::vector<InfectionEvent::LocusGeneticsAssignment> dlas{
-            {&as1, GeneticsImpl("11010")},
-            {&as2, GeneticsImpl("000011")}
-    };
+    auto inf1 = std::make_shared<InfectionEvent>("1", 100);
+    auto inf2 = std::make_shared<InfectionEvent>("2", 100);
+    auto inf3 = std::make_shared<InfectionEvent>("3", 100);
+    auto inf4 = std::make_shared<InfectionEvent>("4", 100);
 
-    std::vector<InfectionEvent::LocusGeneticsAssignment> plas{
-            {&as1, GeneticsImpl("11010")},
-            {&as2, GeneticsImpl("000011")}
-    };
+    inf1->addGenetics(as1, "11010", "11010");
+    inf1->addGenetics(as2, "000011", "000011");
+    inf2->addGenetics(as1, "11010", "11010");
+    inf2->addGenetics(as2, "000011", "000011");
+    inf3->addGenetics(as1, "11010", "11010");
+    inf3->addGenetics(as2, "000011", "000011");
+    inf4->addGenetics(as1, "11010", "11010");
+    inf4->addGenetics(as2, "000011", "000011");
 
-    InfectionEvent inf1("inf1", 10.0, dlas, plas);
-    InfectionEvent inf2("inf2", 10.0, dlas, plas);
-    InfectionEvent inf3("inf3", 10.0, dlas, plas);
-    InfectionEvent inf4("inf4", 10.0, dlas, plas);
+    auto infectionOrder = std::make_shared<Ordering>(std::vector{inf1, inf2, inf3, inf4});
 
-    Ordering infectionOrder({&inf1, &inf2, &inf3, &inf4});
-
-    OrderDerivedParentSet ps1(&infectionOrder, &inf1);
-    OrderDerivedParentSet ps2(&infectionOrder, &inf2);
-    OrderDerivedParentSet ps3(&infectionOrder, &inf3);
-    OrderDerivedParentSet ps4(&infectionOrder, &inf4);
+    auto ps1 = std::make_shared<OrderDerivedParentSet<InfectionEvent, Ordering>>(infectionOrder, inf1, std::vector{inf2, inf3, inf4});
+    auto ps2 = std::make_shared<OrderDerivedParentSet<InfectionEvent, Ordering>>(infectionOrder, inf2, std::vector{inf1, inf3, inf4});
+    auto ps3 = std::make_shared<OrderDerivedParentSet<InfectionEvent, Ordering>>(infectionOrder, inf3, std::vector{inf1, inf2, inf4});
+    auto ps4 = std::make_shared<OrderDerivedParentSet<InfectionEvent, Ordering>>(infectionOrder, inf4, std::vector{inf1, inf2, inf3});
 
 //    std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> lfas {
 //            {&as1, Simplex(as1.totalAlleles())},
 //            {&as2, Simplex(as2.totalAlleles())}
 //    };
 
-    AlleleFrequencyContainer afc;
-    afc.addLocus(as1);
-    afc.addLocus(as2);
+    auto afc = std::make_shared<AlleleFrequencyContainer>();
+    afc->addLocus(as1);
+    afc->addLocus(as2);
 
-    Parameter<double> ztmbProb(.3);
-    Parameter<double> ztmbAssoc(1.0);
-    COITransitionProbImpl ztmbCTP(ztmbProb, ztmbAssoc);
+    auto ztmbProb = std::make_shared<Parameter<double>>(.3);
+    auto ztmbAssoc = std::make_shared<Parameter<double>>(1.0);
+    auto ztmbCTP = std::make_shared<COITransitionProbImpl>(ztmbProb, ztmbAssoc);
 
-    Parameter<double> geoGenProb(.8);
-    InterTransmissionProbImpl geoGen(geoGenProb);
+    auto geoGenProb = std::make_shared<Parameter<double>>(.8);
+    auto geoGen = std::make_shared<InterTransmissionProbImpl>(geoGenProb);
 
-    NodeTransmissionImpl nodeTransmission(ztmbCTP, geoGen);
+    auto nodeTransmission = std::make_shared<NodeTransmissionImpl>(ztmbCTP, geoGen);
 
-    Parameter<double> geoCOIProb(.9);
-    COIProbabilityImpl geoCOI(geoCOIProb);
+    auto geoCOIProb = std::make_shared<Parameter<double>>(.9);
+    auto geoCOI = std::make_shared<COIProbabilityImpl>(geoCOIProb);
 
-    SourceTransmissionImpl mstp1(geoCOI, afc, inf1);
-    SourceTransmissionImpl mstp2(geoCOI, afc, inf2);
-    SourceTransmissionImpl mstp3(geoCOI, afc, inf3);
-    SourceTransmissionImpl mstp4(geoCOI, afc, inf4);
+    auto mstp1 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf1);
+    auto mstp2 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf2);
+    auto mstp3 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf3);
+    auto mstp4 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf4);
 
-    TransmissionProcess tp1(nodeTransmission, mstp1, inf1, ps1);
-    TransmissionProcess tp2(nodeTransmission, mstp2, inf2, ps2);
-    TransmissionProcess tp3(nodeTransmission, mstp3, inf3, ps3);
-    TransmissionProcess tp4(nodeTransmission, mstp4, inf4, ps4);
-
-
-    geoCOIProb.saveState("state1");
-    geoCOIProb.setValue(.5);
-    EXPECT_TRUE(geoCOI.isDirty());
-    EXPECT_TRUE(mstp1.isDirty());
-    EXPECT_TRUE(mstp2.isDirty());
-    EXPECT_TRUE(mstp3.isDirty());
-    EXPECT_TRUE(mstp4.isDirty());
-    EXPECT_TRUE(tp1.isDirty());
-    EXPECT_TRUE(tp2.isDirty());
-    EXPECT_TRUE(tp3.isDirty());
-    EXPECT_TRUE(tp4.isDirty());
-
-    geoCOIProb.acceptState();
-    EXPECT_FALSE(geoCOI.isDirty());
-    EXPECT_FALSE(mstp1.isDirty());
-    EXPECT_FALSE(mstp2.isDirty());
-    EXPECT_FALSE(mstp3.isDirty());
-    EXPECT_FALSE(mstp4.isDirty());
-    EXPECT_FALSE(tp1.isDirty());
-    EXPECT_FALSE(tp2.isDirty());
-    EXPECT_FALSE(tp3.isDirty());
-    EXPECT_FALSE(tp4.isDirty());
-
-    ztmbAssoc.saveState("state1");
-    ztmbAssoc.setValue(.5);
-    EXPECT_TRUE(ztmbCTP.isDirty());
-    EXPECT_TRUE(nodeTransmission.isDirty());
-    EXPECT_FALSE(mstp1.isDirty());
-    EXPECT_FALSE(mstp2.isDirty());
-    EXPECT_FALSE(mstp3.isDirty());
-    EXPECT_FALSE(mstp4.isDirty());
-    EXPECT_TRUE(tp1.isDirty());
-    EXPECT_TRUE(tp2.isDirty());
-    EXPECT_TRUE(tp3.isDirty());
-    EXPECT_TRUE(tp4.isDirty());
-    ztmbAssoc.acceptState();
-    EXPECT_FALSE(ztmbCTP.isDirty());
-    EXPECT_FALSE(mstp1.isDirty());
-    EXPECT_FALSE(mstp2.isDirty());
-    EXPECT_FALSE(mstp3.isDirty());
-    EXPECT_FALSE(mstp4.isDirty());
-    EXPECT_FALSE(tp1.isDirty());
-    EXPECT_FALSE(tp2.isDirty());
-    EXPECT_FALSE(tp3.isDirty());
-    EXPECT_FALSE(tp4.isDirty());
+    auto tp1 = std::make_shared<TransmissionProcess>(nodeTransmission, mstp1, inf1, ps1);
+    auto tp2 = std::make_shared<TransmissionProcess>(nodeTransmission, mstp2, inf2, ps2);
+    auto tp3 = std::make_shared<TransmissionProcess>(nodeTransmission, mstp3, inf3, ps3);
+    auto tp4 = std::make_shared<TransmissionProcess>(nodeTransmission, mstp4, inf4, ps4);
 
 
-    ztmbProb.saveState("state1");
-    ztmbProb.setValue(.5);
-    EXPECT_TRUE(ztmbCTP.isDirty());
-    EXPECT_TRUE(nodeTransmission.isDirty());
-    EXPECT_FALSE(mstp1.isDirty());
-    EXPECT_FALSE(mstp2.isDirty());
-    EXPECT_FALSE(mstp3.isDirty());
-    EXPECT_FALSE(mstp4.isDirty());
-    EXPECT_TRUE(tp1.isDirty());
-    EXPECT_TRUE(tp2.isDirty());
-    EXPECT_TRUE(tp3.isDirty());
-    EXPECT_TRUE(tp4.isDirty());
-    ztmbProb.acceptState();
-    EXPECT_FALSE(ztmbCTP.isDirty());
-    EXPECT_FALSE(mstp1.isDirty());
-    EXPECT_FALSE(mstp2.isDirty());
-    EXPECT_FALSE(mstp3.isDirty());
-    EXPECT_FALSE(mstp4.isDirty());
-    EXPECT_FALSE(tp1.isDirty());
-    EXPECT_FALSE(tp2.isDirty());
-    EXPECT_FALSE(tp3.isDirty());
-    EXPECT_FALSE(tp4.isDirty());
+    geoCOIProb->saveState("state1");
+    geoCOIProb->setValue(.5);
+    EXPECT_TRUE(geoCOI->isDirty());
+    EXPECT_TRUE(mstp1->isDirty());
+    EXPECT_TRUE(mstp2->isDirty());
+    EXPECT_TRUE(mstp3->isDirty());
+    EXPECT_TRUE(mstp4->isDirty());
+    EXPECT_TRUE(tp1->isDirty());
+    EXPECT_TRUE(tp2->isDirty());
+    EXPECT_TRUE(tp3->isDirty());
+    EXPECT_TRUE(tp4->isDirty());
 
-    geoGenProb.saveState("state1");
-    geoGenProb.setValue(.25);
-    EXPECT_TRUE(tp1.isDirty());
-    EXPECT_TRUE(tp2.isDirty());
-    EXPECT_TRUE(tp3.isDirty());
-    EXPECT_TRUE(tp4.isDirty());
-    geoGenProb.acceptState();
-    EXPECT_FALSE(tp1.isDirty());
-    EXPECT_FALSE(tp2.isDirty());
-    EXPECT_FALSE(tp3.isDirty());
-    EXPECT_FALSE(tp4.isDirty());
+    geoCOIProb->acceptState();
+    EXPECT_FALSE(geoCOI->isDirty());
+    EXPECT_FALSE(mstp1->isDirty());
+    EXPECT_FALSE(mstp2->isDirty());
+    EXPECT_FALSE(mstp3->isDirty());
+    EXPECT_FALSE(mstp4->isDirty());
+    EXPECT_FALSE(tp1->isDirty());
+    EXPECT_FALSE(tp2->isDirty());
+    EXPECT_FALSE(tp3->isDirty());
+    EXPECT_FALSE(tp4->isDirty());
 
-    afc.alleleFrequencies(as1).saveState("state1");
-    afc.alleleFrequencies(as1).setValue(Simplex({.01, .01, .999996, .01, .01}));
-    EXPECT_TRUE(tp1.isDirty());
-    EXPECT_TRUE(tp2.isDirty());
-    EXPECT_TRUE(tp3.isDirty());
-    EXPECT_TRUE(tp4.isDirty());
-    afc.alleleFrequencies(as1).acceptState();
-    EXPECT_FALSE(tp1.isDirty());
-    EXPECT_FALSE(tp2.isDirty());
-    EXPECT_FALSE(tp3.isDirty());
-    EXPECT_FALSE(tp4.isDirty());
-
-
-    afc.alleleFrequencies(as2).saveState("state1");
-    afc.alleleFrequencies(as2).setValue(Simplex({.01, .01, .9999999996, .01, .01, .01}));
-    EXPECT_TRUE(tp1.isDirty());
-    EXPECT_TRUE(tp2.isDirty());
-    EXPECT_TRUE(tp3.isDirty());
-    EXPECT_TRUE(tp4.isDirty());
-    afc.alleleFrequencies(as2).acceptState();
-    EXPECT_FALSE(tp1.isDirty());
-    EXPECT_FALSE(tp2.isDirty());
-    EXPECT_FALSE(tp3.isDirty());
-    EXPECT_FALSE(tp4.isDirty());
+    ztmbAssoc->saveState("state1");
+    ztmbAssoc->setValue(.5);
+    EXPECT_TRUE(ztmbCTP->isDirty());
+    EXPECT_TRUE(nodeTransmission->isDirty());
+    EXPECT_FALSE(mstp1->isDirty());
+    EXPECT_FALSE(mstp2->isDirty());
+    EXPECT_FALSE(mstp3->isDirty());
+    EXPECT_FALSE(mstp4->isDirty());
+    EXPECT_TRUE(tp1->isDirty());
+    EXPECT_TRUE(tp2->isDirty());
+    EXPECT_TRUE(tp3->isDirty());
+    EXPECT_TRUE(tp4->isDirty());
+    ztmbAssoc->acceptState();
+    EXPECT_FALSE(ztmbCTP->isDirty());
+    EXPECT_FALSE(mstp1->isDirty());
+    EXPECT_FALSE(mstp2->isDirty());
+    EXPECT_FALSE(mstp3->isDirty());
+    EXPECT_FALSE(mstp4->isDirty());
+    EXPECT_FALSE(tp1->isDirty());
+    EXPECT_FALSE(tp2->isDirty());
+    EXPECT_FALSE(tp3->isDirty());
+    EXPECT_FALSE(tp4->isDirty());
 
 
-    infectionOrder.saveState("state1");
-    infectionOrder.swap(2, 3);
-    EXPECT_FALSE(tp1.isDirty());
-    EXPECT_FALSE(tp2.isDirty());
-    EXPECT_TRUE(tp3.isDirty());
-    EXPECT_TRUE(tp4.isDirty());
-    infectionOrder.acceptState();
-    EXPECT_FALSE(tp1.isDirty());
-    EXPECT_FALSE(tp2.isDirty());
-    EXPECT_FALSE(tp3.isDirty());
-    EXPECT_FALSE(tp4.isDirty());
+    ztmbProb->saveState("state1");
+    ztmbProb->setValue(.5);
+    EXPECT_TRUE(ztmbCTP->isDirty());
+    EXPECT_TRUE(nodeTransmission->isDirty());
+    EXPECT_FALSE(mstp1->isDirty());
+    EXPECT_FALSE(mstp2->isDirty());
+    EXPECT_FALSE(mstp3->isDirty());
+    EXPECT_FALSE(mstp4->isDirty());
+    EXPECT_TRUE(tp1->isDirty());
+    EXPECT_TRUE(tp2->isDirty());
+    EXPECT_TRUE(tp3->isDirty());
+    EXPECT_TRUE(tp4->isDirty());
+    ztmbProb->acceptState();
+    EXPECT_FALSE(ztmbCTP->isDirty());
+    EXPECT_FALSE(mstp1->isDirty());
+    EXPECT_FALSE(mstp2->isDirty());
+    EXPECT_FALSE(mstp3->isDirty());
+    EXPECT_FALSE(mstp4->isDirty());
+    EXPECT_FALSE(tp1->isDirty());
+    EXPECT_FALSE(tp2->isDirty());
+    EXPECT_FALSE(tp3->isDirty());
+    EXPECT_FALSE(tp4->isDirty());
+
+    geoGenProb->saveState("state1");
+    geoGenProb->setValue(.25);
+    EXPECT_TRUE(tp1->isDirty());
+    EXPECT_TRUE(tp2->isDirty());
+    EXPECT_TRUE(tp3->isDirty());
+    EXPECT_TRUE(tp4->isDirty());
+    geoGenProb->acceptState();
+    EXPECT_FALSE(tp1->isDirty());
+    EXPECT_FALSE(tp2->isDirty());
+    EXPECT_FALSE(tp3->isDirty());
+    EXPECT_FALSE(tp4->isDirty());
+
+    afc->alleleFrequencies(as1)->saveState("state1");
+    afc->alleleFrequencies(as1)->setValue(Simplex({.01, .01, .999996, .01, .01}));
+    EXPECT_TRUE(tp1->isDirty());
+    EXPECT_TRUE(tp2->isDirty());
+    EXPECT_TRUE(tp3->isDirty());
+    EXPECT_TRUE(tp4->isDirty());
+    afc->alleleFrequencies(as1)->acceptState();
+    EXPECT_FALSE(tp1->isDirty());
+    EXPECT_FALSE(tp2->isDirty());
+    EXPECT_FALSE(tp3->isDirty());
+    EXPECT_FALSE(tp4->isDirty());
+
+
+    afc->alleleFrequencies(as2)->saveState("state1");
+    afc->alleleFrequencies(as2)->setValue(Simplex({.01, .01, .9999999996, .01, .01, .01}));
+    EXPECT_TRUE(tp1->isDirty());
+    EXPECT_TRUE(tp2->isDirty());
+    EXPECT_TRUE(tp3->isDirty());
+    EXPECT_TRUE(tp4->isDirty());
+    afc->alleleFrequencies(as2)->acceptState();
+    EXPECT_FALSE(tp1->isDirty());
+    EXPECT_FALSE(tp2->isDirty());
+    EXPECT_FALSE(tp3->isDirty());
+    EXPECT_FALSE(tp4->isDirty());
+
+
+    infectionOrder->saveState("state1");
+    infectionOrder->swap(2, 3);
+    EXPECT_FALSE(tp1->isDirty());
+    EXPECT_FALSE(tp2->isDirty());
+    EXPECT_TRUE(tp3->isDirty());
+    EXPECT_TRUE(tp4->isDirty());
+    infectionOrder->acceptState();
+    EXPECT_FALSE(tp1->isDirty());
+    EXPECT_FALSE(tp2->isDirty());
+    EXPECT_FALSE(tp3->isDirty());
+    EXPECT_FALSE(tp4->isDirty());
 
 }

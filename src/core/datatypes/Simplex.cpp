@@ -3,7 +3,9 @@
 //
 
 #include "Simplex.h"
+
 #include "core/io/serialize.h"
+
 
 namespace transmission_nets::core::datatypes {
 
@@ -96,6 +98,12 @@ namespace transmission_nets::core::datatypes {
         std::stringstream ss;
         ss << core::io::serialize(coefficients_);
         return ss.str();
+    }
+
+    Simplex::Simplex() {
+        total_elements_ = 0;
+        min_ = 0;
+        max_ = 0;
     }
 
 }

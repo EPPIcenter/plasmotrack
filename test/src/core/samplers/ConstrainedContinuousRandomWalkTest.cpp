@@ -23,17 +23,17 @@ TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {
                                  public core::abstract::Cacheable<BernoulliTestTarget>,
                                  public core::abstract::Checkpointable<BernoulliTestTarget, core::computation::Likelihood>  {
 
-        explicit BernoulliTestTarget(core::parameters::Parameter<double> &prob) : prob_(prob) {
+        explicit BernoulliTestTarget(std::shared_ptr<core::parameters::Parameter<double>> prob) : prob_(std::move(prob)) {
             boost::random::bernoulli_distribution<> dist{TEST_PROB};
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
                 data_.push_back(dist(r));
             }
 
-            prob_.registerCacheableCheckpointTarget(this);
-            prob_.add_post_change_listener([=, this]() {
+            prob_->registerCacheableCheckpointTarget(this);
+            prob_->add_post_change_listener([=, this]() {
                 dirty = true;
             });
-            value_ = calculateValue(data_, prob_.value());
+            value_ = calculateValue(data_, prob_->value());
         };
 
         [[nodiscard]] bool isDirty() const {
@@ -42,7 +42,7 @@ TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {
 
         core::computation::Likelihood value() override {
             if (dirty) {
-                value_ = calculateValue(data_, prob_.value());
+                value_ = calculateValue(data_, prob_->value());
                 dirty = false;
             }
             return value_;
@@ -58,18 +58,18 @@ TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {
         }
 
         boost::random::mt19937 r;
-        core::parameters::Parameter<double> &prob_;
+        std::shared_ptr<core::parameters::Parameter<double>> prob_;
         std::vector<double> data_;
         core::computation::Likelihood value_;
         bool dirty{true};
     };
 
-    core::parameters::Parameter<double> myProb(.5);
-    BernoulliTestTarget myTestTar(myProb);
-    boost::random::mt19937 r;
+    auto myProb = std::make_shared<core::parameters::Parameter<double>>(.5);
+    auto myTestTar = std::make_shared<BernoulliTestTarget>(myProb);
+    auto r = std::make_shared<boost::random::mt19937>();
 
 //    ConstrainedContinuousRandomWalk<0, 1> sampler2(myProb, myTestTar, &r, .01);
-    core::samplers::ConstrainedContinuousRandomWalk<BernoulliTestTarget, boost::random::mt19937> sampler(myProb, myTestTar, 0, 1, &r, .01);
+    core::samplers::ConstrainedContinuousRandomWalk<BernoulliTestTarget, boost::random::mt19937> sampler(myProb, myTestTar, 0, 1, r, .01);
 
     int i = 20000;
     while (i > 0) {
@@ -83,7 +83,7 @@ TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {
     while (i > 0) {
         i--;
         sampler.update();
-        results(i) = myProb.value();
+        results(i) = myProb->value();
     }
 
     auto resultsMean = results.mean();

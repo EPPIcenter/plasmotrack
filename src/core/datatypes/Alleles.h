@@ -14,16 +14,7 @@ namespace transmission_nets::core::datatypes {
     class AllelesBitSet {
     public:
         explicit AllelesBitSet(const std::string &bitstr);
-
-//    AllelesBitSet& operator=(AllelesBitSet other) {
-//        assert(total_alleles_ == other.total_alleles_);
-//        if(&other == this) {
-//            return *this;
-//        }
-//
-//        alleles_ = other.alleles_;
-//        return *this;
-//    }
+        AllelesBitSet();
 
         template<int T>
         friend std::ostream &operator<<(std::ostream &os, const AllelesBitSet<T> &alleles) noexcept;
@@ -61,8 +52,8 @@ namespace transmission_nets::core::datatypes {
         [[nodiscard]] inline constexpr bool allele(size_t pos) const noexcept;
 
     private:
-        unsigned int total_alleles_;
-        std::bitset<MaxAlleles> alleles_;
+        unsigned int total_alleles_ = 0;
+        std::bitset<MaxAlleles> alleles_{};
     };
 
     template<int MaxAlleles>
@@ -159,6 +150,11 @@ namespace transmission_nets::core::datatypes {
     template<int MaxAlleles>
     std::string AllelesBitSet<MaxAlleles>::serialize() const noexcept {
         return allelesStr();
+    }
+    template<int MaxAlleles>
+    AllelesBitSet<MaxAlleles>::AllelesBitSet() {
+        total_alleles_ = 0;
+        alleles_ = std::bitset<MaxAlleles>{};
     }
 }
 

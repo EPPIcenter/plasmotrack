@@ -9,6 +9,7 @@
 #include <boost/random.hpp>
 #include <boost/math/distributions.hpp>
 #include <cmath>
+#include <utility>
 
 #include "core/parameters/Parameter.h"
 
@@ -22,12 +23,12 @@ namespace transmission_nets::core::samplers {
     class ContinuousRandomWalk : public AbstractSampler {
 
     public:
-        ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng) noexcept;
+        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, std::string identifier="") noexcept;
 
-        ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng, double variance) noexcept;
+        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, std::string identifier = "") noexcept;
 
-        ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng, double variance, double minVariance,
-                             double maxVariance) noexcept;
+        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, double minVariance,
+                             double maxVariance, std::string identifier = "") noexcept;
 
 
         [[nodiscard]] unsigned int acceptances() const noexcept;
@@ -53,10 +54,15 @@ namespace transmission_nets::core::samplers {
 
         void adapt(unsigned int idx) noexcept override;
 
+        void setVerbose(bool verbose = true) {
+            verbose_ = verbose;
+        }
+
+
     protected:
-        parameters::Parameter<double> &parameter_;
-        T &target_;
-        Engine *rng_;
+        std::shared_ptr<parameters::Parameter<double>> parameter_;
+        std::shared_ptr<T> target_;
+        std::shared_ptr<Engine> rng_;
         double variance_ = 1;
         double min_variance_ = 1e-12;
         double max_variance_ = 1e6;
@@ -71,71 +77,65 @@ namespace transmission_nets::core::samplers {
         unsigned int rejections_ = 0;
         unsigned int total_updates_ = 0;
 
+        bool verbose_ = false;
+        std::string identifier_;
+
     };
 
     template<typename T, typename Engine, typename U>
-    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng) noexcept
-            : parameter_(parameter),
-              target_(target), rng_(rng) {}
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, std::string identifier) noexcept
+            : parameter_(std::move(parameter)),
+              target_(target), rng_(rng), identifier_(std::move(identifier)) {}
 
     template<typename T, typename Engine, typename U>
-    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng,
-                                                          double variance) noexcept : parameter_(
-            parameter), target_(target), rng_(rng), variance_(variance) {
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
+                                                          double variance, std::string identifier) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance), identifier_(std::move(identifier)) {
         assert(variance > 0);
     }
 
     template<typename T, typename Engine, typename U>
-    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(parameters::Parameter<double> &parameter, T &target, Engine *rng,
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
                                                           double variance, double minVariance,
-                                                          double maxVariance) noexcept :
-            parameter_(parameter), target_(target), rng_(rng), variance_(variance), min_variance_(minVariance),
-            max_variance_(maxVariance) {}
+                                                          double maxVariance, std::string identifier) noexcept :
+                                                          parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance), min_variance_(minVariance),
+            max_variance_(maxVariance), identifier_(std::move(identifier)) {}
 
     template<typename T, typename Engine, typename U>
     void ContinuousRandomWalk<T, Engine, U>::update() noexcept {
         const std::string stateId = "ContinuousRW";
-        Likelihood curLik = target_.value();
-        parameter_.saveState(stateId);
+        Likelihood curLik = target_->value();
+        parameter_->saveState(stateId);
 
-        const double currentVal = parameter_.value();
+        const double currentVal = parameter_->value();
         const double proposal = sampleProposal();
 
-//        double k = 0.05;
-//        std::cout << "Grad: ";
-//        while(k <= .95) {
-//            parameter_.saveState("test");
-//            parameter_.setValue(k);
-//            std::cout << "(" << k << " " << target_.value() << "), ";
-//            parameter_.restoreState("test");
-//            k += .05;
-//        }
-//        std::cout << std::endl;
-
-        assert(!target_.isDirty());
-        parameter_.setValue(proposal);
-//        assert(target_.isDirty());
+        assert(!target_->isDirty());
+        parameter_->setValue(proposal);
         const Likelihood adj = logMetropolisHastingsAdjustment(currentVal, proposal);
 
 
-        const Likelihood acceptanceRatio = target_.value() - curLik + adj;
-        assert(!target_.isDirty());
-//        std::cout << "Curr: " << currentVal << std::endl;
-//        std::cout << "Prop: " << proposal << std::endl;
-//        std::cout << "Var: " << variance() << std::endl;
-//        std::cout << "LLik: " << curLik << " " << target_.value() << " " << adj << " " << acceptanceRatio << std::endl;
-//        std::cout << "----------------------------------------------------" << std::endl;
-        const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
+        const Likelihood acceptanceRatio = target_->value() - curLik + adj;
+        assert(!target_->isDirty());
+        if(verbose_) {
+            std::cout << "ID:" << identifier_ << std::endl;
+            std::cout << "Curr: " << currentVal << std::endl;
+            std::cout << "Prop: " << proposal << std::endl;
+            std::cout << "Var: " << variance() << std::endl;
+            std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << " " << acceptanceRatio << std::endl;
+            std::cout << "----------------------------------------------------" << std::endl;
+        }
+       const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
         if (accept) {
             acceptances_ += 1;
-            parameter_.acceptState();
+            parameter_->acceptState();
         } else {
             rejections_ += 1;
-            parameter_.restoreState(stateId);
-            assert(curLik == target_.value());
+            parameter_->restoreState(stateId);
+            assert(curLik == target_->value());
         }
-        assert(!target_.isDirty());
+        assert(!std::isinf(target_->value()));
+        assert(!target_->isDirty());
 
         total_updates_++;
     }
@@ -169,7 +169,7 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine, typename U>
     double ContinuousRandomWalk<T, Engine, U>::sampleProposal() noexcept {
-        return parameter_.value() + normal_dist_(*rng_) * variance_;
+        return parameter_->value() + normal_dist_(*rng_) * variance_;
     }
 
     template<typename T, typename Engine, typename U>

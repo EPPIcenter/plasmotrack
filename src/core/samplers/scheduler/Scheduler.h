@@ -7,29 +7,24 @@
 
 #include <vector>
 #include <numeric>
+#include <memory>
 
-#include "AbstractSampler.h"
+#include "core/samplers/AbstractSampler.h"
 
 namespace transmission_nets::core::samplers {
 
     struct ScheduledSampler {
-
-        AbstractSampler* sampler{};
-
-        int adaptationStart = 0;
-        int adaptationEnd = 0;
+        std::unique_ptr<AbstractSampler> sampler;
+        int adaptationStart = -1;
+        int adaptationEnd = -1;
         bool scaledAdaptation{false};
-
-        int updateStart = 0;
+        int updateStart = -1;
         int updateEnd = std::numeric_limits<int>::infinity();
-
-        int updateFrequency = 1;
+        int updateFrequency = 0;
 
         void update() const;
-
         void adapt() const;
-
-        void adapt(int step) const;
+        void adapt(unsigned int step) const;
     };
 
 
@@ -44,13 +39,12 @@ namespace transmission_nets::core::samplers {
     class Scheduler {
 
     public:
-        void registerSampler(AbstractSampler* sampler);
-
+        void registerSampler(std::unique_ptr<AbstractSampler> sampler);
         void registerSampler(ScheduledSampler sampler);
 
-        void update(const ScheduledSampler & sampler) const;
+        void update(ScheduledSampler& sampler) const;
 
-        void adapt(const ScheduledSampler & sampler) const;
+        void adapt(ScheduledSampler& sampler) const;
 
         void step();
 

@@ -1,27 +1,19 @@
 cmake_minimum_required(VERSION 3.17)
 project(transmission_networks)
 
-
-find_package(Boost 1.76 REQUIRED container math_c99l random filesystem)
-find_package(Eigen3 REQUIRED)
+find_package(Boost 1.74 REQUIRED container math_c99l random program_options)
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(fmt REQUIRED)
+
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-
-
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
-
-set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
-message("Loading Eigen from $ENV{EIGEN3_INCLUDE_DIR}")
-if (NOT EIGEN3_INCLUDE_DIR)
-    message(FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
-endif ()
-include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
 
 set(SOURCE_FILES
         core/computation/PartialLikelihood.cpp
@@ -33,25 +25,25 @@ set(SOURCE_FILES
         core/samplers/genetics/RandomAllelesBitSetSampler.h
         core/utils/generators/RandomSequence.h
         core/datatypes/Simplex.cpp
-        core/samplers/Scheduler.cpp
-        core/samplers/Scheduler.h
+        core/samplers/scheduler/Scheduler.cpp
+        core/samplers/scheduler/Scheduler.h
         impl/state/ModelOneState.cpp
         impl/state/ModelOneState.h
         impl/model/ModelOne.cpp
         impl/model/ModelOne.h
-        core/computation/Transformers/Transformer.h
-        core/computation/Transformers/LogTransformer.h
+        core/computation/transformers/Transformer.h
+        core/computation/transformers/LogTransformer.h
         core/utils/generators/CombinationsWithRepetitionsGenerator.cpp
         core/utils/generators/CombinationsWithRepetitionsGenerator.h
         core/priors/Prior.h
         core/io/parse_json.h
         core/io/loggers/FileOutput.h
-        core/io/Loggers/ValueLogger.h
+        core/io/loggers/ValueLogger.h
         core/io/serialize.h
         core/io/loggers/FileOutput.cpp
-        core/samplers/RandomizedScheduler.h
-        core/io/path_parsing.cpp
-        core/io/path_parsing.h
+        core/samplers/scheduler/RandomizedScheduler.h
+        core/io/utils.cpp
+        core/io/utils.h
         model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h
         model/transmission_process/NetworkBasedTransmissionProcess.h
         impl/model/ModelTwo.cpp
@@ -64,7 +56,7 @@ set(SOURCE_FILES
         impl/model/ModelThree.h
         impl/state/ModelThreeState.cpp
         impl/state/ModelThreeState.h
-        core/io/Loggers/LambdaLogger.h
+        core/io/loggers/LambdaLogger.h
         core/samplers/topology/RandomReverseEdgeSampler.h
         core/utils/ProbAnyMissing.h
         model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h
@@ -89,14 +81,25 @@ set(SOURCE_FILES
         core/computation/ObservationTimeDerivedOrdering.h
         impl/model/ModelFive.cpp impl/model/ModelFive.h
         core/utils/LogPQ.cpp
-        core/utils/LogPQ.h core/io/loggers/MultiValueLogger.h)
+        core/utils/LogPQ.h
+        core/io/loggers/MultiValueLogger.h
+        core/computation/transformers/Tempered.h
+        core/samplers/meta/ReplicaExchange.h
+        impl/model/ModelFive/State.cpp
+        impl/model/ModelFive/State.h
+        impl/model/ModelFive/Model.cpp
+        impl/model/ModelFive/Model.h
+        impl/model/ModelFive/config.h
+        impl/model/ModelFive/SampleScheduler.h
+        impl/model/ModelFive/StateLogger.cpp
+        impl/model/ModelFive/StateLogger.h
+        impl/model/ModelFive/ModelLogger.cpp
+        impl/model/ModelFive/ModelLogger.h
+        )
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})
-target_link_libraries(transmission_networks PRIVATE nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX)
-#target_link_libraries(transmission_networks PRIVATE )
-#target_link_libraries(transmission_networks)
+target_link_libraries(transmission_networks PRIVATE nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX Eigen3::Eigen fmt::fmt)
 
-#target_link_libraries(transmission_networks transmission_network_model)
 
 install(TARGETS transmission_networks DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

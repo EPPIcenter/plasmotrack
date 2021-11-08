@@ -10,24 +10,26 @@ using namespace transmission_nets::core::parameters;
 using namespace transmission_nets::core::computation;
 
 TEST(OrderDerivedParentSetTest, HandlesReorder) {
-    int el1 = 1;
-    int el2 = 2;
-    int el3 = 3;
-    int el4 = 4;
+    auto el1 = std::make_shared<int>(1);
+    auto el2 = std::make_shared<int>(2);
+    auto el3 = std::make_shared<int>(3);
+    auto el4 = std::make_shared<int>(4);
 
-    Ordering<int> ordering({&el1, &el2, &el3, &el4});
-    OrderDerivedParentSet ops(&ordering, &el1);
-    ASSERT_EQ(ops.value().size(), 0);
+    auto ordering = std::make_shared<Ordering<int>>(std::vector{el1, el2, el3, el4});
+    auto ops = std::make_shared<OrderDerivedParentSet<int, Ordering<int>>>(ordering, el1);
+    ops->addAllowedParents({el2, el3, el4});
+    ASSERT_EQ(ops->value().size(), 0);
 
-    ordering.saveState("state1");
-    ordering.swap(0, 1);
-    ASSERT_EQ(ops.value().size(), 1);
-    ordering.acceptState();
+    ordering->saveState("state1");
+    ordering->swap(0, 1);
+    auto tmp = ops->value();
+    ASSERT_EQ(ops->value().size(), 1);
+    ordering->acceptState();
 
-    ordering.saveState("state1");
-    ordering.swap(1, 2);
-    ASSERT_EQ(ops.value().size(), 2);
-    ordering.restoreState("state1");
-    ASSERT_EQ(ops.value().size(), 1);
+    ordering->saveState("state1");
+    ordering->swap(1, 2);
+    ASSERT_EQ(ops->value().size(), 2);
+    ordering->restoreState("state1");
+    ASSERT_EQ(ops->value().size(), 1);
 
 }

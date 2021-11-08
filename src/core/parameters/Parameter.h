@@ -2,8 +2,8 @@
 // Created by Maxwell Murphy on 1/22/20.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_PARAMETER3_H
-#define TRANSMISSION_NETWORKS_APP_PARAMETER3_H
+#ifndef TRANSMISSION_NETWORKS_APP_PARAMETER_H
+#define TRANSMISSION_NETWORKS_APP_PARAMETER_H
 
 #include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/Uncacheable.h"
@@ -22,18 +22,13 @@ namespace transmission_nets::core::parameters {
     public:
 
         template <typename Args, ENABLE_IF(core::utils::NonSelf<Args, Parameter<T>>())>
-        explicit Parameter(Args&& args) : value_(std::forward<Args>(args)) {
-//        std::cout << "parameter forwarded c'tor" << std::endl;
-        }
+        explicit Parameter(Args&& args) : value_(std::forward<Args>(args)) {}
 
         template<typename T0>
-        Parameter(const std::initializer_list<T0> il) : value_(il) {
-//        std::cout << "initializer list constructor" << std::endl;
-        }
+        Parameter(const std::initializer_list<T0> il) : value_(il) {}
 
-        Parameter() {
-//        std::cout << "parameter empty c'tor" << std::endl;
-        }
+        Parameter()  = default;
+
 
         void setLabel(const std::string& label) noexcept {
             label_ = label;
@@ -50,9 +45,10 @@ namespace transmission_nets::core::parameters {
         T value_{};
         std::string label_{};
     };
+
 }
 
 
 
 
-#endif //TRANSMISSION_NETWORKS_APP_PARAMETER3_H
+#endif //TRANSMISSION_NETWORKS_APP_PARAMETER_H

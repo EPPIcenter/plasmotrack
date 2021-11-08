@@ -5,8 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ORDERDERIVEDPARENTSET_H
 #define TRANSMISSION_NETWORKS_APP_ORDERDERIVEDPARENTSET_H
 
-#include <iostream>
-#include <set>
 
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
@@ -14,6 +12,12 @@
 #include "core/computation/Computation.h"
 #include "core/containers/ParentSet.h"
 #include "core/parameters/Ordering.h"
+
+#include <fmt/core.h>
+
+#include <iostream>
+#include <set>
+#include <memory>
 
 
 namespace transmission_nets::core::computation {
@@ -24,83 +28,81 @@ namespace transmission_nets::core::computation {
                                   public abstract::Cacheable<OrderDerivedParentSet<ElementType, OrderingImpl>>,
                                   public abstract::Checkpointable<OrderDerivedParentSet<ElementType, OrderingImpl>, containers::ParentSet<ElementType>> {
 
-        using ElementAddedCallback = std::function<void(ElementType *element)>;
-        using ElementRemovedCallback = std::function<void(ElementType *element)>;
+        using ElementAddedCallback = std::function<void(std::shared_ptr<ElementType> element)>;
+        using ElementRemovedCallback = std::function<void(std::shared_ptr<ElementType> element)>;
 
     protected:
         CREATE_EVENT(element_added, ElementAddedCallback)
         CREATE_EVENT(element_removed, ElementRemovedCallback)
 
     public:
-        explicit OrderDerivedParentSet(OrderingImpl *ordering, ElementType *child);
+        explicit OrderDerivedParentSet(std::shared_ptr<OrderingImpl> ordering,
+                                       std::shared_ptr<ElementType> child,
+                                       const std::vector<std::shared_ptr<ElementType>>& allowedParents = {});
         containers::ParentSet<ElementType> value() noexcept override;
-        void addAllowedParent(ElementType* p);
-        void addAllowedParents(std::vector<ElementType*> p);
-        void removeAllowedParent(ElementType* p);
+        void addAllowedParent(std::shared_ptr<ElementType> p);
+        void addAllowedParents(const std::vector<std::shared_ptr<ElementType>>& p);
         void serialize() noexcept;
 
     protected:
         friend class abstract::Checkpointable<OrderDerivedParentSet<ElementType, OrderingImpl>, containers::ParentSet<ElementType>>;
         friend class abstract::Cacheable<OrderDerivedParentSet<ElementType, OrderingImpl>>;
 
-        std::set<ElementType *> allowedParents_{};
-        OrderingImpl *ordering_;
-        ElementType *child_;
+        std::set<std::shared_ptr<ElementType>> allowedParents_{};
+        std::shared_ptr<OrderingImpl> ordering_;
+        std::shared_ptr<ElementType> child_;
     };
 
 
     template<typename ElementType, typename OrderingImpl>
-    OrderDerivedParentSet<ElementType, OrderingImpl>::OrderDerivedParentSet(OrderingImpl *ordering, ElementType *child) : ordering_(ordering), child_(child) {
+    OrderDerivedParentSet<ElementType, OrderingImpl>::OrderDerivedParentSet(std::shared_ptr<OrderingImpl> ordering, std::shared_ptr<ElementType> child, const std::vector<std::shared_ptr<ElementType>>& allowedParents) : ordering_(std::move(ordering)), child_(std::move(child)) {
         ordering_->registerCacheableCheckpointTarget(this);
 
-        ordering_->add_keyed_moved_left_listener(child_, [=, this](ElementType *element) {
+        ordering_->add_keyed_moved_left_listener(child_, [=, this](std::shared_ptr<ElementType> element) {
             if (allowedParents_.contains(element)) {
                 this->setDirty();
                 this->value_.insert(element);
-                notify_element_added(element);
+                this->notify_element_added(element);
             }
         });
 
-        ordering_->add_keyed_moved_right_listener(child_, [=, this](ElementType *element) {
+        ordering_->add_keyed_moved_right_listener(child_, [=, this](std::shared_ptr<ElementType> element) {
             if (allowedParents_.contains(element)) {
                 this->setDirty();
                 this->value_.erase(element);
-                notify_element_removed(element);
+                this->notify_element_removed(element);
             }
         });
 
+        this->addAllowedParents(allowedParents);
+
         // Initialize the current parent set from the ordering
         for (auto &el : ordering_->value()) {
-            if (el != child_ and allowedParents_.contains(el)) {
-                this->value_.insert(el);
+            if (el != child_) {
+                if (allowedParents_.contains(el)) {
+                    this->value_.insert(el);
+                }
             } else {
-                this->setClean();
                 break;
             }
         }
-
         this->setDirty();
     }
 
     template<typename ElementType, typename OrderingImpl>
-    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParent(ElementType *p) {
-        allowedParents_.insert(p);
-//        if(!(this->value_.contains(p))) {
-//            this->value_.insert(p);
-//        }
-    }
-
-    template<typename ElementType, typename OrderingImpl>
-    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParents(std::vector<ElementType*> p) {
-        for (const auto el : p) {
-           addAllowedParent(el);
+    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParent(std::shared_ptr<ElementType> p) {
+        if (p != child_) {
+            allowedParents_.insert(p);
         }
     }
 
     template<typename ElementType, typename OrderingImpl>
-    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::removeAllowedParent(ElementType *p) {
-        allowedParents_.erase(p);
+    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParents(const std::vector<std::shared_ptr<ElementType>>& p) {
+        for (auto el : p) {
+           addAllowedParent(std::move(el));
+        }
     }
+
 
     template<typename ElementType, typename OrderingImpl>
     containers::ParentSet<ElementType> computation::OrderDerivedParentSet<ElementType, OrderingImpl>::value() noexcept {

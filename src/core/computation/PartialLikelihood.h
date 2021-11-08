@@ -20,9 +20,6 @@ namespace transmission_nets::core::computation {
                               public abstract::Checkpointable<PartialLikelihood, Likelihood> {
     public:
 
-//    explicit PartialLikelihood() = default;
-
-        virtual Likelihood value() override = 0;
         virtual std::string identifier() = 0;
 
     protected:

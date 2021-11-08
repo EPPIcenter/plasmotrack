@@ -32,36 +32,36 @@ namespace transmission_nets::model::observation_process {
     public:
         AlleleCounts value() noexcept override;
 
-        AlleleCounter(core::parameters::Parameter<GeneticsImpl> &latentGenetics, core::datatypes::Data<GeneticsImpl> &observedGenetics);
+        AlleleCounter(std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics, std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics);
 
     private:
         friend class core::abstract::Checkpointable<AlleleCounter<GeneticsImpl>, AlleleCounts>;
 
         friend class core::abstract::Cacheable<AlleleCounter<GeneticsImpl>>;
 
-        core::parameters::Parameter<GeneticsImpl> &latent_genetics_;
-        core::datatypes::Data<GeneticsImpl> &observed_genetics_;
+        std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latent_genetics_;
+        std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observed_genetics_;
 
     };
 
     template<typename GeneticsImpl>
     AlleleCounts AlleleCounter<GeneticsImpl>::value() noexcept {
         if (this->isDirty()) {
-            value_.true_positive_count = truePositiveCount(latent_genetics_.value(), observed_genetics_.value());
-            value_.false_positive_count = falsePositiveCount(latent_genetics_.value(), observed_genetics_.value());
-            value_.true_negative_count = trueNegativeCount(latent_genetics_.value(), observed_genetics_.value());
-            value_.false_negative_count = falseNegativeCount(latent_genetics_.value(), observed_genetics_.value());
+            value_.true_positive_count = truePositiveCount(latent_genetics_->value(), observed_genetics_->value());
+            value_.false_positive_count = falsePositiveCount(latent_genetics_->value(), observed_genetics_->value());
+            value_.true_negative_count = trueNegativeCount(latent_genetics_->value(), observed_genetics_->value());
+            value_.false_negative_count = falseNegativeCount(latent_genetics_->value(), observed_genetics_->value());
             this->setClean();
         }
         return value_;
     }
 
     template<typename GeneticsImpl>
-    AlleleCounter<GeneticsImpl>::AlleleCounter(core::parameters::Parameter<GeneticsImpl> &latentGenetics,
-                                               core::datatypes::Data<GeneticsImpl> &observedGenetics) : latent_genetics_(
-            latentGenetics), observed_genetics_(observedGenetics) {
-        latent_genetics_.add_post_change_listener([=, this]() { this->setDirty(); });
-        latent_genetics_.registerCacheableCheckpointTarget(this);
+    AlleleCounter<GeneticsImpl>::AlleleCounter(std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics,
+                                               std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics) : latent_genetics_(
+            std::move(latentGenetics)), observed_genetics_(std::move(observedGenetics)) {
+        latent_genetics_->add_post_change_listener([=, this]() { this->setDirty(); });
+        latent_genetics_->registerCacheableCheckpointTarget(this);
         this->setDirty();
         this->value();
     }

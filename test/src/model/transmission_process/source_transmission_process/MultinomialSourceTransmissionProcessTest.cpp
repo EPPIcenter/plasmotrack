@@ -1,7 +1,7 @@
 //
 // Created by Maxwell Murphy on 3/10/20.
 //
-
+//
 #include "gtest/gtest.h"
 
 #include "core/parameters/Parameter.h"
@@ -32,37 +32,33 @@ TEST(MultinomialSourceTransmissionProcessTest, BasicTest) {
     using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequencyImpl, Locus>;
     using Infection = Infection<GeneticsImpl, Locus>;
 
-    Locus as1("AS1", 3);
-    Locus as2("AS2", 4);
+    auto as1 = std::make_shared<Locus>("AS1", 3);
+    auto as2 = std::make_shared<Locus>("AS2", 4);
 
-    std::vector<Infection::LocusGeneticsAssignment> dlas{
-            {&as1, GeneticsImpl("001")},
-            {&as2, GeneticsImpl("0011")}
-    };
+    auto inf1 = std::make_shared<Infection>("inf1", 10.0);
+    inf1->addGenetics(as1, "001", "001");
+    inf1->addGenetics(as2, "0011", "0011");
 
-    Infection inf1("inf1", 10.0, dlas, dlas);
+    auto alleleFreqs = std::make_shared<AlleleFrequencyContainer>();
+    alleleFreqs->addLocus(as1);
+    alleleFreqs->alleleFrequencies(as1)->initializeValue({.2, .3, .5});
+    alleleFreqs->addLocus(as2);
+    alleleFreqs->alleleFrequencies(as2)->initializeValue({.1, .2, .3, .4});
 
-
-    std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> freqPairs{
-        {&as1, AlleleFrequencyImpl({.2, .3, .5})},
-        {&as2, AlleleFrequencyImpl({.1, .2, .3, .4})}
-    };
-    AlleleFrequencyContainer alleleFreqs(freqPairs);
-
-    Parameter<double> coiProb(.3);
-    COIProbabilityImpl coip(coiProb);
+    auto coiProb = std::make_shared<Parameter<double>>(.3);
+    auto coip = std::make_shared<COIProbabilityImpl>(coiProb);
 
     MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, Infection, MAX_COI> mstp(coip, alleleFreqs, inf1);
 
     std::cout << "LogLikelihood: " << mstp.value() << std::endl;
-    coiProb.saveState("state1");
+    coiProb->saveState("state1");
     EXPECT_FALSE(mstp.isDirty());
-    coiProb.setValue(.001);
+    coiProb->setValue(.001);
     EXPECT_TRUE(mstp.isDirty());
-    EXPECT_TRUE(coip.isDirty());
+    EXPECT_TRUE(coip->isDirty());
     std::cout << "LogLikelihood: " << mstp.value() << std::endl;
-    coiProb.restoreState("state1");
+    coiProb->restoreState("state1");
     EXPECT_FALSE(mstp.isDirty());
-    EXPECT_FALSE(coip.isDirty());
+    EXPECT_FALSE(coip->isDirty());
     std::cout << "LogLikelihood: " << mstp.value() << std::endl;
 }

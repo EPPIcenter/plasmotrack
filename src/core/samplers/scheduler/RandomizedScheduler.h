@@ -12,7 +12,7 @@
 namespace transmission_nets::core::samplers {
 
     struct WeightedScheduledSampler {
-        AbstractSampler* sampler{};
+        std::unique_ptr<AbstractSampler> sampler;
 
         int adaptationStart = 0;
         int adaptationEnd = 0;
@@ -48,7 +48,7 @@ namespace transmission_nets::core::samplers {
             sampler->adapt();
         };
 
-        void adapt(int step) const {
+        void adapt(unsigned int step) const {
             sampler->adapt(step);
         };
     };
@@ -58,9 +58,9 @@ namespace transmission_nets::core::samplers {
     class RandomizedScheduler {
 
     public:
-        explicit RandomizedScheduler(Engine* rng, int numSamples);
+        explicit RandomizedScheduler(std::shared_ptr<Engine> rng, int numSamples);
 
-        void registerSampler(AbstractSampler* sampler);
+        void registerSampler(std::unique_ptr<AbstractSampler> sampler);
 
         void registerSampler(WeightedScheduledSampler sampler);
 
@@ -71,7 +71,7 @@ namespace transmission_nets::core::samplers {
         void adapt(const WeightedScheduledSampler& sampler) const;
 
     private:
-        Engine* rng_;
+        std::shared_ptr<Engine> rng_;
         int numSamples_;
 
         std::vector<WeightedScheduledSampler> samplers_{};
@@ -85,7 +85,7 @@ namespace transmission_nets::core::samplers {
     };
 
     template<typename Engine>
-    RandomizedScheduler<Engine>::RandomizedScheduler(Engine* rng, int numSamples) : rng_(rng), numSamples_(numSamples) {}
+    RandomizedScheduler<Engine>::RandomizedScheduler(std::shared_ptr<Engine> rng, int numSamples) : rng_(rng), numSamples_(numSamples) {}
 
     template<typename Engine>
     void RandomizedScheduler<Engine>::step() {
@@ -112,15 +112,15 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename Engine>
-    void RandomizedScheduler<Engine>::registerSampler(AbstractSampler* sampler) {
-        samplers_.push_back(WeightedScheduledSampler{.sampler = sampler});
+    void RandomizedScheduler<Engine>::registerSampler(std::unique_ptr<AbstractSampler> sampler) {
+        samplers_.push_back(WeightedScheduledSampler{.sampler = std::move(sampler)});
         totalWeight_ += samplers_.back().weight;
         cumulativeWeightsCalculated_ = false;
     }
 
     template<typename Engine>
     void RandomizedScheduler<Engine>::registerSampler(WeightedScheduledSampler sampler) {
-        samplers_.push_back(sampler);
+        samplers_.push_back(std::move(sampler));
         totalWeight_ += samplers_.back().weight;
         cumulativeWeightsCalculated_ = false;
     }

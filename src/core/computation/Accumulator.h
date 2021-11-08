@@ -27,9 +27,8 @@ namespace transmission_nets::core::computation {
 
     public:
         Accumulator();
-        void addTarget(Input &target);
-
-        void addTarget(Input *target);
+//        void addTarget(Input target);
+        void addTarget(std::shared_ptr<Input> target);
 
         void postSaveState();
         void postAcceptState();
@@ -44,7 +43,7 @@ namespace transmission_nets::core::computation {
 
         friend class abstract::Checkpointable<Accumulator<Input, Output>, Output>;
 
-        using TargetSet = boost::container::flat_set<Input *>;
+        using TargetSet = boost::container::flat_set<std::shared_ptr<Input>>;
 
         TargetSet targets_{};
         TargetSet dirtyTargets_{};
@@ -54,33 +53,33 @@ namespace transmission_nets::core::computation {
 
     };
 
+//    template<typename Input, typename Output>
+//    void Accumulator<Input, Output>::addTarget(Input target) {
+//        this->setDirty();
+//        auto t = std::make_shared<Input>(std::move(target));
+//        targets_.insert(t);
+//        dirtyTargets_.insert(t);
+//
+//        target.add_set_dirty_listener([&]() {
+//          const auto& [_, inserted] = dirtyTargets_.insert(t);
+//          if (inserted) {
+//              this->value_ -= t->peek();
+//              this->setDirty();
+//          }
+//        });
+//
+//        target.registerCacheableCheckpointTarget(this);
+//    }
+
+
     template<typename Input, typename Output>
-    void Accumulator<Input, Output>::addTarget(Input &target) {
-        this->setDirty();
-        targets_.insert(&target);
-        dirtyTargets_.insert(&target);
-
-        target.add_set_dirty_listener([&]() {
-          const auto& [_, inserted] = dirtyTargets_.insert(&target);
-          if (inserted) {
-              this->value_ -= target.peek();
-              this->setDirty();
-          }
-        });
-
-        target.registerCacheableCheckpointTarget(this);
-    }
-
-
-    template<typename Input, typename Output>
-    void Accumulator<Input, Output>::addTarget(Input *target) {
+    void Accumulator<Input, Output>::addTarget(std::shared_ptr<Input> target) {
         this->setDirty();
         targets_.insert(target);
         dirtyTargets_.insert(target);
 
         target->add_set_dirty_listener([=, this]() {
-          // suppress compiler warning for unused "_" var
-          [[maybe_unused]] const auto& [_, inserted] = dirtyTargets_.insert(target);
+          const auto& [_, inserted] = dirtyTargets_.insert(target);
           this->setDirty();
           this->value_ -= target->peek();
 #ifndef DNDEBUG
@@ -94,17 +93,17 @@ namespace transmission_nets::core::computation {
 
 
     template<>
-    inline void Accumulator<PartialLikelihood, Likelihood>::addTarget(PartialLikelihood *target) {
+    inline void Accumulator<PartialLikelihood, Likelihood>::addTarget(std::shared_ptr<PartialLikelihood> target) {
         this->setDirty();
-        const auto& [_, inserted] = targets_.insert(target);
+        const auto& [_1, inserted] = targets_.insert(target);
 #ifndef DNDEBUG
         if(!inserted) assert(!"Target added more than once. Check model specification.");
 #endif
         dirtyTargets_.insert(target);
 
         target->add_set_dirty_listener([=, this]() {
-          const auto& [_, inserted] = dirtyTargets_.insert(target);
-          if (inserted) {
+          const auto& [_2, inserted_] = dirtyTargets_.insert(target);
+          if (inserted_) {
               this->setDirty();
 #ifndef DNDEBUG
               if (target->peek() <= -std::numeric_limits<Likelihood>::infinity()) {
@@ -162,7 +161,11 @@ namespace transmission_nets::core::computation {
 
         for (auto &el : dirtyTargets_) {
             assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
-            this->value_ += std::isnan(el->value()) ? -std::numeric_limits<Likelihood>::infinity() : el->value();
+            if (std::isnan(el->value())) {
+                this->value_ += -std::numeric_limits<Likelihood>::infinity();
+            } else {
+                this->value_ += el->value();
+            }
             assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
         }
         this->setClean();

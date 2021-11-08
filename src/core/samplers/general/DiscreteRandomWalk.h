@@ -8,6 +8,7 @@
 #include <boost/random.hpp>
 #include <boost/math/distributions.hpp>
 #include <cmath>
+#include <utility>
 
 #include "core/parameters/Parameter.h"
 
@@ -20,9 +21,9 @@ namespace transmission_nets::core::samplers {
     class DiscreteRandomWalk : public AbstractSampler {
 
     public:
-        DiscreteRandomWalk(parameters::Parameter<int> &parameter, T &target, Engine *rng) noexcept;
+        DiscreteRandomWalk(std::shared_ptr<parameters::Parameter<int>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept;
 
-        DiscreteRandomWalk(parameters::Parameter<int> &parameter, T &target, Engine *rng, unsigned int maxDistance) noexcept;
+        DiscreteRandomWalk(std::shared_ptr<parameters::Parameter<int>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, unsigned int maxDistance) noexcept;
 
 
         [[nodiscard]] unsigned int acceptances() const noexcept;
@@ -39,9 +40,9 @@ namespace transmission_nets::core::samplers {
 
 
     protected:
-        parameters::Parameter<int> &parameter_;
-        T &target_;
-        Engine *rng_;
+        std::shared_ptr<parameters::Parameter<int>> parameter_;
+        std::shared_ptr<T> target_;
+        std::shared_ptr<Engine> rng_;
         unsigned int max_distance_ = 1;
         boost::random::normal_distribution<> normal_dist_{0, 1};
         boost::random::uniform_01<> uniform_dist_{};
@@ -54,15 +55,15 @@ namespace transmission_nets::core::samplers {
     };
 
     template<typename T, typename Engine>
-    DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(parameters::Parameter<int> &parameter, T &target, Engine *rng) noexcept :
-            parameter_(parameter), target_(target), rng_(rng) {
+    DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(std::shared_ptr<parameters::Parameter<int>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept :
+            parameter_(std::move(parameter)), target_(target), rng_(rng) {
         stride_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
     }
 
     template<typename T, typename Engine>
-    DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(parameters::Parameter<int> &parameter, T &target, Engine *rng,
+    DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(std::shared_ptr<parameters::Parameter<int>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
                                                       unsigned int maxDistance) noexcept :
-            parameter_(parameter), target_(target), rng_(rng), max_distance_(maxDistance) {
+            parameter_(std::move(parameter)), target_(target), rng_(rng), max_distance_(maxDistance) {
         stride_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
     }
 
@@ -96,24 +97,24 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename Engine>
     void DiscreteRandomWalk<T, Engine>::update() noexcept {
         const std::string stateId = "State1";
-        Likelihood curLik = target_.value();
-        parameter_.saveState(stateId);
+        Likelihood curLik = target_->value();
+        parameter_->saveState(stateId);
 
-        const int stride = sampleStride(parameter_.value());
-        Likelihood mhAdjustment = logMetropolisHastingsAdjustment(parameter_.value(), parameter_.value() + stride);
+        const int stride = sampleStride(parameter_->value());
+        Likelihood mhAdjustment = logMetropolisHastingsAdjustment(parameter_->value(), parameter_->value() + stride);
 
-        parameter_.setValue(parameter_.value() + stride);
+        parameter_->setValue(parameter_->value() + stride);
 
-        const Likelihood acceptanceRatio = target_.value() - curLik + mhAdjustment;
+        const Likelihood acceptanceRatio = target_->value() - curLik + mhAdjustment;
         const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
         if (accept) {
             acceptances_ += 1;
-            parameter_.acceptState();
+            parameter_->acceptState();
         } else {
             rejections_ += 1;
-            parameter_.restoreState(stateId);
-            assert(curLik == target_.value());
+            parameter_->restoreState(stateId);
+            assert(curLik == target_->value());
         }
 
         total_updates_++;

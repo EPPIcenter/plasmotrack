@@ -14,6 +14,7 @@
 
 
 namespace transmission_nets::core::io {
+
     inline std::string serialize(const double val) noexcept {
         return std::to_string(val);
     }
@@ -41,18 +42,8 @@ namespace transmission_nets::core::io {
     }
 
     template<typename GeneticImpl, typename LocusImpl = containers::Locus>
-    std::string serialize(const containers::Infection<GeneticImpl, LocusImpl>* val) {
+    std::string serialize(const std::shared_ptr<containers::Infection<GeneticImpl, LocusImpl>> val) {
         return val->serialize();
-    }
-
-    template<typename GeneticImpl, typename LocusImpl = containers::Locus>
-    std::string serialize(containers::Infection<GeneticImpl, LocusImpl>* val) {
-        return val->serialize();
-    }
-
-    template<typename NodeValueImpl>
-    std::string serialize(const parameters::TransmissionNetwork<NodeValueImpl>& val) {
-        return val.serialize();
     }
 
     template<typename T>
@@ -69,7 +60,7 @@ namespace transmission_nets::core::io {
 
 
     template<typename T>
-    std::string serialize(const std::vector<T*> val) {
+    std::string serialize(const std::vector<std::shared_ptr<T>> val) {
         std::string out;
         for (const auto& el : val) {
             out += serialize(el);

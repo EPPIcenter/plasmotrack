@@ -38,9 +38,9 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename Engine = boost::random::mt19937>
     class SALTSampler : public AbstractSampler {
     public:
-        SALTSampler(parameters::Parameter<datatypes::Simplex> &parameter, T &target, Engine *rng);
-        SALTSampler(parameters::Parameter<datatypes::Simplex> &parameter, T &target, Engine *rng, double variance);
-        SALTSampler(parameters::Parameter<datatypes::Simplex> &parameter, T &target, Engine *rng, double variance, double minVariance, double maxVariance);
+        SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng);
+        SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance);
+        SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, double minVariance, double maxVariance);
 
         void setAdaptationRate(double adaptationRate);
 
@@ -69,9 +69,9 @@ namespace transmission_nets::core::samplers {
         double sampleProposal(double logitCurr, double variance) noexcept;
         double logMetropolisHastingsAdjustment(LogPQ currLogPQ, LogPQ propLogPQ, int k) noexcept;
 
-        parameters::Parameter<datatypes::Simplex> &parameter_;
-        T &target_;
-        Engine *rng_;
+        std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter_;
+        std::shared_ptr<T> target_;
+        std::shared_ptr<Engine> rng_;
         boost::random::normal_distribution<> normalDist_{0, 1};
         boost::random::uniform_01<> uniformDist_{};
 
@@ -91,9 +91,9 @@ namespace transmission_nets::core::samplers {
     };
 
     template<typename T, typename Engine>
-    SALTSampler<T, Engine>::SALTSampler(parameters::Parameter<datatypes::Simplex> &parameter, T &target, Engine *rng) :
+    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) :
             parameter_(parameter), target_(target), rng_(rng) {
-        for (size_t j = 0; j < parameter_.value().totalElements(); ++j) {
+        for (size_t j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.push_back(1);
             acceptances_.push_back(0);
             rejections_.push_back(0);
@@ -101,9 +101,9 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    SALTSampler<T, Engine>::SALTSampler(parameters::Parameter<datatypes::Simplex> &parameter, T &target, Engine *rng, double variance) :
+    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance) :
             parameter_(parameter), target_(target), rng_(rng) {
-        for (size_t j = 0; j < parameter_.value().totalElements(); ++j) {
+        for (size_t j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.push_back(variance);
             acceptances_.push_back(0);
             rejections_.push_back(0);
@@ -111,9 +111,9 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    SALTSampler<T, Engine>::SALTSampler(parameters::Parameter<datatypes::Simplex> &parameter, T &target, Engine *rng, double variance, double minVariance, double maxVariance) :
+    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, double minVariance, double maxVariance) :
             parameter_(parameter), target_(target), rng_(rng), minVariance_(minVariance), maxVariance_(maxVariance) {
-        for (size_t j = 0; j < parameter_.value().totalElements(); ++j) {
+        for (size_t j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.push_back(variance);
             acceptances_.push_back(0);
             rejections_.push_back(0);
@@ -123,11 +123,11 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename Engine>
     void SALTSampler<T, Engine>::update() noexcept {
         const std::string stateId = "SALT";
-        auto indices = utils::generators::randomSequence(0, parameter_.value().totalElements(), rng_);
+        auto indices = utils::generators::randomSequence(0, parameter_->value().totalElements(), rng_);
         for (const auto idx : indices) {
-            Likelihood curLik = target_.value();
+            Likelihood curLik = target_->value();
 
-            datatypes::Simplex currentVal(parameter_.value());
+            datatypes::Simplex currentVal(parameter_->value());
             std::vector<double> logitCurrVec = utils::logit(currentVal.frequencies());
             double logitCurrVal = logitCurrVec[idx];
             double logitPropVal = sampleProposal(logitCurrVal, variances_[idx]);
@@ -153,12 +153,12 @@ namespace transmission_nets::core::samplers {
 
             currentVal.set(propVec);
 
-            parameter_.saveState(stateId);
+            parameter_->saveState(stateId);
 
-            assert(!target_.isDirty());
-            parameter_.setValue(currentVal);
-            assert(target_.isDirty());
-            const Likelihood newLik = target_.value();
+            assert(!target_->isDirty());
+            parameter_->setValue(currentVal);
+            assert(target_->isDirty());
+            const Likelihood newLik = target_->value();
 
             const double adjRatio = logMetropolisHastingsAdjustment(currLogPQ, propLogPQ, currentVal.totalElements());
 
@@ -168,14 +168,14 @@ namespace transmission_nets::core::samplers {
 
             if (accept) {
                 acceptances_.at(idx)++;
-                parameter_.acceptState();
+                parameter_->acceptState();
             } else {
                 rejections_.at(idx)++;
-                parameter_.restoreState(stateId);
-                assert(!(target_.isDirty()));
-                assert(curLik == target_.value());
+                parameter_->restoreState(stateId);
+                assert(!(target_->isDirty()));
+                assert(curLik == target_->value());
             }
-            assert(!target_.isDirty());
+            assert(!target_->isDirty());
         }
 
         totalUpdates_++;
@@ -194,7 +194,7 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine>
     void SALTSampler<T, Engine>::adapt(unsigned int idx) noexcept {
-        for (unsigned int j = 0; j < parameter_.value().totalElements(); ++j) {
+        for (unsigned int j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.at(j) += (acceptanceRate(j) - targetAcceptanceRate_) / std::pow(idx, adaptationRate_);
             variances_.at(j) = std::clamp(variances_.at(j), minVariance_, maxVariance_);
         }
@@ -202,7 +202,7 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine>
     void SALTSampler<T, Engine>::adapt() noexcept {
-        for (unsigned int j = 0; j < parameter_.value().totalElements(); ++j) {
+        for (unsigned int j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.at(j) += (acceptanceRate(j) - targetAcceptanceRate_) / std::pow(totalUpdates_ + 1, adaptationRate_);
             variances_.at(j) = std::clamp(variances_.at(j), minVariance_, maxVariance_);
         }

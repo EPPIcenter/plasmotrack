@@ -10,10 +10,8 @@ using namespace transmission_nets::core::utils;
 TEST(CombinationsIndicesGeneratorTest, HandlesGeneratingCombos) {
     generators::CombinationIndicesGenerator cs(10, 2);
     while(!cs.completed) {
-        for (int i : cs.curr) {
-            std::cout << i << ", ";
-        }
-        std::cout << std::endl;
+        ASSERT_EQ(cs.curr.size(), 2);
+        ASSERT_TRUE(cs.curr[0] < cs.curr[1]);
         cs.next();
     }
     ASSERT_TRUE(cs.completed);
@@ -23,10 +21,7 @@ TEST(CombinationsIndicesGeneratorTest, HandlesGeneratingCombos) {
 TEST(CombinationsIndicesGeneratorTest, HandlesGeneratingCombos2) {
     generators::CombinationIndicesGenerator cs(4, 1);
     while(!cs.completed) {
-        for (int i : cs.curr) {
-            std::cout << i << ", ";
-        }
-        std::cout << std::endl;
+        ASSERT_EQ(cs.curr.size(), 1);
         cs.next();
     }
     ASSERT_TRUE(cs.completed);

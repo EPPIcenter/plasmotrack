@@ -11,7 +11,7 @@
 namespace transmission_nets::core::utils::generators {
     // Adapted from https://stackoverflow.com/a/9432150/2755374
     struct CombinationIndicesGenerator {
-        using combination_t = std::vector<int>;
+        using combination_t = std::vector<unsigned int>;
 
         bool completed;
         unsigned long generated = 1;
@@ -21,11 +21,11 @@ namespace transmission_nets::core::utils::generators {
          * @param n number of elements
          * @param r number of choices
          */
-        CombinationIndicesGenerator(int n, int r);
+        CombinationIndicesGenerator(std::size_t n, std::size_t r);
 
         CombinationIndicesGenerator();
 
-        void reset(int n, int r);
+        void reset(std::size_t n, std::size_t r);
 
         void next() noexcept;
 
@@ -33,8 +33,8 @@ namespace transmission_nets::core::utils::generators {
 
     private:
 
-        int n_;
-        int r_;
+        std::size_t n_;
+        std::size_t r_;
 
     };
 }

@@ -11,134 +11,133 @@
 
 #include "core/computation/Computation.h"
 
+#include <fmt/core.h>
+
 #include <vector>
+#include <utility>
+#include <memory>
 
 
 namespace transmission_nets::core::computation {
 
     template <typename InfectionEventImpl>
-    class ObservationTimeDerivedOrdering : public Computation<std::vector<InfectionEventImpl*>>,
+    class ObservationTimeDerivedOrdering : public Computation<std::vector<std::shared_ptr<InfectionEventImpl>>>,
                                            public abstract::Observable<ObservationTimeDerivedOrdering<InfectionEventImpl>>,
                                            public abstract::Cacheable<ObservationTimeDerivedOrdering<InfectionEventImpl>>,
-                                           public abstract::Checkpointable<ObservationTimeDerivedOrdering<InfectionEventImpl>, std::vector<InfectionEventImpl*>>
+                                           public abstract::Checkpointable<ObservationTimeDerivedOrdering<InfectionEventImpl>, std::vector<std::shared_ptr<InfectionEventImpl>>>
     {
-        using MovedCallback = std::function<void(InfectionEventImpl* element)>;
-        CREATE_KEYED_EVENT(moved_left, InfectionEventImpl*, MovedCallback);
-        CREATE_KEYED_EVENT(moved_right, InfectionEventImpl*, MovedCallback);
+        using MovedCallback = std::function<void(std::shared_ptr<InfectionEventImpl> element)>;
+        CREATE_KEYED_EVENT(moved_left, std::shared_ptr<InfectionEventImpl>, MovedCallback);
+        CREATE_KEYED_EVENT(moved_right, std::shared_ptr<InfectionEventImpl>, MovedCallback);
 
     public:
         explicit ObservationTimeDerivedOrdering() noexcept;
-        explicit ObservationTimeDerivedOrdering(std::vector<InfectionEventImpl*> refs) noexcept;
+        explicit ObservationTimeDerivedOrdering(const std::vector<std::shared_ptr<InfectionEventImpl>>& refs) noexcept;
 
-        void addElement(InfectionEventImpl* ref) noexcept;
-        void addElements(std::vector<InfectionEventImpl*>& refs) noexcept;
-        std::vector<InfectionEventImpl *> value() override;
+        void addElements(const std::vector<std::shared_ptr<InfectionEventImpl>>& refs) noexcept;
+        std::vector<std::shared_ptr<InfectionEventImpl>> value() override;
 
     protected:
         friend class abstract::Cacheable<ObservationTimeDerivedOrdering<InfectionEventImpl>>;
-        friend class abstract::Checkpointable<ObservationTimeDerivedOrdering<InfectionEventImpl>, std::vector<InfectionEventImpl*>>;
+        friend class abstract::Checkpointable<ObservationTimeDerivedOrdering<InfectionEventImpl>, std::vector<std::shared_ptr<InfectionEventImpl>>>;
 
     private:
-
-        void infectionDurationChanged(InfectionEventImpl* ref);
+        void infectionDurationChanged(std::shared_ptr<InfectionEventImpl> ref);
+        void addElement(std::shared_ptr<InfectionEventImpl> ref) noexcept;
     };
 
     template<typename InfectionEventImpl>
-    ObservationTimeDerivedOrdering<InfectionEventImpl>::ObservationTimeDerivedOrdering() noexcept : Computation<std::vector<InfectionEventImpl*>>() {
+    ObservationTimeDerivedOrdering<InfectionEventImpl>::ObservationTimeDerivedOrdering() noexcept : Computation<std::vector<std::shared_ptr<InfectionEventImpl>>>() {
     }
 
     template<typename InfectionEventImpl>
-    ObservationTimeDerivedOrdering<InfectionEventImpl>::ObservationTimeDerivedOrdering(std::vector<InfectionEventImpl *> refs) noexcept {
+    ObservationTimeDerivedOrdering<InfectionEventImpl>::ObservationTimeDerivedOrdering(const std::vector<std::shared_ptr<InfectionEventImpl>>& refs) noexcept {
         addElements(refs);
     }
 
     template<typename InfectionEventImpl>
-    void ObservationTimeDerivedOrdering<InfectionEventImpl>::addElement(InfectionEventImpl *ref) noexcept {
+    void ObservationTimeDerivedOrdering<InfectionEventImpl>::addElement(std::shared_ptr<InfectionEventImpl> ref) noexcept {
        this->value_.push_back(ref);
        register_moved_left_listener_key(ref);
        register_moved_right_listener_key(ref);
 
-       ref->infectionDuration().add_post_change_listener([=, this]() { this->infectionDurationChanged(ref); });
-       ref->infectionDuration().registerCacheableCheckpointTarget(this);
+       ref->infectionDuration()->add_post_change_listener([=, this]() { this->infectionDurationChanged(ref); });
+       ref->infectionDuration()->registerCacheableCheckpointTarget(this);
     }
 
     template<typename InfectionEventImpl>
-    void ObservationTimeDerivedOrdering<InfectionEventImpl>::addElements(std::vector<InfectionEventImpl *>& refs) noexcept {
-        for (auto& ref: refs) {
-            addElement(ref);
+    void ObservationTimeDerivedOrdering<InfectionEventImpl>::addElements(const std::vector<std::shared_ptr<InfectionEventImpl>>& refs) noexcept {
+        for (auto ref: refs) {
+            addElement(std::move(ref));
         }
 
         std::sort(this->value_.begin(),
                   this->value_.end(),
-                  [](InfectionEventImpl* a, InfectionEventImpl* b) { return a->infectionTime() < b->infectionTime(); });
+                  [](std::shared_ptr<InfectionEventImpl> a, std::shared_ptr<InfectionEventImpl> b) { return a->infectionTime() < b->infectionTime(); });
 
         this->setDirty();
     }
 
     template<typename InfectionEventImpl>
-    void ObservationTimeDerivedOrdering<InfectionEventImpl>::infectionDurationChanged(InfectionEventImpl *ref) {
+    void ObservationTimeDerivedOrdering<InfectionEventImpl>::infectionDurationChanged(std::shared_ptr<InfectionEventImpl> ref) {
         double refInfectionTime = ref->infectionTime();
-        bool sourceAfterDest = false;
 
-        auto destIt = this->value_.begin();
-        auto sourceIt = destIt;
+        size_t refIdx = 0;
+        for(; this->value_[refIdx] != ref; ++refIdx);
 
-        // find where we're going to place the value -- maybe before or after the source location.
-        InfectionEventImpl* destEl = *destIt;
-        InfectionEventImpl* sourceEl = destEl;
+        double rightTime = std::numeric_limits<double>::max();
+        if (refIdx < this->value_.size() - 1) {
+            rightTime = this->value_[refIdx + 1]->infectionTime();
+        }
 
-        auto destInfectionTime = destEl->infectionTime();
-        while (destInfectionTime < refInfectionTime) {
-            destEl = *(++destIt);
-            destInfectionTime = destEl->infectionTime();
-            assert(destIt != this->value().end());
-            if (sourceEl != ref) {
-                sourceEl = destEl;
-                ++sourceIt;
+        double leftTime = std::numeric_limits<double>::min();
+        if (refIdx > 0) {
+            leftTime = (this->value_[refIdx - 1])->infectionTime();
+        }
+
+        bool unsorted = refInfectionTime < leftTime or refInfectionTime > rightTime;
+
+        if (unsorted) {
+            this->setDirty();
+            if (refInfectionTime < leftTime){
+                while(unsorted) {
+                    if (refIdx > 0) {
+                        auto& curr = this->value_[refIdx];
+                        auto& prev = this->value_[refIdx - 1];
+                        std::swap(curr, prev);
+                        keyed_notify_moved_left(this->value_[refIdx], this->value_[refIdx - 1]);
+                        keyed_notify_moved_right(this->value_[refIdx - 1], this->value_[refIdx]);
+                        --refIdx;
+                        if(refIdx == 0 or this->value_[refIdx - 1]->infectionTime() < refInfectionTime) {
+                            unsorted = false;
+                        }
+                    } else {
+                        unsorted = false;
+                    }
+                }
+            } else {
+                while(unsorted) {
+                    if (refIdx < this->value_.size() - 1) {
+                        auto& curr = this->value_[refIdx];
+                        auto& next = this->value_[refIdx + 1];
+                        std::swap(curr, next);
+                        keyed_notify_moved_left(this->value_[refIdx + 1], this->value_[refIdx]);
+                        keyed_notify_moved_right(this->value_[refIdx], this->value_[refIdx + 1]);
+                        ++refIdx;
+                        if(refIdx == this->value_.size() - 1 or this->value_[refIdx + 1]->infectionTime() > refInfectionTime) {
+                            unsorted = false;
+                        }
+                    } else {
+                        unsorted = false;
+                    }
+               }
             }
         }
-
-        // if the destination is before the source, we need to continue to find the source
-        while(sourceEl != ref) {
-           sourceEl = *(++sourceIt);
-           sourceAfterDest = true;
-        }
-
-
-       auto betweenIt = sourceIt;
-       InfectionEventImpl* betweenEl;
-       // if source is not same as dest then we update and notify
-       if(sourceIt != destIt) {
-           // source is after dest so decrement the between iterator,
-           if (sourceAfterDest) {
-               do {
-                   betweenEl = *(--betweenIt);
-                   // betweenIt will be moved to the right of sourceIt
-                   keyed_notify_moved_right(sourceEl, betweenEl);
-
-                   // sourceIt will be moved to the left of betweenIt
-                   keyed_notify_moved_left(betweenEl, sourceEl);
-               }
-               while (betweenIt != destIt);
-           } else {
-               do {
-                   betweenEl = *(++betweenIt);
-                   // betweenIt will be moved to the left of sourceIt
-                   keyed_notify_moved_left(sourceEl, betweenEl);
-
-                   // sourceIt will be moved to the right of betweenIt
-                   keyed_notify_moved_right(betweenEl, sourceEl);
-               }
-               while (betweenIt != destIt);
-           }
-           // everything has been notified, now we erase and insert
-           this->value_.erase(sourceIt);
-           this->value_.insert(destIt, ref);
-       }
-
     }
+
     template<typename InfectionEventImpl>
-    std::vector<InfectionEventImpl *> ObservationTimeDerivedOrdering<InfectionEventImpl>::value() {
+    std::vector<std::shared_ptr<InfectionEventImpl>> ObservationTimeDerivedOrdering<InfectionEventImpl>::value() {
+        this->setClean();
         return this->value_;
     }
 

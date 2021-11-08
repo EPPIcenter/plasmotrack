@@ -15,7 +15,7 @@
 namespace transmission_nets::core::samplers {
     using Likelihood = core::computation::Likelihood;
     /*
-     * Sampler using a locally informed transition kernel. Randomly selects an index then samples from swaps no more than k indices away.
+     * Scheduler using a locally informed transition kernel. Randomly selects an index then samples from swaps no more than k indices away.
      */
 
     template<typename T,  typename OrderingElement, typename Engine=boost::random::mt19937>

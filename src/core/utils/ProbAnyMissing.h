@@ -19,7 +19,7 @@ namespace transmission_nets::core::utils {
          * @param numEvents Number of trials
          * @return
          */
-        double operator()(const std::vector<double>& eventProbs, int numEvents);
+        double operator()(const std::vector<double>& eventProbs, unsigned int numEvents);
 
         double prob{};
         double eventCombo{};

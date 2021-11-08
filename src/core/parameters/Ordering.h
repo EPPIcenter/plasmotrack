@@ -5,30 +5,32 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ORDERING_H
 #define TRANSMISSION_NETWORKS_APP_ORDERING_H
 
-#include <iostream>
-#include <vector>
 
 #include "core/parameters/Parameter.h"
+
+#include <iostream>
+#include <memory>
+#include <vector>
 
 
 namespace transmission_nets::core::parameters {
     template <typename T>
-    class Ordering : public Parameter<std::vector<T*>> {
+    class Ordering : public Parameter<std::vector<std::shared_ptr<T>>> {
 
-        using MovedCallback = std::function<void(T* element)>;
-        CREATE_KEYED_EVENT(moved_left, T*, MovedCallback) // Notifies that an element has been moved left of key
-        CREATE_KEYED_EVENT(moved_right, T*, MovedCallback) // Notifies that an element has been moved right of key
+        using MovedCallback = std::function<void(std::shared_ptr<T> element)>;
+        CREATE_KEYED_EVENT(moved_left, std::shared_ptr<T>, MovedCallback) // Notifies that an element has been moved left of key
+        CREATE_KEYED_EVENT(moved_right, std::shared_ptr<T>, MovedCallback) // Notifies that an element has been moved right of key
 
     public:
         explicit Ordering() noexcept;
 
-        explicit Ordering(std::vector<T*> refs) noexcept;
+        explicit Ordering(std::vector<std::shared_ptr<T>> refs) noexcept;
 
         void swap(int a, int b) noexcept;
 
-        void addElement(T* ref) noexcept;
+        void addElement(std::shared_ptr<T> ref) noexcept;
 
-        void addElements(std::vector<T*> refs) noexcept;
+        void addElements(const std::vector<std::shared_ptr<T>>& refs) noexcept;
 
         friend std::ostream &operator<<(std::ostream &os, const Ordering &list) noexcept {
             for (unsigned long i = 0; i < list.value_.size(); ++i) {
@@ -43,18 +45,18 @@ namespace transmission_nets::core::parameters {
     };
 
     template<typename T>
-    Ordering<T>::Ordering() noexcept : Parameter<std::vector<T*>>() {}
+    Ordering<T>::Ordering() noexcept : Parameter<std::vector<std::shared_ptr<T>>>() {}
 
     template<typename T>
-    Ordering<T>::Ordering(std::vector<T *> refs) noexcept {
+    Ordering<T>::Ordering(std::vector<std::shared_ptr<T>> refs) noexcept {
         addElements(refs);
     }
 
     template<typename T>
     void Ordering<T>::swap(int a, int b) noexcept {
-        if(a != b) {
+        if (a != b) {
             this->notify_pre_change();
-            T* tmp = this->value_.at(a);
+            auto tmp = this->value_.at(a);
             this->value_.at(a) = this->value_.at(b);
             this->value_.at(b) = tmp;
 
@@ -68,7 +70,7 @@ namespace transmission_nets::core::parameters {
     }
 
     template<typename T>
-    void Ordering<T>::addElement(T *ref) noexcept {
+    void Ordering<T>::addElement(std::shared_ptr<T> ref) noexcept {
         this->notify_pre_change();
         this->value_.push_back(ref);
         register_moved_left_listener_key(ref);
@@ -77,9 +79,9 @@ namespace transmission_nets::core::parameters {
     }
 
     template<typename T>
-    void Ordering<T>::addElements(std::vector<T *> refs) noexcept {
+    void Ordering<T>::addElements(const std::vector<std::shared_ptr<T>>& refs) noexcept {
         for (auto& ref: refs) {
-            addElement(ref);
+            addElement(std::move(ref));
         }
     }
 

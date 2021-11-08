@@ -8,14 +8,14 @@
 #include <numeric>
 
 namespace transmission_nets::core::utils::generators {
-    CombinationIndicesGenerator::CombinationIndicesGenerator(int n, int r) : completed(n < 1 or r > n or r == 0),
+    CombinationIndicesGenerator::CombinationIndicesGenerator(std::size_t n, std::size_t r) : completed(n < 1 or r > n or r == 0),
                                                                              n_(n),
                                                                              r_(r) {
         curr.resize(r_);
         std::iota(curr.begin(), curr.end(), 0);
     }
 
-    void CombinationIndicesGenerator::reset(int n, int r) {
+    void CombinationIndicesGenerator::reset(std::size_t n, std::size_t r) {
         completed = n < 1 or r > n or r == 0;
         generated = 1;
 
@@ -28,19 +28,19 @@ namespace transmission_nets::core::utils::generators {
 
     void CombinationIndicesGenerator::next() noexcept {
         assert(!completed);
-
         completed = true;
-        for (int i = r_ - 1; i >= 0; --i)
+        for (long i = (signed) r_ - 1; i >= 0; --i) {
             if (curr.at(i) < n_ - r_ + i) {
-                int j = curr.at(i) + 1;
-                while (i < r_) {
+                unsigned int j = curr.at(i) + 1;
+                while (i < (signed) r_) {
                     curr.at(i++) = j++;
                 }
                 completed = false;
                 generated++;
                 break;
             }
-    }
+        }
+   }
 
     CombinationIndicesGenerator::CombinationIndicesGenerator() {
         completed = true;

@@ -14,8 +14,8 @@ using namespace transmission_nets::core::distributions;
 constexpr int MAX_COI = 15;
 
 TEST(ZTMultiplicativeBinomialTest, CoreTest) {
-    Parameter<double> prob(.5);
-    Parameter<double> assoc(1.0);
+    auto prob = std::make_shared<Parameter<double>>(.5);
+    auto assoc = std::make_shared<Parameter<double>>(1.0);
 
     ZTMultiplicativeBinomial<MAX_COI> ztmb(prob, assoc);
 

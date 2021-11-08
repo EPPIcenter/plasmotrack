@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_LOCUS_H
 #define TRANSMISSION_NETWORKS_APP_LOCUS_H
 
+#include <string>
 
 namespace transmission_nets::core::containers {
 

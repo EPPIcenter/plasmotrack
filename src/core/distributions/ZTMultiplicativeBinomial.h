@@ -26,8 +26,8 @@ namespace transmission_nets::core::distributions {
                                      public abstract::Cacheable<ZTMultiplicativeBinomial<MAX_COUNT>>,
                                      public abstract::Checkpointable<ZTMultiplicativeBinomial<MAX_COUNT>, datatypes::TransitionMatrix<MAX_COUNT + 1>> {
     public:
-        ZTMultiplicativeBinomial(parameters::Parameter<double> &prob,
-                                 parameters::Parameter<double> &assoc);
+        ZTMultiplicativeBinomial(std::shared_ptr<parameters::Parameter<double>> prob,
+                                 std::shared_ptr<parameters::Parameter<double>> assoc);
 
         datatypes::TransitionMatrix<MAX_COUNT + 1> value() noexcept override;
 
@@ -41,8 +41,8 @@ namespace transmission_nets::core::distributions {
         static const datatypes::SquareMatrix<double, MAX_COUNT + 1> mat3;
         static const datatypes::SquareMatrix<double, MAX_COUNT + 1> combo_matrix;
 
-        parameters::Parameter<double> &prob_;
-        parameters::Parameter<double> &assoc_;
+        std::shared_ptr<parameters::Parameter<double>> prob_;
+        std::shared_ptr<parameters::Parameter<double>> assoc_;
 
     };
 
@@ -113,12 +113,12 @@ namespace transmission_nets::core::distributions {
 
 
     template<int MAX_COUNT>
-    ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(parameters::Parameter<double> &prob, parameters::Parameter<double> &assoc): prob_(prob), assoc_(assoc) {
-        prob_.registerCacheableCheckpointTarget(this);
-        prob_.add_post_change_listener([=, this]() { this->setDirty(); });
+    ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(std::shared_ptr<parameters::Parameter<double>> prob, std::shared_ptr<parameters::Parameter<double>> assoc): prob_(std::move(prob)), assoc_(std::move(assoc)) {
+        prob_->registerCacheableCheckpointTarget(this);
+        prob_->add_post_change_listener([=, this]() { this->setDirty(); });
 
-        assoc_.registerCacheableCheckpointTarget(this);
-        assoc_.add_post_change_listener([=, this]() { this->setDirty(); });
+        assoc_->registerCacheableCheckpointTarget(this);
+        assoc_->add_post_change_listener([=, this]() { this->setDirty(); });
         this->setDirty();
         this->value();
     }
@@ -128,9 +128,9 @@ namespace transmission_nets::core::distributions {
     datatypes::TransitionMatrix<MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::value() noexcept {
         if (this->isDirty()) {
             auto tmp = combo_matrix.array() *
-                       Eigen::pow(prob_.value(), mat1.array()) *
-                       Eigen::pow(1 - prob_.value(), mat2.array()) *
-                       Eigen::pow(assoc_.value(), mat3.array());
+                       Eigen::pow(prob_->value(), mat1.array()) *
+                       Eigen::pow(1 - prob_->value(), mat2.array()) *
+                       Eigen::pow(assoc_->value(), mat3.array());
             this->value_ = tmp.array().colwise() / tmp.rowwise().sum();
             this->value_.row(0).setZero();
             this->setClean();

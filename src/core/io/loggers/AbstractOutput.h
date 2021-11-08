@@ -10,8 +10,9 @@
 namespace transmission_nets::core::io {
     class AbstractOutput {
     public:
-        virtual void write(const std::string& val) const = 0;
-        virtual void initialize() {};
+        virtual void write(const std::string& val) = 0;
+        virtual void initialize([[maybe_unused]] bool resetOutput = true) {};
+        virtual void finalize() {};
         virtual void reset() {};
         virtual ~AbstractOutput() = default;
     };

@@ -70,45 +70,45 @@ hamming_distance <- function(genotype1, genotype2) {
 
 calculate_genetic_dist_matrix <- function(nodes, metric) {
   total_nodes <- length(nodes)
-  latent_distance_matrix <- matrix(nrow = total_nodes, ncol = total_nodes)
+  # latent_distance_matrix <- matrix(nrow = total_nodes, ncol = total_nodes)
   observed_distance_matrix <- matrix(nrow = total_nodes, ncol = total_nodes)
   node_names <- c()
 
   for (i in 1:total_nodes) {
-
+    print(i)
     node_i = nodes[[i]]
     total_genotypes <- length(node_i$observed_genotype)
     node_names <- c(node_names, node_i$id)
 
     for (j in i:total_nodes) {
       node_j = nodes[[j]]
-      latent_distance = 0
+      # latent_distance = 0
       observed_distance = 0
       if (i != j) {
         for (k in 1:total_genotypes) {
-          latent_distance = latent_distance + metric(
-            node_i$latent_genotype[[k]]$genotype,
-            node_j$latent_genotype[[k]]$genotype
-          )
+          # latent_distance = latent_distance + metric(
+            # node_i$latent_genotype[[k]]$genotype,
+            # node_j$latent_genotype[[k]]$genotype
+          # )
           observed_distance = observed_distance + metric(
             node_i$observed_genotype[[k]]$genotype,
             node_j$observed_genotype[[k]]$genotype
           )
         }
       }
-      latent_distance_matrix[i, j] = latent_distance
-      latent_distance_matrix[j, i] = latent_distance
+      # latent_distance_matrix[i, j] = latent_distance
+      # latent_distance_matrix[j, i] = latent_distance
       observed_distance_matrix[i, j] = observed_distance
       observed_distance_matrix[j, i] = observed_distance
     }
   }
 
-  rownames(latent_distance_matrix) <- node_names
-  colnames(latent_distance_matrix) <- node_names
+  # rownames(latent_distance_matrix) <- node_names
+  # colnames(latent_distance_matrix) <- node_names
   rownames(observed_distance_matrix) <- node_names
   colnames(observed_distance_matrix) <- node_names
-  return(list(observed_distance_matrix = observed_distance_matrix,
-              latent_distance_matrix = latent_distance_matrix))
+  return(list(observed_distance_matrix = observed_distance_matrix))
+              # latent_distance_matrix = latent_distance_matrix))
 }
 
 extract_parent_sets <- function(dir_path) {
@@ -125,6 +125,20 @@ extract_parent_sets <- function(dir_path) {
     ps_prob_list[[node]] = prop
   }
   return(ps_prob_list)
+}
+
+extract_infection_durations <- function(dir_path) {
+  durations = data.frame()
+  for (file in dir(dir_path)) {
+    sample = unlist(str_split(file, "\\."))[1]
+    record = read_csv(paste0(dir_path, file))
+    mean_dur = mean(record$duration)
+    median_dur = median(record$duration)
+    lower_q = quantile(record$duration, .025)
+    upper_q = quantile(record$duration, .0975)
+    durations <- rbind(durations, data.frame(sample = sample, mean_dur = mean_dur, median_dur = median_dur, lower_q = lower_q, upper_q = upper_q))
+  }
+  return(durations)
 }
 
 network_from_parent_sets <- function(parent_set_list) {
@@ -188,4 +202,14 @@ extract_true_network_tibble <- function(path) {
   }
 
   return(list(edges = true_network_edges, vertices = true_network_vertices))
+}
+
+extract_observed_vertices <- function(path) {
+  input_data <- read_json(path)
+  vertices <- tibble(name=c(), observation_time=c())
+  for (el in input_data$nodes) {
+    vertices <- rbind(vertices,
+                      tibble(name = el$id, observation_time = el$observation_time, observed_genotype = list(el$observed_genotype)))
+  }
+  return(vertices)
 }

@@ -20,6 +20,10 @@ namespace transmission_nets::core::io {
             output_->write(prepareValue());
         }
 
+        void finalize() {
+            output_->finalize();
+        }
+
     protected:
         std::unique_ptr<AbstractOutput> output_{};
     };

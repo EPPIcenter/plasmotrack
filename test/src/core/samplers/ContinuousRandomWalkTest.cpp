@@ -1,7 +1,7 @@
 //
 // Created by Maxwell Murphy on 3/25/20.
 //
-
+//
 #include "gtest/gtest.h"
 
 #include <Eigen/Core>
@@ -26,28 +26,27 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
                               public core::abstract::Cacheable<NormalTestTarget>,
                               public core::abstract::Checkpointable<NormalTestTarget, core::computation::Likelihood> {
 
-        explicit NormalTestTarget(core::parameters::Parameter<double> &mean) : mean_(mean) {
+        explicit NormalTestTarget(std::shared_ptr<core::parameters::Parameter<double>> mean) : mean_(std::move(mean)) {
             boost::random::normal_distribution<> dist{0, 1};
             for (int i = 0; i < TOTAL_DATA_POINTS; ++i) {
                 data_(i) = dist(r) * TEST_VARIANCE + TEST_MEAN;
             }
 
-            mean_.registerCacheableCheckpointTarget(this);
-            mean_.add_post_change_listener([=, this]() {
+            mean_->registerCacheableCheckpointTarget(this);
+            mean_->add_post_change_listener([=, this]() {
                 dirty = true;
             });
-            value_ = calculateValue(data_, mean_.value());
+            value_ = calculateValue(data_, mean_->value());
         };
 
         [[nodiscard]] bool isDirty() const {
             return dirty;
         }
 
-        core::computation::Likelihood value() {
+        core::computation::Likelihood value() override {
             if (dirty) {
-                value_ = calculateValue(data_, mean_.value());
+                value_ = calculateValue(data_, mean_->value());
                 dirty = false;
-                std::cout << value_ << " " << mean_.value() << std::endl;
             }
 
             return value_;
@@ -63,19 +62,19 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
         }
 
         boost::random::mt19937 r;
-        core::parameters::Parameter<double> &mean_;
+        std::shared_ptr<core::parameters::Parameter<double>> mean_;
         Eigen::Array<double, TOTAL_DATA_POINTS, 1> data_;
         core::computation::Likelihood value_;
         bool dirty{true};
     };
 
 
-    core::parameters::Parameter<double> myMean(30);
-    NormalTestTarget myTestTar(myMean);
-    boost::random::mt19937 r;
+    auto myMean = std::make_shared<core::parameters::Parameter<double>>(30);
+    auto myTestTar = std::make_shared<NormalTestTarget>(myMean);
+    auto r = std::make_shared<boost::random::mt19937>();
 
 
-    core::samplers::ContinuousRandomWalk sampler(myMean, myTestTar, &r, 3);
+    core::samplers::ContinuousRandomWalk sampler(myMean, myTestTar, r, 3);
     sampler.setAdaptationRate(2);
 
     int i = 20000;
@@ -83,7 +82,6 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
         i--;
         sampler.update();
         sampler.adapt();
-        std::cout << "Variance:" << sampler.variance() << std::endl;
     }
 
     Eigen::Array<double, 5000, 1> results;
@@ -91,7 +89,7 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
     while (i > 0) {
         i--;
         sampler.update();
-        results(i) = myMean.value();
+        results(i) = myMean->value();
     }
 
     auto resultsMean = results.mean();
@@ -110,23 +108,23 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
                                    public core::abstract::Cacheable<DoubleWellTestTarget>,
                                    public core::abstract::Checkpointable<DoubleWellTestTarget, core::computation::Likelihood> {
 
-        DoubleWellTestTarget(core::parameters::Parameter<double> &x, core::parameters::Parameter<double> &y) : x_(x), y_(y) {
-            x_.registerCacheableCheckpointTarget(this);
-            x_.add_post_change_listener([=, this]() {
+        DoubleWellTestTarget(std::shared_ptr<core::parameters::Parameter<double>> x, std::shared_ptr<core::parameters::Parameter<double>> y) : x_(std::move(x)), y_(std::move(y)) {
+            x_->registerCacheableCheckpointTarget(this);
+            x_->add_post_change_listener([=, this]() {
                 this->dirty = true;
             });
 
-            y_.registerCacheableCheckpointTarget(this);
-            y_.add_post_change_listener([=, this]() {
+            y_->registerCacheableCheckpointTarget(this);
+            y_->add_post_change_listener([=, this]() {
                 this->dirty = true;
             });
 
-            this->value_ = calculateValue(x_.value(), y_.value());
+            this->value_ = calculateValue(x_->value(), y_->value());
         };
 
         core::computation::Likelihood value() override {
             if (dirty) {
-                value_ = calculateValue(x_.value(), y_.value());
+                value_ = calculateValue(x_->value(), y_->value());
                 dirty = false;
             }
             return value_;
@@ -143,8 +141,8 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
             return dirty;
         }
 
-        core::parameters::Parameter<double> &x_;
-        core::parameters::Parameter<double> &y_;
+        std::shared_ptr<core::parameters::Parameter<double>> x_;
+        std::shared_ptr<core::parameters::Parameter<double>> y_;
         double a_ = 1;
         double b_ = 6;
         double c_ = 1;
@@ -153,13 +151,13 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
         core::computation::Likelihood value_;
     };
 
-    core::parameters::Parameter<double> x(0);
-    core::parameters::Parameter<double> y(0);
-    DoubleWellTestTarget myTestTar(x, y);
-    boost::random::mt19937 r;
+    auto x = std::make_shared<core::parameters::Parameter<double>>(0);
+    auto y = std::make_shared<core::parameters::Parameter<double>>(0);
+    auto myTestTar = std::make_shared<DoubleWellTestTarget>(x, y);
+    auto r = std::make_shared<boost::random::mt19937>();
 
-    core::samplers::ContinuousRandomWalk xSampler(x, myTestTar, &r, 10, .1, 100);
-    core::samplers::ContinuousRandomWalk ySampler(y, myTestTar, &r, 10, .1, 100);
+    core::samplers::ContinuousRandomWalk xSampler(x, myTestTar, r, 10, .1, 100);
+    core::samplers::ContinuousRandomWalk ySampler(y, myTestTar, r, 10, .1, 100);
 
     int i = 20000;
     while (i > 0) {
@@ -178,8 +176,8 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
         i--;
         xSampler.update();
         ySampler.update();
-        xResults(i) = x.value();
-        yResults(i) = y.value();
+        xResults(i) = x->value();
+        yResults(i) = y->value();
     }
 
     auto resultsMean = xResults.mean();

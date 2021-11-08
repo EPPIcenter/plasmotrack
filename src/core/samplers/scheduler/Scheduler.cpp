@@ -5,23 +5,23 @@
 #include "Scheduler.h"
 
 namespace transmission_nets::core::samplers {
+
+    void Scheduler::registerSampler(std::unique_ptr<AbstractSampler> sampler) {
+        samplers_.push_back(ScheduledSampler{.sampler = std::move(sampler)});
+    }
     
-    void Scheduler::registerSampler(AbstractSampler *sampler) {
-        samplers_.push_back({.sampler=sampler});
-    }
-
     void Scheduler::registerSampler(ScheduledSampler sampler) {
-        samplers_.push_back(sampler);
+        samplers_.push_back(std::move(sampler));
     }
 
-    void Scheduler::update(const ScheduledSampler &sampler) const {
+    void Scheduler::update(ScheduledSampler &sampler) const {
         if (isUpdateStep(sampler.updateFrequency, totalSteps) and
             isBetween(totalSteps, sampler.updateStart, sampler.updateEnd)) {
             sampler.update();
         }
     }
 
-    void Scheduler::adapt(const ScheduledSampler &sampler) const {
+    void Scheduler::adapt(ScheduledSampler &sampler) const {
         if (isBetween(totalSteps, sampler.adaptationStart, sampler.adaptationEnd)) {
             if (sampler.scaledAdaptation) {
                 sampler.adapt(totalSteps - sampler.updateStart);
@@ -32,13 +32,13 @@ namespace transmission_nets::core::samplers {
     }
 
     void Scheduler::step() {
-        for (const auto &sampler : samplers_) {
+        for (auto &sampler : samplers_) {
             update(sampler);
             adapt(sampler);
         }
     }
 
-    const std::vector<ScheduledSampler> &Scheduler::samplers() const noexcept {
+    const std::vector<ScheduledSampler>& Scheduler::samplers() const noexcept {
         return samplers_;
     }
 
@@ -50,7 +50,7 @@ namespace transmission_nets::core::samplers {
         sampler->adapt();
     }
 
-    void ScheduledSampler::adapt(int step) const {
+    void ScheduledSampler::adapt(unsigned int step) const {
         sampler->adapt(step);
     }
 

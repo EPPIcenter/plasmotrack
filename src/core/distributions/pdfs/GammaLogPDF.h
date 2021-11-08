@@ -8,19 +8,23 @@
 #include "core/computation/PartialLikelihood.h"
 #include "core/parameters/Parameter.h"
 
+#include <cmath>
+#include <memory>
+
 namespace transmission_nets::core::distributions {
 
     class GammaLogPDF : public computation::PartialLikelihood  {
     public:
-        GammaLogPDF(parameters::Parameter<double> &target, parameters::Parameter<double> &shape, parameters::Parameter<double> &scale);
+        using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
+        GammaLogPDF(p_ParameterDouble target, p_ParameterDouble shape, p_ParameterDouble scale);
         computation::Likelihood value() override;
         std::string identifier() override;
 
     private:
-        parameters::Parameter<double> &target_;
-        parameters::Parameter<double> &shape_;
-        parameters::Parameter<double> &scale_;
-        double logDenominator_;
+        p_ParameterDouble target_;
+        p_ParameterDouble shape_;
+        p_ParameterDouble scale_;
+        double logDenominator_ = 0;
     };
 
 }

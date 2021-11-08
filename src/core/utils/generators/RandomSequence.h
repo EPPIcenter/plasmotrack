@@ -24,7 +24,7 @@ namespace transmission_nets::core::utils::generators {
      * @return vector<int> of random sequence containing [min, max)
      */
     template<typename Engine>
-    std::vector<int> randomSequence(int min, int max, Engine rng) {
+    std::vector<int> randomSequence(int min, int max, std::shared_ptr<Engine> rng) {
         assert(min < max);
         std::vector<int> indices(max - min);
         std::iota(std::begin(indices), std::end(indices), min);

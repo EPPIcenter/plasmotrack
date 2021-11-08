@@ -18,20 +18,20 @@ namespace transmission_nets::core::io {
 
     public:
         template<typename Output>
-        ValueLogger(T& target, std::unique_ptr<Output> output);
+        ValueLogger(std::shared_ptr<T> target, std::unique_ptr<Output> output);
         std::string prepareValue() noexcept override;
 
     private:
-        T& target_;
+        std::shared_ptr<T> target_;
     };
 
     template<typename T>
     template<typename Output>
-    ValueLogger<T>::ValueLogger(T& target, std::unique_ptr<Output> output) :  AbstractLogger(std::move(output)), target_(target) {}
+    ValueLogger<T>::ValueLogger(std::shared_ptr<T> target, std::unique_ptr<Output> output) : AbstractLogger(std::move(output)), target_(std::move(target)) {}
 
     template<typename T>
     std::string ValueLogger<T>::prepareValue() noexcept {
-        return serialize(target_.value());
+        return serialize(target_->value());
     }
 
 }

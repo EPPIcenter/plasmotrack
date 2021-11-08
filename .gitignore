@@ -82,3 +82,10 @@ doc/proposal/.auctex-auto/
 *.json
 
 rust/transmission_sim/target/debug/
+googletest-build/
+googletest-download/
+
+
+googletest-src/
+
+python/simtools/.coverage

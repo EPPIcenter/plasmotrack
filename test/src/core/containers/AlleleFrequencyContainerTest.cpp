@@ -6,6 +6,12 @@
 
 #include "core/datatypes/Simplex.h"
 #include "core/containers/AlleleFrequencyContainer.h"
+#include "core/io/serialize.h"
+
+#include <fmt/core.h>
+#include <memory>
+#include <vector>
+
 
 using namespace transmission_nets::core::datatypes;
 using namespace transmission_nets::core::containers;
@@ -13,23 +19,27 @@ using namespace transmission_nets::core::parameters;
 
 TEST(AlleleFrequencyContainerTest, HandlesChangedFrequencies) {
     using AlleleFrequenciesVector = Simplex;
-    using AlleleFrequencyContainer = AlleleFrequencyContainer<AlleleFrequenciesVector>;
+    using AFC = AlleleFrequencyContainer<AlleleFrequenciesVector>;
 
-    Locus as1("AS1", 4);
-    Locus as2("AS2", 8);
 
+    auto as1 = std::make_shared<Locus>("AS1", 4);
+    auto as2 = std::make_shared<Locus>("AS2", 8);
     bool frequencyChanged = false;
+    auto afc = std::make_shared<AFC>();
+    afc->addLocus(as1);
+    afc->addLocus(as2);
 
-    std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> lfas {
-            {&as1, AlleleFrequenciesVector{.4, .3, .2, .1}},
-            {&as2, AlleleFrequenciesVector{1, 1, 1, 1, 1, 1, 1, 1}}
-    };
+    afc->alleleFrequencies(as1)->initializeValue({.4, .3, .2, .1});
+    afc->alleleFrequencies(as2)->initializeValue({1, 1, 1, 1, 1, 1, 1, 1});
 
-    AlleleFrequencyContainer afc(lfas);
-    afc.add_post_change_listener([&]() { frequencyChanged = true; });
+    fmt::print("Freq: {}\n", transmission_nets::core::io::serialize(afc->alleleFrequencies(as1)->value()));
+    fmt::print("Freq: {}\n", transmission_nets::core::io::serialize(afc->alleleFrequencies(as2)->value()));
 
-    afc.alleleFrequencies(as1).saveState("state1");
-    afc.alleleFrequencies(as1).setValue({.1, .2, .3, .4});
+    afc->add_post_change_listener([&]() { frequencyChanged = true; });
+
+    afc->alleleFrequencies(as1)->saveState("state1");
+    afc->alleleFrequencies(as1)->setValue({.1, .2, .3, .4});
     EXPECT_TRUE(frequencyChanged);
-    afc.alleleFrequencies(as1).restoreState("state1");
+    afc->alleleFrequencies(as1)->restoreState("state1");
+
 }

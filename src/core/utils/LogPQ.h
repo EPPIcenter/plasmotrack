@@ -8,12 +8,11 @@
 #include <vector>
 
 namespace transmission_nets::core::utils {
-    class LogPQ {
-    public:
-        LogPQ(const std::vector<double>& x);
+    struct LogPQ {
+        LogPQ(const std::vector<double> &x);
         std::vector<double> logP{};
         std::vector<double> logQ{};
     };
-}
+}// namespace transmission_nets::core::utils
 
 #endif//TRANSMISSION_NETWORKS_APP_LOGPQ_H

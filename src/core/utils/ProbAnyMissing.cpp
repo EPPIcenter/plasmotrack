@@ -16,8 +16,8 @@ namespace transmission_nets::core::utils {
      * @return
      */
 
-    double transmission_nets::core::utils::probAnyMissingFunctor::operator()(const std::vector<double> &eventProbs, int numEvents) {
-        int totalEvents = eventProbs.size();
+    double transmission_nets::core::utils::probAnyMissingFunctor::operator()(const std::vector<double> &eventProbs, unsigned int numEvents) {
+        std::size_t totalEvents = eventProbs.size();
         int multCounter;
         double r;
 
@@ -29,12 +29,12 @@ namespace transmission_nets::core::utils {
 
 //      Calculate via inclusion-exclusion principle
         int sign = -1;
-        for (int i = 1; i <= totalEvents; ++i) {
+        for (std::size_t i = 1; i <= totalEvents; ++i) {
             sign = -sign;
             c.reset(totalEvents, i);
             while(!c.completed) {
                 eventCombo = 0.0;
-                multCounter = numEvents;
+                multCounter = (signed) numEvents;
                 for (const auto j : c.curr) {
                     eventCombo += eventProbs[j];
                 }

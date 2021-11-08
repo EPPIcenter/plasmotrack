@@ -17,17 +17,17 @@ namespace transmission_nets::core::samplers {
     template<int LOWER_BOUND, int UPPER_BOUND, typename T, typename Engine>
     class ConstrainedDiscreteRandomWalk : public DiscreteRandomWalk<T, Engine> {
     public:
-        ConstrainedDiscreteRandomWalk(parameters::Parameter<int> &parameter, T &target, Engine *rng)
+        ConstrainedDiscreteRandomWalk(std::shared_ptr<parameters::Parameter<int>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng)
                 : DiscreteRandomWalk<T, Engine>(parameter, target, rng) {
-            assert(parameter.value() > LOWER_BOUND);
-            assert(parameter.value() < UPPER_BOUND);
+            assert(parameter->value() > LOWER_BOUND);
+            assert(parameter->value() < UPPER_BOUND);
         }
 
 
-        ConstrainedDiscreteRandomWalk(parameters::Parameter<int> &parameter, T &target, Engine *rng, unsigned int maxDistance)
+        ConstrainedDiscreteRandomWalk(std::shared_ptr<parameters::Parameter<int>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, unsigned int maxDistance)
                 : DiscreteRandomWalk<T, Engine>(parameter, target, rng, maxDistance) {
-            assert(parameter.value() > LOWER_BOUND);
-            assert(parameter.value() < UPPER_BOUND);
+            assert(parameter->value() > LOWER_BOUND);
+            assert(parameter->value() < UPPER_BOUND);
         }
 
         double sampleStride(int current) noexcept override;

@@ -21,12 +21,11 @@ namespace transmission_nets::core::io {
 
        std::string prepareValue() noexcept override;
 
-       void addTarget(const std::string& id, T* target);
-       void addTarget(const std::string& id, T& target);
+       void addTarget(const std::string& id, std::shared_ptr<T> target);
 
 
     private:
-       std::vector<std::pair<std::string, T*>> targets_{};
+       std::vector<std::pair<std::string, std::shared_ptr<T>>> targets_{};
        int iter_ = 1;
     };
 
@@ -45,14 +44,10 @@ namespace transmission_nets::core::io {
     }
 
     template<typename T>
-    void MultiValueLogger<T>::addTarget(const std::string& id, T* target) {
+    void MultiValueLogger<T>::addTarget(const std::string& id, std::shared_ptr<T> target) {
        targets_.push_back({id, target});
     }
 
-    template<typename T>
-    void MultiValueLogger<T>::addTarget(const std::string& id, T& target) {
-        targets_.push_back({id, &target});
-    }
 
 
 }

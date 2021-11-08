@@ -5,11 +5,12 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PARSE_JSON_H
 #define TRANSMISSION_NETWORKS_APP_PARSE_JSON_H
 
-#include <nlohmann/json.hpp>
-#include <iostream>
-
 #include "core/containers/Locus.h"
 #include "core/containers/Infection.h"
+
+#include <nlohmann/json.hpp>
+#include <iostream>
+#include <memory>
 
 namespace transmission_nets::core::io {
     using nlohmann::json;
@@ -25,7 +26,7 @@ namespace transmission_nets::core::io {
         return isEmpty or isMissing;
     }
 
-    inline std::string constrainCOI(std::string genotype, int max_coi) {
+    inline std::string constrainCOI(const std::string& genotype, int max_coi) {
         std::string out;
         int total_coi = 0;
         for (const auto& allele : genotype) {
@@ -42,28 +43,28 @@ namespace transmission_nets::core::io {
     }
 
     template <typename LocusImpl>
-    std::map<std::string, LocusImpl*> parseLociFromJSON(
+    std::map<std::string, std::shared_ptr<LocusImpl>> parseLociFromJSON(
             const json &input,
             const char lociKey[] = "loci",
             const char locusLabelKey[] = "locus",
             const char numAllelesKey[] = "num_alleles") {
 
-        std::map<std::string, LocusImpl*> locusMap{};
+        std::map<std::string, std::shared_ptr<LocusImpl>> locusMap{};
 
         for(const auto& loc : input.at(lociKey)) {
             const std::string locus_label = loc.at(locusLabelKey);
             int num_alleles = loc.at(numAllelesKey);
-            locusMap.emplace(locus_label, new containers::Locus(locus_label, num_alleles));
+            locusMap.emplace(locus_label, std::make_shared<containers::Locus>(locus_label, num_alleles));
         }
 
         return locusMap;
     }
 
     template <typename InfectionEvent, typename LocusImpl>
-    std::vector<InfectionEvent*> parseInfectionsFromJSON(
+    std::vector<std::shared_ptr<InfectionEvent>> parseInfectionsFromJSON(
             const json &input,
             const int max_coi,
-            std::map<std::string, LocusImpl*> loci,
+            std::map<std::string, std::shared_ptr<LocusImpl>> loci,
             const char infectionsKey[] = "nodes",
             const char obsGenotypesKey[] = "observed_genotype",
             const char idKey[] = "id",
@@ -71,9 +72,9 @@ namespace transmission_nets::core::io {
             const char genotypeKey[] = "genotype",
             const char locusKey[] = "locus") {
 
-        std::vector<InfectionEvent*> infections{};
+        std::vector<std::shared_ptr<InfectionEvent>> infections{};
         for (const auto& inf : input.at(infectionsKey)) {
-            infections.push_back(new InfectionEvent(inf.at(idKey), inf.at(observationDateKey)));
+            infections.push_back(std::make_shared<InfectionEvent>(inf.at(idKey), inf.at(observationDateKey)));
 
             for (const auto& genetics : inf.at(obsGenotypesKey)) {
                 auto locusLabel = genetics.at(locusKey);
@@ -98,22 +99,22 @@ namespace transmission_nets::core::io {
     }
 
     template <typename InfectionEvent>
-    std::map<InfectionEvent*, std::vector<InfectionEvent*>> parseAllowedParentsFromJSON(
+    std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> parseAllowedParentsFromJSON(
             const json &input,
-            std::vector<InfectionEvent*> infections,
+            std::vector<std::shared_ptr<InfectionEvent>> infections,
             const char infectionsKey[] = "nodes",
             const char idKey[] = "id",
             const char allowedParentsKey[] = "allowed_parents"
             ) {
 
-        std::map<InfectionEvent*, std::vector<InfectionEvent*>> allowedParents{};
+        std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> allowedParents{};
 
         for(const auto& targetInfection : infections) {
             for (const auto& inf : input.at(infectionsKey)) {
                 auto infectionId = inf.at(idKey);
                 if (infectionId == targetInfection->id()) {
                     for (const auto& parentId : inf.at(allowedParentsKey)) {
-                        auto parentInf = std::find_if(infections.begin(), infections.end(), [&parentId](const InfectionEvent* candidateInf) {return candidateInf->id() == parentId;});
+                        auto parentInf = std::find_if(infections.begin(), infections.end(), [&parentId](const std::shared_ptr<InfectionEvent> candidateInf) {return candidateInf->id() == parentId;});
                         allowedParents[targetInfection].push_back(*parentInf);
                     }
                     break;

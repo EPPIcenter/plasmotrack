@@ -5,15 +5,20 @@
 #ifndef TRANSMISSION_NETWORKS_APP_SIMPLEX_H
 #define TRANSMISSION_NETWORKS_APP_SIMPLEX_H
 
-#include <vector>
 
 #include "core/datatypes/Matrix.h"
+
+#include <fmt/core.h>
+
+#include <vector>
+
 
 namespace transmission_nets::core::datatypes {
 
     class Simplex {
     public:
         explicit Simplex(unsigned int totalElements);
+        Simplex();
 
         explicit Simplex(const std::vector<double>& freqs);
 

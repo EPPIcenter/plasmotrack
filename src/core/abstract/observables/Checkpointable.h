@@ -16,6 +16,10 @@
 
 namespace transmission_nets::core::abstract {
 
+    /*
+     * CRTP mixin to enable checkpointing of a value. Allows for the underlying class with field value_ to be saved and restored.
+     */
+
     template<typename T, typename ValueType>
     class Checkpointable : public crtp<T, Checkpointable, ValueType> {
         using CallbackType = std::function<void()>;
@@ -32,7 +36,6 @@ namespace transmission_nets::core::abstract {
         };
 
     public:
-
         template<typename T0>
         std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> registerCheckpointTarget(T0* target);
 
