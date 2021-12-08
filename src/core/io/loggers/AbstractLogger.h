@@ -7,10 +7,11 @@
 
 #include "AbstractOutput.h"
 
+#include <memory>
+
 namespace transmission_nets::core::io {
     class AbstractLogger {
     public:
-
         template<typename Output>
         explicit AbstractLogger(std::unique_ptr<Output> output) : output_(std::move(output)) {}
 
@@ -27,7 +28,7 @@ namespace transmission_nets::core::io {
     protected:
         std::unique_ptr<AbstractOutput> output_{};
     };
-}
+}// namespace transmission_nets::core::io
 
 
 #endif//TRANSMISSION_NETWORKS_APP_ABSTRACTLOGGER_H

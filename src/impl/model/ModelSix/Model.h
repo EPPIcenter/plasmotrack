@@ -5,13 +5,13 @@
 #ifndef TRANSMISSION_NETWORKS_APP_MODEL_H
 #define TRANSMISSION_NETWORKS_APP_MODEL_H
 
-#include "config.h"
 #include "State.h"
+#include "config.h"
 
-namespace transmission_nets::impl::ModelFive {
+namespace transmission_nets::impl::ModelSix {
     struct Model : core::computation::PartialLikelihood {
         explicit Model(std::shared_ptr<State> state);
-        explicit Model(State& state);
+        explicit Model(State &state);
 
         Likelihood value() override;
         std::string identifier() override;
@@ -21,9 +21,7 @@ namespace transmission_nets::impl::ModelFive {
         core::computation::Accumulator<core::computation::PartialLikelihood, Likelihood> likelihood;
 
         // Observation Process
-        std::vector<std::shared_ptr<AlleleCounterImpl>> alleleCounters{};
-        std::vector<std::shared_ptr<AlleleCounterAccumulator>> alleleCountAccumulators{};
-        std::shared_ptr<model::observation_process::ObservationProcessLikelihoodv1<AlleleCounterAccumulator>> observationProcessLikelihood;
+        std::vector<std::shared_ptr<model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>>> observationProcessLikelihoodList{};
 
         // Node Transmission Process
         std::shared_ptr<InterTransmissionProbImpl> intp;
@@ -37,8 +35,7 @@ namespace transmission_nets::impl::ModelFive {
         std::vector<std::shared_ptr<ParentSetImpl>> parentSetList{};
         std::vector<std::shared_ptr<TransmissionProcess>> transmissionProcessList{};
     };
-}
-
+}// namespace transmission_nets::impl::ModelSix
 
 
 #endif//TRANSMISSION_NETWORKS_APP_MODEL_H

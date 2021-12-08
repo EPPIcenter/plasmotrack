@@ -36,7 +36,7 @@
 //            parentSetList.back()->addDisallowedParents(state.disallowedParents.at(infection));
 //        }
 //
-//        observationProcessLikelihood = new model::observation_process::ObservationProcessLikelihood(
+//        observationProcessLikelihood = new model::observation_process::ObservationProcessLikelihoodv1(
 //                alleleCountAccumulator,
 //                state.observationFalsePositiveRate,
 //                state.observationFalseNegativeRate);

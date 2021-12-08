@@ -11,7 +11,7 @@
 #include "core/io/loggers/ParentSetDistLogger.h"
 #include "core/io/loggers/ValueLogger.h"
 
-namespace transmission_nets::impl::ModelFive {
+namespace transmission_nets::impl::ModelSix {
 
     class ModelLogger {
         std::shared_ptr<Model> model_;
@@ -24,7 +24,7 @@ namespace transmission_nets::impl::ModelFive {
         void log() const;
         void finalize() const;
     };
-}// namespace transmission_nets::impl::ModelFive
+}// namespace transmission_nets::impl::ModelSix
 
 
 #endif//TRANSMISSION_NETWORKS_APP_MODELLOGGER_H

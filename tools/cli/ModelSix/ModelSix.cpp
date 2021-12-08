@@ -4,19 +4,19 @@
 
 #include "core/io/parse_json.h"
 #include "core/samplers/meta/ReplicaExchange.h"
-#include "impl/model/ModelFive/Model.h"
-#include "impl/model/ModelFive/State.h"
-#include "impl/model/ModelFive/SampleScheduler.h"
-#include "impl/model/ModelFive/StateLogger.h"
-#include "impl/model/ModelFive/ModelLogger.h"
+#include "impl/model/ModelSix/Model.h"
+#include "impl/model/ModelSix/ModelLogger.h"
+#include "impl/model/ModelSix/SampleScheduler.h"
+#include "impl/model/ModelSix/State.h"
+#include "impl/model/ModelSix/StateLogger.h"
 
 #include <boost/program_options.hpp>
 #include <fmt/core.h>
 
 #include <csignal>
+#include <filesystem>
 #include <iostream>
 #include <string>
-#include <filesystem>
 
 
 using namespace transmission_nets::impl;
@@ -24,38 +24,30 @@ using namespace transmission_nets::core::io;
 using namespace transmission_nets::core::computation;
 using namespace transmission_nets::core::samplers;
 
-namespace
-{
+namespace {
     const size_t ERROR_IN_COMMAND_LINE = 1;
     const size_t SUCCESS = 0;
     const size_t ERROR_UNHANDLED_EXCEPTION = 2;
 
-} // namespace
+}// namespace
 
 // Global interrupt tracker
 bool interrupted = false;
 
 // Global replica exchange object
-std::unique_ptr<ReplicaExchange<ModelFive::State, ModelFive::Model, ModelFive::SampleScheduler, ModelFive::ModelLogger, ModelFive::StateLogger>> repex;
-
+std::unique_ptr<ReplicaExchange<ModelSix::State, ModelSix::Model, ModelSix::SampleScheduler, ModelSix::ModelLogger, ModelSix::StateLogger>> repex;
 
 void finalize_output(int signal_num) {
     interrupted = true;
     fmt::print("Interrupt signal {} received. Finalizing output...", signal_num);
-//    repex->logState();
-//    repex->logModel();
-//    repex->finalize();
-//    exit(signal_num);
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char **argv) {
     signal(SIGINT, finalize_output);
     signal(SIGQUIT, finalize_output);
     signal(SIGABRT, finalize_output);
 
-    try
-    {
+    try {
         int numChains;
         double gradient;
 
@@ -69,17 +61,7 @@ int main(int argc, char** argv)
 
         namespace po = boost::program_options;
         po::options_description desc("Options");
-        desc.add_options()
-        ("help", "Runs the model five implementation")
-        ("burnin,b", po::value<int>(&burnin)->default_value(5000), "Number of steps to be used for burnin")
-        ("sample,s", po::value<int>(&sample)->default_value(10000), "Total number of steps to be used for sampling")
-        ("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned")
-        ("numchains,n", po::value<int>(&numChains)->default_value(1), "Number of chains to run in replica exchange algorithm. Do not exceed the number of threads available.")
-        ("gradient,g", po::value<double>(&gradient)->default_value(1), "Temperature gradient to use in replica exchange algorithm")
-        ("seed", po::value<int>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.")
-        ("input,i", po::value<std::string>(&input)->required(), "Input file")
-        ("hotload,h", "Hotload parameters from the output directory")
-        ("output-dir,o", po::value<std::string>(&output_dir)->required(), "Output directory");
+        desc.add_options()("help", "Runs the model six implementation")("burnin,b", po::value<int>(&burnin)->default_value(5000), "Number of steps to be used for burnin")("sample,s", po::value<int>(&sample)->default_value(10000), "Total number of steps to be used for sampling")("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned")("numchains,n", po::value<int>(&numChains)->default_value(1), "Number of chains to run in replica exchange algorithm. Do not exceed the number of threads available.")("gradient,g", po::value<double>(&gradient)->default_value(1), "Temperature gradient to use in replica exchange algorithm")("seed", po::value<int>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.")("input,i", po::value<std::string>(&input)->required(), "Input file")("hotload,h", "Hotload parameters from the output directory")("output-dir,o", po::value<std::string>(&output_dir)->required(), "Output directory");
 
 
         po::positional_options_description p;
@@ -87,27 +69,23 @@ int main(int argc, char** argv)
         p.add("output-dir", 1);
 
         po::variables_map vm;
-        try
-        {
-            po::store(po::command_line_parser(argc, argv).options(desc)
-                      .positional(p).run(),
-                      vm); // can throw
+        try {
+            po::store(po::command_line_parser(argc, argv).options(desc).positional(p).run(),
+                      vm);// can throw
 
-                      /** --help option
+            /** --help option
                        */
-                      if ( vm.count("help")  )
-                      {
-                          std::cout << "Model Five Implementation" << std::endl
+            if (vm.count("help")) {
+                std::cout << "Model Six Implementation" << std::endl
                           << desc << std::endl;
-                          return SUCCESS;
-                      }
+                return SUCCESS;
+            }
 
-                      po::notify(vm); // throws on error, so do after help in case
-                                          // there are any problems
-        }
-        catch(po::error& e)
-        {
-            std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
+            po::notify(vm);// throws on error, so do after help in case
+                           // there are any problems
+        } catch (po::error &e) {
+            std::cerr << "ERROR: " << e.what() << std::endl
+                      << std::endl;
             std::cerr << desc << std::endl;
             return ERROR_IN_COMMAND_LINE;
         }
@@ -141,12 +119,12 @@ int main(int argc, char** argv)
 
         fmt::print("Seed Used: {}\n", seed);
         auto r = std::make_shared<boost::random::mt19937>(seed);
-        repex = std::make_unique<ReplicaExchange<ModelFive::State, ModelFive::Model, ModelFive::SampleScheduler, ModelFive::ModelLogger, ModelFive::StateLogger>>(numChains, thin, gradient, r, outputDir, hotload, j);
+        repex = std::make_unique<ReplicaExchange<ModelSix::State, ModelSix::Model, ModelSix::SampleScheduler, ModelSix::ModelLogger, ModelSix::StateLogger>>(numChains, thin, gradient, r, outputDir, hotload, j);
 
         repex->logState();
         repex->finalize();
         fmt::print("Starting Llik: {0:.2f}\n", repex->hotValue());
-//        exit(1);
+        //        exit(1);
         for (int kk = 0; kk < burnin; ++kk) {
             if (interrupted) {
                 repex->logModel();
@@ -156,6 +134,7 @@ int main(int argc, char** argv)
             repex->sample();
             fmt::print("(b={0}) Current Llik: {1:.2f}\n", kk, repex->hotValue());
         }
+
 
         for (int jj = 0; jj < sample; ++jj) {
             if (interrupted) {
@@ -169,15 +148,12 @@ int main(int argc, char** argv)
 
         repex->finalize();
 
-    }
-    catch(std::exception& e)
-    {
+    } catch (std::exception &e) {
         std::cerr << "Unhandled Exception reached the top of main: "
-        << e.what() << ", application will now exit" << std::endl;
+                  << e.what() << ", application will now exit" << std::endl;
         return ERROR_UNHANDLED_EXCEPTION;
-
     }
 
     return SUCCESS;
 
-} // main
+}// main

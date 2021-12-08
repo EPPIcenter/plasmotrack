@@ -5,17 +5,17 @@
 #include "State.h"
 #include "core/io/serialize.h"
 
-namespace transmission_nets::impl::ModelFive {
+namespace transmission_nets::impl::ModelSix {
     State::State(const nlohmann::json &input) {
         loci = core::io::parseLociFromJSON<LocusImpl>(input);
         infections = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci);
         allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
 
-        obsFPRPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFPRPriorBeta = std::make_shared<core::parameters::Parameter<double>>(990);
+        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
 
-        obsFNRPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFNRPriorBeta = std::make_shared<core::parameters::Parameter<double>>(990);
+        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
 
         geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
         geometricGenerationProbPriorBeta = std::make_shared<core::parameters::Parameter<double>>(1);
@@ -46,8 +46,8 @@ namespace transmission_nets::impl::ModelFive {
         infectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(1);
 
         for (size_t ii = 0; ii < infections.size(); ++ii) {
-            observationFalsePositiveRates.emplace_back(new core::parameters::Parameter<double>(.01));
-            observationFalseNegativeRates.emplace_back(new core::parameters::Parameter<double>(.01));
+            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.1));
+            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.1));
         }
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.9);
@@ -69,11 +69,11 @@ namespace transmission_nets::impl::ModelFive {
         infections = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci);
         allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
 
-        obsFPRPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFPRPriorBeta = std::make_shared<core::parameters::Parameter<double>>(990);
+        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.01);
 
-        obsFNRPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFNRPriorBeta = std::make_shared<core::parameters::Parameter<double>>(990);
+        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.01);
 
         geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
         geometricGenerationProbPriorBeta = std::make_shared<core::parameters::Parameter<double>>(1);
@@ -105,8 +105,8 @@ namespace transmission_nets::impl::ModelFive {
                 infection->latentGenotype(locus)->initializeValue(GeneticsImpl(core::io::hotloadString(infDir / (label + ".csv"))));
             }
 
-            observationFalsePositiveRates.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadParameter(epsPosFolder / inf_file_name)));
-            observationFalseNegativeRates.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadParameter(epsNegFolder / inf_file_name)));
+            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadParameter(epsPosFolder / inf_file_name)));
+            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadParameter(epsNegFolder / inf_file_name)));
         }
 
         infectionEventOrdering = std::make_shared<OrderingImpl>();
@@ -117,4 +117,4 @@ namespace transmission_nets::impl::ModelFive {
         mutationProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadParameter(paramOutputDir / "mutation_prob.csv"));
         meanCOI = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadParameter(paramOutputDir / "mean_coi.csv"));
     }
-}// namespace transmission_nets::impl::ModelFive
+}// namespace transmission_nets::impl::ModelSix

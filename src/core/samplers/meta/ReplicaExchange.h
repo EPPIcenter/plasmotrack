@@ -7,10 +7,10 @@
 
 #include "core/computation/transformers/Tempered.h"
 
-#include <filesystem>
 #include <boost/random.hpp>
-#include <omp.h>
+#include <filesystem>
 #include <fmt/core.h>
+#include <omp.h>
 
 namespace fs = std::filesystem;
 
@@ -18,7 +18,7 @@ namespace transmission_nets::core::samplers {
     using namespace core::computation;
     // Implements the replication exchange (parallel tempering) algorithm
 
-    template<typename State, typename Model, template<typename...> typename Scheduler, typename ModelLogger, typename StateLogger, typename Engine=boost::random::mt19937>
+    template<typename State, typename Model, template<typename...> typename Scheduler, typename ModelLogger, typename StateLogger, typename Engine = boost::random::mt19937>
     struct ReplicaExchange {
         using TemperedTarget = Tempered<Model>;
         struct Chain {
@@ -31,8 +31,8 @@ namespace transmission_nets::core::samplers {
             std::shared_ptr<Engine> r;
         };
 
-        template<typename ...Args>
-        ReplicaExchange(int numChains, int samplesPerStep, double gradient, std::shared_ptr<Engine> r, fs::path outputDir, bool hotload, Args... args) : r_(r){
+        template<typename... Args>
+        ReplicaExchange(int numChains, int samplesPerStep, double gradient, std::shared_ptr<Engine> r, fs::path outputDir, bool hotload, Args... args) : r_(r) {
             swap_acceptance_rates = std::vector<int>(numChains, 0);
             for (int ii = 0; ii < numChains; ++ii) {
                 double temp = 1.0 / std::pow(gradient, ii);
@@ -48,7 +48,7 @@ namespace transmission_nets::core::samplers {
                 auto sampler = std::make_shared<Scheduler<TemperedTarget>>(state, target, chain_r, samplesPerStep);
                 auto modelLogger = std::make_shared<ModelLogger>(model, outputDir);
                 std::shared_ptr<StateLogger> stateLogger;
-                if (ii == numChains - 1) {
+                if (ii == (numChains - 1)) {
                     stateLogger = std::make_shared<StateLogger>(state, outputDir, true);
                 } else {
                     stateLogger = std::make_shared<StateLogger>(state, outputDir, false);
@@ -62,18 +62,17 @@ namespace transmission_nets::core::samplers {
 
 #pragma omp parallel default(none) num_threads(chains.size())
             {
- #pragma omp for
+#pragma omp for
                 for (size_t ii = 0; ii < chains.size(); ++ii) {
                     chains[ii].sampler->step();
                 }
             }
             swap_chains();
-            num_swaps++;
         }
 
         void swap_chains() {
             // Generate sequences of (0,2,4...) and (1,3,5...) every other swap
-            for (size_t ii = 0 + num_swaps % 2; ii < chains.size() - 1; ii+=2) {
+            for (size_t ii = 0 + num_swaps % 2; ii < chains.size() - 1; ii += 2) {
                 fmt::print("Current llik: {0:.2f} -- {1:.2f} ({2})\n", chains[ii].target->value() / chains[ii].target->getTemperature(), chains[ii].target->value(), ii);
                 fmt::print("Current llik: {0:.2f} -- {1:.2f} ({2})\n", chains[ii + 1].target->value() / chains[ii + 1].target->getTemperature(), chains[ii + 1].target->value(), ii + 1);
                 Likelihood curr_llik_a = chains[ii].target->value();
@@ -131,17 +130,14 @@ namespace transmission_nets::core::samplers {
         std::shared_ptr<boost::random::mt19937> r_;
         boost::random::uniform_01<> uniform_dist_{};
         boost::random::uniform_int_distribution<unsigned int> seed_dist_{};
-
-
     };
 
 
+    //    template<typename T, typename State, typename Scheduler>
+    //    ReplicaExchange<T, State, Scheduler>::ReplicaExchange(TemperedTarget &target, State &state, Scheduler &sampler) {
+    //        addChain(target, state, sampler);
+    //    }
 
-//    template<typename T, typename State, typename Scheduler>
-//    ReplicaExchange<T, State, Scheduler>::ReplicaExchange(TemperedTarget &target, State &state, Scheduler &sampler) {
-//        addChain(target, state, sampler);
-//    }
-
-}
+}// namespace transmission_nets::core::samplers
 
 #endif//TRANSMISSION_NETWORKS_APP_REPLICAEXCHANGE_H

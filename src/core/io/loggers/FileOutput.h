@@ -5,12 +5,12 @@
 #ifndef TRANSMISSION_NETWORKS_APP_FILEOUTPUT_H
 #define TRANSMISSION_NETWORKS_APP_FILEOUTPUT_H
 
+#include "AbstractOutput.h"
+#include "LambdaLogger.h"
 #include <filesystem>
 #include <map>
 #include <ostream>
 #include <sstream>
-#include "LambdaLogger.h"
-#include "AbstractOutput.h"
 
 namespace transmission_nets::core::io {
     namespace fs = std::filesystem;
@@ -19,32 +19,31 @@ namespace transmission_nets::core::io {
         explicit FileOutput(fs::path outputPath, std::string header = "", bool resetOutput = true);
         ~FileOutput() override;
 
-        FileOutput(const FileOutput&) = delete;
-        FileOutput& operator=(FileOutput&) = delete;
+        FileOutput(const FileOutput &) = delete;
+        FileOutput &operator=(FileOutput &) = delete;
 
+        void reset() final;
 
-        void reset() override;
+        void initialize(bool reset) final;
 
-        void initialize(bool reset = true) final;
+        void finalize() final;
 
-        void finalize() override;
-
-        void write(const std::string&) override;
+        void write(const std::string &) final;
 
         void write_buffer();
 
 
     protected:
-//        static std::map<std::string, std::shared_ptr<std::ofstream>> outputFiles_;
-        static std::map<std::string, std::shared_ptr<std::ofstream>>& getOutputFiles();
+        //        static std::map<std::string, std::shared_ptr<std::ofstream>> outputFiles_;
+        static std::map<std::string, std::shared_ptr<std::ofstream>> &getOutputFiles();
+        static std::map<std::string, std::shared_ptr<std::stringstream>> &getOutputBuffers();
         long buffer_size_ = 4096;
         fs::path outputPath_;
         std::string header_;
-        std::stringstream buffer_;
+        std::shared_ptr<std::stringstream> pBuffer_;
         std::shared_ptr<std::ofstream> outputFile_;
     };
-}
-
+}// namespace transmission_nets::core::io
 
 
 #endif//TRANSMISSION_NETWORKS_APP_FILEOUTPUT_H

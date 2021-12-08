@@ -4,17 +4,17 @@ project(transmission_networks_tests)
 configure_file(${CMAKE_SOURCE_DIR}/cmake/GoogleTest-CMakeLists.txt.in ${CMAKE_BINARY_DIR}/googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
         RESULT_VARIABLE result
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
-if(result)
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download)
+if (result)
     message(FATAL_ERROR "CMake step for googletest failed: ${result}")
-endif()
+endif ()
 
 execute_process(COMMAND ${CMAKE_COMMAND} --build .
         RESULT_VARIABLE result
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
-if(result)
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download)
+if (result)
     message(FATAL_ERROR "Build step for googletest failed: ${result}")
-endif()
+endif ()
 
 # Prevent overriding the parent project's compiler/linker
 # settings on Windows
@@ -27,10 +27,10 @@ find_package(OpenMP)
 
 
 if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-endif()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif ()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -80,13 +80,13 @@ set(SOURCE_FILES
         src/core/utils/NumericsTest.cpp
         src/impl/ModelFourTest.cpp
         src/core/computation/ObservationTimeDerivedOrderingTest.cpp
-        src/impl/ModelFiveTest.cpp)
+        src/impl/ModelFiveTest.cpp src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests
         PRIVATE
-#        ${Boost_FILESYSTEM_LIBRARY}
-#        ${Boost_SYSTEM_LIBRARY}
+        #        ${Boost_FILESYSTEM_LIBRARY}
+        #        ${Boost_SYSTEM_LIBRARY}
         nlohmann_json::nlohmann_json
         Eigen3::Eigen
         transmission_networks
@@ -97,11 +97,11 @@ target_link_libraries(transmission_networks_tests
 include(CheckIPOSupported)
 check_ipo_supported(RESULT supported OUTPUT error)
 
-if( supported )
+if (supported)
     message(STATUS "IPO / LTO enabled")
     set_property(TARGET transmission_networks_tests PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-else()
+else ()
     message(STATUS "IPO / LTO not supported: <${error}>")
-endif()
+endif ()
 
 install(TARGETS transmission_networks_tests DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

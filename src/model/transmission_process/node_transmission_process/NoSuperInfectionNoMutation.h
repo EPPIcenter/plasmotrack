@@ -17,6 +17,12 @@
 
 namespace transmission_nets::model::transmission_process {
 
+    /*
+     * Under a model of no super infection or mutation, creates a (MAX_COI + 1) state transition matrix, representing the
+     * probability of a count of alleles transitioning from [0 ... MAX_COI] x [0 ... MAX_COI] subject to loss dynamics of
+     * the infection process
+     */
+
     template<int MAX_COI, int MAX_TRANSMISSIONS, typename COITransitionProbImpl, typename InterTransmissionProbImpl>
     class NoSuperInfectionNoMutation : public core::computation::Computation<core::datatypes::LogProbabilityTransitionMatrix<MAX_COI + 1>>,
                                        public core::abstract::Observable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>,

@@ -8,11 +8,11 @@ set(transmission_networks_VERSION_MINOR 0)
 set(CMAKE_CXX_STANDARD 20)
 
 #set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fsanitize=undefined,address -Wall -Wextra -Werror")
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra ")
-if ( CMAKE_COMPILER_IS_GNUCC )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra ")
+if (CMAKE_COMPILER_IS_GNUCC)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -fno-omit-frame-pointer -fopenmp")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Werror -O3 -DNDEBUG -g -march=native -frename-registers -funroll-loops -fno-omit-frame-pointer -fopenmp") # -Ofast is throwing nan errors
-endif()
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Werror -O3 -ffast-math -DNDEBUG -g -march=native -frename-registers -funroll-loops -fno-omit-frame-pointer -fopenmp -funsafe-math-optimizations") # -Ofast is throwing nan errors
+endif ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message("Compiling Clang")
@@ -20,7 +20,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     find_package(Clang)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -fno-omit-frame-pointer")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -g -march=native")
-endif()
+endif ()
 
 #if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
 #    message("Compiling Intel")
@@ -46,4 +46,5 @@ include_directories(${PROJECT_BINARY_DIR})
 
 add_subdirectory(src)
 add_subdirectory(test)
-add_subdirectory(tools/cli)
+add_subdirectory(tools/cli/ModelFive)
+add_subdirectory(tools/cli/ModelSix)

@@ -83,7 +83,7 @@
 //    std::shuffle(infections.begin(), infections.end(), rng);
 //
 //    ModelFour::Model model(loci, infections, disallowedParents);
-//    ModelFour::ParameterLogger logger(model, testsDir / outputDir);
+//    ModelFour::StateLogger logger(model, testsDir / outputDir);
 //
 //    boost::random::mt19937 r;
 //    RandomizedScheduler scheduler(&r, 50000);

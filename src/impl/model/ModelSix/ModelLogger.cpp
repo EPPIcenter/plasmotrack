@@ -6,7 +6,7 @@
 
 #include <utility>
 
-namespace transmission_nets::impl::ModelFive {
+namespace transmission_nets::impl::ModelSix {
     ModelLogger::ModelLogger(std::shared_ptr<Model> model, fs::path rootPath) : model_(std::move(model)), rootPath_(std::move(rootPath)) {
         auto statOutputFolder_ = rootPath_ / "stats";
         auto parentSetFolder_ = rootPath_ / "parent_sets";
@@ -39,4 +39,4 @@ namespace transmission_nets::impl::ModelFive {
             logger->finalize();
         }
     }
-}// namespace transmission_nets::impl::ModelFive
+}// namespace transmission_nets::impl::ModelSix

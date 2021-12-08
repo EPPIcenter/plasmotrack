@@ -163,34 +163,36 @@ namespace transmission_nets::model::transmission_process {
     Likelihood
     OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::value() {
         if (this->isDirty()) {
-            if (!toSubtract_.empty()) {
-                Likelihood totalToSubtract = core::utils::logSumExp(toSubtract_);
-                this->value_ = core::utils::logDiffExp(this->value_, totalToSubtract);
-                toSubtract_.clear();
-            }
-
-            toAdd_.clear();
-            toAdd_.push_back(this->value_);
-            Likelihood maxLlik = this->value_;
-
-            for (const auto& parent : toCalculate_) {
-                assert(!(calculated_.contains(parent)));
-                toAdd_.push_back(calculateParentLogLikelihoodContribution(parent, calculated_));
-                maxLlik = std::max(maxLlik, toAdd_.back());
-                calculated_.insert(parent);
-            }
-
-            toCalculate_.clear();
-
-            if (stpDirty_) {
-                toAdd_.push_back(stp_->value());
-                maxLlik = std::max(maxLlik, toAdd_.back());
-                stpDirty_ = false;
-            }
-            this->value_ = core::utils::logSumExpKnownMax(toAdd_.begin(), toAdd_.end(), maxLlik);
-
-            assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
-
+//            if (!toSubtract_.empty()) {
+//                Likelihood totalToSubtract = core::utils::logSumExp(toSubtract_);
+//                this->value_ = core::utils::logDiffExp(this->value_, totalToSubtract);
+//                toSubtract_.clear();
+//            }
+//
+//            toAdd_.clear();
+//            toAdd_.push_back(this->value_);
+//            Likelihood maxLlik = this->value_;
+//
+//            for (const auto& parent : toCalculate_) {
+//                assert(!(calculated_.contains(parent)));
+//                toAdd_.push_back(calculateParentLogLikelihoodContribution(parent, calculated_));
+//                maxLlik = std::max(maxLlik, toAdd_.back());
+//                calculated_.insert(parent);
+//            }
+//
+//            toCalculate_.clear();
+//
+//            if (stpDirty_) {
+//                toAdd_.push_back(stp_->value());
+//                maxLlik = std::max(maxLlik, toAdd_.back());
+//                stpDirty_ = false;
+//            }
+//            this->value_ = core::utils::logSumExpKnownMax(toAdd_.begin(), toAdd_.end(), maxLlik);
+//
+//            assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
+//
+//            this->setClean();
+            this->value_ = validate();
             this->setClean();
         }
 

@@ -5,12 +5,12 @@
 #ifndef TRANSMISSION_NETWORKS_APP_CONFIG_H
 #define TRANSMISSION_NETWORKS_APP_CONFIG_H
 
-#include <utility>
 #include <filesystem>
+#include <utility>
 
 #include "core/computation/Accumulator.h"
-#include "core/computation/PartialLikelihood.h"
 #include "core/computation/ObservationTimeDerivedOrdering.h"
+#include "core/computation/PartialLikelihood.h"
 
 #include "core/parameters/Parameter.h"
 
@@ -19,15 +19,15 @@
 #include "core/datatypes/Alleles.h"
 
 #include "core/distributions/ZTGeometric.h"
-#include "core/distributions/ZTPoisson.h"
 #include "core/distributions/ZTMultiplicativeBinomial.h"
+#include "core/distributions/ZTPoisson.h"
 #include "core/distributions/pdfs/BetaLogPDF.h"
 #include "core/distributions/pdfs/GammaLogPDF.h"
 
 #include "core/io/loggers/AbstractLogger.h"
-#include "core/io/loggers/ValueLogger.h"
-#include "core/io/loggers/MultiValueLogger.h"
 #include "core/io/loggers/FileOutput.h"
+#include "core/io/loggers/MultiValueLogger.h"
+#include "core/io/loggers/ValueLogger.h"
 
 #include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
 #include "core/samplers/general/SALTSampler.h"
@@ -37,7 +37,7 @@
 
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/AlleleCounts.h"
-#include "model/observation_process/ObservationProcessLikelihoodv1.h"
+#include "model/observation_process/ObservationProcessLikelihoodv2.h"
 
 #include "model/transmission_process/OrderBasedTransmissionProcess.h"
 #include "model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h"
@@ -45,7 +45,7 @@
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
 
-namespace transmission_nets::impl::ModelFive {
+namespace transmission_nets::impl::ModelSix {
 
     static constexpr int MAX_ALLELES = 64;
     static constexpr int MAX_COI = 8;
@@ -73,6 +73,6 @@ namespace transmission_nets::impl::ModelFive {
     using ParentSetImpl = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
     using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
 
-}
+}// namespace transmission_nets::impl::ModelSix
 
 #endif//TRANSMISSION_NETWORKS_APP_CONFIG_H

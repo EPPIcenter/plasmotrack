@@ -9,7 +9,7 @@
 //
 //#include "core/computation/Accumulator.h"
 //#include "core/computation/PartialLikelihood.h"
-//#include "core/computation/Transformers/LogTransformer.h"
+//#include "core/computation/transformers/LogTransformer.h"
 //
 //#include "core/containers/AlleleFrequencyContainer.h"
 //
@@ -23,7 +23,7 @@
 //
 //#include "model/observation_process/AlleleCounter.h"
 //#include "model/observation_process/AlleleCounts.h"
-//#include "model/observation_process/ObservationProcessLikelihood.h"
+//#include "model/observation_process/ObservationProcessLikelihoodv1.h"
 //
 //#include "model/transmission_process/OrderBasedTransmissionProcess.h"
 //#include "model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h"
@@ -94,7 +94,7 @@
 //        // Observation Process
 //        std::vector<AlleleCounterImpl *> alleleCounters{};
 //        AlleleCounterAccumulator alleleCountAccumulator;
-//        model::observation_process::ObservationProcessLikelihood<AlleleCounterAccumulator>* observationProcessLikelihood{};
+//        model::observation_process::ObservationProcessLikelihoodv1<AlleleCounterAccumulator>* observationProcessLikelihood{};
 //
 //        // Node Transmission Process
 //        InterTransmissionProbImpl* intp{};

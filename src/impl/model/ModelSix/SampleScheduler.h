@@ -7,7 +7,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_SAMPLESCHEDULER_H
 #define TRANSMISSION_NETWORKS_APP_SAMPLESCHEDULER_H
 
-namespace transmission_nets::impl::ModelFive {
+namespace transmission_nets::impl::ModelSix {
 
     template<typename T, typename Engine = boost::random::mt19937, typename Scheduler = core::samplers::RandomizedScheduler<Engine>>
     struct SampleScheduler {
@@ -58,24 +58,22 @@ namespace transmission_nets::impl::ModelFive {
                 if (infection->latentGenotype().contains(locus)) {
                     auto latentGenotype = infection->latentGenotype(locus);
                     scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
-                                                .adaptationStart = 20,
-                                                .adaptationEnd = 2000,
                                                 .weight = 5});
-                    scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
-                                                .weight = 1});
+                    //                    scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
+                    //                                                .weight = 1});
                 }
             }
         }
 
-        for (auto &infFNR : state_->observationFalseNegativeRates) {
-            scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infFNR, target_, 0.0, 0.05, r, 1),
+        for (auto &infFNR : state_->expectedFalseNegatives) {
+            scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infFNR, target_, 0.0, .5, r, .1),
                                         .adaptationStart = 20,
                                         .adaptationEnd = 2000,
                                         .weight = totalLoci * 10});
         }
 
-        for (auto &infFPR : state_->observationFalsePositiveRates) {
-            scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infFPR, target_, 0.0, 0.05, r, 1),
+        for (auto &infFPR : state_->expectedFalsePositives) {
+            scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infFPR, target_, 0.0, .5, r, .1),
                                         .adaptationStart = 20,
                                         .adaptationEnd = 2000,
                                         .weight = totalLoci * 10});
@@ -88,6 +86,6 @@ namespace transmission_nets::impl::ModelFive {
                                         .weight = totalInfections});
         }
     }
-}// namespace transmission_nets::impl::ModelFive
+}// namespace transmission_nets::impl::ModelSix
 
 #endif//TRANSMISSION_NETWORKS_APP_SAMPLESCHEDULER_H

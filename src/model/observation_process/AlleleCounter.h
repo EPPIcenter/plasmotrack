@@ -5,9 +5,9 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ALLELECOUNTER_H
 #define TRANSMISSION_NETWORKS_APP_ALLELECOUNTER_H
 
-#include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
+#include "core/abstract/observables/Observable.h"
 
 #include "AlleleCounts.h"
 #include "core/computation/Computation.h"
@@ -32,7 +32,8 @@ namespace transmission_nets::model::observation_process {
     public:
         AlleleCounts value() noexcept override;
 
-        AlleleCounter(std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics, std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics);
+        AlleleCounter(std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics,
+                      std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics);
 
     private:
         friend class core::abstract::Checkpointable<AlleleCounter<GeneticsImpl>, AlleleCounts>;
@@ -41,7 +42,6 @@ namespace transmission_nets::model::observation_process {
 
         std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latent_genetics_;
         std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observed_genetics_;
-
     };
 
     template<typename GeneticsImpl>
@@ -58,16 +58,14 @@ namespace transmission_nets::model::observation_process {
 
     template<typename GeneticsImpl>
     AlleleCounter<GeneticsImpl>::AlleleCounter(std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics,
-                                               std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics) : latent_genetics_(
-            std::move(latentGenetics)), observed_genetics_(std::move(observedGenetics)) {
+                                               std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics) : latent_genetics_(std::move(latentGenetics)), observed_genetics_(std::move(observedGenetics)) {
         latent_genetics_->add_post_change_listener([=, this]() { this->setDirty(); });
         latent_genetics_->registerCacheableCheckpointTarget(this);
         this->setDirty();
         this->value();
     }
 
-}
+}// namespace transmission_nets::model::observation_process
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_ALLELECOUNTER_H
+#endif//TRANSMISSION_NETWORKS_APP_ALLELECOUNTER_H

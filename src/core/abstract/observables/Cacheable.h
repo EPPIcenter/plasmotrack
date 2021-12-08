@@ -51,8 +51,7 @@ namespace transmission_nets::core::abstract {
     void Cacheable<T>::registerDirtyTarget(T0 *target) {
         this->underlying().add_set_dirty_listener([=, this]() { target->setDirty(); });
     }
-}
+}// namespace transmission_nets::core::abstract
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_CACHEABLE_H
+#endif//TRANSMISSION_NETWORKS_APP_CACHEABLE_H

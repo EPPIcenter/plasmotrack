@@ -8,10 +8,10 @@ find_package(OpenMP REQUIRED)
 find_package(fmt REQUIRED)
 
 if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-endif()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif ()
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -79,12 +79,14 @@ set(SOURCE_FILES
         core/io/loggers/AbstractOutput.h
         model/OrderingLikelihood.h
         core/computation/ObservationTimeDerivedOrdering.h
-        impl/model/ModelFive.cpp impl/model/ModelFive.h
+        impl/model/ModelFive.cpp
+        impl/model/ModelFive.h
         core/utils/LogPQ.cpp
         core/utils/LogPQ.h
         core/io/loggers/MultiValueLogger.h
         core/computation/transformers/Tempered.h
         core/samplers/meta/ReplicaExchange.h
+
         impl/model/ModelFive/State.cpp
         impl/model/ModelFive/State.h
         impl/model/ModelFive/Model.cpp
@@ -95,7 +97,24 @@ set(SOURCE_FILES
         impl/model/ModelFive/StateLogger.h
         impl/model/ModelFive/ModelLogger.cpp
         impl/model/ModelFive/ModelLogger.h
-        )
+        impl/model/ModelFive/SamplerLogger.cpp
+        impl/model/ModelFive/SamplerLogger.h
+
+        impl/model/ModelSix/State.cpp
+        impl/model/ModelSix/State.h
+        impl/model/ModelSix/Model.cpp
+        impl/model/ModelSix/Model.h
+        impl/model/ModelSix/config.h
+        impl/model/ModelSix/SampleScheduler.h
+        impl/model/ModelSix/StateLogger.cpp
+        impl/model/ModelSix/StateLogger.h
+        impl/model/ModelSix/ModelLogger.cpp
+        impl/model/ModelSix/ModelLogger.h
+        impl/model/ModelSix/SamplerLogger.cpp
+        impl/model/ModelSix/SamplerLogger.h
+
+        model/transmission_process/node_transmission_process/SuperInfectionNoMutation.h
+        model/observation_process/ObservationProcessLikelihoodv2.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

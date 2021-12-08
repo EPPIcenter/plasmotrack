@@ -26,7 +26,7 @@
 //#include "core/samplers/general/SALTSampler.h"
 //
 //#include "model/observation_process/AlleleCounter.h"
-//#include "model/observation_process/ObservationProcessLikelihood.h"
+//#include "model/observation_process/ObservationProcessLikelihoodv1.h"
 //
 //#include "core/computation/OrderDerivedParentSet.h"
 //#include "core/distributions/ZTGeometric.h"
@@ -75,10 +75,10 @@
 //    auto fpr = std::make_shared<Parameter<double>>(.05);
 //    auto fnr = std::make_shared<Parameter<double>>(.05);
 //
-//    ObservationProcessLikelihood op(acc, fpr, fnr);
+//    ObservationProcessLikelihoodv1 op(acc, fpr, fnr);
 //
 //    Accumulator<PartialLikelihood, float> llik;
-//    llik.addTarget(std::make_shared<ObservationProcessLikelihood<AlleleCounterAccumulator>>(acc, fpr, fnr));
+//    llik.addTarget(std::make_shared<ObservationProcessLikelihoodv1<AlleleCounterAccumulator>>(acc, fpr, fnr));
 //
 //    std::cout << llik.value() << std::endl;
 //

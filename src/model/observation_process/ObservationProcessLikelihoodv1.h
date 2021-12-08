@@ -2,8 +2,8 @@
 // Created by Maxwell Murphy on 1/23/20.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOOD_H
-#define TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOOD_H
+#ifndef TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV1_H
+#define TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV1_H
 
 #include <cmath>
 
@@ -14,11 +14,11 @@ namespace transmission_nets::model::observation_process {
 
 
     template<typename AlleleCounter>
-    class ObservationProcessLikelihood : public core::computation::PartialLikelihood {
+    class ObservationProcessLikelihoodv1 : public core::computation::PartialLikelihood {
 
     public:
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
-        ObservationProcessLikelihood(std::shared_ptr<AlleleCounter> totalAlleles,
+        ObservationProcessLikelihoodv1(std::shared_ptr<AlleleCounter> totalAlleles,
                                      p_ParameterDouble falsePositiveRate,
                                      p_ParameterDouble falseNegativeRate);
 
@@ -32,7 +32,7 @@ namespace transmission_nets::model::observation_process {
     };
 
     template<typename AlleleCounter>
-    ObservationProcessLikelihood<AlleleCounter>::ObservationProcessLikelihood(std::shared_ptr<AlleleCounter> totalAlleles,
+    ObservationProcessLikelihoodv1<AlleleCounter>::ObservationProcessLikelihoodv1(std::shared_ptr<AlleleCounter> totalAlleles,
                                                                               p_ParameterDouble falsePositiveRate,
                                                                               p_ParameterDouble falseNegativeRate) : total_alleles_(std::move(totalAlleles)),
             false_positive_rate_(std::move(falsePositiveRate)),
@@ -54,12 +54,12 @@ namespace transmission_nets::model::observation_process {
     }
 
     template<typename AlleleCounter>
-    std::string ObservationProcessLikelihood<AlleleCounter>::identifier() {
-        return {"ObservationProcessLikelihood"};
+    std::string ObservationProcessLikelihoodv1<AlleleCounter>::identifier() {
+        return {"ObservationProcessLikelihoodv1"};
     }
 
     template<typename AlleleCounter>
-    core::computation::Likelihood ObservationProcessLikelihood<AlleleCounter>::value() {
+    core::computation::Likelihood ObservationProcessLikelihoodv1<AlleleCounter>::value() {
         if (this->isDirty()) {
 //            std::cout << "OBS: " << value_ << " | ";
             value_ = total_alleles_->value().true_positive_count * log(1 - false_positive_rate_->value()) +
@@ -89,4 +89,4 @@ namespace transmission_nets::model::observation_process {
 }
 
 
-#endif //TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOOD_H
+#endif//TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV1_H

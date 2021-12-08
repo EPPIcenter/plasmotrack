@@ -13,9 +13,9 @@
 
 #include "core/parameters/Parameter.h"
 
-#include "model/observation_process/AlleleCounts.h"
 #include "model/observation_process/AlleleCounter.h"
-#include "model/observation_process/ObservationProcessLikelihood.h"
+#include "model/observation_process/AlleleCounts.h"
+#include "model/observation_process/ObservationProcessLikelihoodv1.h"
 
 using namespace transmission_nets::core::computation;
 using namespace transmission_nets::core::containers;
@@ -67,7 +67,7 @@ TEST(ObservationProcessTest, CoreTest) {
     auto falsePositiveRate = std::make_shared<Parameter<double>>(.01);
     auto falseNegativeRate = std::make_shared<Parameter<double>>(.05);
 
-    ObservationProcessLikelihood target(alleleCountAccumulator, falsePositiveRate, falseNegativeRate);
+    ObservationProcessLikelihoodv1 target(alleleCountAccumulator, falsePositiveRate, falseNegativeRate);
 
     auto oldValue = target.value();
 

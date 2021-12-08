@@ -6,11 +6,11 @@
 
 #include <utility>
 
-namespace transmission_nets::impl::ModelFive {
+namespace transmission_nets::impl::ModelSix {
 
     Model::Model(std::shared_ptr<State> state) : state_(std::move(state)) {
         likelihood.add_set_dirty_listener([=, this]() {
-          this->setDirty();
+            this->setDirty();
         });
         likelihood.registerCacheableCheckpointTarget(this);
 
@@ -26,28 +26,25 @@ namespace transmission_nets::impl::ModelFive {
         likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
         //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationShape, state_->infectionDurationShapePriorShape, state_->infectionDurationShapePriorScale));
         //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationScale, state_->infectionDurationScalePriorShape, state_->infectionDurationScalePriorScale));
-        for (auto& obs : state_->observationFalsePositiveRates) {
-            likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(obs, state_->obsFPRPriorAlpha, state_->obsFPRPriorBeta));
+        for (auto &obs : state_->expectedFalsePositives) {
+            likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
         }
-        for (auto& obs : state_->observationFalseNegativeRates) {
-            likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(obs, state_->obsFNRPriorAlpha, state_->obsFNRPriorBeta));
+        for (auto &obs : state_->expectedFalseNegatives) {
+            likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFNRPriorShape, state_->obsFNRPriorScale));
         }
 
         int i = 0;
         for (auto &infection : state_->infections) {
             likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(infection->infectionDuration(), state_->infectionDurationShape, state_->infectionDurationScale));
-            alleleCountAccumulators.push_back(std::make_shared<AlleleCounterAccumulator>());
-
             for (auto &[locus, obsGenotype] : infection->observedGenotype()) {
-                alleleCounters.push_back(std::make_shared<AlleleCounterImpl>(infection->latentGenotype(locus), obsGenotype));
-                alleleCountAccumulators.back()->addTarget(alleleCounters.back());
+                observationProcessLikelihoodList.push_back(std::make_shared<model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>>(
+                        obsGenotype,
+                        infection->latentGenotype(locus),
+                        state_->expectedFalsePositives[i],
+                        state_->expectedFalseNegatives[i]));
+                likelihood.addTarget(observationProcessLikelihoodList.back());
             }
 
-            observationProcessLikelihood = std::make_shared<model::observation_process::ObservationProcessLikelihoodv1<AlleleCounterAccumulator>>(
-                    alleleCountAccumulators.back(),
-                    state_->observationFalseNegativeRates[i],
-                    state_->observationFalsePositiveRates[i]);
-            likelihood.addTarget(observationProcessLikelihood);
             parentSetList.push_back(std::make_shared<ParentSetImpl>(state_->infectionEventOrdering, infection, state_->allowedParents[infection]));
             i++;
         }
@@ -72,10 +69,10 @@ namespace transmission_nets::impl::ModelFive {
         this->setDirty();
     }
 
-    Model::Model(State &state) : Model(std::make_shared<State>(state)){}
+    Model::Model(State &state) : Model(std::make_shared<State>(state)) {}
 
     std::string Model::identifier() {
-        return "Model5";
+        return "ModelSix";
     }
 
     Likelihood Model::value() {
@@ -85,4 +82,4 @@ namespace transmission_nets::impl::ModelFive {
         }
         return value_;
     }
-};
+};// namespace transmission_nets::impl::ModelSix
