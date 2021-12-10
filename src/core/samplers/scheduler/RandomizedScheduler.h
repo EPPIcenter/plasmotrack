@@ -18,8 +18,8 @@ namespace transmission_nets::core::samplers {
         int adaptationEnd = 0;
         bool scaledAdaptation{false};
 
-        int updateStart = 0;
-        int updateEnd = std::numeric_limits<int>::max();
+        long unsigned int updateStart = 0;
+        long unsigned int updateEnd = std::numeric_limits<int>::max();
 
         long double weight = 1.0;
 
@@ -54,7 +54,7 @@ namespace transmission_nets::core::samplers {
     };
 
 
-    template<typename Engine=boost::random::mt19937>
+    template<typename Engine = boost::random::mt19937>
     class RandomizedScheduler {
 
     public:
@@ -66,9 +66,9 @@ namespace transmission_nets::core::samplers {
 
         void step();
 
-        void update(const WeightedScheduledSampler& sampler) const;
+        void update(const WeightedScheduledSampler &sampler) const;
 
-        void adapt(const WeightedScheduledSampler& sampler) const;
+        void adapt(const WeightedScheduledSampler &sampler) const;
 
     private:
         std::shared_ptr<Engine> rng_;
@@ -102,13 +102,6 @@ namespace transmission_nets::core::samplers {
             adapt(samplers_[idx]);
         }
         ++totalSteps;
-
-
-        //    auto indices = randomSequence(0, samplers_.size(), rng_);
-        //    for (const auto idx : indices) {
-        //        update(samplers_[idx]);
-        //        adapt(samplers_[idx]);
-        //    }
     }
 
     template<typename Engine>
@@ -128,22 +121,13 @@ namespace transmission_nets::core::samplers {
     template<typename Engine>
     void RandomizedScheduler<Engine>::calculateCumulativeWeights() {
         std::sort(samplers_.begin(), samplers_.end(), std::greater<>());
-        long double cumulant = 0;
+        long double total = 0;
         cumulativeWeight_.clear();
         cumulativeWeight_.reserve(samplers_.size());
-        for (auto & sampler : samplers_) {
-            cumulativeWeight_.push_back(cumulant + sampler.weight);
-            cumulant += sampler.weight;
+        for (auto &sampler : samplers_) {
+            total += sampler.weight;
+            cumulativeWeight_.push_back(total);
         }
-        //    std::function<long double(const WeightedScheduledSampler&, const WeightedScheduledSampler&)> binOp = [](auto left, auto right) {return left.weight + right.weight};
-        //    std::partial_sum(
-        //            samplers_.begin(),
-        //            samplers_.end(),
-        //            cumulativeWeight_.begin(),
-        //            [](const WeightedScheduledSampler& left, const WeightedScheduledSampler& right) -> long double
-        //            {
-        //                return left.weight + right.weight;
-        //            });
         cumulativeWeightsCalculated_ = true;
 
         using bounds = boost::random::uniform_int_distribution<>::param_type;
@@ -168,10 +152,7 @@ namespace transmission_nets::core::samplers {
         }
     }
 
-}
+}// namespace transmission_nets::core::samplers
 
 
-
-
-
-#endif //TRANSMISSION_NETWORKS_APP_RANDOMIZEDSCHEDULER_H
+#endif//TRANSMISSION_NETWORKS_APP_RANDOMIZEDSCHEDULER_H

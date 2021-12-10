@@ -13,8 +13,6 @@
 
 namespace transmission_nets::core::io {
 
-    //    std::map<std::string, std::shared_ptr<std::ofstream>>*FileOutput::outputFiles_ = new std::map<std::string, std::shared_ptr<std::ofstream>>();
-
     /*
      * Takes as arguments a path and optionally a header to be written immediately.
      * Creates a new output to a file. If the path has already been used to create a file output, the same file handle will be used and the header will not be
