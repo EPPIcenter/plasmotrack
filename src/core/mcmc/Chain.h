@@ -23,7 +23,6 @@ namespace transmission_nets::core::mcmc {
         [[nodiscard]] StateLogger& getStateLogger() const;
 
     private:
-
         Model model_;
         typename Model::State state_;
         SamplingScheduler scheduler_;
@@ -32,18 +31,18 @@ namespace transmission_nets::core::mcmc {
 
 
     template<typename Model, typename SamplingScheduler, typename StateLogger>
-    void Chain<Model, SamplingScheduler, StateLogger >::sample() {
+    void Chain<Model, SamplingScheduler, StateLogger>::sample() {
         scheduler_.step();
     }
 
 
     template<typename Model, typename SamplingScheduler, typename StateLogger>
-    void Chain<Model, SamplingScheduler, StateLogger >::log() {
+    void Chain<Model, SamplingScheduler, StateLogger>::log() {
         stateLogger_.log();
     }
 
     template<typename Model, typename SamplingScheduler, typename StateLogger>
-    int Chain<Model, SamplingScheduler, StateLogger >::totalSamples() {
+    int Chain<Model, SamplingScheduler, StateLogger>::totalSamples() {
         return totalSamples_;
     }
 
@@ -67,8 +66,7 @@ namespace transmission_nets::core::mcmc {
         return scheduler_;
     }
 
-}
-
+}// namespace transmission_nets::core::mcmc
 
 
 #endif//TRANSMISSION_NETWORKS_APP_CHAIN_H

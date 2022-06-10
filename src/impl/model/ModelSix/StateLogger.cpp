@@ -8,10 +8,10 @@
 namespace transmission_nets::impl::ModelSix {
     StateLogger::StateLogger(std::shared_ptr<State> state, fs::path rootPath, bool resetOutput) : state_(std::move(state)), rootPath_(std::move(rootPath)) {
         paramOutputFolder_ = rootPath_ / "parameters";
-        auto epsPosFolder = paramOutputFolder_ / "eps_pos";
-        auto epsNegFolder = paramOutputFolder_ / "eps_neg";
-        auto infDurFolder = paramOutputFolder_ / "infection_duration";
-        auto freqDir = paramOutputFolder_ / "allele_frequencies";
+        auto epsPosFolder  = paramOutputFolder_ / "eps_pos";
+        auto epsNegFolder  = paramOutputFolder_ / "eps_neg";
+        auto infDurFolder  = paramOutputFolder_ / "infection_duration";
+        auto freqDir       = paramOutputFolder_ / "allele_frequencies";
 
         if (!fs::exists(paramOutputFolder_)) {
             fs::create_directories(paramOutputFolder_);
@@ -42,7 +42,7 @@ namespace transmission_nets::impl::ModelSix {
         loggers_.push_back(new core::io::ValueLogger(state_->infectionEventOrdering, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_order.csv", "infection_order", resetOutput)));
 
         int i = 0;
-        for (auto &infection : state_->infections) {
+        for (auto& infection : state_->infections) {
             auto inf_file_name = core::io::makePathValid(infection->id()) + ".csv";
             loggers_.push_back(new core::io::ValueLogger(state_->expectedFalsePositives[i], std::make_unique<core::io::FileOutput>(epsPosFolder / inf_file_name, "eps_pos", resetOutput)));
             loggers_.push_back(new core::io::ValueLogger(state_->expectedFalseNegatives[i], std::make_unique<core::io::FileOutput>(epsNegFolder / inf_file_name, "eps_neg", resetOutput)));
@@ -50,17 +50,17 @@ namespace transmission_nets::impl::ModelSix {
             i++;
         }
 
-        for (const auto &[locus_label, locus] : state_->loci) {
+        for (const auto& [locus_label, locus] : state_->loci) {
             loggers_.push_back(new core::io::ValueLogger(state_->alleleFrequencies->alleleFrequencies(locus), std::make_unique<core::io::FileOutput>(freqDir / (locus_label + ".csv"), "", resetOutput)));
         }
 
-        for (const auto &infection : state_->infections) {
-            auto inf_dir = core::io::makePathValid(infection->id());
+        for (const auto& infection : state_->infections) {
+            auto inf_dir      = core::io::makePathValid(infection->id());
             auto full_inf_dir = paramOutputFolder_ / "genotypes" / inf_dir;
             if (!fs::exists(full_inf_dir)) {
                 fs::create_directories(full_inf_dir);
             }
-            for (const auto &[locus_label, locus] : state_->loci) {
+            for (const auto& [locus_label, locus] : state_->loci) {
                 if (std::find(infection->loci().begin(), infection->loci().end(), locus) != infection->loci().end()) {
                     loggers_.push_back(new core::io::ValueLogger(infection->latentGenotype(locus), std::make_unique<core::io::FileOutput>(full_inf_dir / (locus_label + ".csv"), "", resetOutput)));
                 }
@@ -70,13 +70,13 @@ namespace transmission_nets::impl::ModelSix {
 
 
     void StateLogger::log() const {
-        for (const auto &logger : loggers_) {
+        for (const auto& logger : loggers_) {
             logger->log();
         }
     }
 
     void StateLogger::finalize() const {
-        for (const auto &logger : loggers_) {
+        for (const auto& logger : loggers_) {
             logger->finalize();
         }
     }

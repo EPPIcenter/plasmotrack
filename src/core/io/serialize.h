@@ -27,6 +27,10 @@ namespace transmission_nets::core::io {
         return std::to_string(val);
     }
 
+    inline std::string serialize(const long long val) noexcept {
+        return std::to_string(val);
+    }
+
     template<int MAX_COI>
     std::string serialize(const datatypes::AllelesBitSet<MAX_COI>& val) noexcept {
         return val.serialize();
@@ -80,9 +84,7 @@ namespace transmission_nets::core::io {
         out.pop_back();
         return out;
     }
-}
+}// namespace transmission_nets::core::io
 
 
-
-
-#endif //TRANSMISSION_NETWORKS_APP_SERIALIZE_H
+#endif//TRANSMISSION_NETWORKS_APP_SERIALIZE_H

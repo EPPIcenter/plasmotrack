@@ -4,8 +4,8 @@
 
 #include "gtest/gtest.h"
 
-#include "core/datatypes/Alleles.h"
 #include "core/containers/Infection.h"
+#include "core/datatypes/Alleles.h"
 
 using namespace transmission_nets::core::datatypes;
 using namespace transmission_nets::core::containers;
@@ -13,10 +13,10 @@ using namespace transmission_nets::core::parameters;
 
 TEST(InfectionTest, HandlesChangedLatentAlleles) {
     using GeneticsImpl = AllelesBitSet<16>;
-    using Infection = Infection<GeneticsImpl, Locus>;
+    using Infection    = Infection<GeneticsImpl, Locus>;
 
-    auto as1 = std::make_shared<Locus>("AS1", 6);
-    auto as2 = std::make_shared<Locus>("AS2", 8);
+    auto as1            = std::make_shared<Locus>("AS1", 6);
+    auto as2            = std::make_shared<Locus>("AS2", 8);
     bool allelesChanged = false;
 
     auto inf1 = std::make_shared<Infection>("inf1", 10.0);
@@ -24,10 +24,10 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     inf1->addLatentGenetics(as2, GeneticsImpl("00000011"));
     inf1->addObservedGenetics(as1, GeneticsImpl("011010"));
     inf1->addObservedGenetics(as2, GeneticsImpl("00000011"));
-    inf1->add_post_change_listener([&]() {allelesChanged = true; });
+    inf1->add_post_change_listener([&]() { allelesChanged = true; });
 
     allelesChanged = false;
-    auto tmp1 = inf1->latentGenotype(as1)->value();
+    auto tmp1      = inf1->latentGenotype(as1)->value();
     tmp1.flip(0);
     EXPECT_FALSE(allelesChanged);
 
@@ -40,7 +40,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     inf1->latentGenotype(as1)->acceptState();
 
     allelesChanged = false;
-    auto tmp2 = inf1->latentGenotype(as2)->value();
+    auto tmp2      = inf1->latentGenotype(as2)->value();
     tmp2.flip(0);
     EXPECT_FALSE(allelesChanged);
 

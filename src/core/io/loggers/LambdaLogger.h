@@ -26,13 +26,13 @@ namespace transmission_nets::core::io {
 
     template<typename Loggable>
     template<typename Output>
-    LambdaLogger<Loggable>::LambdaLogger(Loggable f, std::unique_ptr<Output> output) : AbstractLogger(std::move(output)), f_(f) { }
+    LambdaLogger<Loggable>::LambdaLogger(Loggable f, std::unique_ptr<Output> output) : AbstractLogger(std::move(output)), f_(f) {}
 
     template<typename Loggable>
     std::string LambdaLogger<Loggable>::prepareValue() noexcept {
         return f_();
     }
 
-}
+}// namespace transmission_nets::core::io
 
-#endif //TRANSMISSION_NETWORKS_APP_LAMBDALOGGER_H
+#endif//TRANSMISSION_NETWORKS_APP_LAMBDALOGGER_H

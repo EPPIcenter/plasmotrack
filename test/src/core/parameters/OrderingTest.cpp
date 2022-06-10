@@ -40,10 +40,10 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
 
     for (auto& el : ordering->value()) {
         ordering->add_keyed_moved_left_listener(el, [&]([[maybe_unused]] std::shared_ptr<int> tar) {
-          movedLeftCounter[el] += 1;
+            movedLeftCounter[el] += 1;
         });
         ordering->add_keyed_moved_right_listener(el, [&]([[maybe_unused]] std::shared_ptr<int> tar) {
-          movedRightCounter[el] += 1;
+            movedRightCounter[el] += 1;
         });
     };
 

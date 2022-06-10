@@ -26,8 +26,7 @@ namespace transmission_nets::core::utils {
         generators::CombinationIndicesGenerator c;
     };
 
-}
-
+}// namespace transmission_nets::core::utils
 
 
 #endif//TRANSMISSION_NETWORKS_APP_PROBANYMISSING_H

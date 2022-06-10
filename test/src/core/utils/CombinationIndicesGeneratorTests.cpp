@@ -9,7 +9,7 @@ using namespace transmission_nets::core::utils;
 
 TEST(CombinationsIndicesGeneratorTest, HandlesGeneratingCombos) {
     generators::CombinationIndicesGenerator cs(10, 2);
-    while(!cs.completed) {
+    while (!cs.completed) {
         ASSERT_EQ(cs.curr.size(), 2);
         ASSERT_TRUE(cs.curr[0] < cs.curr[1]);
         cs.next();
@@ -20,7 +20,7 @@ TEST(CombinationsIndicesGeneratorTest, HandlesGeneratingCombos) {
 
 TEST(CombinationsIndicesGeneratorTest, HandlesGeneratingCombos2) {
     generators::CombinationIndicesGenerator cs(4, 1);
-    while(!cs.completed) {
+    while (!cs.completed) {
         ASSERT_EQ(cs.curr.size(), 1);
         cs.next();
     }
@@ -33,6 +33,6 @@ TEST(CombinationsIndicesGeneratorTest, HandlesZeroChoice) {
 }
 
 TEST(CombinationsIndicesGeneratorTest, HandlesNoChoices) {
-   generators::CombinationIndicesGenerator cs(0, 10);
+    generators::CombinationIndicesGenerator cs(0, 10);
     ASSERT_TRUE(cs.completed);
 }

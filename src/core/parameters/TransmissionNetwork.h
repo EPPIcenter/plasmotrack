@@ -7,9 +7,9 @@
 
 #include <boost/container/flat_map.hpp>
 
+#include "core/abstract/observables/CheckpointablePassthrough.h"
 #include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/UncacheablePassthrough.h"
-#include "core/abstract/observables/CheckpointablePassthrough.h"
 
 #include "core/parameters/Parameter.h"
 
@@ -146,6 +146,4 @@
 //}
 
 
-
-
-#endif //TRANSMISSION_NETWORKS_APP_GRAPH_H
+#endif//TRANSMISSION_NETWORKS_APP_GRAPH_H

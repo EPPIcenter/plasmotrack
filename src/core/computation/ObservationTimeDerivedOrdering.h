@@ -13,19 +13,18 @@
 
 #include <fmt/core.h>
 
-#include <vector>
-#include <utility>
 #include <memory>
+#include <utility>
+#include <vector>
 
 
 namespace transmission_nets::core::computation {
 
-    template <typename InfectionEventImpl>
+    template<typename InfectionEventImpl>
     class ObservationTimeDerivedOrdering : public Computation<std::vector<std::shared_ptr<InfectionEventImpl>>>,
                                            public abstract::Observable<ObservationTimeDerivedOrdering<InfectionEventImpl>>,
                                            public abstract::Cacheable<ObservationTimeDerivedOrdering<InfectionEventImpl>>,
-                                           public abstract::Checkpointable<ObservationTimeDerivedOrdering<InfectionEventImpl>, std::vector<std::shared_ptr<InfectionEventImpl>>>
-    {
+                                           public abstract::Checkpointable<ObservationTimeDerivedOrdering<InfectionEventImpl>, std::vector<std::shared_ptr<InfectionEventImpl>>> {
         using MovedCallback = std::function<void(std::shared_ptr<InfectionEventImpl> element)>;
         CREATE_KEYED_EVENT(moved_left, std::shared_ptr<InfectionEventImpl>, MovedCallback);
         CREATE_KEYED_EVENT(moved_right, std::shared_ptr<InfectionEventImpl>, MovedCallback);
@@ -57,17 +56,17 @@ namespace transmission_nets::core::computation {
 
     template<typename InfectionEventImpl>
     void ObservationTimeDerivedOrdering<InfectionEventImpl>::addElement(std::shared_ptr<InfectionEventImpl> ref) noexcept {
-       this->value_.push_back(ref);
-       register_moved_left_listener_key(ref);
-       register_moved_right_listener_key(ref);
+        this->value_.push_back(ref);
+        register_moved_left_listener_key(ref);
+        register_moved_right_listener_key(ref);
 
-       ref->infectionDuration()->add_post_change_listener([=, this]() { this->infectionDurationChanged(ref); });
-       ref->infectionDuration()->registerCacheableCheckpointTarget(this);
+        ref->infectionDuration()->add_post_change_listener([=, this]() { this->infectionDurationChanged(ref); });
+        ref->infectionDuration()->registerCacheableCheckpointTarget(this);
     }
 
     template<typename InfectionEventImpl>
     void ObservationTimeDerivedOrdering<InfectionEventImpl>::addElements(const std::vector<std::shared_ptr<InfectionEventImpl>>& refs) noexcept {
-        for (auto ref: refs) {
+        for (auto ref : refs) {
             addElement(std::move(ref));
         }
 
@@ -83,7 +82,8 @@ namespace transmission_nets::core::computation {
         double refInfectionTime = ref->infectionTime();
 
         size_t refIdx = 0;
-        for(; this->value_[refIdx] != ref; ++refIdx);
+        for (; this->value_[refIdx] != ref; ++refIdx)
+            ;
 
         double rightTime = std::numeric_limits<double>::max();
         if (refIdx < this->value_.size() - 1) {
@@ -99,8 +99,8 @@ namespace transmission_nets::core::computation {
 
         if (unsorted) {
             this->setDirty();
-            if (refInfectionTime < leftTime){
-                while(unsorted) {
+            if (refInfectionTime < leftTime) {
+                while (unsorted) {
                     if (refIdx > 0) {
                         auto& curr = this->value_[refIdx];
                         auto& prev = this->value_[refIdx - 1];
@@ -108,7 +108,7 @@ namespace transmission_nets::core::computation {
                         keyed_notify_moved_left(this->value_[refIdx], this->value_[refIdx - 1]);
                         keyed_notify_moved_right(this->value_[refIdx - 1], this->value_[refIdx]);
                         --refIdx;
-                        if(refIdx == 0 or this->value_[refIdx - 1]->infectionTime() < refInfectionTime) {
+                        if (refIdx == 0 or this->value_[refIdx - 1]->infectionTime() < refInfectionTime) {
                             unsorted = false;
                         }
                     } else {
@@ -116,7 +116,7 @@ namespace transmission_nets::core::computation {
                     }
                 }
             } else {
-                while(unsorted) {
+                while (unsorted) {
                     if (refIdx < this->value_.size() - 1) {
                         auto& curr = this->value_[refIdx];
                         auto& next = this->value_[refIdx + 1];
@@ -124,13 +124,13 @@ namespace transmission_nets::core::computation {
                         keyed_notify_moved_left(this->value_[refIdx + 1], this->value_[refIdx]);
                         keyed_notify_moved_right(this->value_[refIdx], this->value_[refIdx + 1]);
                         ++refIdx;
-                        if(refIdx == this->value_.size() - 1 or this->value_[refIdx + 1]->infectionTime() > refInfectionTime) {
+                        if (refIdx == this->value_.size() - 1 or this->value_[refIdx + 1]->infectionTime() > refInfectionTime) {
                             unsorted = false;
                         }
                     } else {
                         unsorted = false;
                     }
-               }
+                }
             }
         }
     }
@@ -141,7 +141,7 @@ namespace transmission_nets::core::computation {
         return this->value_;
     }
 
-}
+}// namespace transmission_nets::core::computation
 
 
 #endif//TRANSMISSION_NETWORKS_APP_OBSERVATIONTIMEDERIVEDORDERING_H

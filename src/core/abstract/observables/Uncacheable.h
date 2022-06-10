@@ -19,13 +19,11 @@ namespace transmission_nets::core::abstract {
         CRTP_CREATE_EVENT(post_change, ChangeCallback)
 
     public:
-
         void setValue(ValueType value) noexcept;
 
         void initializeValue(ValueType value) noexcept;
 
         const ValueType& value() const noexcept;
-
     };
 
     template<typename T, typename ValueType>
@@ -46,8 +44,7 @@ namespace transmission_nets::core::abstract {
         return this->underlying().value_;
     }
 
-}
+}// namespace transmission_nets::core::abstract
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_UNCACHEABLE_H
+#endif//TRANSMISSION_NETWORKS_APP_UNCACHEABLE_H

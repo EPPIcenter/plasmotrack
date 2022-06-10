@@ -9,42 +9,57 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mpfr.h>
 #include <numeric>
 
 namespace transmission_nets::core::utils {
     template<typename T>
     inline double fast_exp(T x) {
         x = 1.0 + x / 1024;
-        x *= x; x *= x; x *= x; x *= x;
-        x *= x; x *= x; x *= x; x *= x;
-        x *= x; x *= x;
+        x *= x;
+        x *= x;
+        x *= x;
+        x *= x;
+        x *= x;
+        x *= x;
+        x *= x;
+        x *= x;
+        x *= x;
+        x *= x;
         return x;
     }
 
-    inline float _int_as_float(int32_t a) { float r; memcpy (&r, &a, sizeof r); return r;}
-    inline int32_t _float_as_int(float a) { int32_t r; memcpy (&r, &a, sizeof r); return r;}
+    inline float _int_as_float(int32_t a) {
+        float r;
+        memcpy(&r, &a, sizeof r);
+        return r;
+    }
+    inline int32_t _float_as_int(float a) {
+        int32_t r;
+        memcpy(&r, &a, sizeof r);
+        return r;
+    }
     // https://stackoverflow.com/a/39822314/2755374
-    inline float fast_log(float a)
-    {
+    inline float fast_log(float a) {
         float m, r, s, t, i, f;
         int32_t e;
 
         e = (_float_as_int(a) - 0x3f2aaaab) & 0xff800000;
         m = _int_as_float(_float_as_int(a) - e);
-        i = (float)e * 1.19209290e-7f; // 0x1.0p-23
+        i = (float) e * 1.19209290e-7f;// 0x1.0p-23
         /* m in [2/3, 4/3] */
         f = m - 1.0f;
         s = f * f;
         /* Compute log1p(f) for f in [-1/3, 1/3] */
-        r = fmaf (0.230836749f, f, -0.279208571f); // 0x1.d8c0f0p-3, -0x1.1de8dap-2
-        t = fmaf (0.331826031f, f, -0.498910338f); // 0x1.53ca34p-2, -0x1.fee25ap-2
-        r = fmaf (r, s, t);
-        r = fmaf (r, s, f);
-        r = fmaf (i, 0.693147182f, r); // 0x1.62e430p-1 // log(2)
+        r = fmaf(0.230836749f, f, -0.279208571f);// 0x1.d8c0f0p-3, -0x1.1de8dap-2
+        t = fmaf(0.331826031f, f, -0.498910338f);// 0x1.53ca34p-2, -0x1.fee25ap-2
+        r = fmaf(r, s, t);
+        r = fmaf(r, s, f);
+        r = fmaf(i, 0.693147182f, r);// 0x1.62e430p-1 // log(2)
         return r;
     }
 
-    inline double logit(double x) {
+    inline long double logit(long double x) {
         if (x < .5) {
             return std::log(x) - std::log1p(-x);
         } else {
@@ -55,7 +70,7 @@ namespace transmission_nets::core::utils {
     template<typename Iter>
     typename std::vector<double> logit(const Iter& begin, const Iter& end) {
         std::vector<double> out{};
-        std::transform(begin, end, std::back_inserter(out), [] (double c) -> double { return logit(c); });
+        std::transform(begin, end, std::back_inserter(out), [](double c) -> double { return logit(c); });
         return out;
     }
 
@@ -64,7 +79,7 @@ namespace transmission_nets::core::utils {
         return logit(x.begin(), x.end());
     }
 
-    template<typename It, typename T = std::decay_t< decltype(*begin(std::declval<It>()))>>
+    template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
     double logitSum(const It& logx) {
         auto logx_sorted = logx;
         std::sort(logx_sorted.rbegin(), logx_sorted.rend());
@@ -92,7 +107,7 @@ namespace transmission_nets::core::utils {
         return out;
     }
 
-    inline double expit(double x) {
+    inline long double expit(long double x) {
         return 1 / (1 + std::exp(-x));
     }
 
@@ -107,10 +122,10 @@ namespace transmission_nets::core::utils {
         double eumo;
         bool ok;
         for (auto const& el : x) {
-            ok = (scale < std::log(2)) and (std::abs(scale) < std::abs(el + scale));
-            u = -scale - (!ok) * el;
-            v = -scale - ok * el;
-            ev = std::exp(v);
+            ok   = (scale < std::log(2)) and (std::abs(scale) < std::abs(el + scale));
+            u    = -scale - (!ok) * el;
+            v    = -scale - ok * el;
+            ev   = std::exp(v);
             eumo = std::expm1(u);
 
             if (std::isinf(eumo)) {
@@ -131,7 +146,7 @@ namespace transmission_nets::core::utils {
     template<typename Iter>
     typename std::vector<double> expit(const Iter& begin, const Iter& end) {
         std::vector<double> out{};
-        std::transform(begin, end, std::back_inserter(out), [] (double c) -> double { return expit(c); });
+        std::transform(begin, end, std::back_inserter(out), [](double c) -> double { return expit(c); });
         return out;
     }
 
@@ -140,7 +155,7 @@ namespace transmission_nets::core::utils {
         return expit(x.begin(), x.end());
     }
 
-    inline double logLogit(double x) {
+    inline long double logLogit(long double x) {
         if (x < log(.5)) {
             return x - log1p(-std::exp(x));
         } else {
@@ -148,12 +163,12 @@ namespace transmission_nets::core::utils {
         }
     }
 
-    inline double logSumExp(const double a, const double b) {
-        double max_el = std::max(a, b);
-        if (max_el == -std::numeric_limits<double>::infinity()) {
-            return -std::numeric_limits<double>::infinity();
+    inline long double logSumExp(const long double a, const long double b) {
+        long double max_el = std::max(a, b);
+        if (max_el == -std::numeric_limits<long double>::infinity()) {
+            return -std::numeric_limits<long double>::infinity();
         }
-        double sum = std::exp(a - max_el) + std::exp(b - max_el);
+        long double sum = std::exp(a - max_el) + std::exp(b - max_el);
         return max_el + std::log(sum);
     }
 
@@ -180,29 +195,49 @@ namespace transmission_nets::core::utils {
         }
 
         auto sum = std::accumulate(
-                begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); }
-        );
+                begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
         return max_el + std::log(sum);
     }
 
-    template <typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
-    double logSumExp(const It& x) {
+    template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
+    long double logSumExp(const It& x) {
         return logSumExp(x.begin(), x.end());
     }
 
     template<typename T>
-    T logDiffExp(const T a, const T b) {
+    long double logDiffExp(const T a, const T b, const bool verbose = false) {
         /**
          * return the numerically stable log(exp(a) - exp(b))
          * if b > a, returns -inf
          */
         if (b > a) {
-//#ifndef NDEBUG
-//            std::cerr << "Warning -- b > a : " << b << " " << a << " " << b + std::log(1 - std::exp(a - b)) << std::endl;
-//#endif
+            //#ifndef NDEBUG
+            //            fmt::print(stderr, "Warning -- b > a : {} {} {}\n", b, a, b + std::log(1 - std::exp(a - b)));
+            //            std::cerr << "Warning -- b > a : " << b << " " << a << " " << b + std::log(1 - std::exp(a - b)) << std::endl;
+            //#endif
             return -std::numeric_limits<T>::infinity();
         }
-        return a + std::log(1 - std::exp(b - a));
+        if (verbose) {
+            fmt::print("Log Diff: {}, {}\n", std::exp(b - a), std::log(1.0 - std::exp(b - a)));
+        }
+        //        mpfr_t a_;
+        //        mpfr_t b_;
+        //        mpfr_t out_;
+        //        mpfr_t tmp1_;
+        //        mpfr_t one_;
+        //        mpfr_inits2(256, a_, b_, out_, tmp1_, one_, (mpfr_ptr) 0);
+        //        mpfr_set_ld(a_, a, mpfr_get_default_rounding_mode());
+        //        mpfr_set_ld(b_, b, mpfr_get_default_rounding_mode());
+        //        mpfr_set_ld(one_, (long double) 1.0, mpfr_get_default_rounding_mode());
+        //
+        //        mpfr_sub(out_, b_, a_, mpfr_get_default_rounding_mode());
+        //        mpfr_exp(out_, out_, mpfr_get_default_rounding_mode());
+        //        mpfr_sub(out_, one_, out_, mpfr_get_default_rounding_mode());
+        //        mpfr_log(out_, out_, mpfr_get_default_rounding_mode());
+        //        mpfr_add(out_, a_, out_, mpfr_get_default_rounding_mode());
+        //        return mpfr_get_ld(out_, mpfr_get_default_rounding_mode());
+
+        return a + std::log(1.0 - std::exp(b - a));
     }
 
     template<typename T>
@@ -226,11 +261,11 @@ namespace transmission_nets::core::utils {
         }
 
         auto max_el = *begin;
-        auto sum = std::accumulate(
-                begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); }
-        );
+        auto sum    = std::accumulate(
+                   begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
         return max_el + std::log(sum);
     }
+
 
     /**
      * Assumes the max value is known
@@ -253,9 +288,9 @@ namespace transmission_nets::core::utils {
             return -std::numeric_limits<ValueType>::infinity();
         }
 
+
         auto sum = std::accumulate(
-                begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); }
-        );
+                begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
         return max_el + std::log(sum);
     }
 
@@ -266,12 +301,12 @@ namespace transmission_nets::core::utils {
      * @return
      */
     template<typename T>
-    std::vector<double> expNormalize(const T& x) {
-        std::vector<double> out{};
+    std::vector<long double> expNormalize(const T& x) {
+        std::vector<long double> out{};
         out.reserve(x.size());
 
-        double sum = 0.0;
-        auto max_el = *std::max_element(x.begin(), x.end());
+        long double sum = 0.0;
+        auto max_el     = *std::max_element(x.begin(), x.end());
 
         for (auto& el : x) {
             out.push_back(std::exp(el - max_el));
@@ -285,6 +320,6 @@ namespace transmission_nets::core::utils {
         return out;
     }
 
-}
+}// namespace transmission_nets::core::utils
 
-#endif //TRANSMISSION_NETWORKS_APP_NUMERICS_H
+#endif//TRANSMISSION_NETWORKS_APP_NUMERICS_H

@@ -5,26 +5,27 @@
 #ifndef TRANSMISSION_NETWORKS_APP_LOGLIKELIHOOD_H
 #define TRANSMISSION_NETWORKS_APP_LOGLIKELIHOOD_H
 
+#include <boost/container/flat_map.hpp>
 #include <functional>
 #include <optional>
 #include <string>
 #include <utility>
-#include <boost/container/flat_map.hpp>
 
 namespace transmission_nets::core::computation {
 
     class LogLikelihood {
         using Callback = std::function<void(const LogLikelihood)>;
-        template<typename Key, typename Value> using Map_ = boost::container::flat_map<Key, Value>;
+        template<typename Key, typename Value>
+        using Map_ = boost::container::flat_map<Key, Value>;
 
     public:
-        enum callbackId: uint_fast64_t {};
+        enum callbackId : uint_fast64_t {};
 
         explicit LogLikelihood(std::string id);
 
         LogLikelihood(float value, std::string id);
 
-        float value();
+        virtual float value() = 0;
 
     private:
         float value_;
@@ -38,8 +39,7 @@ namespace transmission_nets::core::computation {
         Map_<uint_fast64_t, Callback> restore_state_callbacks_{};
     };
 
-}
+}// namespace transmission_nets::core::computation
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_LOGLIKELIHOOD_H
+#endif//TRANSMISSION_NETWORKS_APP_LOGLIKELIHOOD_H

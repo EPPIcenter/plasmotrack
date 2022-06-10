@@ -20,7 +20,6 @@ namespace transmission_nets::core::abstract {
         CREATE_EVENT(post_change, ChangeCallback)
 
     public:
-
         template<typename T0>
         std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> registerCheckpointTarget(T0& target);
 
@@ -29,14 +28,13 @@ namespace transmission_nets::core::abstract {
         void restoreState() noexcept;
 
         void acceptState() noexcept;
-
     };
 
     template<typename T>
     template<typename T0>
-    std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> MutablePassthrough<T>::registerCheckpointTarget(T0 &target) {
-        ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=, this]() { target.saveState(); });
-        ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=, this]() { target.acceptState(); });
+    std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> MutablePassthrough<T>::registerCheckpointTarget(T0& target) {
+        ListenerId_t saveStateEventId    = this->underlying().add_save_state_listener([=, this]() { target.saveState(); });
+        ListenerId_t acceptStateEventId  = this->underlying().add_accept_state_listener([=, this]() { target.acceptState(); });
         ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=, this]() { target.restoreState(); });
         return std::make_tuple(saveStateEventId, acceptStateEventId, restoreStateEventId);
     }
@@ -56,7 +54,7 @@ namespace transmission_nets::core::abstract {
         this->underlying().notify_accept_state();
     }
 
-}
+}// namespace transmission_nets::core::abstract
 
 
-#endif //TRANSMISSION_NETWORKS_APP_MUTABLEPASSTHROUGH_H
+#endif//TRANSMISSION_NETWORKS_APP_MUTABLEPASSTHROUGH_H

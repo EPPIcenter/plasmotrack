@@ -14,5 +14,4 @@ TEST(ProbAnyMissingTests, TestSimpleVec) {
 
     ASSERT_NEAR(probAnyMissing({.1, .2, .3, .4}, 5), 0.856, 1e-3);
     ASSERT_NEAR(probAnyMissing({.1, .2, .7}, 4), .832, 1e-3);
-
 }

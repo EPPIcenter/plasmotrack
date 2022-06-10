@@ -17,18 +17,18 @@ namespace transmission_nets::model::observation_process {
 
         AlleleCounts();
 
-        AlleleCounts &operator+=(const AlleleCounts &rhs);
+        AlleleCounts& operator+=(const AlleleCounts& rhs);
 
-        AlleleCounts &operator-=(const AlleleCounts &rhs);
+        AlleleCounts& operator-=(const AlleleCounts& rhs);
     };
 
-    AlleleCounts operator+(AlleleCounts lhs, const AlleleCounts &rhs);
+    AlleleCounts operator+(AlleleCounts lhs, const AlleleCounts& rhs);
 
-    AlleleCounts operator-(AlleleCounts lhs, const AlleleCounts &rhs);
+    AlleleCounts operator-(AlleleCounts lhs, const AlleleCounts& rhs);
 
-    std::ostream &operator<<(std::ostream &out, const AlleleCounts &a);
+    std::ostream& operator<<(std::ostream& out, const AlleleCounts& a);
 
-}
+}// namespace transmission_nets::model::observation_process
 
 
-#endif //TRANSMISSION_NETWORKS_APP_ALLELECOUNTS_H
+#endif//TRANSMISSION_NETWORKS_APP_ALLELECOUNTS_H

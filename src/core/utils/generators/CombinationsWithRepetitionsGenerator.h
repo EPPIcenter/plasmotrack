@@ -12,7 +12,7 @@ namespace transmission_nets::core::utils::generators {
     struct CombinationsWithRepetitionsGenerator {
         using combination_t = std::vector<int>;
 
-        bool completed = false;
+        bool completed          = false;
         unsigned long generated = 0;
 
         CombinationsWithRepetitionsGenerator(int nChoices, int k);
@@ -24,14 +24,11 @@ namespace transmission_nets::core::utils::generators {
         combination_t curr{};
 
     private:
-
         int nChoices_;
         int k_;
     };
 
-}
+}// namespace transmission_nets::core::utils::generators
 
 
-
-
-#endif //TRANSMISSION_NETWORKS_APP_COMBINATIONSWITHREPETITIONSGENERATOR_H
+#endif//TRANSMISSION_NETWORKS_APP_COMBINATIONSWITHREPETITIONSGENERATOR_H

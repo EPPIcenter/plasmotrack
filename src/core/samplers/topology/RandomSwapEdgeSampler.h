@@ -20,11 +20,11 @@ namespace transmission_nets::core::samplers::topology {
     template<typename T, typename Engine, typename NodeValueImpl>
     class RandomSwapEdgeSampler : public AbstractSampler {
     public:
-        RandomSwapEdgeSampler(parameters::TransmissionNetwork<NodeValueImpl> &network, T &target, Engine *rng);
+        RandomSwapEdgeSampler(parameters::TransmissionNetwork<NodeValueImpl>& network, T& target, Engine* rng);
 
         void update() noexcept override;
 
-//    ParentSet<NodeValueImpl> sampleProposal() noexcept;
+        //    ParentSet<NodeValueImpl> sampleProposal() noexcept;
 
         [[nodiscard]] unsigned int acceptances() noexcept;
 
@@ -33,38 +33,36 @@ namespace transmission_nets::core::samplers::topology {
         [[nodiscard]] double acceptanceRate() noexcept;
 
     private:
-        parameters::TransmissionNetwork<NodeValueImpl> &network_;
-        T &target_;
-        Engine *rng_;
+        parameters::TransmissionNetwork<NodeValueImpl>& network_;
+        T& target_;
+        Engine* rng_;
 
         boost::random::uniform_01<> uniformDist_{};
         boost::random::uniform_int_distribution<> nodeIndexSamplingDist_;
         boost::random::uniform_int_distribution<> parentSetIndexSamplingDist_{};
 
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_ = 0;
+        unsigned int acceptances_   = 0;
+        unsigned int rejections_    = 0;
         unsigned int total_updates_ = 0;
-
     };
 
     template<typename T, typename Engine, typename NodeImpl>
-    RandomSwapEdgeSampler<T, Engine, NodeImpl>::RandomSwapEdgeSampler(parameters::TransmissionNetwork<NodeImpl> &network, T &target, Engine *rng) :
-            network_(network), target_(target), rng_(rng) {
+    RandomSwapEdgeSampler<T, Engine, NodeImpl>::RandomSwapEdgeSampler(parameters::TransmissionNetwork<NodeImpl>& network, T& target, Engine* rng) : network_(network), target_(target), rng_(rng) {
         nodeIndexSamplingDist_.param(boost::random::uniform_int_distribution<>::param_type(0, network_.nodes().size() - 1));
     }
 
     template<typename T, typename Engine, typename NodeValueImpl>
     void RandomSwapEdgeSampler<T, Engine, NodeValueImpl>::update() noexcept {
         const std::string stateId = "SwapEdge1";
-        const Likelihood curLik = target_.value();
+        const Likelihood curLik   = target_.value();
 
         const auto nodeA = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
         const auto nodeB = network_.nodes()[nodeIndexSamplingDist_(*rng_)];
         if (nodeA != nodeB) {
             parameters::Parameter<containers::ParentSet<NodeValueImpl>>* nodeAParentSetParam = network_.parentSet(nodeA);
             parameters::Parameter<containers::ParentSet<NodeValueImpl>>* nodeBParentSetParam = network_.parentSet(nodeB);
-            const auto& nodeAParentSet = nodeAParentSetParam->value();
-            const auto& nodeBParentSet = nodeBParentSetParam->value();
+            const auto& nodeAParentSet                                                       = nodeAParentSetParam->value();
+            const auto& nodeBParentSet                                                       = nodeBParentSetParam->value();
 
             if (nodeAParentSet.size() > 0 and nodeBParentSet.size() > 0) {
                 parentSetIndexSamplingDist_.param(boost::random::uniform_int_distribution<>::param_type(0, nodeAParentSet.size() - 1));
@@ -94,8 +92,8 @@ namespace transmission_nets::core::samplers::topology {
                     network_.addEdge(nodeAParentNode, nodeB);
                     network_.addEdge(nodeBParentNode, nodeA);
                     const Likelihood acceptanceRatio = target_.value() - curLik;
-                    const Likelihood logProbAccept = log(uniformDist_(*rng_));
-                    const bool accept = logProbAccept <= acceptanceRatio;
+                    const Likelihood logProbAccept   = log(uniformDist_(*rng_));
+                    const bool accept                = logProbAccept <= acceptanceRatio;
                     if (accept) {
                         acceptances_++;
                         nodeAParentSetParam->acceptState();
@@ -133,7 +131,7 @@ namespace transmission_nets::core::samplers::topology {
         return double(acceptances_) / (acceptances_ + rejections_);
     }
 
-}
+}// namespace transmission_nets::core::samplers::topology
 
 
-#endif //TRANSMISSION_NETWORKS_APP_RANDOMSWAPEDGESAMPLER_H
+#endif//TRANSMISSION_NETWORKS_APP_RANDOMSWAPEDGESAMPLER_H

@@ -27,6 +27,6 @@ namespace transmission_nets::core::distributions {
         double logDenominator_ = 0;
     };
 
-}
+}// namespace transmission_nets::core::distributions
 
 #endif//TRANSMISSION_NETWORKS_APP_BETALOGPDF_H

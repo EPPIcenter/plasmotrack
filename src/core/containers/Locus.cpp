@@ -2,11 +2,10 @@
 // Created by Maxwell Murphy on 2/23/20.
 //
 
-#include <utility>
 #include <string>
+#include <utility>
 
 #include "Locus.h"
-
 
 
 namespace transmission_nets::core::containers {
@@ -20,22 +19,21 @@ namespace transmission_nets::core::containers {
         return total_alleles_;
     }
 
-    bool Locus::operator<(const Locus &rhs) const noexcept {
+    bool Locus::operator<(const Locus& rhs) const noexcept {
         return uid < rhs.uid;
     }
 
-    bool Locus::operator>(const Locus &rhs) const noexcept {
+    bool Locus::operator>(const Locus& rhs) const noexcept {
         return rhs < *this;
     }
 
-    bool Locus::operator<=(const Locus &rhs) const noexcept {
+    bool Locus::operator<=(const Locus& rhs) const noexcept {
         return !(rhs < *this);
     }
 
-    bool Locus::operator>=(const Locus &rhs) const noexcept {
+    bool Locus::operator>=(const Locus& rhs) const noexcept {
         return !(*this < rhs);
     }
 
 
-}
-
+}// namespace transmission_nets::core::containers

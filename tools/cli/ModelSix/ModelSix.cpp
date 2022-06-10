@@ -25,8 +25,8 @@ using namespace transmission_nets::core::computation;
 using namespace transmission_nets::core::samplers;
 
 namespace {
-    const size_t ERROR_IN_COMMAND_LINE = 1;
-    const size_t SUCCESS = 0;
+    const size_t SUCCESS                   = 0;
+    const size_t ERROR_IN_COMMAND_LINE     = 1;
     const size_t ERROR_UNHANDLED_EXCEPTION = 2;
 
 }// namespace
@@ -39,13 +39,15 @@ std::unique_ptr<ReplicaExchange<ModelSix::State, ModelSix::Model, ModelSix::Samp
 
 void finalize_output(int signal_num) {
     interrupted = true;
-    fmt::print("Interrupt signal {} received. Finalizing output...", signal_num);
+    fmt::print("Interrupt signal {} received. Finalizing output...\n", signal_num);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     signal(SIGINT, finalize_output);
     signal(SIGQUIT, finalize_output);
     signal(SIGABRT, finalize_output);
+    signal(SIGTERM, finalize_output);
+    signal(SIGKILL, finalize_output);
 
     try {
         int numChains;
@@ -58,10 +60,19 @@ int main(int argc, char **argv) {
         std::string input;
         std::string output_dir;
 
-
         namespace po = boost::program_options;
         po::options_description desc("Options");
-        desc.add_options()("help", "Runs the model six implementation")("burnin,b", po::value<int>(&burnin)->default_value(5000), "Number of steps to be used for burnin")("sample,s", po::value<int>(&sample)->default_value(10000), "Total number of steps to be used for sampling")("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned")("numchains,n", po::value<int>(&numChains)->default_value(1), "Number of chains to run in replica exchange algorithm. Do not exceed the number of threads available.")("gradient,g", po::value<double>(&gradient)->default_value(1), "Temperature gradient to use in replica exchange algorithm")("seed", po::value<int>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.")("input,i", po::value<std::string>(&input)->required(), "Input file")("hotload,h", "Hotload parameters from the output directory")("output-dir,o", po::value<std::string>(&output_dir)->required(), "Output directory");
+        auto opts = desc.add_options();
+        opts("help", "Runs the model six implementation");
+        opts("burnin,b", po::value<int>(&burnin)->default_value(5000), "Number of steps to be used for burnin");
+        opts("sample,s", po::value<int>(&sample)->default_value(10000), "Total number of steps to be used for sampling");
+        opts("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned");
+        opts("numchains,n", po::value<int>(&numChains)->default_value(1), "Number of chains to run in replica exchange algorithm. Do not exceed the number of threads available.");
+        opts("gradient,g", po::value<double>(&gradient)->default_value(1), "Temperature gradient to use in replica exchange algorithm");
+        opts("seed", po::value<int>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.");
+        opts("hotload,h", "Hotload parameters from the output directory");
+        opts("input,i", po::value<std::string>(&input)->required(), "Input file");
+        opts("output-dir,o", po::value<std::string>(&output_dir)->required(), "Output directory");
 
 
         po::positional_options_description p;
@@ -74,16 +85,15 @@ int main(int argc, char **argv) {
                       vm);// can throw
 
             /** --help option
-                       */
+            */
             if (vm.count("help")) {
                 std::cout << "Model Six Implementation" << std::endl
                           << desc << std::endl;
                 return SUCCESS;
             }
 
-            po::notify(vm);// throws on error, so do after help in case
-                           // there are any problems
-        } catch (po::error &e) {
+            po::notify(vm);// throws on error, so do after help in case there are any problems
+        } catch (po::error& e) {
             std::cerr << "ERROR: " << e.what() << std::endl
                       << std::endl;
             std::cerr << desc << std::endl;
@@ -114,17 +124,16 @@ int main(int argc, char **argv) {
         auto j = loadJSON(inputFile);
 
         if (seed == -1) {
-            seed = std::chrono::system_clock::now().time_since_epoch().count();
+            seed = (int) std::chrono::system_clock::now().time_since_epoch().count();
         }
 
         fmt::print("Seed Used: {}\n", seed);
         auto r = std::make_shared<boost::random::mt19937>(seed);
-        repex = std::make_unique<ReplicaExchange<ModelSix::State, ModelSix::Model, ModelSix::SampleScheduler, ModelSix::ModelLogger, ModelSix::StateLogger>>(numChains, thin, gradient, r, outputDir, hotload, j);
+        repex  = std::make_unique<ReplicaExchange<ModelSix::State, ModelSix::Model, ModelSix::SampleScheduler, ModelSix::ModelLogger, ModelSix::StateLogger>>(numChains, thin, gradient, r, outputDir, hotload, j);
 
         repex->logState();
         repex->finalize();
         fmt::print("Starting Llik: {0:.2f}\n", repex->hotValue());
-        //        exit(1);
         for (int kk = 0; kk < burnin; ++kk) {
             if (interrupted) {
                 repex->logModel();
@@ -134,6 +143,7 @@ int main(int argc, char **argv) {
             repex->sample();
             fmt::print("(b={0}) Current Llik: {1:.2f}\n", kk, repex->hotValue());
         }
+        fmt::print("Burnin Complete -- Current Llik: {0:.2f}\n", repex->hotValue());
 
 
         for (int jj = 0; jj < sample; ++jj) {
@@ -145,10 +155,11 @@ int main(int argc, char **argv) {
             repex->logState();
             fmt::print("(s={0}) Current Llik: {1:.2f}\n", jj, repex->hotValue());
         }
+        fmt::print("Sampling Complete -- Current Llik: {0:.2f}\n", repex->hotValue());
 
         repex->finalize();
 
-    } catch (std::exception &e) {
+    } catch (std::exception& e) {
         std::cerr << "Unhandled Exception reached the top of main: "
                   << e.what() << ", application will now exit" << std::endl;
         return ERROR_UNHANDLED_EXCEPTION;

@@ -14,28 +14,27 @@ namespace transmission_nets::core::samplers {
     struct WeightedScheduledSampler {
         std::unique_ptr<AbstractSampler> sampler;
 
-        int adaptationStart = 0;
-        int adaptationEnd = 0;
-        bool scaledAdaptation{false};
-
+        std::string id                = "Unknown";
+        int adaptationStart           = 0;
+        int adaptationEnd             = 0;
+        bool scaledAdaptation         = false;
         long unsigned int updateStart = 0;
-        long unsigned int updateEnd = std::numeric_limits<int>::max();
+        long unsigned int updateEnd   = std::numeric_limits<int>::max();
+        long double weight            = 1.0;
 
-        long double weight = 1.0;
-
-        bool operator<(const WeightedScheduledSampler &rhs) const {
+        bool operator<(const WeightedScheduledSampler& rhs) const {
             return weight < rhs.weight;
         }
 
-        bool operator>(const WeightedScheduledSampler &rhs) const {
+        bool operator>(const WeightedScheduledSampler& rhs) const {
             return rhs < *this;
         }
 
-        bool operator<=(const WeightedScheduledSampler &rhs) const {
+        bool operator<=(const WeightedScheduledSampler& rhs) const {
             return !(rhs < *this);
         }
 
-        bool operator>=(const WeightedScheduledSampler &rhs) const {
+        bool operator>=(const WeightedScheduledSampler& rhs) const {
             return !(*this < rhs);
         }
 
@@ -66,9 +65,9 @@ namespace transmission_nets::core::samplers {
 
         void step();
 
-        void update(const WeightedScheduledSampler &sampler) const;
+        void update(const WeightedScheduledSampler& sampler) const;
 
-        void adapt(const WeightedScheduledSampler &sampler) const;
+        void adapt(const WeightedScheduledSampler& sampler) const;
 
     private:
         std::shared_ptr<Engine> rng_;
@@ -76,7 +75,7 @@ namespace transmission_nets::core::samplers {
 
         std::vector<WeightedScheduledSampler> samplers_{};
         std::vector<long double> cumulativeWeight_{};
-        int totalSteps = 0;
+        int totalSteps           = 0;
         long double totalWeight_ = 0;
         boost::random::uniform_int_distribution<> dist_;
 
@@ -95,9 +94,11 @@ namespace transmission_nets::core::samplers {
 
         long int v;
         for (int i = 0; i < numSamples_; ++i) {
-            v = dist_(*rng_);
+            //            fmt::print("---------------------STEP-------------------------\n");
+            v       = dist_(*rng_);
             auto it = std::lower_bound(cumulativeWeight_.begin(), cumulativeWeight_.end(), v);
             int idx = it - cumulativeWeight_.begin();
+            //            fmt::print("Sampler: {}\n", samplers_[idx].id);
             update(samplers_[idx]);
             adapt(samplers_[idx]);
         }
@@ -124,7 +125,7 @@ namespace transmission_nets::core::samplers {
         long double total = 0;
         cumulativeWeight_.clear();
         cumulativeWeight_.reserve(samplers_.size());
-        for (auto &sampler : samplers_) {
+        for (auto& sampler : samplers_) {
             total += sampler.weight;
             cumulativeWeight_.push_back(total);
         }
@@ -135,14 +136,14 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename Engine>
-    void RandomizedScheduler<Engine>::update(const WeightedScheduledSampler &sampler) const {
+    void RandomizedScheduler<Engine>::update(const WeightedScheduledSampler& sampler) const {
         if (isBetween(totalSteps, sampler.updateStart, sampler.updateEnd)) {
             sampler.update();
         }
     }
 
     template<typename Engine>
-    void RandomizedScheduler<Engine>::adapt(const WeightedScheduledSampler &sampler) const {
+    void RandomizedScheduler<Engine>::adapt(const WeightedScheduledSampler& sampler) const {
         if (isBetween(totalSteps, sampler.adaptationStart, sampler.adaptationEnd)) {
             if (sampler.scaledAdaptation) {
                 sampler.adapt(totalSteps - sampler.updateStart);

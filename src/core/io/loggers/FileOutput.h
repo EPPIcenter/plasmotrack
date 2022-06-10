@@ -19,8 +19,8 @@ namespace transmission_nets::core::io {
         explicit FileOutput(fs::path outputPath, std::string header = "", bool resetOutput = true);
         ~FileOutput() override;
 
-        FileOutput(const FileOutput &) = delete;
-        FileOutput &operator=(FileOutput &) = delete;
+        FileOutput(const FileOutput&) = delete;
+        FileOutput& operator=(FileOutput&) = delete;
 
         void reset() final;
 
@@ -28,15 +28,15 @@ namespace transmission_nets::core::io {
 
         void finalize() final;
 
-        void write(const std::string &) final;
+        void write(const std::string&) final;
 
         void write_buffer();
 
 
     protected:
         //        static std::map<std::string, std::shared_ptr<std::ofstream>> outputFiles_;
-        static std::map<std::string, std::shared_ptr<std::ofstream>> &getOutputFiles();
-        static std::map<std::string, std::shared_ptr<std::stringstream>> &getOutputBuffers();
+        static std::map<std::string, std::shared_ptr<std::ofstream>>& getOutputFiles();
+        static std::map<std::string, std::shared_ptr<std::stringstream>>& getOutputBuffers();
         long buffer_size_ = 4096;
         fs::path outputPath_;
         std::string header_;

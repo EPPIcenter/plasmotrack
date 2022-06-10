@@ -3,8 +3,8 @@
 //
 //
 //
-#include <boost/random.hpp>
 #include <Eigen/Core>
+#include <boost/random.hpp>
 
 #include "gtest/gtest.h"
 
@@ -47,8 +47,8 @@ TEST(SALTSamplerTest, SimplexTest) {
     };
 
     auto mySimplex = std::make_shared<Parameter<Simplex>>(std::vector{.1, .1, .1, .1});
-    auto st = std::make_shared<SimplexTestTarget>(mySimplex);
-    auto r = std::make_shared<boost::random::mt19937>();
+    auto st        = std::make_shared<SimplexTestTarget>(mySimplex);
+    auto r         = std::make_shared<boost::random::mt19937>();
 
     SALTSampler sampler(mySimplex, st, r, 1, .1, 10);
 
@@ -62,7 +62,7 @@ TEST(SALTSamplerTest, SimplexTest) {
     Eigen::Array<double, 4, 1> results;
     results.setZero();
     int total_samples = 100000;
-    i = total_samples;
+    i                 = total_samples;
     while (i > 0) {
         i--;
         sampler.update();
@@ -86,5 +86,4 @@ TEST(SALTSamplerTest, SimplexTest) {
     EXPECT_NEAR(results(1), 2000.0 / 9001, .015);
     EXPECT_NEAR(results(2), 3000.0 / 9001, .015);
     EXPECT_NEAR(results(3), 4000.0 / 9001, .015);
-
 }

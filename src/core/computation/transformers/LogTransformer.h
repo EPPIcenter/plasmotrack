@@ -15,7 +15,7 @@ namespace transmission_nets::core::computation {
     template<typename Input>
     struct LogTransformer : PartialLikelihood {
 
-        explicit LogTransformer(Input &target) : target_(target) {
+        explicit LogTransformer(Input& target) : target_(target) {
             target_.add_set_dirty_listener([=, this]() { this->setDirty(); });
             target_.registerCacheableCheckpointTarget(this);
         }
@@ -35,6 +35,6 @@ namespace transmission_nets::core::computation {
         Input& target_;
     };
 
-}
+}// namespace transmission_nets::core::computation
 
-#endif //TRANSMISSION_NETWORKS_APP_LOGTRANSFORMER_H
+#endif//TRANSMISSION_NETWORKS_APP_LOGTRANSFORMER_H

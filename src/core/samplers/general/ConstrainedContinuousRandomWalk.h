@@ -46,11 +46,11 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine, typename U>
     double ConstrainedContinuousRandomWalk<T, Engine, U>::sampleProposal() noexcept {
-        double eps = normal_dist_(*rng_) * variance_;
+        double eps           = normal_dist_(*rng_) * variance_;
         double unconstrained = std::log(parameter_->value() - lower_bound_) - std::log(upper_bound_ - parameter_->value());
-        double exp_prop = std::exp(eps + unconstrained);
-        double prop = (upper_bound_ * exp_prop + lower_bound_) / (exp_prop + 1);
-        prop = std::clamp(prop, lower_bound_, upper_bound_);
+        double exp_prop      = std::exp(eps + unconstrained);
+        double prop          = (upper_bound_ * exp_prop + lower_bound_) / (exp_prop + 1);
+        prop                 = std::clamp(prop, lower_bound_, upper_bound_);
 #ifndef NDEBUG
         if (prop > upper_bound_) {
             std::cerr << "Proposal " << prop << " exceeds upper bound " << upper_bound_ << std::endl;

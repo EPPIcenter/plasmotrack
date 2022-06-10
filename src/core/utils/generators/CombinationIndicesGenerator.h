@@ -32,13 +32,10 @@ namespace transmission_nets::core::utils::generators {
         combination_t curr{};
 
     private:
-
         std::size_t n_;
         std::size_t r_;
-
     };
-}
+}// namespace transmission_nets::core::utils::generators
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_COMBINATIONINDICESGENERATOR_H
+#endif//TRANSMISSION_NETWORKS_APP_COMBINATIONINDICESGENERATOR_H

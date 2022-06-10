@@ -5,7 +5,9 @@ find_package(Boost 1.74 COMPONENTS program_options REQUIRED container math_c99l 
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 find_package(OpenMP)
+find_package(fmt REQUIRED)
 
+message("Using C++ Standard: ${CMAKE_CXX_STANDARD}")
 
 if (OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")

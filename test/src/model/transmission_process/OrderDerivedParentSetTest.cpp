@@ -2,8 +2,8 @@
 // Created by Maxwell Murphy on 3/6/20.
 //
 
-#include "core/parameters/Ordering.h"
 #include "core/computation/OrderDerivedParentSet.h"
+#include "core/parameters/Ordering.h"
 #include "gtest/gtest.h"
 
 using namespace transmission_nets::core::parameters;
@@ -16,7 +16,7 @@ TEST(OrderDerivedParentSetTest, HandlesReorder) {
     auto el4 = std::make_shared<int>(4);
 
     auto ordering = std::make_shared<Ordering<int>>(std::vector{el1, el2, el3, el4});
-    auto ops = std::make_shared<OrderDerivedParentSet<int, Ordering<int>>>(ordering, el1);
+    auto ops      = std::make_shared<OrderDerivedParentSet<int, Ordering<int>>>(ordering, el1);
     ops->addAllowedParents({el2, el3, el4});
     ASSERT_EQ(ops->value().size(), 0);
 
@@ -31,5 +31,4 @@ TEST(OrderDerivedParentSetTest, HandlesReorder) {
     ASSERT_EQ(ops->value().size(), 2);
     ordering->restoreState("state1");
     ASSERT_EQ(ops->value().size(), 1);
-
 }

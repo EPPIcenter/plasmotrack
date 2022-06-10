@@ -20,21 +20,20 @@ namespace transmission_nets::core::containers {
 
         [[nodiscard]] unsigned int totalAlleles() const noexcept;
 
-        bool operator<(const Locus &rhs) const noexcept;
+        bool operator<(const Locus& rhs) const noexcept;
 
-        bool operator>(const Locus &rhs) const noexcept;
+        bool operator>(const Locus& rhs) const noexcept;
 
-        bool operator<=(const Locus &rhs) const noexcept;
+        bool operator<=(const Locus& rhs) const noexcept;
 
-        bool operator>=(const Locus &rhs) const noexcept;
+        bool operator>=(const Locus& rhs) const noexcept;
 
     private:
         static unsigned int newUID;
         unsigned int total_alleles_;
     };
 
-}
+}// namespace transmission_nets::core::containers
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_LOCUS_H
+#endif//TRANSMISSION_NETWORKS_APP_LOCUS_H

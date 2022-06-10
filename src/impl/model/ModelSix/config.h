@@ -47,30 +47,31 @@
 
 namespace transmission_nets::impl::ModelSix {
 
-    static constexpr int MAX_ALLELES = 64;
-    static constexpr int MAX_COI = 8;
-    static constexpr int MAX_PARENTS = 1;
+    static constexpr int MAX_ALLELES       = 64;
+    static constexpr int MAX_COI           = 8;
+    static constexpr int MAX_PARENTS       = 1;
     static constexpr int MAX_TRANSMISSIONS = 12;
-    namespace fs = std::filesystem;
+    namespace fs                           = std::filesystem;
 
-    using Likelihood = core::computation::Likelihood;
-    using LocusImpl = core::containers::Locus;
-    using GeneticsImpl = core::datatypes::AllelesBitSet<MAX_ALLELES>;
-    using InfectionEvent = core::containers::Infection<GeneticsImpl, LocusImpl>;
-    using AlleleFrequencyImpl = core::datatypes::Simplex;
+    using Likelihood                   = core::computation::Likelihood;
+    using LocusImpl                    = core::containers::Locus;
+    using GeneticsImpl                 = core::datatypes::AllelesBitSet<MAX_ALLELES>;
+    using InfectionEvent               = core::containers::Infection<GeneticsImpl, LocusImpl>;
+    using AlleleFrequencyImpl          = core::datatypes::Simplex;
     using AlleleFrequencyContainerImpl = core::containers::AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
 
-    using AlleleCounterImpl = model::observation_process::AlleleCounter<GeneticsImpl>;
+    using AlleleCounterImpl        = model::observation_process::AlleleCounter<GeneticsImpl>;
     using AlleleCounterAccumulator = core::computation::Accumulator<AlleleCounterImpl, model::observation_process::AlleleCounts>;
+    using ObservationProcessImpl   = model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>;
 
     using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
-    using NodeTransmissionImpl = model::transmission_process::NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>;
+    using NodeTransmissionImpl      = model::transmission_process::NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>;
 
-    using COIProbabilityImpl = core::distributions::ZTPoisson<MAX_COI>;
-    using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent, MAX_COI>;
+    using COIProbabilityImpl     = core::distributions::ZTPoisson<MAX_COI>;
+    using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent::GenotypeParameterMap, MAX_COI>;
 
-    using OrderingImpl = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
-    using ParentSetImpl = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
+    using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
+    using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
     using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
 
 }// namespace transmission_nets::impl::ModelSix

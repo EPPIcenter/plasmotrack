@@ -4,9 +4,9 @@
 //
 #include "gtest/gtest.h"
 
-#include <boost/random.hpp>
-#include <boost/math/distributions.hpp>
 #include <Eigen/Core>
+#include <boost/math/distributions.hpp>
+#include <boost/random.hpp>
 
 #include "core/parameters/Parameter.h"
 #include "core/samplers/general/DiscreteRandomWalk.h"
@@ -15,8 +15,8 @@ using namespace transmission_nets::core::parameters;
 using namespace transmission_nets::core::samplers;
 
 TEST(DiscreteRandomWalkTest, NormalTest) {
-    constexpr double TEST_MEAN = 5.51;
-    constexpr double TEST_VARIANCE = 10;
+    constexpr double TEST_MEAN      = 5.51;
+    constexpr double TEST_VARIANCE  = 10;
     constexpr int TOTAL_DATA_POINTS = 30;
 
     struct NormalTestTarget {
@@ -47,9 +47,9 @@ TEST(DiscreteRandomWalkTest, NormalTest) {
     };
 
 
-    auto myMean = std::make_shared<Parameter<int>>(30);
+    auto myMean    = std::make_shared<Parameter<int>>(30);
     auto myTestTar = std::make_shared<NormalTestTarget>(myMean);
-    auto r = std::make_shared<boost::random::mt19937>();
+    auto r         = std::make_shared<boost::random::mt19937>();
 
     DiscreteRandomWalk sampler(myMean, myTestTar, r, 3);
 
@@ -69,8 +69,8 @@ TEST(DiscreteRandomWalkTest, NormalTest) {
         results(i) = myMean->value();
     }
 
-    auto resultsMean = results.mean();
-    auto resultsStdDev = std::sqrt( (results - results.mean()).square().sum() / results.size() );
+    auto resultsMean   = results.mean();
+    auto resultsStdDev = std::sqrt((results - results.mean()).square().sum() / results.size());
     std::cout << "Mean: " << resultsMean << std::endl;
     std::cout << "StdDev: " << resultsStdDev << std::endl;
     std::cout << "Acceptance Ratio: " << sampler.acceptanceRate() << std::endl;
@@ -81,15 +81,14 @@ TEST(DiscreteRandomWalkTest, NormalTest) {
 TEST(DiscreteRandomWalkTest, DoubleWellTest) {
     struct DoubleWellTestTarget {
 
-        explicit DoubleWellTestTarget(std::shared_ptr<Parameter<int>> x, std::shared_ptr<Parameter<int>> y) : x_(std::move(x)), y_(std::move(y)) {};
+        explicit DoubleWellTestTarget(std::shared_ptr<Parameter<int>> x, std::shared_ptr<Parameter<int>> y) : x_(std::move(x)), y_(std::move(y)){};
 
         double value() {
             return -(
                     (.25 * a_ * std::pow(x_->value(), 4)) -
                     (.5 * b_ * std::pow(x_->value(), 2)) +
                     (c_ * x_->value()) +
-                    (.5 * d_ * std::pow(y_->value(), 2))
-            );
+                    (.5 * d_ * std::pow(y_->value(), 2)));
         }
 
         std::shared_ptr<Parameter<int>> x_;
@@ -100,10 +99,10 @@ TEST(DiscreteRandomWalkTest, DoubleWellTest) {
         double d_ = 1;
     };
 
-    auto x = std::make_shared<Parameter<int>>(0);
-    auto y = std::make_shared<Parameter<int>>(0);
+    auto x         = std::make_shared<Parameter<int>>(0);
+    auto y         = std::make_shared<Parameter<int>>(0);
     auto myTestTar = std::make_shared<DoubleWellTestTarget>(x, y);
-    auto r = std::make_shared<boost::random::mt19937>();
+    auto r         = std::make_shared<boost::random::mt19937>();
 
     DiscreteRandomWalk xSampler(x, myTestTar, r, 3);
     DiscreteRandomWalk ySampler(y, myTestTar, r, 3);
@@ -129,12 +128,12 @@ TEST(DiscreteRandomWalkTest, DoubleWellTest) {
         yResults(i) = y->value();
     }
 
-    auto resultsMean = xResults.mean();
-    auto resultsStdDev = std::sqrt( (xResults - xResults.mean()).square().sum() / xResults.size() );
+    auto resultsMean   = xResults.mean();
+    auto resultsStdDev = std::sqrt((xResults - xResults.mean()).square().sum() / xResults.size());
     std::cout << "Mean: " << resultsMean << std::endl;
     std::cout << "StdDev: " << resultsStdDev << std::endl;
     std::cout << "Acceptance Ratio: " << xSampler.acceptanceRate() << std::endl;
-//    std::cout << xResults << std::endl;
-//    EXPECT_GE(resultsStdDev * 3, resultsMean - TEST_MEAN);
-//    EXPECT_LE(-resultsStdDev * 3, resultsMean - TEST_MEAN);
+    //    std::cout << xResults << std::endl;
+    //    EXPECT_GE(resultsStdDev * 3, resultsMean - TEST_MEAN);
+    //    EXPECT_LE(-resultsStdDev * 3, resultsMean - TEST_MEAN);
 }

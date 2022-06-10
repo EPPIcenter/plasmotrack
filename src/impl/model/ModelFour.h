@@ -5,8 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_MODELFOUR_H
 #define TRANSMISSION_NETWORKS_APP_MODELFOUR_H
 
-#include <utility>
 #include <filesystem>
+#include <utility>
 
 #include "core/computation/Accumulator.h"
 #include "core/computation/PartialLikelihood.h"
@@ -17,8 +17,8 @@
 #include "core/datatypes/Alleles.h"
 
 #include "core/distributions/ZTGeometric.h"
-#include "core/distributions/ZTPoisson.h"
 #include "core/distributions/ZTMultiplicativeBinomial.h"
+#include "core/distributions/ZTPoisson.h"
 
 #include "core/io/loggers/AbstractLogger.h"
 
@@ -33,37 +33,37 @@
 
 
 namespace transmission_nets::impl::ModelFour {
-    static constexpr int MAX_ALLELES = 32;
-    static constexpr int MAX_COI = 8;
-    static constexpr int MAX_PARENTS = 1;
+    static constexpr int MAX_ALLELES       = 32;
+    static constexpr int MAX_COI           = 8;
+    static constexpr int MAX_PARENTS       = 1;
     static constexpr int MAX_TRANSMISSIONS = 5;
-    namespace fs = std::filesystem;
+    namespace fs                           = std::filesystem;
 
-    using Likelihood = core::computation::Likelihood;
-    using LocusImpl = core::containers::Locus;
-    using GeneticsImpl = core::datatypes::AllelesBitSet<MAX_ALLELES>;
-    using InfectionEvent = core::containers::Infection<GeneticsImpl, LocusImpl>;
-    using AlleleFrequencyImpl = core::datatypes::Simplex;
+    using Likelihood                   = core::computation::Likelihood;
+    using LocusImpl                    = core::containers::Locus;
+    using GeneticsImpl                 = core::datatypes::AllelesBitSet<MAX_ALLELES>;
+    using InfectionEvent               = core::containers::Infection<GeneticsImpl, LocusImpl>;
+    using AlleleFrequencyImpl          = core::datatypes::Simplex;
     using AlleleFrequencyContainerImpl = core::containers::AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
 
-    using AlleleCounterImpl = model::observation_process::AlleleCounter<GeneticsImpl>;
+    using AlleleCounterImpl        = model::observation_process::AlleleCounter<GeneticsImpl>;
     using AlleleCounterAccumulator = core::computation::Accumulator<AlleleCounterImpl, model::observation_process::AlleleCounts>;
 
     using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
-    using NodeTransmissionImpl = model::transmission_process::NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>;
+    using NodeTransmissionImpl      = model::transmission_process::NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>;
 
-    using COIProbabilityImpl = core::distributions::ZTPoisson<MAX_COI>;
+    using COIProbabilityImpl     = core::distributions::ZTPoisson<MAX_COI>;
     using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent, MAX_COI>;
 
-    using OrderingImpl = core::parameters::Ordering<InfectionEvent>;
-    using ParentSetImpl = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
+    using OrderingImpl        = core::parameters::Ordering<InfectionEvent>;
+    using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
     using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
 
     struct State {
-        State(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &allowedParents);
-        std::map<std::string, LocusImpl *> loci{};
-        std::vector<InfectionEvent *> infections{};
-        std::map<InfectionEvent *, std::vector<InfectionEvent *>> allowedParents{};
+        State(std::map<std::string, LocusImpl*>& loci, std::vector<InfectionEvent*>& infections, std::map<InfectionEvent*, std::vector<InfectionEvent*>>& allowedParents);
+        std::map<std::string, LocusImpl*> loci{};
+        std::vector<InfectionEvent*> infections{};
+        std::map<InfectionEvent*, std::vector<InfectionEvent*>> allowedParents{};
 
         AlleleFrequencyContainerImpl alleleFrequencies;
 
@@ -100,7 +100,7 @@ namespace transmission_nets::impl::ModelFour {
     };
 
     struct Model {
-        Model(std::map<std::string, LocusImpl *> &loci, std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> &allowedParents);
+        Model(std::map<std::string, LocusImpl*>& loci, std::vector<InfectionEvent*>& infections, std::map<InfectionEvent*, std::vector<InfectionEvent*>>& allowedParents);
         Likelihood value();
         bool isDirty();
 
@@ -109,21 +109,21 @@ namespace transmission_nets::impl::ModelFour {
         core::computation::Accumulator<core::computation::PartialLikelihood, Likelihood> likelihood;
 
         // Observation Process
-        std::vector<AlleleCounterImpl *> alleleCounters{};
-        std::vector<AlleleCounterAccumulator *> alleleCountAccumulators{};
-        model::observation_process::ObservationProcessLikelihoodv1<AlleleCounterAccumulator> *observationProcessLikelihood{};
+        std::vector<AlleleCounterImpl*> alleleCounters{};
+        std::vector<AlleleCounterAccumulator*> alleleCountAccumulators{};
+        model::observation_process::ObservationProcessLikelihoodv1<AlleleCounterAccumulator>* observationProcessLikelihood{};
 
         // Node Transmission Process
-        InterTransmissionProbImpl *intp{};
-        NodeTransmissionImpl *nodeTransmissionProcess{};
+        InterTransmissionProbImpl* intp{};
+        NodeTransmissionImpl* nodeTransmissionProcess{};
 
         // Source Transmission Process
-        COIProbabilityImpl *coiProb{};
-        std::vector<SourceTransmissionImpl *> sourceTransmissionProcessList;
+        COIProbabilityImpl* coiProb{};
+        std::vector<SourceTransmissionImpl*> sourceTransmissionProcessList;
 
         // Transmission Process
-        std::vector<ParentSetImpl *> parentSetList{};
-        std::vector<TransmissionProcess *> transmissionProcessList{};
+        std::vector<ParentSetImpl*> parentSetList{};
+        std::vector<TransmissionProcess*> transmissionProcessList{};
     };
 
     struct ParameterLogger {
@@ -136,8 +136,7 @@ namespace transmission_nets::impl::ModelFour {
         fs::path paramOutputFolder;
         fs::path statOutputFolder;
         std::vector<core::io::AbstractLogger*> loggers{};
-
     };
-}
+}// namespace transmission_nets::impl::ModelFour
 
 #endif//TRANSMISSION_NETWORKS_APP_MODELFOUR_H

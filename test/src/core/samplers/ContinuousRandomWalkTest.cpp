@@ -17,8 +17,8 @@
 using namespace transmission_nets;
 
 TEST(ContinuousRandomWalkTest, NormalTest) {
-    constexpr double TEST_MEAN = 5;
-    constexpr double TEST_VARIANCE = 1;
+    constexpr double TEST_MEAN      = 5;
+    constexpr double TEST_VARIANCE  = 1;
     constexpr int TOTAL_DATA_POINTS = 100;
 
     struct NormalTestTarget : public core::computation::Computation<core::computation::Likelihood>,
@@ -46,13 +46,13 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
         core::computation::Likelihood value() override {
             if (dirty) {
                 value_ = calculateValue(data_, mean_->value());
-                dirty = false;
+                dirty  = false;
             }
 
             return value_;
         }
 
-        [[nodiscard]] static core::computation::Likelihood calculateValue(const Eigen::Array<double, TOTAL_DATA_POINTS, 1> &data, double mean) {
+        [[nodiscard]] static core::computation::Likelihood calculateValue(const Eigen::Array<double, TOTAL_DATA_POINTS, 1>& data, double mean) {
             boost::math::normal d(mean, TEST_VARIANCE);
             core::computation::Likelihood val = 0;
             for (auto i = 0; i < data.size(); ++i) {
@@ -69,9 +69,9 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
     };
 
 
-    auto myMean = std::make_shared<core::parameters::Parameter<double>>(30);
+    auto myMean    = std::make_shared<core::parameters::Parameter<double>>(30);
     auto myTestTar = std::make_shared<NormalTestTarget>(myMean);
-    auto r = std::make_shared<boost::random::mt19937>();
+    auto r         = std::make_shared<boost::random::mt19937>();
 
 
     core::samplers::ContinuousRandomWalk sampler(myMean, myTestTar, r, 3);
@@ -92,7 +92,7 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
         results(i) = myMean->value();
     }
 
-    auto resultsMean = results.mean();
+    auto resultsMean   = results.mean();
     auto resultsStdDev = std::sqrt((results - results.mean()).square().sum() / results.size());
     std::cout << "Mean: " << resultsMean << std::endl;
     std::cout << "StdDev: " << resultsStdDev << std::endl;
@@ -103,10 +103,10 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
 }
 
 TEST(ContinuousRandomWalkTest, DoubleWellTest) {
-    struct DoubleWellTestTarget :  public core::computation::Computation<core::computation::Likelihood>,
-                                   public core::abstract::Observable<DoubleWellTestTarget>,
-                                   public core::abstract::Cacheable<DoubleWellTestTarget>,
-                                   public core::abstract::Checkpointable<DoubleWellTestTarget, core::computation::Likelihood> {
+    struct DoubleWellTestTarget : public core::computation::Computation<core::computation::Likelihood>,
+                                  public core::abstract::Observable<DoubleWellTestTarget>,
+                                  public core::abstract::Cacheable<DoubleWellTestTarget>,
+                                  public core::abstract::Checkpointable<DoubleWellTestTarget, core::computation::Likelihood> {
 
         DoubleWellTestTarget(std::shared_ptr<core::parameters::Parameter<double>> x, std::shared_ptr<core::parameters::Parameter<double>> y) : x_(std::move(x)), y_(std::move(y)) {
             x_->registerCacheableCheckpointTarget(this);
@@ -125,7 +125,7 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
         core::computation::Likelihood value() override {
             if (dirty) {
                 value_ = calculateValue(x_->value(), y_->value());
-                dirty = false;
+                dirty  = false;
             }
             return value_;
         }
@@ -143,18 +143,18 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
 
         std::shared_ptr<core::parameters::Parameter<double>> x_;
         std::shared_ptr<core::parameters::Parameter<double>> y_;
-        double a_ = 1;
-        double b_ = 6;
-        double c_ = 1;
-        double d_ = 1;
+        double a_  = 1;
+        double b_  = 6;
+        double c_  = 1;
+        double d_  = 1;
         bool dirty = true;
         core::computation::Likelihood value_;
     };
 
-    auto x = std::make_shared<core::parameters::Parameter<double>>(0);
-    auto y = std::make_shared<core::parameters::Parameter<double>>(0);
+    auto x         = std::make_shared<core::parameters::Parameter<double>>(0);
+    auto y         = std::make_shared<core::parameters::Parameter<double>>(0);
     auto myTestTar = std::make_shared<DoubleWellTestTarget>(x, y);
-    auto r = std::make_shared<boost::random::mt19937>();
+    auto r         = std::make_shared<boost::random::mt19937>();
 
     core::samplers::ContinuousRandomWalk xSampler(x, myTestTar, r, 10, .1, 100);
     core::samplers::ContinuousRandomWalk ySampler(y, myTestTar, r, 10, .1, 100);
@@ -180,7 +180,7 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
         yResults(i) = y->value();
     }
 
-    auto resultsMean = xResults.mean();
+    auto resultsMean   = xResults.mean();
     auto resultsStdDev = std::sqrt((xResults - xResults.mean()).square().sum() / xResults.size());
     std::cout << "Mean: " << resultsMean << std::endl;
     std::cout << "StdDev: " << resultsStdDev << std::endl;

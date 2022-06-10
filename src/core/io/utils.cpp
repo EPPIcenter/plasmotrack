@@ -4,24 +4,29 @@
 
 #include "utils.h"
 
-namespace transmission_nets::core::io {
-    auto invalid_path_chars = std::basic_regex(R"([\\\\'|/:*?\"<>|])");
+#include <fmt/core.h>
 
-    fs::path getPathFromEnvVar(const char *envVar) {
+namespace transmission_nets::core::io {
+
+    std::basic_regex<char> getInvalidPathChars() {
+        static std::basic_regex invalid_path_chars = std::basic_regex(R"([\\\\'|/:*?\"<>|])");
+        return invalid_path_chars;
+    }
+
+    fs::path getPathFromEnvVar(const char* envVar) {
         const auto dirStr = getenv(envVar);
         if (dirStr == nullptr) {
-            std::cerr << "Please set " << envVar << " environment variable.\n";
+            fmt::print(stderr, "Please set {} environment variable.\n", envVar);
             exit(1);
         }
 
         fs::path dir{dirStr};
 
-        std::cout << "Loading Path: " << dir << std::endl;
+        fmt::print("Loading Path: {}\n", std::string(dir));
+        fmt::print("Path Exists: {}\n", fs::exists(dir));
 
-        std::cout << "Path Exists: " <<  fs::exists(dir) << std::endl;
-
-        if(!fs::is_directory(dir)) {
-            std::cerr << "Please set " << envVar << " to an appropriate directory.\n";
+        if (!fs::is_directory(dir)) {
+            fmt::print(stderr, "Please set {} to an appropriate directory.\n", envVar);
             exit(1);
         }
 
@@ -29,7 +34,7 @@ namespace transmission_nets::core::io {
     }
 
     std::string makePathValid(const std::string& input) {
-        return std::regex_replace(input, invalid_path_chars, "_");
+        return std::regex_replace(input, getInvalidPathChars(), "_");
     }
 
     std::string getLastLine(std::ifstream& in) {
@@ -49,20 +54,18 @@ namespace transmission_nets::core::io {
         return lastLine;
     }
 
-    double hotloadParameter(const fs::path& filePath) {
-
+    double hotloadDouble(const fs::path& filePath) {
         double value;
         std::ifstream input(filePath);
 
         if (input) {
             std::string lastLine = getLastLine(input);
-            value = std::stod(lastLine);
+            value                = std::stod(lastLine);
         } else {
             fmt::print(stderr, "Problem opening file {}\n", filePath.c_str());
             exit(1);
         }
 
-//        fmt::print("Value: {}, file: {}\n", value, filePath.c_str());
         return value;
     }
 
@@ -75,13 +78,12 @@ namespace transmission_nets::core::io {
             std::string lastLine = getLastLine(input);
             boost::split(tokens, lastLine, boost::is_any_of(","));
             values.reserve(tokens.size());
-            std::transform(tokens.begin(), tokens.end(), std::back_inserter(values), [](const std::string& val) {return std::stod(val);});
+            std::transform(tokens.begin(), tokens.end(), std::back_inserter(values), [](const std::string& val) { return std::stod(val); });
         } else {
             fmt::print(stderr, "Problem opening file {}\n", filePath.c_str());
             exit(1);
         }
 
-//        fmt::print("Value: {}, file: {}\n", serialize(values), filePath.c_str());
         return values;
     }
 
@@ -99,5 +101,4 @@ namespace transmission_nets::core::io {
         return value;
     }
 
-}
-
+}// namespace transmission_nets::core::io

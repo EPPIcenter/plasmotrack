@@ -11,8 +11,8 @@
 
 #include "core/computation/OrderDerivedParentSet.h"
 
-#include "core/containers/Infection.h"
 #include "core/containers/AlleleFrequencyContainer.h"
+#include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
 
 #include "core/distributions/ZTGeometric.h"
@@ -29,24 +29,24 @@ using namespace transmission_nets::core::datatypes;
 using namespace transmission_nets::core::distributions;
 using namespace transmission_nets::model::transmission_process;
 
-constexpr int MAX_PARENTS = 1;
-constexpr int MAX_ALLELES = 32;
-constexpr int MAX_COI = 10;
+constexpr int MAX_PARENTS       = 1;
+constexpr int MAX_ALLELES       = 32;
+constexpr int MAX_COI           = 10;
 constexpr int MAX_TRANSMISSIONS = 5;
 
 TEST(OrderBasedTransmissionProcessTest, CoreTest) {
-    using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
-    using InfectionEvent = Infection<GeneticsImpl>;
+    using GeneticsImpl             = AllelesBitSet<MAX_ALLELES>;
+    using InfectionEvent           = Infection<GeneticsImpl>;
     using AlleleFrequencyContainer = AlleleFrequencyContainer<Simplex>;
-    using Ordering = Ordering<InfectionEvent>;
+    using Ordering                 = Ordering<InfectionEvent>;
 
-    using COITransitionProbImpl = ZTMultiplicativeBinomial<MAX_COI>;
+    using COITransitionProbImpl     = ZTMultiplicativeBinomial<MAX_COI>;
     using InterTransmissionProbImpl = ZTGeometric<MAX_TRANSMISSIONS>;
-    using NodeTransmissionImpl = NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>;
+    using NodeTransmissionImpl      = NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>;
 
-    using COIProbabilityImpl = ZTGeometric<MAX_COI>;
-    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent, MAX_COI>;
-    using TransmissionProcess = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, OrderDerivedParentSet<InfectionEvent, Ordering>>;
+    using COIProbabilityImpl     = ZTGeometric<MAX_COI>;
+    using SourceTransmissionImpl = MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEvent::GenotypeParameterMap, MAX_COI>;
+    using TransmissionProcess    = OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, OrderDerivedParentSet<InfectionEvent, Ordering>>;
 
     auto as1 = std::make_shared<Locus>("AS1", 5);
     auto as2 = std::make_shared<Locus>("AS2", 6);
@@ -72,31 +72,31 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     auto ps3 = std::make_shared<OrderDerivedParentSet<InfectionEvent, Ordering>>(infectionOrder, inf3, std::vector{inf1, inf2, inf4});
     auto ps4 = std::make_shared<OrderDerivedParentSet<InfectionEvent, Ordering>>(infectionOrder, inf4, std::vector{inf1, inf2, inf3});
 
-//    std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> lfas {
-//            {&as1, Simplex(as1.totalAlleles())},
-//            {&as2, Simplex(as2.totalAlleles())}
-//    };
+    //    std::vector<AlleleFrequencyContainer::LocusAlleleFrequencyAssignment> lfas {
+    //            {&as1, Simplex(as1.totalAlleles())},
+    //            {&as2, Simplex(as2.totalAlleles())}
+    //    };
 
     auto afc = std::make_shared<AlleleFrequencyContainer>();
     afc->addLocus(as1);
     afc->addLocus(as2);
 
-    auto ztmbProb = std::make_shared<Parameter<double>>(.3);
+    auto ztmbProb  = std::make_shared<Parameter<double>>(.3);
     auto ztmbAssoc = std::make_shared<Parameter<double>>(1.0);
-    auto ztmbCTP = std::make_shared<COITransitionProbImpl>(ztmbProb, ztmbAssoc);
+    auto ztmbCTP   = std::make_shared<COITransitionProbImpl>(ztmbProb, ztmbAssoc);
 
     auto geoGenProb = std::make_shared<Parameter<double>>(.8);
-    auto geoGen = std::make_shared<InterTransmissionProbImpl>(geoGenProb);
+    auto geoGen     = std::make_shared<InterTransmissionProbImpl>(geoGenProb);
 
     auto nodeTransmission = std::make_shared<NodeTransmissionImpl>(ztmbCTP, geoGen);
 
     auto geoCOIProb = std::make_shared<Parameter<double>>(.9);
-    auto geoCOI = std::make_shared<COIProbabilityImpl>(geoCOIProb);
+    auto geoCOI     = std::make_shared<COIProbabilityImpl>(geoCOIProb);
 
-    auto mstp1 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf1);
-    auto mstp2 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf2);
-    auto mstp3 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf3);
-    auto mstp4 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf4);
+    auto mstp1 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf1->loci(), inf1->latentGenotype());
+    auto mstp2 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf2->loci(), inf2->latentGenotype());
+    auto mstp3 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf3->loci(), inf3->latentGenotype());
+    auto mstp4 = std::make_shared<SourceTransmissionImpl>(geoCOI, afc, inf4->loci(), inf4->latentGenotype());
 
     auto tp1 = std::make_shared<TransmissionProcess>(nodeTransmission, mstp1, inf1, ps1);
     auto tp2 = std::make_shared<TransmissionProcess>(nodeTransmission, mstp2, inf2, ps2);
@@ -223,5 +223,4 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp2->isDirty());
     EXPECT_FALSE(tp3->isDirty());
     EXPECT_FALSE(tp4->isDirty());
-
 }

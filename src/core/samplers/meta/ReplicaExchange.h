@@ -8,8 +8,9 @@
 #include "core/computation/transformers/Tempered.h"
 
 #include <boost/random.hpp>
-#include <filesystem>
 #include <fmt/core.h>
+
+#include <filesystem>
 #include <omp.h>
 
 namespace fs = std::filesystem;
@@ -42,10 +43,10 @@ namespace transmission_nets::core::samplers {
                 } else {
                     state = std::make_shared<State>(args...);
                 }
-                auto model = std::make_shared<Model>(state);
-                auto target = std::make_shared<TemperedTarget>(model, temp);
-                auto chain_r = std::make_shared<Engine>(seed_dist_(*r_));
-                auto sampler = std::make_shared<Scheduler<TemperedTarget>>(state, target, chain_r, samplesPerStep);
+                auto model       = std::make_shared<Model>(state);
+                auto target      = std::make_shared<TemperedTarget>(model, temp);
+                auto chain_r     = std::make_shared<Engine>(seed_dist_(*r_));
+                auto sampler     = std::make_shared<Scheduler<TemperedTarget>>(state, target, chain_r, samplesPerStep);
                 auto modelLogger = std::make_shared<ModelLogger>(model, outputDir);
                 std::shared_ptr<StateLogger> stateLogger;
                 if (ii == (numChains - 1)) {
@@ -59,7 +60,6 @@ namespace transmission_nets::core::samplers {
         }
 
         void sample() {
-
 #pragma omp parallel default(none) num_threads(chains.size())
             {
 #pragma omp for
@@ -73,12 +73,12 @@ namespace transmission_nets::core::samplers {
         void swap_chains() {
             // Generate sequences of (0,2,4...) and (1,3,5...) every other swap
             for (size_t ii = 0 + num_swaps % 2; ii < chains.size() - 1; ii += 2) {
-                fmt::print("Current llik: {0:.2f} -- {1:.2f} ({2})\n", chains[ii].target->value() / chains[ii].target->getTemperature(), chains[ii].target->value(), ii);
-                fmt::print("Current llik: {0:.2f} -- {1:.2f} ({2})\n", chains[ii + 1].target->value() / chains[ii + 1].target->getTemperature(), chains[ii + 1].target->value(), ii + 1);
+                fmt::print("Current llik: ({0:.3f}) {1:.2f} -- {2:.2f} ({3})\n", chains[ii].target->getTemperature(), chains[ii].target->value() / chains[ii].target->getTemperature(), chains[ii].target->value(), ii);
+                fmt::print("Current llik: ({0:.3f}) {1:.2f} -- {2:.2f} ({3})\n", chains[ii + 1].target->getTemperature(), chains[ii + 1].target->value() / chains[ii + 1].target->getTemperature(), chains[ii + 1].target->value(), ii + 1);
                 Likelihood curr_llik_a = chains[ii].target->value();
-                double temp_a = chains[ii].target->getTemperature();
+                double temp_a          = chains[ii].target->getTemperature();
                 Likelihood curr_llik_b = chains[ii + 1].target->value();
-                double temp_b = chains[ii + 1].target->getTemperature();
+                double temp_b          = chains[ii + 1].target->getTemperature();
 
                 chains[ii].target->setTemperature(temp_b);
                 chains[ii + 1].target->setTemperature(temp_a);
@@ -86,7 +86,7 @@ namespace transmission_nets::core::samplers {
                 Likelihood prop_llik_b = chains[ii + 1].target->value();
 
                 double acceptanceRatio = (prop_llik_a - curr_llik_a + prop_llik_b - curr_llik_b);
-                const bool accept = log(uniform_dist_(*r_)) < acceptanceRatio;
+                const bool accept      = log(uniform_dist_(*r_)) < acceptanceRatio;
 
                 if (accept) {
                     swap_acceptance_rates[ii]++;
@@ -126,7 +126,7 @@ namespace transmission_nets::core::samplers {
         std::vector<Chain> chains{};
         std::vector<int> swap_acceptance_rates{};
         size_t hot_idx_ = 0;
-        int num_swaps = 0;
+        int num_swaps   = 0;
         std::shared_ptr<boost::random::mt19937> r_;
         boost::random::uniform_01<> uniform_dist_{};
         boost::random::uniform_int_distribution<unsigned int> seed_dist_{};

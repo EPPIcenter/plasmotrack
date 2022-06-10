@@ -18,7 +18,7 @@ namespace transmission_nets::impl::ModelSix {
         std::shared_ptr<State> state_;
         fs::path rootPath_;
         fs::path paramOutputFolder_;
-        std::vector<core::io::AbstractLogger *> loggers_{};
+        std::vector<core::io::AbstractLogger*> loggers_{};
 
     public:
         StateLogger(std::shared_ptr<State> state, fs::path rootPath, bool resetOutput = false);

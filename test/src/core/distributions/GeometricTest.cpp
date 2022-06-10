@@ -15,7 +15,7 @@ constexpr int MAX_TRANSMISSIONS = 20;
 
 TEST(GeometricTest, CoreTest) {
     auto pGeoGenProb = std::make_shared<Parameter<double>>(.5);
-//    Parameter<double> pGeoGenProb(.5);
+    //    Parameter<double> pGeoGenProb(.5);
 
     ZTGeometric<MAX_TRANSMISSIONS> geoProb(pGeoGenProb);
 
@@ -28,5 +28,4 @@ TEST(GeometricTest, CoreTest) {
     ASSERT_DOUBLE_EQ(geoProb.value().sum(), 1);
     pGeoGenProb->acceptState();
     ASSERT_FALSE(geoProb.isDirty());
-
 }

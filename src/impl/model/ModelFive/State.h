@@ -6,9 +6,9 @@
 #define TRANSMISSION_NETWORKS_APP_STATE_H
 
 #include "config.h"
+#include "core/datatypes/Simplex.h"
 #include "core/io/parse_json.h"
 #include "core/io/utils.h"
-#include "core/datatypes/Simplex.h"
 
 #include <nlohmann/json.hpp>
 #include <random>
@@ -16,7 +16,7 @@
 
 namespace transmission_nets::impl::ModelFive {
     struct State {
-//        State(std::map<std::string, LocusImpl *> loci, const std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> allowedParents);
+        //        State(std::map<std::string, LocusImpl *> loci, const std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> allowedParents);
 
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
         explicit State(const nlohmann::json& input);
@@ -63,8 +63,7 @@ namespace transmission_nets::impl::ModelFive {
         p_ParameterDouble meanCOIPriorShape;
         p_ParameterDouble meanCOIPriorScale;
     };
-}
-
+}// namespace transmission_nets::impl::ModelFive
 
 
 #endif//TRANSMISSION_NETWORKS_APP_STATE_H

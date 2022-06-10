@@ -12,15 +12,19 @@
 
 
 namespace transmission_nets::core::computation {
-    template <typename Input>
+    template<typename Input>
     struct Tempered : public PartialLikelihood {
+
+
+        std::shared_ptr<Input> target_;
+        double temperature_;
 
         explicit Tempered(std::shared_ptr<Input> target, float temperature) : target_(std::move(target)), temperature_(temperature) {
             target_->add_set_dirty_listener([=, this]() {
                 this->setDirty();
             });
             target_->registerCacheableCheckpointTarget(this);
-//            this->value();
+            //            this->value();
         }
 
         Likelihood value() override {
@@ -44,10 +48,8 @@ namespace transmission_nets::core::computation {
             return fmt::format("Tempered({}, {})", target_->identifier(), temperature_);
         }
 
-        std::shared_ptr<Input> target_;
-        double temperature_;
     };
-}
+}// namespace transmission_nets::core::computation
 
 
 #endif//TRANSMISSION_NETWORKS_APP_TEMPERED_H

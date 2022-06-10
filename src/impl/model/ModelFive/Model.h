@@ -5,8 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_MODEL_H
 #define TRANSMISSION_NETWORKS_APP_MODEL_H
 
-#include "config.h"
 #include "State.h"
+#include "config.h"
 
 namespace transmission_nets::impl::ModelFive {
     struct Model : core::computation::PartialLikelihood {
@@ -37,8 +37,7 @@ namespace transmission_nets::impl::ModelFive {
         std::vector<std::shared_ptr<ParentSetImpl>> parentSetList{};
         std::vector<std::shared_ptr<TransmissionProcess>> transmissionProcessList{};
     };
-}
-
+}// namespace transmission_nets::impl::ModelFive
 
 
 #endif//TRANSMISSION_NETWORKS_APP_MODEL_H

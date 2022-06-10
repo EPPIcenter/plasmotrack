@@ -13,11 +13,11 @@ namespace transmission_nets::core::datatypes {
     template<int MaxAlleles>
     class AllelesBitSet {
     public:
-        explicit AllelesBitSet(const std::string &bitstr);
+        explicit AllelesBitSet(const std::string& bitstr);
         AllelesBitSet();
 
         template<int T>
-        friend std::ostream &operator<<(std::ostream &os, const AllelesBitSet<T> &alleles) noexcept;
+        friend std::ostream& operator<<(std::ostream& os, const AllelesBitSet<T>& alleles) noexcept;
 
         [[nodiscard]] std::string serialize() const noexcept;
 
@@ -25,16 +25,16 @@ namespace transmission_nets::core::datatypes {
         totalPositiveCount() const noexcept;
 
         [[nodiscard]] constexpr inline static unsigned int
-        truePositiveCount(const AllelesBitSet<MaxAlleles> &parent, const AllelesBitSet<MaxAlleles> &child) noexcept;
+        truePositiveCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
 
         [[nodiscard]] constexpr inline static unsigned int
-        trueNegativeCount(const AllelesBitSet<MaxAlleles> &parent, const AllelesBitSet<MaxAlleles> &child) noexcept;
+        trueNegativeCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
 
         [[nodiscard]] constexpr inline static unsigned int
-        falsePositiveCount(const AllelesBitSet<MaxAlleles> &parent, const AllelesBitSet<MaxAlleles> &child) noexcept;
+        falsePositiveCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
 
         [[nodiscard]] constexpr inline static unsigned int
-        falseNegativeCount(const AllelesBitSet<MaxAlleles> &parent, const AllelesBitSet<MaxAlleles> &child) noexcept;
+        falseNegativeCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
 
         [[nodiscard]] inline std::string allelesStr() const noexcept;
         [[nodiscard]] inline std::string compactAllelesStr() const noexcept;
@@ -57,12 +57,12 @@ namespace transmission_nets::core::datatypes {
     };
 
     template<int MaxAlleles>
-    AllelesBitSet<MaxAlleles>::AllelesBitSet(const std::string &bitstr) : total_alleles_(bitstr.size()), alleles_(bitstr) {
+    AllelesBitSet<MaxAlleles>::AllelesBitSet(const std::string& bitstr) : total_alleles_(bitstr.size()), alleles_(bitstr) {
         assert(bitstr.size() <= MaxAlleles);
     }
 
     template<int MaxAlleles>
-    std::ostream &operator<<(std::ostream &os, const AllelesBitSet<MaxAlleles> &alleles) noexcept {
+    std::ostream& operator<<(std::ostream& os, const AllelesBitSet<MaxAlleles>& alleles) noexcept {
         os << alleles.allelesStr();
         return os;
     }
@@ -73,28 +73,27 @@ namespace transmission_nets::core::datatypes {
     }
 
     template<int MaxAlleles>
-    constexpr unsigned int AllelesBitSet<MaxAlleles>::truePositiveCount(const AllelesBitSet<MaxAlleles> &parent,
-                                                                        const AllelesBitSet<MaxAlleles> &child) noexcept {
+    constexpr unsigned int AllelesBitSet<MaxAlleles>::truePositiveCount(const AllelesBitSet<MaxAlleles>& parent,
+                                                                        const AllelesBitSet<MaxAlleles>& child) noexcept {
         return (child.alleles_ & parent.alleles_).count();
     }
 
     template<int MaxAlleles>
-    constexpr unsigned int AllelesBitSet<MaxAlleles>::trueNegativeCount(const AllelesBitSet<MaxAlleles> &parent,
-                                                                        const AllelesBitSet<MaxAlleles> &child) noexcept {
-//        assert(child.totalAlleles() == parent.totalAlleles());
+    constexpr unsigned int AllelesBitSet<MaxAlleles>::trueNegativeCount(const AllelesBitSet<MaxAlleles>& parent,
+                                                                        const AllelesBitSet<MaxAlleles>& child) noexcept {
         return (~child.alleles_ & ~parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
-//        return ~(child.alleles_ | parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
+        //        return ~(child.alleles_ | parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
     }
 
     template<int MaxAlleles>
-    constexpr unsigned int AllelesBitSet<MaxAlleles>::falsePositiveCount(const AllelesBitSet<MaxAlleles> &parent,
-                                                                         const AllelesBitSet<MaxAlleles> &child) noexcept {
+    constexpr unsigned int AllelesBitSet<MaxAlleles>::falsePositiveCount(const AllelesBitSet<MaxAlleles>& parent,
+                                                                         const AllelesBitSet<MaxAlleles>& child) noexcept {
         return (child.alleles_ & ~parent.alleles_).count();
     }
 
     template<int MaxAlleles>
-    constexpr unsigned int AllelesBitSet<MaxAlleles>::falseNegativeCount(const AllelesBitSet<MaxAlleles> &parent,
-                                                                         const AllelesBitSet<MaxAlleles> &child) noexcept {
+    constexpr unsigned int AllelesBitSet<MaxAlleles>::falseNegativeCount(const AllelesBitSet<MaxAlleles>& parent,
+                                                                         const AllelesBitSet<MaxAlleles>& child) noexcept {
 
         return (~child.alleles_ & parent.alleles_).count();
     }
@@ -106,7 +105,7 @@ namespace transmission_nets::core::datatypes {
 
     template<int MaxAlleles>
     std::string AllelesBitSet<MaxAlleles>::compactAllelesStr() const noexcept {
-       return  std::to_string(std::stoll(allelesStr()));
+        return std::to_string(std::stoll(allelesStr()));
     }
 
     template<int MaxAlleles>
@@ -154,10 +153,9 @@ namespace transmission_nets::core::datatypes {
     template<int MaxAlleles>
     AllelesBitSet<MaxAlleles>::AllelesBitSet() {
         total_alleles_ = 0;
-        alleles_ = std::bitset<MaxAlleles>{};
+        alleles_       = std::bitset<MaxAlleles>{};
     }
-}
+}// namespace transmission_nets::core::datatypes
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_ALLELE_H
+#endif//TRANSMISSION_NETWORKS_APP_ALLELE_H

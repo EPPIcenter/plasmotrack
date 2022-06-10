@@ -1,17 +1,22 @@
 cmake_minimum_required(VERSION 3.17)
 project(transmission_networks)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules")
+
 find_package(Boost 1.74 REQUIRED container math_c99l random program_options)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(fmt REQUIRED)
+find_package(MPFR REQUIRED)
+find_package(gmp REQUIRED)
 
 if (OPENMP_FOUND)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_C_FLAGS " ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS} ")
 endif ()
+
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -114,11 +119,11 @@ set(SOURCE_FILES
         impl/model/ModelSix/SamplerLogger.h
 
         model/transmission_process/node_transmission_process/SuperInfectionNoMutation.h
-        model/observation_process/ObservationProcessLikelihoodv2.h)
+        model/observation_process/ObservationProcessLikelihoodv2.h core/containers/ObservedInfection.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})
-target_link_libraries(transmission_networks PRIVATE nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX Eigen3::Eigen fmt::fmt)
+target_link_libraries(transmission_networks PRIVATE nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX Eigen3::Eigen fmt::fmt mpfr)
 
 
 install(TARGETS transmission_networks DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

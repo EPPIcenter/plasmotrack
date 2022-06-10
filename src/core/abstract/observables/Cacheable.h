@@ -24,7 +24,7 @@ namespace transmission_nets::core::abstract {
         void setClean() noexcept;
 
         template<typename T0>
-        void registerDirtyTarget(T0 *target);
+        void registerDirtyTarget(T0* target);
 
     protected:
         bool is_dirty_{true};
@@ -48,7 +48,7 @@ namespace transmission_nets::core::abstract {
 
     template<typename T>
     template<typename T0>
-    void Cacheable<T>::registerDirtyTarget(T0 *target) {
+    void Cacheable<T>::registerDirtyTarget(T0* target) {
         this->underlying().add_set_dirty_listener([=, this]() { target->setDirty(); });
     }
 }// namespace transmission_nets::core::abstract

@@ -11,11 +11,11 @@
 
 namespace transmission_nets::core::datatypes {
 
-    template <typename T>
+    template<typename T>
     class Data {
 
     public:
-        template <typename Args, ENABLE_IF(core::utils::NonSelf<Args, Data<T>>())>
+        template<typename Args, ENABLE_IF(core::utils::NonSelf<Args, Data<T>>())>
         explicit Data(Args&& args) : value_(std::forward<Args>(args)) {}
 
         void setLabel(const std::string& label) noexcept {
@@ -35,10 +35,7 @@ namespace transmission_nets::core::datatypes {
         std::string label_{};
     };
 
-}
+}// namespace transmission_nets::core::datatypes
 
 
-
-
-
-#endif //TRANSMISSION_NETWORKS_APP_DATA_H
+#endif//TRANSMISSION_NETWORKS_APP_DATA_H

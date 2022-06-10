@@ -29,16 +29,16 @@ namespace transmission_nets::model::transmission_process {
         double value() noexcept override;
 
         template<typename GeneticsImpl>
-        core::computation::Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>> &ps);
+        core::computation::Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>>& ps);
 
         template<typename GeneticsImpl>
-        core::computation::Likelihood calculateLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>> &ps);
+        core::computation::Likelihood calculateLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>>& ps);
 
         template<typename GeneticsImpl>
-        core::computation::Likelihood peekCalculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>> &ps);
+        core::computation::Likelihood peekCalculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>>& ps);
 
         template<typename GeneticsImpl>
-        core::computation::Likelihood peekCalculateLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>> &ps);
+        core::computation::Likelihood peekCalculateLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>>& ps);
 
     private:
         friend class core::abstract::Checkpointable<SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>, core::computation::Computation<double>>;
@@ -75,17 +75,17 @@ namespace transmission_nets::model::transmission_process {
     template<typename GeneticsImpl>
     core::computation::Likelihood SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::calculateLogLikelihood(
             std::shared_ptr<core::containers::Infection<GeneticsImpl>> child,
-            const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
-        double llik = 0.0;
-        double logProbLost = this->value()// logp(y = 0 | y' = 1)
-                             auto const &childGenotypes = child->latentGenotype();
-        auto const childGenotypesIter = childGenotypes.begin();
+            const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>>& ps) {
+        double llik                                     = 0.0;
+        double logProbLost                              = this->value()// logp(y = 0 | y' = 1)
+                             auto const& childGenotypes = child->latentGenotype();
+        auto const childGenotypesIter                   = childGenotypes.begin();
         for (size_t ii = 0; ii < childGenotypes.size(); ++ii) {
-            const auto &childGenotype = *(childGenotypesIter + ii).second->value();
+            const auto& childGenotype = *(childGenotypesIter + ii).second->value();
             std::vector<int> presenceVector(childGenotype.totalAlleles(), 0);
             // For each allele, check how many parents in the parent set have the allele
-            for (auto const &parent : ps) {
-                const auto &parentGenotype = *(parent->latentGenotype().begin() + ii).second->value();
+            for (auto const& parent : ps) {
+                const auto& parentGenotype = *(parent->latentGenotype().begin() + ii).second->value();
                 for (int jj = 0; jj < childGenotype.totalAlleles(); ++jj) {
                     presenceVector[jj] += parentGenotype.allele(jj);
                 }
@@ -103,17 +103,17 @@ namespace transmission_nets::model::transmission_process {
     template<typename GeneticsImpl>
     core::computation::Likelihood SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::peekCalculateLogLikelihood(
             std::shared_ptr<core::containers::Infection<GeneticsImpl>> child,
-            const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
-        double llik = 0.0;
-        double logProbLost = this->peek()// logp(y = 0 | y' = 1)
-                             auto const &childGenotypes = child->latentGenotype();
-        auto const childGenotypesIter = childGenotypes.begin();
+            const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>>& ps) {
+        double llik                                     = 0.0;
+        double logProbLost                              = this->peek()// logp(y = 0 | y' = 1)
+                             auto const& childGenotypes = child->latentGenotype();
+        auto const childGenotypesIter                   = childGenotypes.begin();
         for (size_t ii = 0; ii < childGenotypes.size(); ++ii) {
-            const auto &childGenotype = *(childGenotypesIter + ii).second->peek();
+            const auto& childGenotype = *(childGenotypesIter + ii).second->peek();
             std::vector<int> presenceVector(childGenotype.totalAlleles(), 0);
             // For each allele, check how many parents in the parent set have the allele
-            for (auto const &parent : ps) {
-                const auto &parentGenotype = *(parent->latentGenotype().begin() + ii).second->peek();
+            for (auto const& parent : ps) {
+                const auto& parentGenotype = *(parent->latentGenotype().begin() + ii).second->peek();
                 for (int jj = 0; jj < childGenotype.totalAlleles(); ++jj) {
                     presenceVector[jj] += parentGenotype.allele(jj);
                 }
@@ -129,14 +129,14 @@ namespace transmission_nets::model::transmission_process {
 
     template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
     template<typename GeneticsImpl>
-    core::computation::Likelihood SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::calculateLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
+    core::computation::Likelihood SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::calculateLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>>& ps) {
         Likelihood llik = calculateLogLikelihood(child, ps);
         return llik > -std::std::numeric_limits<Likelihood>::infinity() ? exp(llik) : 0;
     }
 
     template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
     template<typename GeneticsImpl>
-    core::computation::Likelihood SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::peekCalculateLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>> &ps) {
+    core::computation::Likelihood SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::peekCalculateLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::conatiners::ParentSet<core::containers::Infection<GeneticsImpl>>& ps) {
         Likelihood llik = peekCalculateLogLikelihood(child, ps);
         return llik > -std::std::numeric_limits<Likelihood>::infinity() ? exp(llik) : 0;
     }

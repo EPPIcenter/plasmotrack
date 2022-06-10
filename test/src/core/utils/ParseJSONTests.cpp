@@ -8,8 +8,8 @@
 
 #include "core/io/parse_json.h"
 
-#include "core/containers/Locus.h"
 #include "core/containers/Infection.h"
+#include "core/containers/Locus.h"
 #include "core/datatypes/Alleles.h"
 
 using namespace transmission_nets::core::containers;

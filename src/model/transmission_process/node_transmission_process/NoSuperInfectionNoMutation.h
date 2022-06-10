@@ -57,8 +57,7 @@ namespace transmission_nets::model::transmission_process {
     private:
         friend class core::abstract::Checkpointable<
                 NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>,
-                core::datatypes::LogProbabilityTransitionMatrix<MAX_COI + 1>
-                >;
+                core::datatypes::LogProbabilityTransitionMatrix<MAX_COI + 1>>;
 
         friend class core::abstract::Cacheable<NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>>;
 
@@ -83,7 +82,7 @@ namespace transmission_nets::model::transmission_process {
     core::datatypes::LogProbabilityTransitionMatrix<MAX_COI + 1>
     NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::value() noexcept {
         if (this->isDirty()) {
-            auto tmp = coitp_->value();
+            auto tmp     = coitp_->value();
             this->value_ = tmp * intp_->value()(1);
 
             for (int i = 2; i <= MAX_TRANSMISSIONS; ++i) {
@@ -105,14 +104,14 @@ namespace transmission_nets::model::transmission_process {
     NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::calculateLogLikelihood(
             std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& ps) {
         assert(ps.size() <= 1);
-        Likelihood llik = 0.0;
-        auto const &childGenotype = child->latentGenotype();
-        for (auto const &parent : ps) {
-            auto const &parentGenotypes = parent->latentGenotype();
-            for (auto const &[locus, parentGenotypeAtLocus] : parentGenotypes) {
+        Likelihood llik           = 0.0;
+        auto const& childGenotype = child->latentGenotype();
+        for (auto const& parent : ps) {
+            auto const& parentGenotypes = parent->latentGenotype();
+            for (auto const& [locus, parentGenotypeAtLocus] : parentGenotypes) {
                 if (childGenotype.contains(locus)) {
-                    auto const &childGenotypeAtLocus = childGenotype.at(locus);
-                    const unsigned int parentAlleleCount = parentGenotypeAtLocus->value().totalPositiveCount();
+                    auto const& childGenotypeAtLocus       = childGenotype.at(locus);
+                    const unsigned int parentAlleleCount   = parentGenotypeAtLocus->value().totalPositiveCount();
                     const unsigned int retainedAlleleCount = GeneticsImpl::truePositiveCount(
                             parentGenotypeAtLocus->value(), childGenotypeAtLocus->value());
                     llik += value()(parentAlleleCount, retainedAlleleCount);
@@ -128,14 +127,14 @@ namespace transmission_nets::model::transmission_process {
     NoSuperInfectionNoMutation<MAX_COI, MAX_TRANSMISSIONS, COITransitionProbImpl, InterTransmissionProbImpl>::peekCalculateLogLikelihood(
             std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& ps) {
         assert(ps.size() == 1);
-        Likelihood llik = 0.0;
-        auto const &childGenotype = child->latentGenotype();
-        for (auto const &parent : ps) {
-            auto const &parentGenotypes = parent->latentGenotype();
-            for (auto const &[locus, parentGenotypeAtLocus] : parentGenotypes) {
+        Likelihood llik           = 0.0;
+        auto const& childGenotype = child->latentGenotype();
+        for (auto const& parent : ps) {
+            auto const& parentGenotypes = parent->latentGenotype();
+            for (auto const& [locus, parentGenotypeAtLocus] : parentGenotypes) {
                 if (childGenotype.contains(locus)) {
-                    auto const &childGenotypeAtLocus = childGenotype.at(locus);
-                    unsigned int parentAlleleCount = parentGenotypeAtLocus->value().totalPositiveCount();
+                    auto const& childGenotypeAtLocus = childGenotype.at(locus);
+                    unsigned int parentAlleleCount   = parentGenotypeAtLocus->value().totalPositiveCount();
                     unsigned int retainedAlleleCount = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus->value(),
                                                                                        childGenotypeAtLocus->value());
                     llik += this->peek()(parentAlleleCount, retainedAlleleCount);

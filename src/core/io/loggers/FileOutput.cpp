@@ -19,11 +19,11 @@ namespace transmission_nets::core::io {
      * written even if passed in, unless resetOutput is true.
      */
     FileOutput::FileOutput(fs::path outputPath, std::string header, bool resetOutput) : outputPath_(std::move(outputPath)), header_(std::move(header)) {
-        auto &outputFiles = getOutputFiles();
-        auto &outputBuffers = getOutputBuffers();
+        auto& outputFiles   = getOutputFiles();
+        auto& outputBuffers = getOutputBuffers();
         if (outputFiles.contains(outputPath_)) {
             outputFile_ = outputFiles.at(outputPath_);
-            pBuffer_ = outputBuffers.at(outputPath_);
+            pBuffer_    = outputBuffers.at(outputPath_);
             if (resetOutput) {
                 reset();
                 if (!header_.empty()) {
@@ -35,26 +35,26 @@ namespace transmission_nets::core::io {
         }
     }
 
-    std::map<std::string, std::shared_ptr<std::ofstream>> &FileOutput::getOutputFiles() {
+    std::map<std::string, std::shared_ptr<std::ofstream>>& FileOutput::getOutputFiles() {
         static std::map<std::string, std::shared_ptr<std::ofstream>> outputFiles_{};
         return outputFiles_;
     }
 
-    std::map<std::string, std::shared_ptr<std::stringstream>> &FileOutput::getOutputBuffers() {
+    std::map<std::string, std::shared_ptr<std::stringstream>>& FileOutput::getOutputBuffers() {
         static std::map<std::string, std::shared_ptr<std::stringstream>> outputBuffers_{};
         return outputBuffers_;
     }
 
     void FileOutput::initialize(bool resetOutput) {
-        auto &outputFiles = getOutputFiles();
-        auto &outputBuffers = getOutputBuffers();
+        auto& outputFiles   = getOutputFiles();
+        auto& outputBuffers = getOutputBuffers();
 
         if (!fs::exists(outputPath_.parent_path())) {
             fs::create_directory(outputPath_.parent_path());
         }
 
         outputFile_ = std::make_shared<std::ofstream>();
-        pBuffer_ = std::make_shared<std::stringstream>();
+        pBuffer_    = std::make_shared<std::stringstream>();
 
         if (resetOutput) {
             outputFile_->open(outputPath_, std::ofstream::out | std::ofstream::trunc);
@@ -90,7 +90,7 @@ namespace transmission_nets::core::io {
         pBuffer_->str(std::string());// clear the buffer
     }
 
-    void FileOutput::write(const std::string &val) {
+    void FileOutput::write(const std::string& val) {
         *pBuffer_ << val << "\n";
         if (pBuffer_->tellp() > buffer_size_) {
             write_buffer();

@@ -2,9 +2,9 @@
 // Created by Maxwell Murphy on 12/9/19.
 //
 
-#include "gtest/gtest.h"
 #include "core/datatypes/Alleles.h"
 #include "core/parameters/Parameter.h"
+#include "gtest/gtest.h"
 
 constexpr int MAX_ALLELES = 24;
 
@@ -18,7 +18,7 @@ using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
 
 class AllelesTestFixture : public ::testing::Test {
 protected:
-    AllelesTestFixture() : a1("111000111000"), a2("111111000000"), a3("10010") {};
+    AllelesTestFixture() : a1("111000111000"), a2("111111000000"), a3("10010"){};
     GeneticsImpl a1;
     GeneticsImpl a2;
     GeneticsImpl a3;
@@ -50,7 +50,7 @@ TEST_F(AllelesTestFixture, HandlesFlipSetReset) {
 TEST_F(AllelesTestFixture, HandlesIteration) {
     // "10010"
     for (unsigned int i = 0; i < a3.totalAlleles(); ++i) {
-        if(i == 0 or i == 3) {
+        if (i == 0 or i == 3) {
             ASSERT_TRUE(a3.allele(i));
         } else {
             ASSERT_FALSE(a3.allele(i));

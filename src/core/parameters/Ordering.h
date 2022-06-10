@@ -14,12 +14,12 @@
 
 
 namespace transmission_nets::core::parameters {
-    template <typename T>
+    template<typename T>
     class Ordering : public Parameter<std::vector<std::shared_ptr<T>>> {
 
         using MovedCallback = std::function<void(std::shared_ptr<T> element)>;
         CREATE_KEYED_EVENT(moved_left, std::shared_ptr<T>, MovedCallback) // Notifies that an element has been moved left of key
-        CREATE_KEYED_EVENT(moved_right, std::shared_ptr<T>, MovedCallback) // Notifies that an element has been moved right of key
+        CREATE_KEYED_EVENT(moved_right, std::shared_ptr<T>, MovedCallback)// Notifies that an element has been moved right of key
 
     public:
         explicit Ordering() noexcept;
@@ -32,7 +32,7 @@ namespace transmission_nets::core::parameters {
 
         void addElements(const std::vector<std::shared_ptr<T>>& refs) noexcept;
 
-        friend std::ostream &operator<<(std::ostream &os, const Ordering &list) noexcept {
+        friend std::ostream& operator<<(std::ostream& os, const Ordering& list) noexcept {
             for (unsigned long i = 0; i < list.value_.size(); ++i) {
                 os << "Element " << i << ": " << *list.value_[i] << "\n";
             }
@@ -56,7 +56,7 @@ namespace transmission_nets::core::parameters {
     void Ordering<T>::swap(int a, int b) noexcept {
         if (a != b) {
             this->notify_pre_change();
-            auto tmp = this->value_.at(a);
+            auto tmp           = this->value_.at(a);
             this->value_.at(a) = this->value_.at(b);
             this->value_.at(b) = tmp;
 
@@ -80,7 +80,7 @@ namespace transmission_nets::core::parameters {
 
     template<typename T>
     void Ordering<T>::addElements(const std::vector<std::shared_ptr<T>>& refs) noexcept {
-        for (auto& ref: refs) {
+        for (auto& ref : refs) {
             addElement(std::move(ref));
         }
     }
@@ -105,8 +105,7 @@ namespace transmission_nets::core::parameters {
         }
     }
 
-}
+}// namespace transmission_nets::core::parameters
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_ORDERING_H
+#endif//TRANSMISSION_NETWORKS_APP_ORDERING_H

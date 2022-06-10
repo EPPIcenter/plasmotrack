@@ -16,11 +16,11 @@ namespace transmission_nets::impl::ModelFive {
     class ModelLogger {
         std::shared_ptr<Model> model_;
         fs::path rootPath_;
-        std::vector<core::io::AbstractLogger *> loggers_{};
+        std::vector<core::io::AbstractLogger*> loggers_{};
 
     public:
         ModelLogger(std::shared_ptr<Model> model, fs::path rootPath);
-        ModelLogger(Model &model, fs::path rootPath);
+        ModelLogger(Model& model, fs::path rootPath);
         void log() const;
         void finalize() const;
     };

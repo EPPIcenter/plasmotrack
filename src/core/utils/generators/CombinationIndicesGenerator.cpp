@@ -9,8 +9,8 @@
 
 namespace transmission_nets::core::utils::generators {
     CombinationIndicesGenerator::CombinationIndicesGenerator(std::size_t n, std::size_t r) : completed(n < 1 or r > n or r == 0),
-                                                                             n_(n),
-                                                                             r_(r) {
+                                                                                             n_(n),
+                                                                                             r_(r) {
         curr.resize(r_);
         std::iota(curr.begin(), curr.end(), 0);
     }
@@ -40,14 +40,11 @@ namespace transmission_nets::core::utils::generators {
                 break;
             }
         }
-   }
+    }
 
     CombinationIndicesGenerator::CombinationIndicesGenerator() {
         completed = true;
-        n_ = 0;
-        r_ = 0;
+        n_        = 0;
+        r_        = 0;
     }
-}
-
-
-
+}// namespace transmission_nets::core::utils::generators

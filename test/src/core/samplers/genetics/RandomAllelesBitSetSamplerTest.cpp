@@ -2,13 +2,13 @@
 // Created by Maxwell Murphy on 4/16/20.
 //
 //
-#include <boost/random.hpp>
 #include <Eigen/Core>
+#include <boost/random.hpp>
 
 #include "gtest/gtest.h"
 
-#include "core/parameters/Parameter.h"
 #include "core/datatypes/Alleles.h"
+#include "core/parameters/Parameter.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 
 using namespace transmission_nets::core::parameters;
@@ -29,7 +29,7 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
             if (dirty) {
                 value_ = 0;
                 for (unsigned int i = 0; i < target.totalAlleles(); ++i) {
-                    if(target.allele(i) == alleles_->value().allele(i)) {
+                    if (target.allele(i) == alleles_->value().allele(i)) {
                         value_ += 100;
                     }
                 }
@@ -46,13 +46,12 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
         std::shared_ptr<Parameter<Alleles>> alleles_;
         bool dirty{true};
         double value_{0};
-
     };
 
 
     auto myAlleles = std::make_shared<Parameter<Alleles>>("000000");
     auto myTestTar = std::make_shared<AllelesBitSetTestTarget>(myAlleles);
-    auto r = std::make_shared<boost::random::mt19937>();
+    auto r         = std::make_shared<boost::random::mt19937>();
 
     genetics::RandomAllelesBitSetSampler sampler(myAlleles, myTestTar, r);
 

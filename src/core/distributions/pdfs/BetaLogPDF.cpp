@@ -26,7 +26,7 @@ namespace transmission_nets::core::distributions {
     computation::Likelihood BetaLogPDF::value() {
         if (isDirty()) {
             logDenominator_ = std::lgamma(alpha_->value()) + std::lgamma(beta_->value()) - std::lgamma(alpha_->value() + beta_->value());
-            value_ = (alpha_->value() - 1) * log(target_->value()) +
+            value_          = (alpha_->value() - 1) * log(target_->value()) +
                      (beta_->value() - 1) * log(1 - target_->value()) -
                      logDenominator_;
             setClean();
@@ -39,5 +39,4 @@ namespace transmission_nets::core::distributions {
         return {"BetaLogPDF"};
     }
 
-}
-
+}// namespace transmission_nets::core::distributions

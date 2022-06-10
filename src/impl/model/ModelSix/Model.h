@@ -11,7 +11,7 @@
 namespace transmission_nets::impl::ModelSix {
     struct Model : core::computation::PartialLikelihood {
         explicit Model(std::shared_ptr<State> state);
-        explicit Model(State &state);
+        explicit Model(State& state);
 
         Likelihood value() override;
         std::string identifier() override;

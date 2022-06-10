@@ -2,9 +2,9 @@
 // Created by Maxwell Murphy on 7/14/20.
 //
 
-#include <vector>
 #include <cmath>
 #include <iostream>
+#include <vector>
 
 #include "ProbAnyMissing.h"
 
@@ -16,7 +16,7 @@ namespace transmission_nets::core::utils {
      * @return
      */
 
-    double transmission_nets::core::utils::probAnyMissingFunctor::operator()(const std::vector<double> &eventProbs, unsigned int numEvents) {
+    double transmission_nets::core::utils::probAnyMissingFunctor::operator()(const std::vector<double>& eventProbs, unsigned int numEvents) {
         std::size_t totalEvents = eventProbs.size();
         int multCounter;
         double r;
@@ -27,20 +27,20 @@ namespace transmission_nets::core::utils {
 
         prob = 0.0;
 
-//      Calculate via inclusion-exclusion principle
+        //      Calculate via inclusion-exclusion principle
         int sign = -1;
         for (std::size_t i = 1; i <= totalEvents; ++i) {
             sign = -sign;
             c.reset(totalEvents, i);
-            while(!c.completed) {
-                eventCombo = 0.0;
+            while (!c.completed) {
+                eventCombo  = 0.0;
                 multCounter = (signed) numEvents;
                 for (const auto j : c.curr) {
                     eventCombo += eventProbs[j];
                 }
 
                 r = sign;
-                while(--multCounter >= 0) {
+                while (--multCounter >= 0) {
                     r *= (1 - eventCombo);
                 }
 
@@ -52,5 +52,4 @@ namespace transmission_nets::core::utils {
         return prob;
     }
 
-}
-
+}// namespace transmission_nets::core::utils

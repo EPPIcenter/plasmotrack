@@ -5,8 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_DISCRETERANDOMWALK_H
 #define TRANSMISSION_NETWORKS_APP_DISCRETERANDOMWALK_H
 
-#include <boost/random.hpp>
 #include <boost/math/distributions.hpp>
+#include <boost/random.hpp>
 #include <cmath>
 #include <utility>
 
@@ -17,7 +17,7 @@
 
 namespace transmission_nets::core::samplers {
 
-    template<typename T, typename Engine=boost::random::mt19937>
+    template<typename T, typename Engine = boost::random::mt19937>
     class DiscreteRandomWalk : public AbstractSampler {
 
     public:
@@ -48,22 +48,19 @@ namespace transmission_nets::core::samplers {
         boost::random::uniform_01<> uniform_dist_{};
         boost::random::uniform_int_distribution<> stride_sampling_dist_;
 
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_ = 0;
+        unsigned int acceptances_   = 0;
+        unsigned int rejections_    = 0;
         unsigned int total_updates_ = 0;
-
     };
 
     template<typename T, typename Engine>
-    DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(std::shared_ptr<parameters::Parameter<int>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept :
-            parameter_(std::move(parameter)), target_(target), rng_(rng) {
+    DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(std::shared_ptr<parameters::Parameter<int>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng) {
         stride_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
     }
 
     template<typename T, typename Engine>
     DiscreteRandomWalk<T, Engine>::DiscreteRandomWalk(std::shared_ptr<parameters::Parameter<int>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
-                                                      unsigned int maxDistance) noexcept :
-            parameter_(std::move(parameter)), target_(target), rng_(rng), max_distance_(maxDistance) {
+                                                      unsigned int maxDistance) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), max_distance_(maxDistance) {
         stride_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, max_distance_));
     }
 
@@ -97,16 +94,16 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename Engine>
     void DiscreteRandomWalk<T, Engine>::update() noexcept {
         const std::string stateId = "State1";
-        Likelihood curLik = target_->value();
+        Likelihood curLik         = target_->value();
         parameter_->saveState(stateId);
 
-        const int stride = sampleStride(parameter_->value());
+        const int stride        = sampleStride(parameter_->value());
         Likelihood mhAdjustment = logMetropolisHastingsAdjustment(parameter_->value(), parameter_->value() + stride);
 
         parameter_->setValue(parameter_->value() + stride);
 
         const Likelihood acceptanceRatio = target_->value() - curLik + mhAdjustment;
-        const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
+        const bool accept                = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
         if (accept) {
             acceptances_ += 1;
@@ -120,8 +117,7 @@ namespace transmission_nets::core::samplers {
         total_updates_++;
     }
 
-}
+}// namespace transmission_nets::core::samplers
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_DISCRETERANDOMWALK_H
+#endif//TRANSMISSION_NETWORKS_APP_DISCRETERANDOMWALK_H

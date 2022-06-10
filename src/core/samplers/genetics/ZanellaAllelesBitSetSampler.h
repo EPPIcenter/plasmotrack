@@ -8,10 +8,10 @@
 #include <boost/math/distributions.hpp>
 #include <boost/random.hpp>
 
-#include "core/parameters/Parameter.h"
-#include "core/samplers/AbstractSampler.h"
 #include "core/computation/PartialLikelihood.h"
 #include "core/datatypes/Alleles.h"
+#include "core/parameters/Parameter.h"
+#include "core/samplers/AbstractSampler.h"
 #include "core/utils/numerics.h"
 
 
@@ -27,7 +27,7 @@ namespace transmission_nets::core::samplers::genetics {
 
         AllelesBitSetImpl sampleProposal(const AllelesBitSetImpl& curr, std::vector<Likelihood>& neighborhoodLik) noexcept;
 
-//        [[nodiscard]] double calcLogAcceptanceRatio(AllelesBitSetImpl& curr, AllelesBitSetImpl& prop) noexcept;
+        //        [[nodiscard]] double calcLogAcceptanceRatio(AllelesBitSetImpl& curr, AllelesBitSetImpl& prop) noexcept;
 
         [[nodiscard]] unsigned int acceptances() noexcept;
 
@@ -36,7 +36,6 @@ namespace transmission_nets::core::samplers::genetics {
         [[nodiscard]] double acceptanceRate() noexcept;
 
     private:
-
         std::vector<Likelihood> calculateNeighborhoodLik() noexcept;
 
         std::shared_ptr<parameters::Parameter<AllelesBitSetImpl>> parameter_;
@@ -45,26 +44,24 @@ namespace transmission_nets::core::samplers::genetics {
 
         boost::random::uniform_01<> uniform_dist_{};
 
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_ = 0;
+        unsigned int acceptances_   = 0;
+        unsigned int rejections_    = 0;
         unsigned int total_updates_ = 0;
-
     };
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
     ZanellaAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::ZanellaAllelesBitSetSampler(
-            std::shared_ptr<parameters::Parameter<AllelesBitSetImpl>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept :
-            parameter_(parameter), target_(target), rng_(rng) {}
+            std::shared_ptr<parameters::Parameter<AllelesBitSetImpl>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept : parameter_(parameter), target_(target), rng_(rng) {}
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
     void ZanellaAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept {
         const std::string stateId = "ZanellaAllelesBitSetSampler init";
         parameter_->saveState(stateId);
 
-        auto curr = parameter_->value();
+        auto curr    = parameter_->value();
         auto currLik = target_->value();
 
-        auto currNeighborhood = calculateNeighborhoodLik();
+        auto currNeighborhood    = calculateNeighborhoodLik();
         auto currNeighborhoodSum = core::utils::logSumExp(currNeighborhood);
 
         if (currNeighborhoodSum <= -std::numeric_limits<Likelihood>::infinity()) {
@@ -83,7 +80,7 @@ namespace transmission_nets::core::samplers::genetics {
                 auto propNeighborhoodSum = core::utils::logSumExp(calculateNeighborhoodLik());
 
                 const Likelihood logAcceptanceRatio = .5 * propLik + currNeighborhoodSum - .5 * currLik - propNeighborhoodSum;
-                const Likelihood logProbAccept = log(uniform_dist_(*rng_));
+                const Likelihood logProbAccept      = log(uniform_dist_(*rng_));
 
                 const bool accept = (logProbAccept <= logAcceptanceRatio);
 
@@ -100,7 +97,7 @@ namespace transmission_nets::core::samplers::genetics {
 
         assert(!target_->isDirty());
         total_updates_++;
-//        std::cout << "Acceptance Rate: " << acceptanceRate() << std::endl;
+        //        std::cout << "Acceptance Rate: " << acceptanceRate() << std::endl;
     }
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
@@ -119,15 +116,14 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
 
-
     template<typename T, typename Engine, typename AllelesBitSetImpl>
     AllelesBitSetImpl
     ZanellaAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::sampleProposal(const AllelesBitSetImpl& curr, std::vector<Likelihood>& neighborhoodLik) noexcept {
-        auto tmp = curr;
+        auto tmp                   = curr;
         auto normedNeighborhoodLik = core::utils::expNormalize(neighborhoodLik);
-        auto unifSample = uniform_dist_(*rng_);
+        auto unifSample            = uniform_dist_(*rng_);
 
-        int i = 0;
+        int i         = 0;
         double cumsum = 0;
         while (unifSample >= cumsum) {
             if (i == int(normedNeighborhoodLik.size())) {
@@ -165,7 +161,7 @@ namespace transmission_nets::core::samplers::genetics {
                 parameter_->saveState("flip1");
                 parameter_->setValue(tmp);
                 neighborhood.push_back(target_->value() * 0.5);
-                if(std::isnan(neighborhood.back())) {
+                if (std::isnan(neighborhood.back())) {
                     std::cerr << "Encountered NaN: " << target_->value() << std::endl;
                 }
                 parameter_->restoreState("flip1");
@@ -178,7 +174,7 @@ namespace transmission_nets::core::samplers::genetics {
         return neighborhood;
     }
 
-}
+}// namespace transmission_nets::core::samplers::genetics
 
 
 #endif//TRANSMISSION_NETWORKS_APP_ZANELLAALLELESBITSETSAMPLER_H

@@ -22,11 +22,11 @@ namespace transmission_nets::core::io {
 
     public:
         template<typename Output>
-        ParentSetDistLogger(std::shared_ptr<TransmissionProcessImpl> target, std::unique_ptr<Output> output, const std::string &uid);
+        ParentSetDistLogger(std::shared_ptr<TransmissionProcessImpl> target, std::unique_ptr<Output> output, const std::string& uid);
         std::string prepareValue() noexcept override;
 
     private:
-        static std::map<std::string, int> &getIterCounters();
+        static std::map<std::string, int>& getIterCounters();
         void incrementIterCounter();
         int getIterCounter();
 
@@ -36,14 +36,14 @@ namespace transmission_nets::core::io {
 
     template<typename TransmissionProcessImpl>
     template<typename Output>
-    ParentSetDistLogger<TransmissionProcessImpl>::ParentSetDistLogger(std::shared_ptr<TransmissionProcessImpl> target, std::unique_ptr<Output> output, const std::string &uid) : AbstractLogger(std::move(output)), target_(target), uid_(uid) {}
+    ParentSetDistLogger<TransmissionProcessImpl>::ParentSetDistLogger(std::shared_ptr<TransmissionProcessImpl> target, std::unique_ptr<Output> output, const std::string& uid) : AbstractLogger(std::move(output)), target_(target), uid_(uid) {}
 
     template<typename TransmissionProcessImpl>
     std::string ParentSetDistLogger<TransmissionProcessImpl>::prepareValue() noexcept {
         std::string out;
-        int iter_ = getIterCounter();
+        int iter_       = getIterCounter();
         const auto dist = target_->calcParentSetDist();
-        for (const auto &[llik, ps] : dist.parentSetLliks) {
+        for (const auto& [llik, ps] : dist.parentSetLliks) {
             out += fmt::format("{},{},{}\n", serialize(ps), std::exp(llik - dist.totalLlik), iter_);
         }
         out += fmt::format("{{S}},{},{}", std::exp(dist.sourceLlik - dist.totalLlik), iter_);
@@ -52,14 +52,14 @@ namespace transmission_nets::core::io {
     }
 
     template<typename TransmissionProcessImpl>
-    std::map<std::string, int> &ParentSetDistLogger<TransmissionProcessImpl>::getIterCounters() {
+    std::map<std::string, int>& ParentSetDistLogger<TransmissionProcessImpl>::getIterCounters() {
         static std::map<std::string, int> iterCounters_{};
         return iterCounters_;
     }
 
     template<typename TransmissionProcessImpl>
     void ParentSetDistLogger<TransmissionProcessImpl>::incrementIterCounter() {
-        auto &counters = getIterCounters();
+        auto& counters = getIterCounters();
         counters[uid_] = counters[uid_] + 1;
     }
 

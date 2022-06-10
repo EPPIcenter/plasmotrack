@@ -24,9 +24,9 @@ namespace transmission_nets::model::observation_process {
                           public core::abstract::Cacheable<AlleleCounter<GeneticsImpl>>,
                           public core::abstract::Checkpointable<AlleleCounter<GeneticsImpl>, AlleleCounts> {
 
-        static constexpr auto truePositiveCount = &GeneticsImpl::truePositiveCount;
+        static constexpr auto truePositiveCount  = &GeneticsImpl::truePositiveCount;
         static constexpr auto falsePositiveCount = &GeneticsImpl::falsePositiveCount;
-        static constexpr auto trueNegativeCount = &GeneticsImpl::trueNegativeCount;
+        static constexpr auto trueNegativeCount  = &GeneticsImpl::trueNegativeCount;
         static constexpr auto falseNegativeCount = &GeneticsImpl::falseNegativeCount;
 
     public:
@@ -47,9 +47,9 @@ namespace transmission_nets::model::observation_process {
     template<typename GeneticsImpl>
     AlleleCounts AlleleCounter<GeneticsImpl>::value() noexcept {
         if (this->isDirty()) {
-            value_.true_positive_count = truePositiveCount(latent_genetics_->value(), observed_genetics_->value());
+            value_.true_positive_count  = truePositiveCount(latent_genetics_->value(), observed_genetics_->value());
             value_.false_positive_count = falsePositiveCount(latent_genetics_->value(), observed_genetics_->value());
-            value_.true_negative_count = trueNegativeCount(latent_genetics_->value(), observed_genetics_->value());
+            value_.true_negative_count  = trueNegativeCount(latent_genetics_->value(), observed_genetics_->value());
             value_.false_negative_count = falseNegativeCount(latent_genetics_->value(), observed_genetics_->value());
             this->setClean();
         }

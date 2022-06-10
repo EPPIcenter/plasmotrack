@@ -7,7 +7,7 @@
 
 namespace transmission_nets::core::computation {
 
-    template <typename T>
+    template<typename T>
     class Computation {
     public:
         virtual T peek() noexcept {
@@ -22,6 +22,6 @@ namespace transmission_nets::core::computation {
         T value_{};
     };
 
-}
+}// namespace transmission_nets::core::computation
 
-#endif //TRANSMISSION_NETWORKS_APP_COMPUTATION_H
+#endif//TRANSMISSION_NETWORKS_APP_COMPUTATION_H

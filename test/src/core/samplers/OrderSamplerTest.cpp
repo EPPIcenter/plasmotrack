@@ -2,8 +2,8 @@
 // Created by Maxwell Murphy on 4/14/20.
 //
 
-#include <boost/random.hpp>
 #include <Eigen/Core>
+#include <boost/random.hpp>
 
 #include "gtest/gtest.h"
 
@@ -18,7 +18,7 @@ using namespace transmission_nets::core::samplers::topology;
 TEST(OrderSamplerTest, OrderTest) {
     struct OrderingTestTarget {
 
-        explicit OrderingTestTarget(Ordering<int> &ordering) : ordering_(ordering) {
+        explicit OrderingTestTarget(Ordering<int>& ordering) : ordering_(ordering) {
             ordering_.add_post_change_listener([=, this]() {
                 dirty = true;
             });
@@ -45,7 +45,7 @@ TEST(OrderSamplerTest, OrderTest) {
             return dirty;
         }
 
-        Ordering<int> &ordering_;
+        Ordering<int>& ordering_;
         bool dirty{true};
         double value_{0};
     };
@@ -91,5 +91,4 @@ TEST(OrderSamplerTest, OrderTest) {
     EXPECT_NEAR(results(4), 5, 1e5);
     EXPECT_NEAR(results(5), 6, 1e5);
     EXPECT_NEAR(results(6), 7, 1e5);
-
 }

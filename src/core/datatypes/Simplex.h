@@ -24,7 +24,7 @@ namespace transmission_nets::core::datatypes {
 
         Simplex(const std::initializer_list<double>& freqs);
 
-        friend std::ostream &operator<<(std::ostream &os, const Simplex &simplex);
+        friend std::ostream& operator<<(std::ostream& os, const Simplex& simplex);
 
         void set(const std::vector<double>& valueArray);
 
@@ -47,12 +47,9 @@ namespace transmission_nets::core::datatypes {
         unsigned int total_elements_;
         double min_;
         double max_;
-
     };
 
-}
+}// namespace transmission_nets::core::datatypes
 
 
-
-
-#endif //TRANSMISSION_NETWORKS_APP_SIMPLEX_H
+#endif//TRANSMISSION_NETWORKS_APP_SIMPLEX_H

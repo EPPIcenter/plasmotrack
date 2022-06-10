@@ -34,8 +34,7 @@ namespace transmission_nets::core::io {
         return serialize(target_->value());
     }
 
-}
+}// namespace transmission_nets::core::io
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_VALUELOGGER_H
+#endif//TRANSMISSION_NETWORKS_APP_VALUELOGGER_H

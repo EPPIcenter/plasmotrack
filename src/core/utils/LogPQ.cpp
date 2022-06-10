@@ -7,7 +7,7 @@
 #include <cmath>
 
 namespace transmission_nets::core::utils {
-    LogPQ::LogPQ(const std::vector<double> &x) {
+    LogPQ::LogPQ(const std::vector<double>& x) {
         logP.reserve(x.size());
         logQ.reserve(x.size());
         for (const auto el : x) {

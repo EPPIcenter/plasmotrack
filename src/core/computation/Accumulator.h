@@ -6,14 +6,14 @@
 #define TRANSMISSION_NETWORKS_APP_ACCUMULATOR_H
 
 #include <boost/container/flat_set.hpp>
-#include <cmath>
 #include <cassert>
+#include <cmath>
 
 #include "Computation.h"
 #include "PartialLikelihood.h"
 
-#include "core/abstract/observables/Checkpointable.h"
 #include "core/abstract/observables/Cacheable.h"
+#include "core/abstract/observables/Checkpointable.h"
 #include "core/abstract/observables/Observable.h"
 
 namespace transmission_nets::core::computation {
@@ -27,8 +27,8 @@ namespace transmission_nets::core::computation {
 
     public:
         Accumulator();
-//        void addTarget(Input target);
-        void addTarget(std::shared_ptr<Input> target);
+        //        void addTarget(Input target);
+        void addTarget(const std::shared_ptr<Input>& target);
 
         void postSaveState();
         void postAcceptState();
@@ -50,42 +50,23 @@ namespace transmission_nets::core::computation {
 
         std::vector<TargetSet> targetsCache_{};
         std::vector<TargetSet> dirtyTargetsCache_{};
-
     };
-
-//    template<typename Input, typename Output>
-//    void Accumulator<Input, Output>::addTarget(Input target) {
-//        this->setDirty();
-//        auto t = std::make_shared<Input>(std::move(target));
-//        targets_.insert(t);
-//        dirtyTargets_.insert(t);
-//
-//        target.add_set_dirty_listener([&]() {
-//          const auto& [_, inserted] = dirtyTargets_.insert(t);
-//          if (inserted) {
-//              this->value_ -= t->peek();
-//              this->setDirty();
-//          }
-//        });
-//
-//        target.registerCacheableCheckpointTarget(this);
-//    }
 
 
     template<typename Input, typename Output>
-    void Accumulator<Input, Output>::addTarget(std::shared_ptr<Input> target) {
+    void Accumulator<Input, Output>::addTarget(const std::shared_ptr<Input>& target) {
         this->setDirty();
         targets_.insert(target);
         dirtyTargets_.insert(target);
 
         target->add_set_dirty_listener([=, this]() {
-          const auto& [_, inserted] = dirtyTargets_.insert(target);
-          this->setDirty();
-          this->value_ -= target->peek();
+            const auto& [_, inserted] = dirtyTargets_.insert(target);
+            this->setDirty();
+            this->value_ -= target->peek();
 #ifndef DNDEBUG
-          if (!inserted) {
-              std::cerr << "Model misspecified. Attempting to insert target likelihood more than once." << std::endl;
-          }
+            if (!inserted) {
+                std::cerr << "Model misspecified. Attempting to insert target likelihood more than once." << std::endl;
+            }
 #endif
         });
         target->registerCacheableCheckpointTarget(this);
@@ -93,25 +74,25 @@ namespace transmission_nets::core::computation {
 
 
     template<>
-    inline void Accumulator<PartialLikelihood, Likelihood>::addTarget(std::shared_ptr<PartialLikelihood> target) {
+    inline void Accumulator<PartialLikelihood, Likelihood>::addTarget(const std::shared_ptr<PartialLikelihood>& target) {
         this->setDirty();
         const auto& [_1, inserted] = targets_.insert(target);
 #ifndef DNDEBUG
-        if(!inserted) assert(!"Target added more than once. Check model specification.");
+        if (!inserted) assert(!"Target added more than once. Check model specification.");
 #endif
         dirtyTargets_.insert(target);
 
         target->add_set_dirty_listener([=, this]() {
-          const auto& [_2, inserted_] = dirtyTargets_.insert(target);
-          if (inserted_) {
-              this->setDirty();
+            const auto& [_2, inserted_] = dirtyTargets_.insert(target);
+            if (inserted_) {
+                this->setDirty();
 #ifndef DNDEBUG
-              if (target->peek() <= -std::numeric_limits<Likelihood>::infinity()) {
-                  std::cerr << target->identifier() << " returns -inf" << std::endl;
-              }
+                if (target->peek() <= -std::numeric_limits<Likelihood>::infinity()) {
+                    std::cerr << target->identifier() << " returns -inf" << std::endl;
+                }
 #endif
-              this->value_ -= target->peek();
-          }
+                this->value_ -= target->peek();
+            }
         });
 
         target->registerCacheableCheckpointTarget(this);
@@ -140,7 +121,7 @@ namespace transmission_nets::core::computation {
 
     template<typename Input, typename Output>
     void Accumulator<Input, Output>::postRestoreState() {
-        targets_ = targetsCache_.back();
+        targets_      = targetsCache_.back();
         dirtyTargets_ = dirtyTargetsCache_.back();
 
         targetsCache_.pop_back();
@@ -159,10 +140,10 @@ namespace transmission_nets::core::computation {
     inline Likelihood Accumulator<PartialLikelihood, Likelihood>::value() noexcept {
         assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
 
-        for (auto &el : dirtyTargets_) {
+        for (auto& el : dirtyTargets_) {
             assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
             if (std::isnan(el->value())) {
-                this->value_ += -std::numeric_limits<Likelihood>::infinity();
+                this->value_ = -std::numeric_limits<Likelihood>::infinity();
             } else {
                 this->value_ += el->value();
             }
@@ -188,7 +169,7 @@ namespace transmission_nets::core::computation {
         this->addPostAcceptHook([=, this]() { this->postAcceptState(); });
     }
 
-}
+}// namespace transmission_nets::core::computation
 
 
-#endif //TRANSMISSION_NETWORKS_APP_ACCUMULATOR_H
+#endif//TRANSMISSION_NETWORKS_APP_ACCUMULATOR_H

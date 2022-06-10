@@ -5,10 +5,10 @@
 #ifndef TRANSMISSION_NETWORKS_APP_TRANSFORMER_H
 #define TRANSMISSION_NETWORKS_APP_TRANSFORMER_H
 
-#include "core/computation/Computation.h"
-#include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
+#include "core/abstract/observables/Observable.h"
+#include "core/computation/Computation.h"
 
 namespace transmission_nets::core::computation {
 
@@ -18,7 +18,7 @@ namespace transmission_nets::core::computation {
                          public abstract::Cacheable<Transformer<Output, Input, Func>>,
                          public abstract::Checkpointable<Transformer<Output, Input, Func>, Output> {
 
-        Transformer(Input &target, Func tFunc) : target_(target), tFunc_(tFunc) {}
+        Transformer(Input& target, Func tFunc) : target_(target), tFunc_(tFunc) {}
 
         Output value() override {
             if (this->isDirty()) {
@@ -32,8 +32,7 @@ namespace transmission_nets::core::computation {
         Func& tFunc_;
     };
 
-}
+}// namespace transmission_nets::core::computation
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_TRANSFORMER_H
+#endif//TRANSMISSION_NETWORKS_APP_TRANSFORMER_H

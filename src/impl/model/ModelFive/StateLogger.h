@@ -10,8 +10,8 @@
 #include "core/io/utils.h"
 
 #include <memory>
-#include <utility>
 #include <regex>
+#include <utility>
 
 namespace transmission_nets::impl::ModelFive {
     class StateLogger {
@@ -22,13 +22,13 @@ namespace transmission_nets::impl::ModelFive {
 
     public:
         StateLogger(std::shared_ptr<State> state, fs::path rootPath, bool resetOutput = false);
-//        StateLogger(State& state, fs::path rootPath);
+        //        StateLogger(State& state, fs::path rootPath);
         void log() const;
         void finalize() const;
     };
 
 
-}
+}// namespace transmission_nets::impl::ModelFive
 
 
 #endif//TRANSMISSION_NETWORKS_APP_STATELOGGER_H

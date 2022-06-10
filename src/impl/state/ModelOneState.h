@@ -5,34 +5,34 @@
 #ifndef TRANSMISSION_NETWORKS_APP_MODELONESTATE_H
 #define TRANSMISSION_NETWORKS_APP_MODELONESTATE_H
 
-#include <vector>
 #include <map>
+#include <vector>
 
+#include "core/containers/AlleleFrequencyContainer.h"
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
-#include "core/containers/AlleleFrequencyContainer.h"
 
 #include "core/datatypes/Alleles.h"
 #include "core/datatypes/Simplex.h"
 
-#include "core/parameters/Parameter.h"
 #include "core/parameters/Ordering.h"
+#include "core/parameters/Parameter.h"
 
 
 namespace transmission_nets::impl {
 
     /// State implementation of a simple model
     struct ModelOneState {
-        static constexpr int MAX_ALLELES = 32;
-        using LocusImpl = core::containers::Locus;
-        using GeneticsImpl = core::datatypes::AllelesBitSet<MAX_ALLELES>;
-        using InfectionEvent = core::containers::Infection<GeneticsImpl, LocusImpl>;
-        using AlleleFrequencyImpl = core::datatypes::Simplex;
+        static constexpr int MAX_ALLELES   = 32;
+        using LocusImpl                    = core::containers::Locus;
+        using GeneticsImpl                 = core::datatypes::AllelesBitSet<MAX_ALLELES>;
+        using InfectionEvent               = core::containers::Infection<GeneticsImpl, LocusImpl>;
+        using AlleleFrequencyImpl          = core::datatypes::Simplex;
         using AlleleFrequencyContainerImpl = core::containers::AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
 
 
-        std::map<std::string, LocusImpl *> loci{};
-        std::vector<InfectionEvent *> infections{};
+        std::map<std::string, LocusImpl*> loci{};
+        std::vector<InfectionEvent*> infections{};
 
         AlleleFrequencyContainerImpl alleleFrequencies;
 
@@ -50,11 +50,10 @@ namespace transmission_nets::impl {
 
         // Source Transmission Process
         core::parameters::Parameter<double> geometricCOIProb;
-
     };
 
 
-}
+}// namespace transmission_nets::impl
 
 
-#endif //TRANSMISSION_NETWORKS_APP_MODELONESTATE_H
+#endif//TRANSMISSION_NETWORKS_APP_MODELONESTATE_H

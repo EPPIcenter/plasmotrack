@@ -10,24 +10,24 @@
 #include <boost/algorithm/string.hpp>
 #include <fmt/core.h>
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <regex>
-#include <filesystem>
 #include <vector>
 
 namespace transmission_nets::core::io {
 
     namespace fs = std::filesystem;
-    fs::path getPathFromEnvVar(const char *envVar);
+    fs::path getPathFromEnvVar(const char* envVar);
 
     std::string getLastLine(std::ifstream& in);
-    double hotloadParameter(const fs::path& input);
+    double hotloadDouble(const fs::path& input);
     std::vector<double> hotloadVector(const fs::path& input);
     std::string hotloadString(const fs::path& input);
     std::string makePathValid(const std::string& input);
 
-}
+}// namespace transmission_nets::core::io
 
 
 #endif//TRANSMISSION_NETWORKS_APP_UTILS_H

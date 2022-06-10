@@ -9,11 +9,11 @@
 #include "core/computation/PartialLikelihood.h"
 
 namespace transmission_nets::core::priors {
-    template<typename Distribution, typename TargetParam, typename ...Args>
+    template<typename Distribution, typename TargetParam, typename... Args>
     class Prior : public computation::PartialLikelihood {
 
     public:
-        explicit Prior(TargetParam &target, Args&&... args);
+        explicit Prior(TargetParam& target, Args&&... args);
 
         computation::Likelihood value() override {
             if (isDirty()) {
@@ -26,7 +26,7 @@ namespace transmission_nets::core::priors {
         std::string identifier() override;
 
     private:
-        TargetParam &target_;
+        TargetParam& target_;
         Distribution dist_;
     };
 
@@ -35,14 +35,13 @@ namespace transmission_nets::core::priors {
         return "AbstractPrior";
     }
 
-    template<typename Distribution, typename TargetParam, typename...Args>
-    Prior<Distribution, TargetParam, Args...>::Prior(TargetParam &target, Args&&... args) : target_(target), dist_(std::forward<Args>(args)...) {
+    template<typename Distribution, typename TargetParam, typename... Args>
+    Prior<Distribution, TargetParam, Args...>::Prior(TargetParam& target, Args&&... args) : target_(target), dist_(std::forward<Args>(args)...) {
         target_.registerCacheableCheckpointTarget(this);
         target_.add_post_change_listener([=, this]() { this->setDirty(); });
         this->setDirty();
     }
-}
+}// namespace transmission_nets::core::priors
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_PRIOR_H
+#endif//TRANSMISSION_NETWORKS_APP_PRIOR_H

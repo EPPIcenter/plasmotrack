@@ -11,7 +11,7 @@
 namespace transmission_nets::core::distributions {
 
 
-    GammaLogPDF::GammaLogPDF(p_ParameterDouble target, p_ParameterDouble shape, p_ParameterDouble scale) :  target_(std::move(target)), shape_(std::move(shape)), scale_(std::move(scale)) {
+    GammaLogPDF::GammaLogPDF(p_ParameterDouble target, p_ParameterDouble shape, p_ParameterDouble scale) : target_(std::move(target)), shape_(std::move(shape)), scale_(std::move(scale)) {
         target_->registerCacheableCheckpointTarget(this);
         target_->add_post_change_listener([=, this]() { this->setDirty(); });
 
@@ -25,9 +25,9 @@ namespace transmission_nets::core::distributions {
     }
 
     computation::Likelihood GammaLogPDF::value() {
-        if(isDirty()) {
+        if (isDirty()) {
             logDenominator_ = std::lgamma(shape_->value()) + (shape_->value() * std::log(scale_->value()));
-            value_ = (shape_->value() - 1) * std::log(target_->value()) +
+            value_          = (shape_->value() - 1) * std::log(target_->value()) +
                      (-target_->value() / scale_->value()) -
                      logDenominator_;
             this->setClean();
@@ -39,4 +39,4 @@ namespace transmission_nets::core::distributions {
         return {"GammaLogPDF"};
     }
 
-}
+}// namespace transmission_nets::core::distributions

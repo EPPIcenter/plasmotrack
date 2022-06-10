@@ -9,19 +9,17 @@
 // Technique to deal with perfect forwarding problems
 // https://akrzemi1.wordpress.com/2013/10/10/too-perfect-forwarding/
 
-#define ENABLE_IF(...)  typename std::enable_if<__VA_ARGS__>::type* = nullptr
+#define ENABLE_IF(...) typename std::enable_if<__VA_ARGS__>::type* = nullptr
 
 namespace transmission_nets::core::utils {
 
-    template <typename T, typename U>
-    constexpr inline bool NonSelf()
-    {
+    template<typename T, typename U>
+    constexpr inline bool NonSelf() {
         using DecayedT = typename std::decay<T>::type;
-        return !std::is_same<DecayedT, U>::value
-               && !std::is_base_of<U, DecayedT>::value;
+        return !std::is_same<DecayedT, U>::value && !std::is_base_of<U, DecayedT>::value;
     }
 
-}
+}// namespace transmission_nets::core::utils
 
 
-#endif //TRANSMISSION_NETWORKS_APP_FORWARDING_UTILS_H
+#endif//TRANSMISSION_NETWORKS_APP_FORWARDING_UTILS_H

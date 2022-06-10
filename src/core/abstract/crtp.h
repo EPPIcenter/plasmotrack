@@ -10,18 +10,17 @@
 
 namespace transmission_nets::core::abstract {
 
-    template <typename T, template<typename ...> typename crtpType, typename ...Us>
+    template<typename T, template<typename...> typename crtpType, typename... Us>
     struct crtp {
         T& underlying() { return static_cast<T&>(*this); }
         T const& underlying() const { return static_cast<T const&>(*this); }
+
     private:
-        crtp()= default;
+        crtp() = default;
         friend crtpType<T, Us...>;
     };
 
-}
+}// namespace transmission_nets::core::abstract
 
 
-
-
-#endif //TRANSMISSION_NETWORKS_APP_CRTP_H
+#endif//TRANSMISSION_NETWORKS_APP_CRTP_H

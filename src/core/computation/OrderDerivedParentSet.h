@@ -16,8 +16,8 @@
 #include <fmt/core.h>
 
 #include <iostream>
-#include <set>
 #include <memory>
+#include <set>
 
 
 namespace transmission_nets::core::computation {
@@ -28,7 +28,7 @@ namespace transmission_nets::core::computation {
                                   public abstract::Cacheable<OrderDerivedParentSet<ElementType, OrderingImpl>>,
                                   public abstract::Checkpointable<OrderDerivedParentSet<ElementType, OrderingImpl>, containers::ParentSet<ElementType>> {
 
-        using ElementAddedCallback = std::function<void(std::shared_ptr<ElementType> element)>;
+        using ElementAddedCallback   = std::function<void(std::shared_ptr<ElementType> element)>;
         using ElementRemovedCallback = std::function<void(std::shared_ptr<ElementType> element)>;
 
     protected:
@@ -77,7 +77,7 @@ namespace transmission_nets::core::computation {
         this->addAllowedParents(allowedParents);
 
         // Initialize the current parent set from the ordering
-        for (auto &el : ordering_->value()) {
+        for (auto& el : ordering_->value()) {
             if (el != child_) {
                 if (allowedParents_.contains(el)) {
                     this->value_.insert(el);
@@ -99,7 +99,7 @@ namespace transmission_nets::core::computation {
     template<typename ElementType, typename OrderingImpl>
     void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParents(const std::vector<std::shared_ptr<ElementType>>& p) {
         for (auto el : p) {
-           addAllowedParent(std::move(el));
+            addAllowedParent(std::move(el));
         }
     }
 
@@ -113,7 +113,7 @@ namespace transmission_nets::core::computation {
     template<typename ElementType, typename OrderingImpl>
     void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::serialize() noexcept {
         std::cout << "{ ";
-        for (auto &p : this->value()) {
+        for (auto& p : this->value()) {
             std::cout << *p << ", ";
         }
         std::cout << "}" << std::endl;

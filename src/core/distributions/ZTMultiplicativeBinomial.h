@@ -5,12 +5,12 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ZTMULTIPLICATIVEBINOMIAL_H
 #define TRANSMISSION_NETWORKS_APP_ZTMULTIPLICATIVEBINOMIAL_H
 
-#include <boost/math/special_functions/binomial.hpp>
 #include <Eigen/Core>
+#include <boost/math/special_functions/binomial.hpp>
 
-#include "core/abstract/observables/Observable.h"
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
+#include "core/abstract/observables/Observable.h"
 
 #include "core/datatypes/Matrix.h"
 
@@ -43,7 +43,6 @@ namespace transmission_nets::core::distributions {
 
         std::shared_ptr<parameters::Parameter<double>> prob_;
         std::shared_ptr<parameters::Parameter<double>> assoc_;
-
     };
 
 
@@ -85,7 +84,7 @@ namespace transmission_nets::core::distributions {
         datatypes::SquareMatrix<double, MAX_COUNT + 1> a;
         for (int j = 0; j <= MAX_COUNT; ++j) {
             for (int k = 0; k <= j; ++k) {
-                if(!j or !k) {
+                if (!j or !k) {
                     a(j, k) = 0;
                     continue;
                 }
@@ -113,7 +112,7 @@ namespace transmission_nets::core::distributions {
 
 
     template<int MAX_COUNT>
-    ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(std::shared_ptr<parameters::Parameter<double>> prob, std::shared_ptr<parameters::Parameter<double>> assoc): prob_(std::move(prob)), assoc_(std::move(assoc)) {
+    ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(std::shared_ptr<parameters::Parameter<double>> prob, std::shared_ptr<parameters::Parameter<double>> assoc) : prob_(std::move(prob)), assoc_(std::move(assoc)) {
         prob_->registerCacheableCheckpointTarget(this);
         prob_->add_post_change_listener([=, this]() { this->setDirty(); });
 
@@ -137,7 +136,7 @@ namespace transmission_nets::core::distributions {
         }
         return this->value_;
     }
-}
+}// namespace transmission_nets::core::distributions
 
 
-#endif //TRANSMISSION_NETWORKS_APP_ZTMULTIPLICATIVEBINOMIAL_H
+#endif//TRANSMISSION_NETWORKS_APP_ZTMULTIPLICATIVEBINOMIAL_H

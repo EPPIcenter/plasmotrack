@@ -12,4 +12,4 @@ namespace transmission_nets::core::computation {
     LogLikelihood::LogLikelihood(std::string id) : value_(0), id_(std::move(id)) {}
 
 
-}
+}// namespace transmission_nets::core::computation

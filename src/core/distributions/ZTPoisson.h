@@ -20,27 +20,28 @@
 #include "core/utils/numerics.h"
 
 namespace transmission_nets::core::distributions {
-    template <int MAX_COUNT>
+    template<int MAX_COUNT>
     class ZTPoisson : public computation::Computation<std::array<long double, MAX_COUNT + 1>>,
                       public abstract::Observable<ZTPoisson<MAX_COUNT>>,
                       public abstract::Cacheable<ZTPoisson<MAX_COUNT>>,
                       public abstract::Checkpointable<ZTPoisson<MAX_COUNT>, std::array<long double, MAX_COUNT + 1>> {
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
+
     public:
         explicit ZTPoisson(p_ParameterDouble mean) noexcept;
 
-//    ProbabilityVector<MAX_COUNT + 1> value() noexcept;
+        //    ProbabilityVector<MAX_COUNT + 1> value() noexcept;
         std::array<long double, MAX_COUNT + 1> value() noexcept;
 
     private:
-        friend class abstract::Checkpointable<ZTPoisson<MAX_COUNT>,std::array<long double, MAX_COUNT + 1>>;
+        friend class abstract::Checkpointable<ZTPoisson<MAX_COUNT>, std::array<long double, MAX_COUNT + 1>>;
         friend class abstract::Cacheable<ZTPoisson<MAX_COUNT>>;
 
         p_ParameterDouble mean_;
     };
 
     template<int MAX_COUNT>
-    ZTPoisson<MAX_COUNT>::ZTPoisson(p_ParameterDouble mean) noexcept : mean_(std::move(mean)){
+    ZTPoisson<MAX_COUNT>::ZTPoisson(p_ParameterDouble mean) noexcept : mean_(std::move(mean)) {
         this->value_[0] = -std::numeric_limits<long double>::infinity();
         mean_->registerCacheableCheckpointTarget(this);
         mean_->add_post_change_listener([=, this]() {
@@ -71,9 +72,7 @@ namespace transmission_nets::core::distributions {
         return this->value_;
     }
 
-}
+}// namespace transmission_nets::core::distributions
 
 
-
-
-#endif //TRANSMISSION_NETWORKS_APP_TRUNCATEDPOISSON_H
+#endif//TRANSMISSION_NETWORKS_APP_TRUNCATEDPOISSON_H

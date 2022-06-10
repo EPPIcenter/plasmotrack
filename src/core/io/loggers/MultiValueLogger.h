@@ -15,18 +15,17 @@ namespace transmission_nets::core::io {
     class MultiValueLogger : public AbstractLogger {
 
     public:
+        template<typename Output>
+        explicit MultiValueLogger(std::unique_ptr<Output> output);
 
-       template<typename Output>
-       explicit MultiValueLogger(std::unique_ptr<Output> output);
+        std::string prepareValue() noexcept override;
 
-       std::string prepareValue() noexcept override;
-
-       void addTarget(const std::string& id, std::shared_ptr<T> target);
+        void addTarget(const std::string& id, std::shared_ptr<T> target);
 
 
     private:
-       std::vector<std::pair<std::string, std::shared_ptr<T>>> targets_{};
-       int iter_ = 1;
+        std::vector<std::pair<std::string, std::shared_ptr<T>>> targets_{};
+        int iter_ = 1;
     };
 
     template<typename T>
@@ -45,11 +44,10 @@ namespace transmission_nets::core::io {
 
     template<typename T>
     void MultiValueLogger<T>::addTarget(const std::string& id, std::shared_ptr<T> target) {
-       targets_.push_back({id, target});
+        targets_.push_back({id, target});
     }
 
 
-
-}
+}// namespace transmission_nets::core::io
 
 #endif//TRANSMISSION_NETWORKS_APP_MULTIVALUELOGGER_H

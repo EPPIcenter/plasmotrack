@@ -10,7 +10,7 @@ using namespace transmission_nets::core::utils::generators;
 TEST(CombinationsWithRepetitionsTest, CoreTest) {
     CombinationsWithRepetitionsGenerator cs(4, 3);
 
-    std::vector<int> t{1,1,1,1,0,0};
+    std::vector<int> t{1, 1, 1, 1, 0, 0};
     while (!cs.completed) {
         auto tmp = t;
         cs.next();
@@ -19,8 +19,7 @@ TEST(CombinationsWithRepetitionsTest, CoreTest) {
             std::cout << i << ",";
         }
         std::cout << std::endl;
-
-   }
+    }
     ASSERT_EQ(cs.generated, 20);
 }
 

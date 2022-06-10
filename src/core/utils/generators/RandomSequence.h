@@ -5,8 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_RANDOMSEQUENCE_H
 #define TRANSMISSION_NETWORKS_APP_RANDOMSEQUENCE_H
 
-#include <vector>
 #include <numeric>
+#include <vector>
 
 #include <boost/math/distributions.hpp>
 #include <boost/random.hpp>
@@ -30,14 +30,14 @@ namespace transmission_nets::core::utils::generators {
         std::iota(std::begin(indices), std::end(indices), min);
 
         auto int_generator = [=](int max_val) {
-          boost::random::uniform_int_distribution<> dist_{0, max_val - 1};
-          return dist_(*rng);
+            boost::random::uniform_int_distribution<> dist_{0, max_val - 1};
+            return dist_(*rng);
         };
 
         boost::range::random_shuffle(indices, int_generator);
         return indices;
     }
 
-}
+}// namespace transmission_nets::core::utils::generators
 
 #endif//TRANSMISSION_NETWORKS_APP_RANDOMSEQUENCE_H

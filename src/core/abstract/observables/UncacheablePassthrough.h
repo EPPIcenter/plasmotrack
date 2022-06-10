@@ -21,6 +21,6 @@ namespace transmission_nets::core::abstract {
     };
 
 
-}
+}// namespace transmission_nets::core::abstract
 
-#endif //TRANSMISSION_NETWORKS_APP_UNCACHEABLEPASSTHROUGH_H
+#endif//TRANSMISSION_NETWORKS_APP_UNCACHEABLEPASSTHROUGH_H

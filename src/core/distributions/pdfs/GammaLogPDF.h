@@ -13,7 +13,7 @@
 
 namespace transmission_nets::core::distributions {
 
-    class GammaLogPDF : public computation::PartialLikelihood  {
+    class GammaLogPDF : public computation::PartialLikelihood {
     public:
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
         GammaLogPDF(p_ParameterDouble target, p_ParameterDouble shape, p_ParameterDouble scale);
@@ -27,8 +27,7 @@ namespace transmission_nets::core::distributions {
         double logDenominator_ = 0;
     };
 
-}
-
+}// namespace transmission_nets::core::distributions
 
 
 #endif//TRANSMISSION_NETWORKS_APP_GAMMALOGPDF_H

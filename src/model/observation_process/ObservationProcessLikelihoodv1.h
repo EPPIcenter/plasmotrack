@@ -12,6 +12,9 @@
 
 namespace transmission_nets::model::observation_process {
 
+    /*
+    * Observation process to incorporate error.
+    */
 
     template<typename AlleleCounter>
     class ObservationProcessLikelihoodv1 : public core::computation::PartialLikelihood {
@@ -19,8 +22,8 @@ namespace transmission_nets::model::observation_process {
     public:
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
         ObservationProcessLikelihoodv1(std::shared_ptr<AlleleCounter> totalAlleles,
-                                     p_ParameterDouble falsePositiveRate,
-                                     p_ParameterDouble falseNegativeRate);
+                                       p_ParameterDouble falsePositiveRate,
+                                       p_ParameterDouble falseNegativeRate);
 
         core::computation::Likelihood value() override;
         std::string identifier() override;
@@ -33,10 +36,10 @@ namespace transmission_nets::model::observation_process {
 
     template<typename AlleleCounter>
     ObservationProcessLikelihoodv1<AlleleCounter>::ObservationProcessLikelihoodv1(std::shared_ptr<AlleleCounter> totalAlleles,
-                                                                              p_ParameterDouble falsePositiveRate,
-                                                                              p_ParameterDouble falseNegativeRate) : total_alleles_(std::move(totalAlleles)),
-            false_positive_rate_(std::move(falsePositiveRate)),
-            false_negative_rate_(std::move(falseNegativeRate)) {
+                                                                                  p_ParameterDouble falsePositiveRate,
+                                                                                  p_ParameterDouble falseNegativeRate) : total_alleles_(std::move(totalAlleles)),
+                                                                                                                         false_positive_rate_(std::move(falsePositiveRate)),
+                                                                                                                         false_negative_rate_(std::move(falseNegativeRate)) {
 
         total_alleles_->add_set_dirty_listener([=, this]() {
             this->setDirty();
@@ -61,22 +64,10 @@ namespace transmission_nets::model::observation_process {
     template<typename AlleleCounter>
     core::computation::Likelihood ObservationProcessLikelihoodv1<AlleleCounter>::value() {
         if (this->isDirty()) {
-//            std::cout << "OBS: " << value_ << " | ";
             value_ = total_alleles_->value().true_positive_count * log(1 - false_positive_rate_->value()) +
                      total_alleles_->value().true_negative_count * log(1 - false_negative_rate_->value()) +
                      total_alleles_->value().false_positive_count * log(false_positive_rate_->value()) +
                      total_alleles_->value().false_negative_count * log(false_negative_rate_->value());
-//            std::cout << value_;
-//            std::cout << "(" << false_positive_rate_.value() << " " << false_negative_rate_.value() << ")" << std::endl;
-//            std::cout << total_alleles_.value().true_positive_count << ", ";
-//            std::cout << total_alleles_.value().true_negative_count << ", ";
-//            std::cout << total_alleles_.value().false_positive_count << ", ";
-//            std::cout << total_alleles_.value().false_negative_count << ", ";
-//            std::cout << total_alleles_.value().true_positive_count +
-//                         total_alleles_.value().true_negative_count +
-//                         total_alleles_.value().false_positive_count +
-//                         total_alleles_.value().false_negative_count << std::endl;
-
             this->setClean();
         }
 
@@ -86,7 +77,7 @@ namespace transmission_nets::model::observation_process {
     }
 
 
-}
+}// namespace transmission_nets::model::observation_process
 
 
 #endif//TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV1_H

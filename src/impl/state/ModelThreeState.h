@@ -5,8 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_MODELTHREESTATE_H
 #define TRANSMISSION_NETWORKS_APP_MODELTHREESTATE_H
 
-#include <vector>
 #include <map>
+#include <vector>
 
 #include "core/containers/AlleleFrequencyContainer.h"
 #include "core/containers/Infection.h"
@@ -59,5 +59,4 @@
 //
 
 
-
-#endif //TRANSMISSION_NETWORKS_APP_MODELTHREESTATE_H
+#endif//TRANSMISSION_NETWORKS_APP_MODELTHREESTATE_H

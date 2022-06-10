@@ -4,8 +4,8 @@
 
 #include "gtest/gtest.h"
 
-#include "core/datatypes/Simplex.h"
 #include "core/containers/AlleleFrequencyContainer.h"
+#include "core/datatypes/Simplex.h"
 #include "core/io/serialize.h"
 
 #include <fmt/core.h>
@@ -19,13 +19,13 @@ using namespace transmission_nets::core::parameters;
 
 TEST(AlleleFrequencyContainerTest, HandlesChangedFrequencies) {
     using AlleleFrequenciesVector = Simplex;
-    using AFC = AlleleFrequencyContainer<AlleleFrequenciesVector>;
+    using AFC                     = AlleleFrequencyContainer<AlleleFrequenciesVector>;
 
 
-    auto as1 = std::make_shared<Locus>("AS1", 4);
-    auto as2 = std::make_shared<Locus>("AS2", 8);
+    auto as1              = std::make_shared<Locus>("AS1", 4);
+    auto as2              = std::make_shared<Locus>("AS2", 8);
     bool frequencyChanged = false;
-    auto afc = std::make_shared<AFC>();
+    auto afc              = std::make_shared<AFC>();
     afc->addLocus(as1);
     afc->addLocus(as2);
 
@@ -41,5 +41,4 @@ TEST(AlleleFrequencyContainerTest, HandlesChangedFrequencies) {
     afc->alleleFrequencies(as1)->setValue({.1, .2, .3, .4});
     EXPECT_TRUE(frequencyChanged);
     afc->alleleFrequencies(as1)->restoreState("state1");
-
 }

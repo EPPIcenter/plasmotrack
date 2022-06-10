@@ -16,20 +16,18 @@ namespace transmission_nets::core::samplers {
     class ZanellaJointGeneticsGraphSampler : public AbstractSampler {
     public:
     private:
-
-        parameters::TransmissionNetwork<NodeValueImpl> &network_;
-        T &target_;
-        Engine *rng_;
+        parameters::TransmissionNetwork<NodeValueImpl>& network_;
+        T& target_;
+        Engine* rng_;
 
         boost::random::uniform_01<> uniformDist_{};
         boost::random::uniform_int_distribution<> nodeIndexSamplingDist_;
 
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_ = 0;
+        unsigned int acceptances_   = 0;
+        unsigned int rejections_    = 0;
         unsigned int total_updates_ = 0;
-
     };
 
-}
+}// namespace transmission_nets::core::samplers
 
 #endif//TRANSMISSION_NETWORKS_APP_ZANELLAJOINTGENETICSGRAPHSAMPLER_H

@@ -8,17 +8,17 @@
 namespace transmission_nets::core::utils::generators {
     CombinationsWithRepetitionsGenerator::CombinationsWithRepetitionsGenerator(int nChoices, int k) : nChoices_(nChoices),
                                                                                                       k_(k) {
-        curr = std::vector<int>(k_, 0);
+        curr    = std::vector<int>(k_, 0);
         curr[0] = -1;
     }
 
 
     void CombinationsWithRepetitionsGenerator::reset(int nChoices, int k) noexcept {
-        k_ = k;
+        k_        = k;
         nChoices_ = nChoices;
         std::fill(curr.begin(), curr.end(), 0);
         curr.resize(k_, 0);
-        curr[0] = -1;
+        curr[0]   = -1;
         generated = 0;
     }
 
@@ -31,7 +31,7 @@ namespace transmission_nets::core::utils::generators {
         // fast break in the common case
         if (curr[currIdx] < nChoices_ - 1) {
             curr[currIdx]++;
-            if (nChoices_  == 1) {
+            if (nChoices_ == 1) {
                 completed = true;
             }
 
@@ -52,14 +52,14 @@ namespace transmission_nets::core::utils::generators {
 
             carry = false;
             curr[currIdx]++;
-            if(currIdx == k_ - 1 and curr[currIdx] == nChoices_ - 1) {
+            if (currIdx == k_ - 1 and curr[currIdx] == nChoices_ - 1) {
                 completed = true;
                 break;
             }
 
             int upper = curr[currIdx];
             currIdx--;
-            while(currIdx >= 0) {
+            while (currIdx >= 0) {
                 curr[currIdx] = upper;
                 currIdx--;
             }
@@ -68,13 +68,10 @@ namespace transmission_nets::core::utils::generators {
 
     CombinationsWithRepetitionsGenerator::CombinationsWithRepetitionsGenerator() {
         nChoices_ = 1;
-        k_ = 1;
-        curr = std::vector<int>(k_, 0);
-        curr[0] = -1;
+        k_        = 1;
+        curr      = std::vector<int>(k_, 0);
+        curr[0]   = -1;
     }
 
 
-}
-
-
-
+}// namespace transmission_nets::core::utils::generators

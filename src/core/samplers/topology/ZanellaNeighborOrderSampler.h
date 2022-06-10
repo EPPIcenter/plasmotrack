@@ -9,20 +9,20 @@
 #include <boost/random.hpp>
 #include <boost/range/algorithm.hpp>
 
-#include "core/utils/numerics.h"
-#include "core/samplers/AbstractSampler.h"
-#include "core/parameters/Ordering.h"
 #include "core/io/serialize.h"
+#include "core/parameters/Ordering.h"
+#include "core/samplers/AbstractSampler.h"
+#include "core/utils/numerics.h"
 
 namespace transmission_nets::core::samplers {
 
     /*
      * Sampler using a locally informed transition kernel. Samples from the set of swapped neighboring elements in a given ordering.
      */
-    template<typename T,  typename OrderingElement, typename Engine=boost::random::mt19937>
+    template<typename T, typename OrderingElement, typename Engine = boost::random::mt19937>
     class ZanellaNeighborOrderSampler : public AbstractSampler {
     public:
-        ZanellaNeighborOrderSampler(parameters::Ordering<OrderingElement> &parameter, T &target, Engine *rng) noexcept;
+        ZanellaNeighborOrderSampler(parameters::Ordering<OrderingElement>& parameter, T& target, Engine* rng) noexcept;
 
         void update() noexcept override;
 
@@ -37,14 +37,14 @@ namespace transmission_nets::core::samplers {
         [[nodiscard]] double acceptanceRate() noexcept;
 
     private:
-        parameters::Ordering<OrderingElement> &parameter_;
-        T &target_;
-        Engine *rng_;
+        parameters::Ordering<OrderingElement>& parameter_;
+        T& target_;
+        Engine* rng_;
         unsigned int num_elements_;
         boost::random::uniform_01<> uniform_dist_{};
 
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_ = 0;
+        unsigned int acceptances_   = 0;
+        unsigned int rejections_    = 0;
         unsigned int total_updates_ = 0;
     };
 
@@ -54,10 +54,10 @@ namespace transmission_nets::core::samplers {
         const std::string stateId = "ZanellaOrderSampler";
         parameter_.saveState(stateId);
 
-        const auto curr = parameter_.value();
+        const auto curr          = parameter_.value();
         const Likelihood currLik = target_.value();
 
-        const auto currNeighborhood = calculateNeighborhoodLik();
+        const auto currNeighborhood       = calculateNeighborhoodLik();
         const auto currNeighborhoodLogSum = core::utils::logSumExp(currNeighborhood);
 
         if (currNeighborhoodLogSum <= -std::numeric_limits<Likelihood>::infinity()) {
@@ -76,7 +76,7 @@ namespace transmission_nets::core::samplers {
                 const Likelihood propNeighborhoodLogSum = core::utils::logSumExp(calculateNeighborhoodLik());
 
                 const Likelihood logAcceptanceRatio = .5 * propLik + currNeighborhoodLogSum - .5 * currLik - propNeighborhoodLogSum;
-                const Likelihood logProbAccept = log(uniform_dist_(*rng_));
+                const Likelihood logProbAccept      = log(uniform_dist_(*rng_));
 
                 const bool accept = (logProbAccept <= logAcceptanceRatio);
 
@@ -97,8 +97,8 @@ namespace transmission_nets::core::samplers {
 
 
     template<typename T, typename OrderingElement, typename Engine>
-    ZanellaNeighborOrderSampler<T, OrderingElement, Engine>::ZanellaNeighborOrderSampler(parameters::Ordering<OrderingElement> &parameter, T &target, Engine *rng) noexcept
-            :parameter_(parameter), target_(target), rng_(rng) {
+    ZanellaNeighborOrderSampler<T, OrderingElement, Engine>::ZanellaNeighborOrderSampler(parameters::Ordering<OrderingElement>& parameter, T& target, Engine* rng) noexcept
+        : parameter_(parameter), target_(target), rng_(rng) {
         num_elements_ = parameter.value().size();
     }
 
@@ -106,9 +106,9 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename OrderingElement, typename Engine>
     int ZanellaNeighborOrderSampler<T, OrderingElement, Engine>::sampleProposal(const std::vector<Likelihood>& neighborhoodLik) noexcept {
         const auto normedNeighborhoodLik = core::utils::expNormalize(neighborhoodLik);
-        auto unifSample = uniform_dist_(*rng_);
+        auto unifSample                  = uniform_dist_(*rng_);
 
-        int i = 0;
+        int i             = 0;
         Likelihood cumsum = 0;
         while (unifSample >= cumsum) {
             if (i == int(normedNeighborhoodLik.size())) {
@@ -157,7 +157,7 @@ namespace transmission_nets::core::samplers {
             parameter_.saveState("swap");
             parameter_.swap(i, i + 1);
             neighborhood.push_back(target_.value() * 0.5);
-            if(std::isnan(neighborhood.back())) {
+            if (std::isnan(neighborhood.back())) {
                 std::cerr << "Encountered NaN: " << target_.value() << std::endl;
             }
             parameter_.restoreState("swap");
@@ -166,6 +166,6 @@ namespace transmission_nets::core::samplers {
         return neighborhood;
     }
 
-}
+}// namespace transmission_nets::core::samplers
 
 #endif//TRANSMISSION_NETWORKS_APP_ZANELLANEIGHBORORDERSAMPLER_H

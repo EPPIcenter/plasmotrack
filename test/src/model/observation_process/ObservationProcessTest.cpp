@@ -26,16 +26,15 @@ using namespace transmission_nets::model::observation_process;
 constexpr int MAX_ALLELES = 32;
 
 TEST(ObservationProcessTest, CoreTest) {
-    using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
-    using Infection = Infection<GeneticsImpl>;
-    using AlleleCounter = AlleleCounter<GeneticsImpl>;
+    using GeneticsImpl             = AllelesBitSet<MAX_ALLELES>;
+    using Infection                = Infection<GeneticsImpl>;
+    using AlleleCounter            = AlleleCounter<GeneticsImpl>;
     using AlleleCounterAccumulator = Accumulator<AlleleCounter, AlleleCounts>;
 
     std::vector<std::shared_ptr<Locus>> loci{
             std::make_shared<Locus>("L1", 6),
             std::make_shared<Locus>("L2", 6),
-            std::make_shared<Locus>("L3", 6)
-    };
+            std::make_shared<Locus>("L3", 6)};
 
     std::vector<std::shared_ptr<Infection>> infections{};
 
@@ -43,7 +42,7 @@ TEST(ObservationProcessTest, CoreTest) {
     for (int i = 0; i < 4; ++i) {
         auto infection = std::make_shared<Infection>(std::to_string(i), 1);
         infections.push_back(infection);
-        for(auto &locus : loci) {
+        for (auto& locus : loci) {
             infection->addGenetics(locus, "101010", "111111");
         }
     }
@@ -52,7 +51,7 @@ TEST(ObservationProcessTest, CoreTest) {
     auto alleleCountAccumulator = std::make_shared<AlleleCounterAccumulator>();
 
     for (auto& infection : infections) {
-        for (auto &[locus, obsGenotype] : infection->observedGenotype()) {
+        for (auto& [locus, obsGenotype] : infection->observedGenotype()) {
             alleleCounters.push_back(std::make_shared<AlleleCounter>(infection->latentGenotype(locus), obsGenotype));
             alleleCountAccumulator->addTarget(alleleCounters.back());
         }
@@ -92,6 +91,4 @@ TEST(ObservationProcessTest, CoreTest) {
     EXPECT_EQ(alleleCountAccumulator->value().true_negative_count, 0);
     EXPECT_EQ(alleleCountAccumulator->value().false_positive_count, 0);
     EXPECT_EQ(alleleCountAccumulator->value().false_negative_count, 36);
-
-
 }

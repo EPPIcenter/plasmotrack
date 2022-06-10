@@ -7,12 +7,18 @@
 
 namespace transmission_nets::model::observation_process {
 
+    /*
+     * Observation process to incorporate error.
+     * This implementation will scale the observation error values by the total number of alleles, so
+     * instead of a probability, it's a rate of observation error. This makes the value insensitive to the
+     * total number of alleles present at a marker.
+     */
 
     template<typename GeneticsImpl>
     class ObservationProcessLikelihoodv2 : public core::computation::PartialLikelihood {
-        static constexpr auto truePositiveCount = &GeneticsImpl::truePositiveCount;
+        static constexpr auto truePositiveCount  = &GeneticsImpl::truePositiveCount;
         static constexpr auto falsePositiveCount = &GeneticsImpl::falsePositiveCount;
-        static constexpr auto trueNegativeCount = &GeneticsImpl::trueNegativeCount;
+        static constexpr auto trueNegativeCount  = &GeneticsImpl::trueNegativeCount;
         static constexpr auto falseNegativeCount = &GeneticsImpl::falseNegativeCount;
 
     public:
@@ -65,9 +71,9 @@ namespace transmission_nets::model::observation_process {
     template<typename GeneticsImpl>
     core::computation::Likelihood ObservationProcessLikelihoodv2<GeneticsImpl>::value() {
         if (this->isDirty()) {
-            int true_positive_count = truePositiveCount(latent_genetics_->value(), observed_genetics_->value());
+            int true_positive_count  = truePositiveCount(latent_genetics_->value(), observed_genetics_->value());
             int false_positive_count = falsePositiveCount(latent_genetics_->value(), observed_genetics_->value());
-            int true_negative_count = trueNegativeCount(latent_genetics_->value(), observed_genetics_->value());
+            int true_negative_count  = trueNegativeCount(latent_genetics_->value(), observed_genetics_->value());
             int false_negative_count = falseNegativeCount(latent_genetics_->value(), observed_genetics_->value());
 
             value_ = true_positive_count * log(1 - (expected_false_positives_->value() / total_alleles_)) +

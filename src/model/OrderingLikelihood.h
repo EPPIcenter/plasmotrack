@@ -22,12 +22,11 @@ namespace transmission_nets::model::ordering {
     private:
         core::parameters::Ordering<ElementType>& ordering_;
         TimeDiffCDF& tdiff_;
-
     };
 
 
     template<typename TimeDiffCDF, typename ElementType>
-    OrderingLikelihood<TimeDiffCDF, ElementType>::OrderingLikelihood(core::parameters::Ordering<ElementType> &ordering, TimeDiffCDF &tdiff) : ordering_(Ordering), tdiff_(tdiff) {
+    OrderingLikelihood<TimeDiffCDF, ElementType>::OrderingLikelihood(core::parameters::Ordering<ElementType>& ordering, TimeDiffCDF& tdiff) : ordering_(Ordering), tdiff_(tdiff) {
     }
 
     template<typename TimeDiffCDF, typename ElementType>
@@ -41,6 +40,6 @@ namespace transmission_nets::model::ordering {
         return std::string("OrderingLikelihood");
     }
 
-}
+}// namespace transmission_nets::model::ordering
 
 #endif//TRANSMISSION_NETWORKS_APP_ORDERINGLIKELIHOOD_H

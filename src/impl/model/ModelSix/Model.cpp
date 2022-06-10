@@ -14,9 +14,9 @@ namespace transmission_nets::impl::ModelSix {
         });
         likelihood.registerCacheableCheckpointTarget(this);
 
-        intp = std::make_shared<InterTransmissionProbImpl>(state_->geometricGenerationProb);
+        intp                    = std::make_shared<InterTransmissionProbImpl>(state_->geometricGenerationProb);
         nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->mutationProb, state_->lossProb, intp);
-        coiProb = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
+        coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
 
         // Register Priors
         likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->mutationProb, state_->mutationProbPriorAlpha, state_->mutationProbPriorBeta));
@@ -26,18 +26,18 @@ namespace transmission_nets::impl::ModelSix {
         likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
         //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationShape, state_->infectionDurationShapePriorShape, state_->infectionDurationShapePriorScale));
         //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationScale, state_->infectionDurationScalePriorShape, state_->infectionDurationScalePriorScale));
-        for (auto &obs : state_->expectedFalsePositives) {
+        for (auto& obs : state_->expectedFalsePositives) {
             likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
         }
-        for (auto &obs : state_->expectedFalseNegatives) {
+        for (auto& obs : state_->expectedFalseNegatives) {
             likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFNRPriorShape, state_->obsFNRPriorScale));
         }
 
         int i = 0;
-        for (auto &infection : state_->infections) {
+        for (auto& infection : state_->infections) {
             likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(infection->infectionDuration(), state_->infectionDurationShape, state_->infectionDurationScale));
-            for (auto &[locus, obsGenotype] : infection->observedGenotype()) {
-                observationProcessLikelihoodList.push_back(std::make_shared<model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>>(
+            for (auto& [locus, obsGenotype] : infection->observedGenotype()) {
+                observationProcessLikelihoodList.push_back(std::make_shared<ObservationProcessImpl>(
                         obsGenotype,
                         infection->latentGenotype(locus),
                         state_->expectedFalsePositives[i],
@@ -56,7 +56,8 @@ namespace transmission_nets::impl::ModelSix {
             sourceTransmissionProcessList.push_back(std::make_shared<SourceTransmissionImpl>(
                     coiProb,
                     state_->alleleFrequencies,
-                    infection));
+                    infection->loci(),
+                    infection->latentGenotype()));
 
             transmissionProcessList.push_back(std::make_shared<TransmissionProcess>(
                     nodeTransmissionProcess,
@@ -69,7 +70,7 @@ namespace transmission_nets::impl::ModelSix {
         this->setDirty();
     }
 
-    Model::Model(State &state) : Model(std::make_shared<State>(state)) {}
+    Model::Model(State& state) : Model(std::make_shared<State>(state)) {}
 
     std::string Model::identifier() {
         return "ModelSix";

@@ -23,7 +23,7 @@ namespace transmission_nets::core::distributions {
                         public abstract::Observable<ZTGeometric<MAX_COUNT>>,
                         public abstract::Cacheable<ZTGeometric<MAX_COUNT>>,
                         public abstract::Checkpointable<ZTGeometric<MAX_COUNT>, datatypes::ProbabilityVector<
-                                MAX_COUNT + 1>> {
+                                                                                        MAX_COUNT + 1>> {
 
     public:
         explicit ZTGeometric(std::shared_ptr<parameters::Parameter<double>> prob) noexcept;
@@ -32,7 +32,7 @@ namespace transmission_nets::core::distributions {
 
     private:
         friend class abstract::Checkpointable<ZTGeometric<MAX_COUNT>, datatypes::ProbabilityVector<
-                MAX_COUNT + 1>>;
+                                                                              MAX_COUNT + 1>>;
 
         friend class abstract::Cacheable<ZTGeometric<MAX_COUNT>>;
 
@@ -41,7 +41,7 @@ namespace transmission_nets::core::distributions {
 
     template<int MAX_COUNT>
     ZTGeometric<MAX_COUNT>::ZTGeometric(std::shared_ptr<parameters::Parameter<double>> prob) noexcept : prob_(
-            std::move(prob)) {
+                                                                                                                std::move(prob)) {
         this->value_(0) = 0;
         prob_->registerCacheableCheckpointTarget(this);
         prob_->add_post_change_listener([=, this]() { this->setDirty(); });
@@ -55,7 +55,7 @@ namespace transmission_nets::core::distributions {
         if (this->isDirty()) {
             double denominator = 0.0;
             for (int j = 1; j < MAX_COUNT + 1; ++j) {
-                this->value_(j) = pow(1 - prob_->value(), j) * (prob_->value()); // geometric distribution pmf(j)
+                this->value_(j) = pow(1 - prob_->value(), j) * (prob_->value());// geometric distribution pmf(j)
                 denominator += this->value_(j);
             }
             this->value_ = this->value_ / denominator;
@@ -64,7 +64,7 @@ namespace transmission_nets::core::distributions {
         return this->value_;
     }
 
-}
+}// namespace transmission_nets::core::distributions
 
 
-#endif //TRANSMISSION_NETWORKS_APP_ZTGEOMETRIC_H
+#endif//TRANSMISSION_NETWORKS_APP_ZTGEOMETRIC_H
