@@ -160,8 +160,8 @@ namespace transmission_nets::model::transmission_process {
             // Calculating the alternative situation, where alleles are not lost
             jointAllelesLostCounter_[0] += base.totalPositiveCount();
             size_t jointIdx = 1;
-            for (parentIdx = 0; parentIdx < numParents; ++parentIdx) {
-                psIdxGen.reset(numParents, parentIdx + 1);
+            for (parentIdx = 1; parentIdx <= numParents; ++parentIdx) {
+                psIdxGen.reset(numParents, parentIdx);
                 while (!psIdxGen.completed) {
                     base = childGenotype;
 
@@ -171,8 +171,8 @@ namespace transmission_nets::model::transmission_process {
                     }
 
                     // AND all (maybe inverted) parent genotypes with the inverted child genotype
-                    for (const auto& g : parentGenotypes) {
-                        base = GeneticsImpl::shared(base, g);
+                    for (size_t ii = 0; ii < numParents; ++ii) {
+                        base = GeneticsImpl::shared(base, parentGenotypes[ii]);
                     }
 
                     // Record the number of alleles that would be lost under that transmission
@@ -233,9 +233,7 @@ namespace transmission_nets::model::transmission_process {
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl>
     template<typename GeneticsImpl>
-    Likelihood SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& ps) {
-        std::vector<std::shared_ptr<core::containers::Infection<GeneticsImpl>>> parentSet{ps};
-        parentSet.push_back(latentParent);
+    Likelihood SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet) {
         size_t numParents = parentSet.size();
         auto loci         = infection->loci();
 
@@ -244,7 +242,7 @@ namespace transmission_nets::model::transmission_process {
         probs_.fill(0);
         allelesLostCounter_.fill(0);
         jointAllelesLostCounter_.fill(0);
-        std::array<GeneticsImpl, MAX_PARENTSET_SIZE> parentGenotypes{};
+        std::array<GeneticsImpl, MAX_PARENTSET_SIZE + 1> parentGenotypes{};
 
         // Calculate the number of events that occur in the transmission process, where
         // events are either the loss or retention of alleles.
@@ -263,12 +261,18 @@ namespace transmission_nets::model::transmission_process {
                 ++parentIdx;
             }
 
+            // calculate the latentParent contrib
+            parentGenotypes[numParents] = latentParent->latentGenotype(locus)->value();
+            allelesLostCounter_[numParents] += GeneticsImpl::falseNegativeCount(parentGenotypes[numParents], childGenotype);
+            base = GeneticsImpl::shared(base, parentGenotypes[numParents]); // apply the latent parent genotype
 
             // Calculating the alternative situation, where alleles are not lost
             jointAllelesLostCounter_[0] += base.totalPositiveCount();
             size_t jointIdx = 1;
-            for (parentIdx = 0; parentIdx < numParents; ++parentIdx) {
-                psIdxGen.reset(numParents, parentIdx + 1);
+            for (parentIdx = 1; parentIdx <= numParents + 1; ++parentIdx) {
+                psIdxGen.reset(numParents + 1, parentIdx);
+
+                // invert the latent parent immediately
                 while (!psIdxGen.completed) {
                     base = childGenotype;
 
@@ -277,10 +281,14 @@ namespace transmission_nets::model::transmission_process {
                         parentGenotypes[kk] = GeneticsImpl::invert(parentGenotypes[kk]);
                     }
 
-                    // AND all (maybe inverted) parent genotypes with the inverted child genotype
-                    for (const auto& g : parentGenotypes) {
-                        base = GeneticsImpl::shared(base, g);
+                    // AND all (maybe inverted) parent genotypes plus the latent parent genotype
+                    // with the inverted child genotype
+                    for (size_t ii = 0; ii <= numParents; ++ii) {
+                        base = GeneticsImpl::shared(base, parentGenotypes[ii]);
                     }
+
+                    // AND the inverted latent parent genotype with the inverted child genotype
+                    base = GeneticsImpl::shared(base, parentGenotypes[MAX_PARENTSET_SIZE]);
 
                     // Record the number of alleles that would be lost under that transmission
                     jointAllelesLostCounter_[jointIdx] += base.totalPositiveCount();
@@ -298,7 +306,8 @@ namespace transmission_nets::model::transmission_process {
         }
 
         for (size_t ii = 0; ii < (unsigned long) std::pow(MAX_TRANSMISSIONS, numParents); ++ii) {
-            auto kVec  = kVecs_[ii];
+            auto kVec  = kVecs_[ii]; // vector of numbers of transmission events for each parent
+            kVec[numParents] = 1; // the latent parent always has one transmission event
 
             double all_parents_lost_prob = 1.0;
             // Calculate the probability of losses in the transmission process
@@ -312,13 +321,18 @@ namespace transmission_nets::model::transmission_process {
                 probs_[ii] += std::log(interTransmissionProb_->value()(kVec[parentIdx]));
             }
 
-            // Calculate the probability of retentions in the transmission process
+            // losing the latentParent in a single transmission event
+            all_parents_lost_prob *= 1.0 - this->value()[0];
+            probs_[ii] += allelesLostCounter_[numParents] * std::log(1.0 - this->value()[0]);
+
+            // Calculate the probability of retentions in the transmission process where no alleles are lost
             probs_[ii] += jointAllelesLostCounter_[0] * std::log(1 - all_parents_lost_prob);
             size_t jointEventCounter = 1;
-            for (size_t parentCount = 1; parentCount < numParents; ++parentCount) {
+
+            for (size_t parentCount = 1; parentCount <= numParents; ++parentCount) {
 
                 // Now we need to iterate over the subsets of events
-                psIdxGen.reset(numParents, parentCount);
+                psIdxGen.reset(numParents + 1, parentCount);
                 while (!psIdxGen.completed) {
                     // start with everything being multiplied out, i.e. all events happened
                     // for example (abc)
