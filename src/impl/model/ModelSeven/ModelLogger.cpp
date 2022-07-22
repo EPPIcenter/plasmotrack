@@ -4,7 +4,6 @@
 
 #include "ModelLogger.h"
 
-#include <utility>
 
 namespace transmission_nets::impl::ModelSeven {
     ModelLogger::ModelLogger(std::shared_ptr<Model> model, fs::path rootPath) : model_(std::move(model)), rootPath_(std::move(rootPath)) {
@@ -22,7 +21,7 @@ namespace transmission_nets::impl::ModelSeven {
 
         for (const auto& tp : model_->transmissionProcessList) {
             auto path = parentSetFolder_ / (core::io::makePathValid(tp->child_->id() + "_ps.csv"));
-            loggers_.push_back(new core::io::ParentSetDistLogger(tp, std::make_unique<core::io::FileOutput>(path, "parent_set,Llik,iter"), path));
+            loggers_.push_back(new core::io::ParentSetDistLogger(tp, std::make_unique<core::io::FileOutput>(path, "parent_set,Llik,iter"), path, false));
         }
     }
 

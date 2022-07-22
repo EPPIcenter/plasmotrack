@@ -53,7 +53,7 @@ namespace transmission_nets::model::transmission_process {
 
         Likelihood calculateParentLogLikelihoodContribution(std::shared_ptr<InfectionEventImpl> parent, const core::containers::ParentSet<InfectionEventImpl>& others);
 
-        Likelihood calculateParentSetLogLikelihood(core::containers::ParentSet<InfectionEventImpl> ps);
+        Likelihood calculateParentSetLogLikelihood(const core::containers::ParentSet<InfectionEventImpl>& ps);
 
         ParentSetDist<InfectionEventImpl> calcParentSetDist();
 
@@ -532,7 +532,7 @@ namespace transmission_nets::model::transmission_process {
     }
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    Likelihood OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::calculateParentSetLogLikelihood(core::containers::ParentSet<InfectionEventImpl> ps) {
+    Likelihood OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::calculateParentSetLogLikelihood(const core::containers::ParentSet<InfectionEventImpl>& ps) {
         return ntp_->calculateLogLikelihood(child_, ps);
     }
 
@@ -569,7 +569,6 @@ namespace transmission_nets::model::transmission_process {
                 cs_.next();
             }
         }
-
 
         dist.sourceLlik = stp_->value();
         dist.totalLlik  = core::utils::logSumExp(dist.totalLlik, dist.sourceLlik);

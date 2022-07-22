@@ -21,9 +21,11 @@ namespace transmission_nets::impl::ModelSeven {
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
         explicit State(const nlohmann::json& input);
         State(const nlohmann::json& input, const fs::path& outputDir);
+        void initPriors();
 
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
+        std::vector<std::shared_ptr<InfectionEvent>> latentParents{};
         std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> allowedParents{};
 
         std::shared_ptr<AlleleFrequencyContainerImpl> alleleFrequencies;
@@ -51,10 +53,6 @@ namespace transmission_nets::impl::ModelSeven {
         p_ParameterDouble lossProb;
         p_ParameterDouble lossProbPriorAlpha;
         p_ParameterDouble lossProbPriorBeta;
-
-        p_ParameterDouble mutationProb;
-        p_ParameterDouble mutationProbPriorAlpha;
-        p_ParameterDouble mutationProbPriorBeta;
 
         // Source Transmission Process
         p_ParameterDouble meanCOI;

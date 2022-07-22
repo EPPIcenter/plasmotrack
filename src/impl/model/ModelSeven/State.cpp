@@ -11,28 +11,7 @@ namespace transmission_nets::impl::ModelSeven {
         infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci);
         allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
 
-        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
-        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
-
-        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
-        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
-
-        geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
-        geometricGenerationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(1);
-
-        lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
-        lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(90);
-
-        mutationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
-        mutationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(99);
-
-        meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
-        meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(5);
-
-        //        infectionDurationShapePriorShape.initializeValue(1);
-        //        infectionDurationShapePriorScale.initializeValue(1000);
-        //        infectionDurationScalePriorShape.initializeValue(1);
-        //        infectionDurationScalePriorScale.initializeValue(1000);
+        initPriors();
 
         alleleFrequencies = std::make_shared<AlleleFrequencyContainerImpl>();
         for (const auto& [locus_label, locus] : this->loci) {
@@ -42,17 +21,15 @@ namespace transmission_nets::impl::ModelSeven {
         infectionEventOrdering = std::make_shared<OrderingImpl>();
         infectionEventOrdering->addElements(this->infections);
 
-        infectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(100);
-        infectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(1);
 
-        for (size_t ii = 0; ii < infections.size(); ++ii) {
+        for (const auto& infection : infections) {
             expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.1));
             expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.1));
+            latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
         }
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.9);
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(.1);
-        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(.01);
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(5);
     }
 
@@ -64,28 +41,13 @@ namespace transmission_nets::impl::ModelSeven {
         auto infDurFolder   = paramOutputDir / "infection_duration";
         auto freqDir        = paramOutputDir / "allele_frequencies";
         auto genotypeDir    = paramOutputDir / "genotypes";
+        auto latentParentsDir = paramOutputDir / "latent_parents";
 
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
         infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci);
         allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
 
-        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
-        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.01);
-
-        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
-        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.01);
-
-        geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
-        geometricGenerationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(1);
-
-        lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
-        lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(90);
-
-        mutationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
-        mutationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(99);
-
-        meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
-        meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(5);
+        initPriors();
 
         alleleFrequencies = std::make_shared<AlleleFrequencyContainerImpl>();
         for (const auto& [locus_label, locus] : this->loci) {
@@ -93,9 +55,6 @@ namespace transmission_nets::impl::ModelSeven {
             auto hotloadFreq = core::datatypes::Simplex(core::io::hotloadVector(freqDir / (locus->label + ".csv")));
             alleleFrequencies->alleleFrequencies(locus)->initializeValue(hotloadFreq);
         }
-
-        infectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(100);
-        infectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(1);
 
         for (auto& infection : infections) {
             auto infDir        = genotypeDir / core::io::makePathValid(infection->id());
@@ -105,8 +64,17 @@ namespace transmission_nets::impl::ModelSeven {
                 infection->latentGenotype(locus)->initializeValue(GeneticsImpl(core::io::hotloadString(infDir / (label + ".csv"))));
             }
 
+            latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
             expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadDouble(epsPosFolder / inf_file_name)));
             expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadDouble(epsNegFolder / inf_file_name)));
+        }
+
+        for (auto& infection : latentParents) {
+            auto infDir        = latentParentsDir / core::io::makePathValid(infection->id());
+            auto inf_file_name = core::io::makePathValid(infection->id()) + ".csv";
+            for (const auto& [label, locus] : loci) {
+                infection->latentGenotype(locus)->initializeValue(GeneticsImpl(core::io::hotloadString(infDir / (label + ".csv"))));
+            }
         }
 
         infectionEventOrdering = std::make_shared<OrderingImpl>();
@@ -114,7 +82,27 @@ namespace transmission_nets::impl::ModelSeven {
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "geo_gen_prob.csv"));
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "loss_prob.csv"));
-        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mutation_prob.csv"));
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_coi.csv"));
+    }
+
+    void State::initPriors() {
+        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
+
+        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
+
+        geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
+        geometricGenerationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(1);
+
+        lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
+        lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(9);
+
+        meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(2);
+
+        infectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(100);
+        infectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(1);
+
     }
 }// namespace transmission_nets::impl::ModelSeven

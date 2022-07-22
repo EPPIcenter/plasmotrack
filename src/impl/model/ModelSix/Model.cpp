@@ -15,13 +15,13 @@ namespace transmission_nets::impl::ModelSix {
         likelihood.registerCacheableCheckpointTarget(this);
 
         intp                    = std::make_shared<InterTransmissionProbImpl>(state_->geometricGenerationProb);
-        nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->mutationProb, state_->lossProb, intp);
+        nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->lossProb, intp);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
 
         // Register Priors
-        likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->mutationProb, state_->mutationProbPriorAlpha, state_->mutationProbPriorBeta));
+//        likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->mutationProb, state_->mutationProbPriorAlpha, state_->mutationProbPriorBeta));
         likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->lossProb, state_->lossProbPriorAlpha, state_->lossProbPriorBeta));
-        likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->mutationProb, state_->mutationProbPriorAlpha, state_->mutationProbPriorBeta));
+//        likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->mutationProb, state_->mutationProbPriorAlpha, state_->mutationProbPriorBeta));
         likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanCOI, state_->meanCOIPriorShape, state_->meanCOIPriorScale));
         likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
         //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationShape, state_->infectionDurationShapePriorShape, state_->infectionDurationShapePriorScale));

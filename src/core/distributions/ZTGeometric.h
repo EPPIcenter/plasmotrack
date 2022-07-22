@@ -15,8 +15,11 @@
 
 #include "core/parameters/Parameter.h"
 
+#include <memory>
 
 namespace transmission_nets::core::distributions {
+
+    using namespace transmission_nets::core::parameters;
 
     template<int MAX_COUNT>
     class ZTGeometric : public computation::Computation<datatypes::ProbabilityVector<MAX_COUNT + 1>>,
@@ -26,7 +29,7 @@ namespace transmission_nets::core::distributions {
                                                                                         MAX_COUNT + 1>> {
 
     public:
-        explicit ZTGeometric(std::shared_ptr<parameters::Parameter<double>> prob) noexcept;
+        explicit ZTGeometric(std::shared_ptr<Parameter<double>> prob) noexcept;
 
         datatypes::ProbabilityVector<MAX_COUNT + 1> value() noexcept;
 
@@ -36,11 +39,11 @@ namespace transmission_nets::core::distributions {
 
         friend class abstract::Cacheable<ZTGeometric<MAX_COUNT>>;
 
-        std::shared_ptr<parameters::Parameter<double>> prob_;
+        std::shared_ptr<Parameter<double>> prob_;
     };
 
     template<int MAX_COUNT>
-    ZTGeometric<MAX_COUNT>::ZTGeometric(std::shared_ptr<parameters::Parameter<double>> prob) noexcept : prob_(
+    ZTGeometric<MAX_COUNT>::ZTGeometric(std::shared_ptr<Parameter<double>> prob) noexcept : prob_(
                                                                                                                 std::move(prob)) {
         this->value_(0) = 0;
         prob_->registerCacheableCheckpointTarget(this);

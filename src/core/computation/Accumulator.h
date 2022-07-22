@@ -5,9 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ACCUMULATOR_H
 #define TRANSMISSION_NETWORKS_APP_ACCUMULATOR_H
 
-#include <boost/container/flat_set.hpp>
-#include <cassert>
-#include <cmath>
 
 #include "Computation.h"
 #include "PartialLikelihood.h"
@@ -15,6 +12,12 @@
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
 #include "core/abstract/observables/Observable.h"
+
+#include <boost/container/flat_set.hpp>
+
+#include <cassert>
+#include <cmath>
+
 
 namespace transmission_nets::core::computation {
     using Likelihood = core::computation::Likelihood;

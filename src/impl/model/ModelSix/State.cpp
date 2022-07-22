@@ -28,7 +28,6 @@ namespace transmission_nets::impl::ModelSix {
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.9);
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(.1);
-        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(.01);
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(5);
     }
 
@@ -70,7 +69,6 @@ namespace transmission_nets::impl::ModelSix {
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "geo_gen_prob.csv"));
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "loss_prob.csv"));
-        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mutation_prob.csv"));
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_coi.csv"));
     }
 
@@ -86,9 +84,6 @@ namespace transmission_nets::impl::ModelSix {
 
         lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
         lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(90);
-
-        mutationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
-        mutationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(99);
 
         meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
         meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(5);

@@ -37,6 +37,22 @@ namespace transmission_nets::core::containers {
 
         explicit Infection(std::string id, double observationTime);
 
+        Infection(const Infection& other, const std::string& id = "") {
+            // Copy constructor -- create a new infection from an existing one using the observed genetics.
+            if (id.empty()) {
+                id_ = other.id_ + "_copy";
+            } else {
+                id_ = id;
+            }
+
+            observationTime_   = other.observationTime_;
+            infectionDuration_ = other.infectionDuration_;
+
+            for (const auto& [locus, data] : other.latentGenotype_) {
+                addGenetics(locus, data->value(), data->value());
+            }
+        }
+
 
         template<typename T>
         void addGenetics(std::shared_ptr<LocusImpl> locus, const T& obs, const T& latent);
@@ -46,9 +62,6 @@ namespace transmission_nets::core::containers {
 
         template<typename T>
         void addLatentGenetics(std::shared_ptr<LocusImpl> locus, const T& latent);
-
-        template<typename T>
-        void addSourceGenetics(std::shared_ptr<LocusImpl> locus, const T& latent);
 
         GenotypeDataMap& observedGenotype() {
             return observedGenotype_;
@@ -82,43 +95,59 @@ namespace transmission_nets::core::containers {
             return latentGenotype_.at(locus);
         };
 
-        GenotypeParameterMap& latentSource() {
-            return latentSource_;
-        };
-
-        GenotypeParameterMap& latentSource() const {
-            return latentSource_;
-        };
-
-        std::shared_ptr<parameters::Parameter<GeneticImpl>> latentSource(std::shared_ptr<LocusImpl> locus) {
-            return latentSource_.at(locus);
-        };
-
-        std::shared_ptr<parameters::Parameter<GeneticImpl>> latentSource(std::shared_ptr<LocusImpl> locus) const {
-            return latentSource_.at(locus);
-        };
-
+        /**
+         * @brief Returns a vector of all the loci in the infection.
+         * @return A vector of all the loci in the infection.
+         */
         const std::vector<std::shared_ptr<LocusImpl>>& loci() const {
             return loci_;
         }
 
+        /**
+         * @brief Returns the observation time of the infection.
+         * @return The observation time of the infection.
+         */
         [[nodiscard]] std::shared_ptr<datatypes::Data<double>> observationTime() const {
             return observationTime_;
         }
 
+        /**
+         * @brief Returns the duration of the infection.
+         * @return The duration of the infection.
+         */
         [[nodiscard]] std::shared_ptr<parameters::Parameter<double>> infectionDuration() const {
             return infectionDuration_;
         }
 
+        /**
+         * @brief Returns the time of the infection.
+         * @return The time of the infection.
+         */
         double infectionTime() {
             double infectionTime = observationTime_->value() - infectionDuration_->value();
             return infectionTime;
         }
 
+        /**
+         * @brief Sets the id of the infection.
+         * @param id The id of the infection.
+         */
+        void setId(const std::string& id) {
+            id_ = id;
+        }
+
+        /**
+         * @brief Returns the id of the infection.
+         * @return The id of the infection.
+         */
         [[nodiscard]] std::string id() const {
             return id_;
         }
 
+        /**
+         * @brief Returns the string representation of the infection using the id.
+         * @return The string representation of the infection.
+         */
         [[nodiscard]] std::string serialize() const {
             return id_;
         }
@@ -127,7 +156,6 @@ namespace transmission_nets::core::containers {
         std::string id_;
         GenotypeMap<std::shared_ptr<datatypes::Data<GeneticImpl>>> observedGenotype_{};
         GenotypeMap<std::shared_ptr<parameters::Parameter<GeneticImpl>>> latentGenotype_{};
-        GenotypeMap<std::shared_ptr<parameters::Parameter<GeneticImpl>>> latentSource_{};
         std::vector<std::shared_ptr<LocusImpl>> loci_{};
         std::shared_ptr<datatypes::Data<double>> observationTime_;
         std::shared_ptr<parameters::Parameter<double>> infectionDuration_;// default to 100 days? or maybe something else -- look in constructor
@@ -165,6 +193,15 @@ namespace transmission_nets::core::containers {
     //        }
     //    }
 
+    /**
+     * @brief Add observed and latent genotypes to the infection.
+     * @tparam GeneticImpl Class implementing the Genetic interface.
+     * @tparam LocusImpl Class implementing the Locus interface.
+     * @tparam T Class that may be used to initialize the genotypes.
+     * @param locus Pointer to the locus.
+     * @param obs The observed genotype.
+     * @param latent The latent genotype.
+     */
     template<typename GeneticImpl, typename LocusImpl>
     template<typename T>
     void Infection<GeneticImpl, LocusImpl>::addGenetics(std::shared_ptr<LocusImpl> locus, const T& obs, const T& latent) {
@@ -181,33 +218,39 @@ namespace transmission_nets::core::containers {
         latentGenotype_.at(locus)->add_restore_state_listener([=, this](std::string savedStateId) { this->template notify_restore_state(savedStateId); });
     }
 
+    /**
+     * @brief Add observed and latent genotypes to the infection. Latent genotypes are initialized to the observed genotypes.
+     * @tparam GeneticImpl Class implementing the Genetic interface.
+     * @tparam LocusImpl Class implementing the Locus interface.
+     * @tparam T Class that may be used to initialize the genotypes.
+     * @param locus Pointer to the locus.
+     * @param obs The observed genotype.
+     */
     template<typename GeneticImpl, typename LocusImpl>
     template<typename T>
     void Infection<GeneticImpl, LocusImpl>::addObservedGenetics(std::shared_ptr<LocusImpl> locus, const T& obs) {
-        /*
-         * Copy the observed genetic state into the latent genetic state and latent source
-         */
         loci_.push_back(locus);
-        auto ob     = std::make_shared<datatypes::Data<GeneticImpl>>(obs);
-        auto lat    = std::make_shared<parameters::Parameter<GeneticImpl>>(obs);
-        auto latSrc = std::make_shared<parameters::Parameter<GeneticImpl>>(obs);
+        auto ob  = std::make_shared<datatypes::Data<GeneticImpl>>(obs);
+        auto lat = std::make_shared<parameters::Parameter<GeneticImpl>>(obs);
         observedGenotype_.template insert_or_assign(locus, ob);
         latentGenotype_.template insert_or_assign(locus, lat);
-        latentSource_.template insert_or_assign(locus, latSrc);
         // Creating pass through of notifications
         latentGenotype_.at(locus)->add_pre_change_listener([=, this]() { this->template notify_pre_change(); });
         latentGenotype_.at(locus)->add_post_change_listener([=, this]() { this->template notify_post_change(); });
         latentGenotype_.at(locus)->add_save_state_listener([=, this](std::string savedStateId) { this->template notify_save_state(savedStateId); });
         latentGenotype_.at(locus)->add_accept_state_listener([=, this]() { this->template notify_accept_state(); });
         latentGenotype_.at(locus)->add_restore_state_listener([=, this](std::string savedStateId) { this->template notify_restore_state(savedStateId); });
-
-        latentSource_.at(locus)->add_pre_change_listener([=, this]() { this->template notify_pre_change(); });
-        latentSource_.at(locus)->add_post_change_listener([=, this]() { this->template notify_post_change(); });
-        latentSource_.at(locus)->add_save_state_listener([=, this](std::string savedStateId) { this->template notify_save_state(savedStateId); });
-        latentSource_.at(locus)->add_accept_state_listener([=, this]() { this->template notify_accept_state(); });
-        latentSource_.at(locus)->add_restore_state_listener([=, this](std::string savedStateId) { this->template notify_restore_state(savedStateId); });
     }
 
+
+    /**
+     * @brief Add latent genotypes to the infection.
+     * @tparam GeneticImpl Class implementing the Genetic interface.
+     * @tparam LocusImpl Class implementing the Locus interface.
+     * @tparam T Class that may be used to initialize the genotypes.
+     * @param locus Pointer to the locus.
+     * @param latent The latent genotype.
+     */
     template<typename GeneticImpl, typename LocusImpl>
     template<typename T>
     void Infection<GeneticImpl, LocusImpl>::addLatentGenetics(std::shared_ptr<LocusImpl> locus, const T& latent) {
@@ -220,21 +263,6 @@ namespace transmission_nets::core::containers {
         latentGenotype_.at(locus)->add_save_state_listener([=, this](std::string savedStateId) { this->template notify_save_state(savedStateId); });
         latentGenotype_.at(locus)->add_accept_state_listener([=, this]() { this->template notify_accept_state(); });
         latentGenotype_.at(locus)->add_restore_state_listener([=, this](std::string savedStateId) { this->template notify_restore_state(savedStateId); });
-    }
-
-
-    template<typename GeneticImpl, typename LocusImpl>
-    template<typename T>
-    void Infection<GeneticImpl, LocusImpl>::addSourceGenetics(std::shared_ptr<LocusImpl> locus, const T& latent) {
-        loci_.push_back(locus);
-        auto lat = std::make_shared<parameters::Parameter<GeneticImpl>>(latent);
-        latentSource_.template insert_or_assign(locus, lat);
-        // Creating pass through of notifications
-        latentSource_.at(locus)->add_pre_change_listener([=, this]() { this->template notify_pre_change(); });
-        latentSource_.at(locus)->add_post_change_listener([=, this]() { this->template notify_post_change(); });
-        latentSource_.at(locus)->add_save_state_listener([=, this](std::string savedStateId) { this->template notify_save_state(savedStateId); });
-        latentSource_.at(locus)->add_accept_state_listener([=, this]() { this->template notify_accept_state(); });
-        latentSource_.at(locus)->add_restore_state_listener([=, this](std::string savedStateId) { this->template notify_restore_state(savedStateId); });
     }
 
 }// namespace transmission_nets::core::containers

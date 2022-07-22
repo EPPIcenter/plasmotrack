@@ -18,6 +18,8 @@ namespace transmission_nets::core::datatypes {
 
         template<int T>
         friend std::ostream& operator<<(std::ostream& os, const AllelesBitSet<T>& alleles) noexcept;
+        bool operator==(const AllelesBitSet& rhs) const;
+        bool operator!=(const AllelesBitSet& rhs) const;
 
         [[nodiscard]] std::string serialize() const noexcept;
 
@@ -35,6 +37,15 @@ namespace transmission_nets::core::datatypes {
 
         [[nodiscard]] constexpr inline static unsigned int
         falseNegativeCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
+
+        [[nodiscard]] constexpr inline static AllelesBitSet<MaxAlleles>
+                shared(const AllelesBitSet<MaxAlleles>& lhs, const AllelesBitSet<MaxAlleles>& rhs) noexcept;
+
+        [[nodiscard]] constexpr inline static AllelesBitSet<MaxAlleles>
+                diff(const AllelesBitSet<MaxAlleles>& lhs, const AllelesBitSet<MaxAlleles>& rhs) noexcept;
+
+        [[nodiscard]] constexpr inline static AllelesBitSet<MaxAlleles>
+                invert(const AllelesBitSet<MaxAlleles>& alleles) noexcept;
 
         [[nodiscard]] inline std::string allelesStr() const noexcept;
         [[nodiscard]] inline std::string compactAllelesStr() const noexcept;
@@ -54,10 +65,14 @@ namespace transmission_nets::core::datatypes {
     private:
         unsigned int total_alleles_ = 0;
         std::bitset<MaxAlleles> alleles_{};
+        std::bitset<MaxAlleles> mask_{};
     };
 
     template<int MaxAlleles>
     AllelesBitSet<MaxAlleles>::AllelesBitSet(const std::string& bitstr) : total_alleles_(bitstr.size()), alleles_(bitstr) {
+        for (size_t i = 0; i < total_alleles_; ++i) {
+            mask_.set(i);
+        }
         assert(bitstr.size() <= MaxAlleles);
     }
 
@@ -154,6 +169,45 @@ namespace transmission_nets::core::datatypes {
     AllelesBitSet<MaxAlleles>::AllelesBitSet() {
         total_alleles_ = 0;
         alleles_       = std::bitset<MaxAlleles>{};
+    }
+
+    template<int MaxAlleles>
+    constexpr AllelesBitSet<MaxAlleles> AllelesBitSet<MaxAlleles>::shared(const AllelesBitSet<MaxAlleles>& lhs, const AllelesBitSet<MaxAlleles>& rhs) noexcept {
+        AllelesBitSet<MaxAlleles> result;
+        result.alleles_ = lhs.alleles_ & rhs.alleles_;
+        result.total_alleles_ = lhs.total_alleles_;
+        result.mask_ = lhs.mask_;
+        return result;
+    }
+
+    template<int MaxAlleles>
+    constexpr AllelesBitSet<MaxAlleles> AllelesBitSet<MaxAlleles>::diff(const AllelesBitSet<MaxAlleles>& lhs, const AllelesBitSet<MaxAlleles>& rhs) noexcept {
+        AllelesBitSet<MaxAlleles> result;
+        result.alleles_ = lhs.alleles_ ^ rhs.alleles_;
+        result.total_alleles_ = lhs.total_alleles_;
+        result.mask_ = lhs.mask_;
+        return result;
+    }
+
+    template<int MaxAlleles>
+    constexpr AllelesBitSet<MaxAlleles> AllelesBitSet<MaxAlleles>::invert(const AllelesBitSet<MaxAlleles>& alleles) noexcept {
+        AllelesBitSet<MaxAlleles> result;
+        result.alleles_ = alleles.alleles_;
+        result.total_alleles_ = alleles.total_alleles_;
+        result.mask_ = alleles.mask_;
+        result.alleles_ = ~result.alleles_ & result.mask_;
+        return result;
+    }
+
+    template<int MaxAlleles>
+    bool AllelesBitSet<MaxAlleles>::operator==(const AllelesBitSet& rhs) const {
+        return total_alleles_ == rhs.total_alleles_ &&
+               alleles_ == rhs.alleles_;
+    }
+
+    template<int MaxAlleles>
+    bool AllelesBitSet<MaxAlleles>::operator!=(const AllelesBitSet& rhs) const {
+        return !(*this == rhs);
     }
 }// namespace transmission_nets::core::datatypes
 

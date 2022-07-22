@@ -54,9 +54,9 @@ namespace transmission_nets::impl::ModelSix {
         p_ParameterDouble lossProbPriorAlpha;
         p_ParameterDouble lossProbPriorBeta;
 
-        p_ParameterDouble mutationProb;
-        p_ParameterDouble mutationProbPriorAlpha;
-        p_ParameterDouble mutationProbPriorBeta;
+//        p_ParameterDouble mutationProb;
+//        p_ParameterDouble mutationProbPriorAlpha;
+//        p_ParameterDouble mutationProbPriorBeta;
 
         // Source Transmission Process
         p_ParameterDouble meanCOI;

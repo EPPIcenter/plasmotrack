@@ -8,11 +8,11 @@ set(transmission_networks_VERSION_MINOR 0)
 set(CMAKE_CXX_STANDARD 20)
 
 #set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fsanitize=undefined,address -Wall -Wextra -Werror")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -fno-omit-frame-pointer -Wall -Wextra ")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fno-omit-frame-pointer")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -fno-omit-frame-pointer -Wall -Wextra ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fno-omit-frame-pointer")
 if (CMAKE_COMPILER_IS_GNUCC)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -fno-omit-frame-pointer")
-    #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Werror -O3 -ffast-math -DNDEBUG -g -march=native -frename-registers -funroll-loops -fno-omit-frame-pointer -fopenmp -funsafe-math-optimizations -ldl") # -Ofast is throwing nan errors
+#    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Werror -O3 -DNDEBUG -g -march=native -frename-registers -funroll-loops") # -Ofast is throwing nan errors
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Werror -O2 -DNDEBUG -pg -g -march=native") # -Ofast is throwing nan errors
 endif ()
 
@@ -52,3 +52,4 @@ add_subdirectory(src)
 add_subdirectory(test)
 add_subdirectory(tools/cli/ModelFive)
 add_subdirectory(tools/cli/ModelSix)
+add_subdirectory(tools/cli/ModelSeven)

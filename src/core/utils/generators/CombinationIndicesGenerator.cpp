@@ -26,6 +26,10 @@ namespace transmission_nets::core::utils::generators {
         std::iota(curr.begin(), curr.end(), 0);
     }
 
+    void CombinationIndicesGenerator::reset() {
+        reset(n_, r_);
+    }
+
     void CombinationIndicesGenerator::next() noexcept {
         assert(!completed);
         completed = true;

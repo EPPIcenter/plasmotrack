@@ -10,7 +10,7 @@
 
 #include "core/computation/Accumulator.h"
 #include "core/computation/PartialLikelihood.h"
-#include "core/computation/Transformers/LogTransformer.h"
+#include "core/computation/transformers/LogTransformer.h"
 
 #include "core/containers/AlleleFrequencyContainer.h"
 

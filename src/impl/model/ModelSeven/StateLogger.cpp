@@ -13,6 +13,7 @@ namespace transmission_nets::impl::ModelSeven {
         auto infDurFolder  = paramOutputFolder_ / "infection_duration";
         auto freqDir       = paramOutputFolder_ / "allele_frequencies";
 
+
         if (!fs::exists(paramOutputFolder_)) {
             fs::create_directories(paramOutputFolder_);
         }
@@ -35,7 +36,6 @@ namespace transmission_nets::impl::ModelSeven {
 
         loggers_.push_back(new core::io::ValueLogger(state_->geometricGenerationProb, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "geo_gen_prob.csv", "geo_gen_prob", resetOutput)));
         loggers_.push_back(new core::io::ValueLogger(state_->lossProb, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "loss_prob.csv", "loss_prob", resetOutput)));
-        loggers_.push_back(new core::io::ValueLogger(state_->mutationProb, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "mutation_prob.csv", "mutation_prob", resetOutput)));
         loggers_.push_back(new core::io::ValueLogger(state_->meanCOI, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "mean_coi.csv", "mean_coi", resetOutput)));
         loggers_.push_back(new core::io::ValueLogger(state_->infectionDurationShape, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_duration_shape.csv", "infection_duration_shape", resetOutput)));
         loggers_.push_back(new core::io::ValueLogger(state_->infectionDurationScale, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_duration_scale.csv", "infection_duration_scale", resetOutput)));
@@ -57,6 +57,19 @@ namespace transmission_nets::impl::ModelSeven {
         for (const auto& infection : state_->infections) {
             auto inf_dir      = core::io::makePathValid(infection->id());
             auto full_inf_dir = paramOutputFolder_ / "genotypes" / inf_dir;
+            if (!fs::exists(full_inf_dir)) {
+                fs::create_directories(full_inf_dir);
+            }
+            for (const auto& [locus_label, locus] : state_->loci) {
+                if (std::find(infection->loci().begin(), infection->loci().end(), locus) != infection->loci().end()) {
+                    loggers_.push_back(new core::io::ValueLogger(infection->latentGenotype(locus), std::make_unique<core::io::FileOutput>(full_inf_dir / (locus_label + ".csv"), "", resetOutput)));
+                }
+            }
+        }
+
+        for (const auto& infection : state_->latentParents) {
+            auto inf_dir      = core::io::makePathValid(infection->id());
+            auto full_inf_dir = paramOutputFolder_ / "latent_parents" / inf_dir;
             if (!fs::exists(full_inf_dir)) {
                 fs::create_directories(full_inf_dir);
             }

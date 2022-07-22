@@ -118,8 +118,21 @@ set(SOURCE_FILES
         impl/model/ModelSix/SamplerLogger.cpp
         impl/model/ModelSix/SamplerLogger.h
 
+        impl/model/ModelSeven/State.cpp
+        impl/model/ModelSeven/State.h
+        impl/model/ModelSeven/Model.cpp
+        impl/model/ModelSeven/Model.h
+        impl/model/ModelSeven/config.h
+        impl/model/ModelSeven/SampleScheduler.h
+        impl/model/ModelSeven/StateLogger.cpp
+        impl/model/ModelSeven/StateLogger.h
+        impl/model/ModelSeven/ModelLogger.cpp
+        impl/model/ModelSeven/ModelLogger.h
+        impl/model/ModelSeven/SamplerLogger.cpp
+        impl/model/ModelSeven/SamplerLogger.h
+
         model/transmission_process/node_transmission_process/SuperInfectionNoMutation.h
-        model/observation_process/ObservationProcessLikelihoodv2.h core/containers/ObservedInfection.h)
+        model/observation_process/ObservationProcessLikelihoodv2.h model/transmission_process/node_transmission_process/SimpleLossMutation.h model/transmission_process/node_transmission_process/SimpleLoss.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

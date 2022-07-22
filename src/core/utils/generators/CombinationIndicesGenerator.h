@@ -26,6 +26,7 @@ namespace transmission_nets::core::utils::generators {
         CombinationIndicesGenerator();
 
         void reset(std::size_t n, std::size_t r);
+        void reset();
 
         void next() noexcept;
 

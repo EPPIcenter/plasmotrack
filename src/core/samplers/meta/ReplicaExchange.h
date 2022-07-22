@@ -36,6 +36,7 @@ namespace transmission_nets::core::samplers {
         ReplicaExchange(int numChains, int samplesPerStep, double gradient, std::shared_ptr<Engine> r, fs::path outputDir, bool hotload, Args... args) : r_(r) {
             swap_acceptance_rates = std::vector<int>(numChains, 0);
             for (int ii = 0; ii < numChains; ++ii) {
+                auto chain_r     = std::make_shared<Engine>(seed_dist_(*r_));
                 double temp = 1.0 / std::pow(gradient, ii);
                 std::shared_ptr<State> state;
                 if (hotload) {
@@ -45,7 +46,6 @@ namespace transmission_nets::core::samplers {
                 }
                 auto model       = std::make_shared<Model>(state);
                 auto target      = std::make_shared<TemperedTarget>(model, temp);
-                auto chain_r     = std::make_shared<Engine>(seed_dist_(*r_));
                 auto sampler     = std::make_shared<Scheduler<TemperedTarget>>(state, target, chain_r, samplesPerStep);
                 auto modelLogger = std::make_shared<ModelLogger>(model, outputDir);
                 std::shared_ptr<StateLogger> stateLogger;

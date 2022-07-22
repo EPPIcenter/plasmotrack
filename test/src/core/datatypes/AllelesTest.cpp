@@ -70,3 +70,27 @@ TEST_F(AllelesTestFixture, ParameterTest) {
     p.restoreState("state1");
     std::cout << p.value() << std::endl;
 }
+
+TEST_F(AllelesTestFixture, InvertTest) {
+    auto inverted_a1 = GeneticsImpl("000111000111");
+    ASSERT_EQ(GeneticsImpl::invert(a1), inverted_a1);
+    ASSERT_EQ(GeneticsImpl::invert(inverted_a1), a1);
+    ASSERT_EQ(GeneticsImpl::invert(GeneticsImpl::invert(a1)), a1);
+}
+
+TEST_F(AllelesTestFixture, DiffTest) {
+    GeneticsImpl a3_diff("10110");
+    ASSERT_EQ(GeneticsImpl::diff(a3_diff, a3), GeneticsImpl("00100"));
+}
+
+TEST_F(AllelesTestFixture, SharedTest) {
+    GeneticsImpl a3_shared("10100");
+    ASSERT_EQ(GeneticsImpl::shared(a3_shared, a3), GeneticsImpl("10000"));
+}
+
+TEST_F(AllelesTestFixture, CopyTest) {
+    GeneticsImpl a3_copy = a3;
+    ASSERT_EQ(a3_copy, a3);
+    a3.flip(1);
+    ASSERT_NE(a3_copy, a3);
+}

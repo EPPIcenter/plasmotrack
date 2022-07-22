@@ -6,6 +6,8 @@
 
 #include "core/utils/numerics.h"
 
+#include <fmt/core.h>
+
 using namespace transmission_nets::core::utils;
 
 TEST(NumericsTests, TestExpNormalize) {
@@ -44,4 +46,15 @@ TEST(NumericsTests, TestLogitScale) {
     for (size_t i = 0; i < out.size(); ++i) {
         ASSERT_NEAR(out[i], expected[i], 1e-6);
     }
+}
+
+TEST(NumericsTests, TestInitKVec) {
+    auto out = initKvecs<4, 3>();
+    for (const auto & kvec : out) {
+        for (const auto & k : kvec) {
+           fmt::print("{} ", k);
+        }
+        fmt::print("\n");
+    }
+
 }

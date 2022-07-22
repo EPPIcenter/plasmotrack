@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project(transmission_networks_model_six)
+project(transmission_networks_model_seven)
 
 find_package(Boost 1.74 COMPONENTS program_options REQUIRED container math_c99l random filesystem)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
@@ -17,8 +17,8 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
 
 set(SOURCE_FILES ModelSeven.cpp)
-add_executable(transmission_networks_model_six ${SOURCE_FILES})
-target_link_libraries(transmission_networks_model_six
+add_executable(transmission_networks_model_seven ${SOURCE_FILES})
+target_link_libraries(transmission_networks_model_seven
         PRIVATE
         transmission_networks
         nlohmann_json::nlohmann_json
@@ -28,4 +28,4 @@ target_link_libraries(transmission_networks_model_six
         )
 
 message(${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
-install(TARGETS transmission_networks_model_six DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
+install(TARGETS transmission_networks_model_seven DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

@@ -23,12 +23,12 @@ namespace transmission_nets::core::samplers {
     class ContinuousRandomWalk : public AbstractSampler {
 
     public:
-        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, std::string identifier = "") noexcept;
+        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept;
 
-        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, std::string identifier = "") noexcept;
+        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance) noexcept;
 
         ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, double minVariance,
-                             double maxVariance, std::string identifier = "") noexcept;
+                             double maxVariance) noexcept;
 
 
         [[nodiscard]] unsigned int acceptances() const noexcept;
@@ -54,10 +54,6 @@ namespace transmission_nets::core::samplers {
 
         void adapt(unsigned int idx) noexcept override;
 
-        void setVerbose(bool verbose = true) {
-            verbose_ = verbose;
-        }
-
 
     protected:
         std::shared_ptr<parameters::Parameter<double>> parameter_;
@@ -77,26 +73,24 @@ namespace transmission_nets::core::samplers {
         unsigned int rejections_    = 0;
         unsigned int total_updates_ = 0;
 
-        bool verbose_ = false;
-        std::string identifier_;
     };
 
     template<typename T, typename Engine, typename U>
-    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, std::string identifier) noexcept
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept
         : parameter_(std::move(parameter)),
-          target_(target), rng_(rng), identifier_(std::move(identifier)) {}
+          target_(target), rng_(rng) {}
 
     template<typename T, typename Engine, typename U>
     ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
-                                                             double variance, std::string identifier) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance), identifier_(std::move(identifier)) {
+                                                             double variance) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance) {
         assert(variance > 0);
     }
 
     template<typename T, typename Engine, typename U>
     ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
                                                              double variance, double minVariance,
-                                                             double maxVariance, std::string identifier) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance), min_variance_(minVariance),
-                                                                                                                    max_variance_(maxVariance), identifier_(std::move(identifier)) {}
+                                                             double maxVariance) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance), min_variance_(minVariance),
+                                                                                                                    max_variance_(maxVariance) {}
 
     template<typename T, typename Engine, typename U>
     void ContinuousRandomWalk<T, Engine, U>::update() noexcept {
@@ -111,17 +105,9 @@ namespace transmission_nets::core::samplers {
         parameter_->setValue(proposal);
         const Likelihood adj = logMetropolisHastingsAdjustment(currentVal, proposal);
 
-
         const Likelihood acceptanceRatio = target_->value() - curLik + adj;
         assert(!target_->isDirty());
-        if (verbose_) {
-            std::cout << "ID:" << identifier_ << std::endl;
-            std::cout << "Curr: " << currentVal << std::endl;
-            std::cout << "Prop: " << proposal << std::endl;
-            std::cout << "Var: " << variance() << std::endl;
-            std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << " " << acceptanceRatio << std::endl;
-            std::cout << "----------------------------------------------------" << std::endl;
-        }
+
         const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
         if (accept) {

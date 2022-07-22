@@ -80,7 +80,7 @@ set(SOURCE_FILES
         src/core/utils/NumericsTest.cpp
         src/impl/ModelFourTest.cpp
         src/core/computation/ObservationTimeDerivedOrderingTest.cpp
-        src/impl/ModelFiveTest.cpp src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp)
+        src/impl/ModelFiveTest.cpp src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests

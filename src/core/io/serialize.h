@@ -84,6 +84,17 @@ namespace transmission_nets::core::io {
         out.pop_back();
         return out;
     }
+
+    template<typename T, int SIZE>
+    std::string serialize(std::array<T, SIZE> &val) {
+        std::string out;
+        for (const auto& el : val) {
+            out += serialize(el);
+            out += ",";
+        }
+        out.pop_back();
+        return out;
+    }
 }// namespace transmission_nets::core::io
 
 

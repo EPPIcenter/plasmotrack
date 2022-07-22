@@ -39,8 +39,8 @@
 #include "model/observation_process/AlleleCounts.h"
 #include "model/observation_process/ObservationProcessLikelihoodv2.h"
 
-#include "model/transmission_process/OrderBasedTransmissionProcess.h"
-#include "model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h"
+#include "model/transmission_process/OrderBasedTransmissionProcessV2.h"
+#include "model/transmission_process/node_transmission_process/SimpleLoss.h"
 
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
@@ -49,8 +49,8 @@ namespace transmission_nets::impl::ModelSeven {
 
     static constexpr int MAX_ALLELES       = 64;
     static constexpr int MAX_COI           = 8;
-    static constexpr int MAX_PARENTS       = 1;
-    static constexpr int MAX_TRANSMISSIONS = 12;
+    static constexpr int MAX_PARENTS       = 2;
+    static constexpr int MAX_TRANSMISSIONS = 4;
     namespace fs                           = std::filesystem;
 
     using Likelihood                   = core::computation::Likelihood;
@@ -62,16 +62,17 @@ namespace transmission_nets::impl::ModelSeven {
 
     using AlleleCounterImpl        = model::observation_process::AlleleCounter<GeneticsImpl>;
     using AlleleCounterAccumulator = core::computation::Accumulator<AlleleCounterImpl, model::observation_process::AlleleCounts>;
+    using ObservationProcessImpl   = model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>;
 
     using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
-    using NodeTransmissionImpl      = model::transmission_process::NoSuperInfectionMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>;
+    using NodeTransmissionImpl      = model::transmission_process::SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTS, InterTransmissionProbImpl>;
 
     using COIProbabilityImpl     = core::distributions::ZTPoisson<MAX_COI>;
-    using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent, MAX_COI>;
+    using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent::GenotypeParameterMap , MAX_COI>;
 
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
     using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
-    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
+    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcessV2<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
 
 }// namespace transmission_nets::impl::ModelSeven
 
