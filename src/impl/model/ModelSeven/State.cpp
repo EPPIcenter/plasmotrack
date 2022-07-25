@@ -28,9 +28,9 @@ namespace transmission_nets::impl::ModelSeven {
             latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
         }
 
-        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.9);
+        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.5);
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(.1);
-        meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(5);
+        meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(1);
     }
 
     State::State(const nlohmann::json& input, const fs::path& outputDir) {
@@ -95,8 +95,8 @@ namespace transmission_nets::impl::ModelSeven {
         geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
         geometricGenerationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(1);
 
-        lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
-        lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(9);
+        lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(100);
+        lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(900);
 
         meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
         meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(2);

@@ -29,26 +29,26 @@ namespace transmission_nets::impl::ModelSeven {
         long double totalInfections = state_->infections.size();
         long double totalLoci       = state_->loci.size();
 
-        scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->geometricGenerationProb, target_, 0.0, 1.0, r, .01, .01, 2),
+        scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->geometricGenerationProb, target_, 0.0, 1.0, r, 1, .1, 2),
                                     .id              = "Geometric Generation Prob",
-                                    .adaptationStart = 0,
+                                    .adaptationStart = 20,
                                     .adaptationEnd   = 2000,
                                     .weight          = totalInfections * 10,
-                                    .debug           = true});
+                                    .debug           = false});
 
-        scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->lossProb, target_, 0.0, 1.0, r, .01, .01, 2),
+        scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->lossProb, target_, 0.0, .25, r, 1, .1, 2),
                                     .id              = "Loss Probability",
-                                    .adaptationStart = 0,
+                                    .adaptationStart = 20,
                                     .adaptationEnd   = 2000,
                                     .weight          = totalInfections * 10,
-                                    .debug           = true});
+                                    .debug           = false});
 
-        scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->meanCOI, target_, 0.0, 100, r, .01, .01, 1),
+        scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->meanCOI, target_, 0.0, 100, r, 1, .1, 1),
                                     .id              = "Mean COI",
-                                    .adaptationStart = 0,
+                                    .adaptationStart = 20,
                                     .adaptationEnd   = 2000,
                                     .weight          = totalInfections * 10,
-                                    .debug           = true});
+                                    .debug           = false});
 
         for (auto& infection : state_->infections) {
             scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target_, 1.0, 1000.0, r, 1, .1, 100),
@@ -61,7 +61,7 @@ namespace transmission_nets::impl::ModelSeven {
                     auto latentGenotype = infection->latentGenotype(locus);
                                         scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
                                                                     .id      = fmt::format("Genotype {} {}", infection->id(), locus->label),
-                                                                    //                                                .updateStart = 1000,
+//                                                                                                                    .updateStart = 1000,
                                                                     .weight = 5});
 //                    scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
 //                                                .weight  = 1});
@@ -75,7 +75,7 @@ namespace transmission_nets::impl::ModelSeven {
                     auto latentGenotype = infection->latentGenotype(locus);
                                         scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
                                                                     .id      = fmt::format("Latent Genotype {} {}", infection->id(), locus->label),
-                                                                    //                                                .updateStart = 1000,
+//                                                                                                                    .updateStart = 1000,
                                                                     .weight = 5});
 //                    scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
 //                                                .weight  = 1});
@@ -104,7 +104,8 @@ namespace transmission_nets::impl::ModelSeven {
                                         .id              = fmt::format("Allele Freq {}", locus->label),
                                         .adaptationStart = 20,
                                         .adaptationEnd   = 2000,
-                                        .weight          = totalInfections});
+                                        .weight          = totalInfections
+            });
         }
     }
 }// namespace transmission_nets::impl::ModelSeven

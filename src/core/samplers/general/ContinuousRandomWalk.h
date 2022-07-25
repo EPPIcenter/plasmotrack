@@ -105,9 +105,26 @@ namespace transmission_nets::core::samplers {
         parameter_->setValue(proposal);
         const Likelihood adj = logMetropolisHastingsAdjustment(currentVal, proposal);
 
+        if (debug_) {
+            std::cout << "ID:" << identifier_ << std::endl;
+            std::cout << "Curr: " << currentVal << std::endl;
+            std::cout << "Prop: " << proposal << std::endl;
+            std::cout << "Var: " << variance() << std::endl;
+//            std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << " " << acceptanceRatio << std::endl;
+            std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << std::endl;
+            std::cout << "----------------------------------------------------" << std::endl;
+        }
+
         const Likelihood acceptanceRatio = target_->value() - curLik + adj;
         assert(!target_->isDirty());
-
+//        if (debug_) {
+//            std::cout << "ID:" << identifier_ << std::endl;
+//            std::cout << "Curr: " << currentVal << std::endl;
+//            std::cout << "Prop: " << proposal << std::endl;
+//            std::cout << "Var: " << variance() << std::endl;
+//            std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << " " << acceptanceRatio << std::endl;
+//            std::cout << "----------------------------------------------------" << std::endl;
+//        }
         const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
         if (accept) {

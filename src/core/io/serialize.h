@@ -55,7 +55,7 @@ namespace transmission_nets::core::io {
         std::string out = "{";
         for (const auto& p : ps) {
             out += serialize(p);
-            out += ",";
+            out += ";";
         }
         out.pop_back();
         out += "}";
