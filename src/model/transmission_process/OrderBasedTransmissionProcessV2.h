@@ -122,7 +122,6 @@ namespace transmission_nets::model::transmission_process {
         std::deque<InfectionEventSet> toCalculateCache_{};
         std::deque<std::vector<Likelihood>> toSubtractCache_{};
 
-
         // helper vars for calculating parent likelihood contributions
         core::containers::ParentSet<InfectionEventImpl> tmpPs_{};
         std::vector<Likelihood> parentLikelihoodContribution_{};
@@ -176,6 +175,7 @@ namespace transmission_nets::model::transmission_process {
     Likelihood
     OrderBasedTransmissionProcessV2<ParentSetMaxCardinality, NodeTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::value() {
         if (this->isDirty()) {
+            [[maybe_unused]] auto preValue = this->value_;
             toAdd_.clear();
             Likelihood maxLlik = -std::numeric_limits<Likelihood>::infinity();
             Likelihood totalToSubtract = 0.0;
@@ -183,7 +183,7 @@ namespace transmission_nets::model::transmission_process {
                 totalToSubtract = core::utils::logSumExp(toSubtract_);
             }
 
-            if (std::abs(this->value_ - totalToSubtract) < 1e-24) {
+            if (std::abs(this->value_ - totalToSubtract) < 1e-2) {
                 // numerical precision issues when subtracting two very close numbers
                 this->value_ = recalculate();
             } else {
@@ -219,8 +219,9 @@ namespace transmission_nets::model::transmission_process {
 #ifdef DEBUG_LIKELIHOOD
 
                 auto tmp = recalculate();
+//                if (this->value_ == -std::numeric_limits<Likelihood>::infinity() or (std::abs(tmp - this->value_) > 1)) {
                 if (this->value_ > -std::numeric_limits<Likelihood>::infinity() and (std::abs(tmp - this->value_) > 1)) {
-                    fmt::print("Err: {}, {}, {}\n", std::abs(tmp - this->value_), tmp, this->value_);
+                    fmt::print("Err: {}, {}, {}, {} \n", std::abs(tmp - this->value_), tmp, this->value_, preValue);
                     fmt::print("{} Likelihood mismatch OBTP: {}, {}\n", fmt::ptr(this), tmp, this->value_);
                     auto second_validate = recalculate(true);
                     fmt::print("Second Validation: {}\n", second_validate);
@@ -281,13 +282,17 @@ namespace transmission_nets::model::transmission_process {
         tmpToAdd_.push_back(ntp_->calculateLogLikelihood(child_, latentParent_));
         maxLlik = std::max(maxLlik, tmpToAdd_.back());
 
+        val         = core::utils::logSumExpKnownMax(tmpToAdd_.begin(), tmpToAdd_.end(), maxLlik);
+        calculated_ = std::move(tmpCalculated_);
+
+
         if (verbose) {
             fmt::print("Validate to Add: {}\n", fmt::join(tmpToAdd_, ", "));
             fmt::print("Validation Current Parents: {}\n", fmt::join(parentIDs, ", "));
+            fmt::print("Latent parent contribution {}\n", tmpToAdd_.back());
+            fmt::print("Validation MaxLlik: {}\n", maxLlik);
+            fmt::print("Validation Value: {}\n", val);
         }
-
-        val         = core::utils::logSumExpKnownMax(tmpToAdd_.begin(), tmpToAdd_.end(), maxLlik);
-        calculated_ = std::move(tmpCalculated_);
         return val;
     }
 
@@ -463,9 +468,11 @@ namespace transmission_nets::model::transmission_process {
         // Before the latent parent is updated, we need to remove the contribution
         // of the parent from the likelihood.
         if (!latentParentDirty_) {
-            Likelihood latentParentContr = calculateLatentParentLogLikelihoodContribution(calculated_);
+            if (calculated_.size() > 0) {
+                Likelihood latentParentContr = calculateLatentParentLogLikelihoodContribution(calculated_);
+                toSubtract_.push_back(latentParentContr);
+            }
             Likelihood latentParentSetContr = ntp_->calculateLogLikelihood(child_, latentParent_);
-            toSubtract_.push_back(latentParentContr);
             toSubtract_.push_back(latentParentSetContr);
         }
     }
@@ -500,7 +507,6 @@ namespace transmission_nets::model::transmission_process {
         parentLikelihoodContribution_.push_back(ntp_->calculateLogLikelihood(child_, latentParent_, tmpPs_));
         max_llik = std::max(max_llik, parentLikelihoodContribution_.back());
 
-
         for (int i = 1; i < ParentSetMaxCardinality and i <= otherNodesSize; ++i) {
             comboGen.reset(otherNodesSize, i);
             while (!comboGen.completed) {
@@ -530,10 +536,8 @@ namespace transmission_nets::model::transmission_process {
         core::utils::generators::CombinationIndicesGenerator comboGen;
         const int otherNodesSize = others.size();
         parentLikelihoodContribution_.clear();
-//        parentLikelihoodContribution_.push_back(ntp_->calculateLogLikelihood(child_, latentParent_));
-
-//        Likelihood max_llik = parentLikelihoodContribution_.back();
         Likelihood max_llik = -std::numeric_limits<Likelihood>::infinity();
+
         for (int i = 1; i < ParentSetMaxCardinality and i <= otherNodesSize; ++i) {
             comboGen.reset(otherNodesSize, i);
             while (!comboGen.completed) {

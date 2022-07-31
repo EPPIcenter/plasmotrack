@@ -94,3 +94,19 @@ TEST_F(AllelesTestFixture, CopyTest) {
     a3.flip(1);
     ASSERT_NE(a3_copy, a3);
 }
+
+TEST(AllelesTest, HandlesMutationMask) {
+    GeneticsImpl a1("1011");
+    GeneticsImpl a2("0011");
+    GeneticsImpl a3("1010");
+    GeneticsImpl a4("1001");
+
+    ASSERT_EQ(a1.mutationMask(a2), GeneticsImpl("1000"));
+    ASSERT_EQ(a1.mutationMask(a3), GeneticsImpl("0001"));
+    ASSERT_EQ(a1.mutationMask(a4), GeneticsImpl("0010"));
+    ASSERT_EQ(a1.mutationMask(a2).mutationMask(a3).mutationMask(a4), GeneticsImpl("0000"));
+    ASSERT_EQ(a1.mutationMask(a2).mutationMask(a3), a1.mutationMask(a3).mutationMask(a2));
+
+
+
+}

@@ -5,7 +5,7 @@
 #include "ModelLogger.h"
 
 
-namespace transmission_nets::impl::ModelSeven {
+namespace transmission_nets::impl::ModelEight {
     ModelLogger::ModelLogger(std::shared_ptr<Model> model, fs::path rootPath) : model_(std::move(model)), rootPath_(std::move(rootPath)) {
         auto statOutputFolder_ = rootPath_ / "stats";
         auto parentSetFolder_  = rootPath_ / "parent_sets";
@@ -38,4 +38,4 @@ namespace transmission_nets::impl::ModelSeven {
             logger->finalize();
         }
     }
-}// namespace transmission_nets::impl::ModelSeven
+}// namespace transmission_nets::impl::ModelEight

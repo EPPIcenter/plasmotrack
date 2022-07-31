@@ -14,6 +14,7 @@ namespace transmission_nets::core::datatypes {
     class AllelesBitSet {
     public:
         explicit AllelesBitSet(const std::string& bitstr);
+        AllelesBitSet(int totalAlleles);
         AllelesBitSet();
 
         template<int T>
@@ -25,6 +26,9 @@ namespace transmission_nets::core::datatypes {
 
         [[nodiscard]] constexpr inline unsigned int
         totalPositiveCount() const noexcept;
+
+        [[nodiscard]] constexpr inline unsigned int
+        totalNegativeCount() const noexcept;
 
         [[nodiscard]] constexpr inline static unsigned int
         truePositiveCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
@@ -53,12 +57,15 @@ namespace transmission_nets::core::datatypes {
         [[nodiscard]] constexpr unsigned int totalAlleles() const noexcept;
 
         inline constexpr void flip(size_t pos) noexcept;
+        void flip(std::vector<unsigned int> pos) noexcept;
 
         inline constexpr void set(size_t pos) noexcept;
 
         inline constexpr void set() noexcept;
 
         inline constexpr void reset(size_t pos) noexcept;
+
+        inline constexpr AllelesBitSet<MaxAlleles> mutationMask(const AllelesBitSet<MaxAlleles>& parent) const noexcept;
 
         [[nodiscard]] inline constexpr bool allele(size_t pos) const noexcept;
 
@@ -76,6 +83,18 @@ namespace transmission_nets::core::datatypes {
         assert(bitstr.size() <= MaxAlleles);
     }
 
+
+    template<int MaxAlleles>
+    AllelesBitSet<MaxAlleles>::AllelesBitSet(int totalAlleles) : total_alleles_(totalAlleles) {
+        std::string bitstr;
+        for (size_t i = 0; i < total_alleles_ - 1; ++i) {
+            bitstr += "0";
+        }
+        bitstr += "1";
+        assert(bitstr.size() <= MaxAlleles);
+        alleles_ = std::bitset<MaxAlleles>(bitstr);
+    }
+
     template<int MaxAlleles>
     std::ostream& operator<<(std::ostream& os, const AllelesBitSet<MaxAlleles>& alleles) noexcept {
         os << alleles.allelesStr();
@@ -86,6 +105,12 @@ namespace transmission_nets::core::datatypes {
     constexpr unsigned int AllelesBitSet<MaxAlleles>::totalPositiveCount() const noexcept {
         return alleles_.count();
     }
+
+    template<int MaxAlleles>
+    constexpr unsigned int AllelesBitSet<MaxAlleles>::totalNegativeCount() const noexcept {
+        return total_alleles_ - alleles_.count();
+    }
+
 
     template<int MaxAlleles>
     constexpr unsigned int AllelesBitSet<MaxAlleles>::truePositiveCount(const AllelesBitSet<MaxAlleles>& parent,
@@ -132,6 +157,13 @@ namespace transmission_nets::core::datatypes {
     constexpr void AllelesBitSet<MaxAlleles>::flip(size_t pos) noexcept {
         assert(pos < total_alleles_);
         alleles_.flip(total_alleles_ - 1 - pos);
+    }
+
+    template<int MaxAlleles>
+    void AllelesBitSet<MaxAlleles>::flip(std::vector<unsigned int> pos) noexcept {
+        for (auto& p : pos) {
+            flip(p);
+        }
     }
 
     template<int MaxAlleles>
@@ -199,6 +231,8 @@ namespace transmission_nets::core::datatypes {
         return result;
     }
 
+
+
     template<int MaxAlleles>
     bool AllelesBitSet<MaxAlleles>::operator==(const AllelesBitSet& rhs) const {
         return total_alleles_ == rhs.total_alleles_ &&
@@ -208,6 +242,15 @@ namespace transmission_nets::core::datatypes {
     template<int MaxAlleles>
     bool AllelesBitSet<MaxAlleles>::operator!=(const AllelesBitSet& rhs) const {
         return !(*this == rhs);
+    }
+
+    template<int MaxAlleles>
+    constexpr AllelesBitSet<MaxAlleles> AllelesBitSet<MaxAlleles>::mutationMask(const AllelesBitSet<MaxAlleles>& parent) const noexcept {
+        AllelesBitSet<MaxAlleles> result;
+        result.alleles_ = ~parent.alleles_ & this->alleles_;
+        result.total_alleles_ = this->total_alleles_;
+        result.mask_ = this->mask_;
+        return result;
     }
 }// namespace transmission_nets::core::datatypes
 

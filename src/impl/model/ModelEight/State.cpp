@@ -5,7 +5,7 @@
 #include "State.h"
 #include "core/io/serialize.h"
 
-namespace transmission_nets::impl::ModelSeven {
+namespace transmission_nets::impl::ModelEight {
     State::State(const nlohmann::json& input) {
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
         infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci);
@@ -25,12 +25,13 @@ namespace transmission_nets::impl::ModelSeven {
         for (const auto& infection : infections) {
             expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.1));
             expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.1));
-            latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
+            latentParents.push_back(std::make_shared<InfectionEvent>(*infection, "", false));
         }
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.95);
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(.1);
-        meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(1);
+        mutationProb                = std::make_shared<core::parameters::Parameter<double>>(.01);
+        meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(1.01);
     }
 
     State::State(const nlohmann::json& input, const fs::path& outputDir) {
@@ -82,6 +83,7 @@ namespace transmission_nets::impl::ModelSeven {
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "geo_gen_prob.csv"));
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "loss_prob.csv"));
+        mutationProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mutation_prob.csv"));
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_coi.csv"));
     }
 
@@ -98,6 +100,9 @@ namespace transmission_nets::impl::ModelSeven {
         lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
         lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(90);
 
+        mutationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
+        mutationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(99);
+
         meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(20);
         meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
 
@@ -105,4 +110,4 @@ namespace transmission_nets::impl::ModelSeven {
         infectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(1);
 
     }
-}// namespace transmission_nets::impl::ModelSeven
+}// namespace transmission_nets::impl::ModelEight

@@ -37,8 +37,8 @@ namespace transmission_nets::core::containers {
 
         explicit Infection(std::string id, double observationTime);
 
-        Infection(const Infection& other, const std::string& id = "") {
-            // Copy constructor -- create a new infection from an existing one using the observed genetics.
+        Infection(const Infection& other, const std::string& id = "", bool retain_alleles = true) {
+            // Copy constructor -- create a new infection from an existing one using the latent genetics.
             if (id.empty()) {
                 id_ = other.id_ + "_copy";
             } else {
@@ -49,7 +49,26 @@ namespace transmission_nets::core::containers {
             infectionDuration_ = other.infectionDuration_;
 
             for (const auto& [locus, data] : other.latentGenotype_) {
-                addGenetics(locus, data->value(), data->value());
+                if (retain_alleles) {
+                    addGenetics(locus, data->value(), data->value());
+                } else {
+                    const auto obsGenetics = data->value().allelesStr();
+                    std::string bitstr;
+                    bool alleleFound = false;
+                    for (const auto c : obsGenetics) {
+                        if (c == '1' and not alleleFound) {
+                            bitstr += "1";
+                            alleleFound = true;
+                        } else {
+                            bitstr += "0";
+                        }
+                    }
+                    if (!alleleFound) {
+                        bitstr[bitstr.size() - 1] = '1';
+                    }
+                    fmt::print("{}\n", bitstr);
+                    addGenetics(locus, GeneticImpl(bitstr), GeneticImpl(bitstr));
+                }
             }
         }
 

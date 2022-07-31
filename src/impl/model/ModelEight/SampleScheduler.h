@@ -1,13 +1,12 @@
 //
 // Created by mmurphy on 10/29/21.
 //
-
-#include "config.h"
-
 #ifndef TRANSMISSION_NETWORKS_APP_SAMPLESCHEDULER_H
 #define TRANSMISSION_NETWORKS_APP_SAMPLESCHEDULER_H
 
-namespace transmission_nets::impl::ModelSeven {
+#include "config.h"
+
+namespace transmission_nets::impl::ModelEight {
 
     template<typename T, typename Engine = boost::random::mt19937, typename Scheduler = core::samplers::RandomizedScheduler<Engine>>
     struct SampleScheduler {
@@ -33,7 +32,7 @@ namespace transmission_nets::impl::ModelSeven {
                                     .id              = "Geometric Generation Prob",
                                     .adaptationStart = 20,
                                     .adaptationEnd   = 2000,
-                                    .updateStart     = 100,
+//                                    .updateStart     = 100,
                                     .weight          = totalInfections * 10,
                                     .debug           = false});
 
@@ -41,15 +40,24 @@ namespace transmission_nets::impl::ModelSeven {
                                     .id              = "Loss Probability",
                                     .adaptationStart = 100,
                                     .adaptationEnd   = 2000,
-                                    .updateStart    = 100,
+//                                    .updateStart    = 100,
                                     .weight          = totalInfections * 10,
                                     .debug           = false});
+
+
+        scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->mutationProb, target_, 0.00005, .25, r, 1, .1, 2),
+                                           .id              = "Mutation Probability",
+                                           .adaptationStart = 100,
+                                           .adaptationEnd   = 2000,
+//                                           .updateStart    = 100,
+                                           .weight          = totalInfections * 10,
+                                           .debug           = false});
 
         scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->meanCOI, target_, 0.0, 100, r, 1, .1, 1),
                                     .id              = "Mean COI",
                                     .adaptationStart = 20,
                                     .adaptationEnd   = 2000,
-                                    .updateStart = 100,
+//                                    .updateStart = 100,
                                     .weight          = totalInfections * 10,
                                     .debug           = false});
 
@@ -66,8 +74,8 @@ namespace transmission_nets::impl::ModelSeven {
                                                                     .id      = fmt::format("Genotype {} {}", infection->id(), locus->label),
 //                                                                                                                    .updateStart = 1000,
                                                                     .weight = 10});
-                    scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl, 5>>(latentGenotype, target_, r),
-                                                .weight  = 1});
+//                    scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl, 3>>(latentGenotype, target_, r),
+//                                                .weight  = 1});
                 }
             }
         }
@@ -78,7 +86,7 @@ namespace transmission_nets::impl::ModelSeven {
                     auto latentGenotype = infection->latentGenotype(locus);
                                         scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
 //                                                                    .id      = fmt::format("Latent Genotype {} {}", infection->id(), locus->label),
-//                                                                                                                    .updateStart = 1000,
+                                                                                                                    .updateStart = 200,
                                                                     .weight = 10});
 //                    scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
 //                                                .weight  = 1});
@@ -91,7 +99,7 @@ namespace transmission_nets::impl::ModelSeven {
                                         .id              = fmt::format("False Negative Rate"),
                                         .adaptationStart = 20,
                                         .adaptationEnd   = 2000,
-                                        .updateStart     = 100,
+//                                        .updateStart     = 100,
                                         .weight          = totalLoci * 10});
         }
 
@@ -100,7 +108,7 @@ namespace transmission_nets::impl::ModelSeven {
                                         .id              = fmt::format("False Positive Rate"),
                                         .adaptationStart = 20,
                                         .adaptationEnd   = 2000,
-                                        .updateStart     = 100,
+//                                        .updateStart     = 100,
                                         .weight          = totalLoci * 10});
         }
 
@@ -113,6 +121,6 @@ namespace transmission_nets::impl::ModelSeven {
             });
         }
     }
-}// namespace transmission_nets::impl::ModelSeven
+}// namespace transmission_nets::impl::ModelEight
 
 #endif//TRANSMISSION_NETWORKS_APP_SAMPLESCHEDULER_H

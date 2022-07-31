@@ -125,6 +125,7 @@ namespace transmission_nets::model::transmission_process {
         jointAllelesLostCounter_.fill(0);
         std::array<GeneticsImpl, MAX_PARENTSET_SIZE> parentGenotypes{};
 
+
         // Calculate the number of events that occur in the transmission process, where
         // events are either the loss or retention of alleles.
         for (const auto& locus : loci) {
@@ -133,13 +134,20 @@ namespace transmission_nets::model::transmission_process {
             auto base                  = invertedChildGenotype;
             size_t parentIdx           = 0;
 
+            auto mutationFlag = childGenotype;
+
             // iterate over all parents to get their genotypes and calculate the number of
             // alleles that are lost in the transmission process.
             for (const auto& parent : parentSet) {
                 parentGenotypes[parentIdx] = parent->latentGenotype(locus)->value();
                 allelesLostCounter_[parentIdx] += GeneticsImpl::falseNegativeCount(parentGenotypes[parentIdx], childGenotype);
                 base = GeneticsImpl::shared(base, parentGenotypes[parentIdx]);
+                mutationFlag = mutationFlag.mutationMask(parentGenotypes[parentIdx]);
                 ++parentIdx;
+            }
+
+            if (mutationFlag.totalPositiveCount() > 0) {
+                return -std::numeric_limits<Likelihood>::infinity();
             }
 
 
@@ -230,6 +238,8 @@ namespace transmission_nets::model::transmission_process {
         jointAllelesLostCounter_.fill(0);
         std::array<GeneticsImpl, MAX_PARENTSET_SIZE + 1> parentGenotypes{};
 
+
+
         // Calculate the number of events that occur in the transmission process, where
         // events are either the loss or retention of alleles.
         for (const auto& locus : loci) {
@@ -238,12 +248,15 @@ namespace transmission_nets::model::transmission_process {
             auto base                  = invertedChildGenotype;
             size_t parentIdx           = 0;
 
+            auto mutationFlag = childGenotype;
+
             // iterate over all parents to get their genotypes and calculate the number of
             // alleles that are lost in the transmission process.
             for (const auto& parent : parentSet) {
                 parentGenotypes[parentIdx] = parent->latentGenotype(locus)->value();
                 allelesLostCounter_[parentIdx] += GeneticsImpl::falseNegativeCount(parentGenotypes[parentIdx], childGenotype);
                 base = GeneticsImpl::shared(base, parentGenotypes[parentIdx]);
+                mutationFlag = mutationFlag.mutationMask(parentGenotypes[parentIdx]);
                 ++parentIdx;
             }
 
@@ -251,6 +264,11 @@ namespace transmission_nets::model::transmission_process {
             parentGenotypes[numParents] = latentParent->latentGenotype(locus)->value();
             allelesLostCounter_[numParents] += GeneticsImpl::falseNegativeCount(parentGenotypes[numParents], childGenotype);
             base = GeneticsImpl::shared(base, parentGenotypes[numParents]);// apply the latent parent genotype
+
+            mutationFlag = mutationFlag.mutationMask(parentGenotypes[numParents]);
+            if (mutationFlag.totalPositiveCount() > 0) {
+                return -std::numeric_limits<Likelihood>::infinity();
+            }
 
             // Calculating the alternative situation, where alleles are not lost
             jointAllelesLostCounter_[0] += base.totalPositiveCount();
@@ -273,8 +291,6 @@ namespace transmission_nets::model::transmission_process {
                         base = GeneticsImpl::shared(base, parentGenotypes[ii]);
                     }
 
-                    // AND the inverted latent parent genotype with the inverted child genotype
-                    base = GeneticsImpl::shared(base, parentGenotypes[MAX_PARENTSET_SIZE]);
 
                     // Record the number of alleles that would be lost under that transmission
                     jointAllelesLostCounter_[jointIdx] += base.totalPositiveCount();
@@ -352,6 +368,11 @@ namespace transmission_nets::model::transmission_process {
             auto childGenotype = infection->latentGenotype(locus)->value();
             allelesLost += GeneticsImpl::falseNegativeCount(latentParent->latentGenotype(locus)->value(), childGenotype);
             allelesRetained += GeneticsImpl::truePositiveCount(latentParent->latentGenotype(locus)->value(), childGenotype);
+
+            int anyMutation = GeneticsImpl::falsePositiveCount(latentParent->latentGenotype(locus)->value(), childGenotype);
+            if (anyMutation) {
+                return -std::numeric_limits<Likelihood>::infinity();
+            }
         }
 
         Likelihood llik = allelesLost * std::log(1.0 - this->value()[1]);

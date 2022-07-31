@@ -131,6 +131,19 @@ set(SOURCE_FILES
         impl/model/ModelSeven/SamplerLogger.cpp
         impl/model/ModelSeven/SamplerLogger.h
 
+        impl/model/ModelEight/State.cpp
+        impl/model/ModelEight/State.h
+        impl/model/ModelEight/Model.cpp
+        impl/model/ModelEight/Model.h
+        impl/model/ModelEight/config.h
+        impl/model/ModelEight/SampleScheduler.h
+        impl/model/ModelEight/StateLogger.cpp
+        impl/model/ModelEight/StateLogger.h
+        impl/model/ModelEight/ModelLogger.cpp
+        impl/model/ModelEight/ModelLogger.h
+        impl/model/ModelEight/SamplerLogger.cpp
+        impl/model/ModelEight/SamplerLogger.h
+
         model/transmission_process/node_transmission_process/SuperInfectionNoMutation.h
         model/observation_process/ObservationProcessLikelihoodv2.h model/transmission_process/node_transmission_process/SimpleLossMutation.h model/transmission_process/node_transmission_process/SimpleLoss.h)
 

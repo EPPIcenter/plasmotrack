@@ -17,6 +17,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <memory>
 
 
 namespace transmission_nets::core::computation {

@@ -68,15 +68,15 @@ protected:
     std::shared_ptr<Infection<GeneticsImpl, Locus>> i3 = std::make_shared<Infection<GeneticsImpl, Locus>>("i3", 100);
     std::shared_ptr<Infection<GeneticsImpl, Locus>> i4 = std::make_shared<Infection<GeneticsImpl, Locus>>("i4", 100);
 
-    GeneticsImpl i1_a1 = GeneticsImpl("1110");
-    GeneticsImpl i1_a2 = GeneticsImpl("1100");
+    GeneticsImpl i1_a1 = GeneticsImpl("111001");
+    GeneticsImpl i1_a2 = GeneticsImpl("110001");
 
-    GeneticsImpl i2_a1 = GeneticsImpl("1110");
-    GeneticsImpl i2_a2 = GeneticsImpl("1100");
-    GeneticsImpl i3_a1 = GeneticsImpl("1110");
-    GeneticsImpl i3_a2 = GeneticsImpl("1100");
-    GeneticsImpl i4_a1 = GeneticsImpl("1110");
-    GeneticsImpl i4_a2 = GeneticsImpl("1100");
+    GeneticsImpl i2_a1 = GeneticsImpl("111001");
+    GeneticsImpl i2_a2 = GeneticsImpl("110001");
+    GeneticsImpl i3_a1 = GeneticsImpl("111000");
+    GeneticsImpl i3_a2 = GeneticsImpl("110000");
+    GeneticsImpl i4_a1 = GeneticsImpl("111010");
+    GeneticsImpl i4_a2 = GeneticsImpl("110010");
 
 
 };
@@ -87,7 +87,7 @@ TEST_F(SimpleLossTestFixture, CoreTest) {
 //        ASSERT_EQ(value[i], std::pow(0.5, i));
 //    }
 
-    double result;
+    long double result;
     for (size_t i = 0; i < 5000; ++i) {
         result = simpleLoss.calculateLogLikelihood(i1, ps);
     }
