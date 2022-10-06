@@ -11,24 +11,37 @@
 #include "core/datatypes/Alleles.h"
 #include "core/datatypes/Simplex.h"
 #include "core/parameters/TransmissionNetwork.h"
+#include "core/computation/OrderDerivedParentSet.h"
 
 
 namespace transmission_nets::core::io {
 
     inline std::string serialize(const double val) noexcept {
-        return std::to_string(val);
+        return fmt::format("{}", val);
     }
 
     inline std::string serialize(const long double val) noexcept {
-        return std::to_string(val);
+        return fmt::format("{}", val);
     }
 
-    inline std::string serialize(const int val) noexcept {
-        return std::to_string(val);
+    inline std::string serialize(const long int val) noexcept {
+        return fmt::format("{}", val);
+    }
+
+    inline std::string serialize(const int &val) noexcept {
+        return fmt::format("{}", val);
+    }
+
+    inline std::string serialize(const unsigned int val) noexcept {
+        return fmt::format("{}", val);
     }
 
     inline std::string serialize(const long long val) noexcept {
-        return std::to_string(val);
+        return fmt::format("{}", val);
+    }
+
+    inline std::string serialize(const std::string& val) noexcept {
+        return val;
     }
 
     template<int MAX_COI>
@@ -63,6 +76,31 @@ namespace transmission_nets::core::io {
     }
 
 
+    template<typename T, typename U>
+    std::string serialize(computation::OrderDerivedParentSet<T, U> &ps) {
+        std::string out = "{";
+        for (const auto& p : ps.value()) {
+            out += serialize(*p);
+            out += ";";
+        }
+        out.pop_back();
+        out += "}";
+        return out;
+    }
+
+    template<typename T>
+    std::string serialize(const boost::container::flat_set<T> ps) {
+        std::string out = "{";
+        for (const auto& p : ps) {
+            out += serialize(p);
+            out += ";";
+        }
+        out.pop_back();
+        out += "}";
+        return out;
+    }
+
+
     template<typename T>
     std::string serialize(const std::vector<std::shared_ptr<T>> val) {
         std::string out;
@@ -85,7 +123,7 @@ namespace transmission_nets::core::io {
         return out;
     }
 
-    template<typename T, int SIZE>
+    template<typename T, long unsigned int SIZE>
     std::string serialize(std::array<T, SIZE> &val) {
         std::string out;
         for (const auto& el : val) {

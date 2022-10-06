@@ -30,10 +30,12 @@ namespace transmission_nets::core::computation {
 
         using ElementAddedCallback   = std::function<void(std::shared_ptr<ElementType> element)>;
         using ElementRemovedCallback = std::function<void(std::shared_ptr<ElementType> element)>;
+        using ElementChangedCallback = std::function<void(std::shared_ptr<ElementType> element)>;
 
     protected:
         CREATE_EVENT(element_added, ElementAddedCallback)
         CREATE_EVENT(element_removed, ElementRemovedCallback)
+        CREATE_EVENT(element_changed, ElementChangedCallback)
 
     public:
         explicit OrderDerivedParentSet(std::shared_ptr<OrderingImpl> ordering,
@@ -42,22 +44,22 @@ namespace transmission_nets::core::computation {
         containers::ParentSet<ElementType> value() noexcept override;
         void addAllowedParent(std::shared_ptr<ElementType> p);
         void addAllowedParents(const std::vector<std::shared_ptr<ElementType>>& p);
-        void serialize() noexcept;
+
+        std::shared_ptr<OrderingImpl> ordering_;
+        std::shared_ptr<ElementType> child_;
+        std::set<std::shared_ptr<ElementType>> allowedParents_{};
 
     protected:
         friend class abstract::Checkpointable<OrderDerivedParentSet<ElementType, OrderingImpl>, containers::ParentSet<ElementType>>;
         friend class abstract::Cacheable<OrderDerivedParentSet<ElementType, OrderingImpl>>;
 
-        std::set<std::shared_ptr<ElementType>> allowedParents_{};
-        std::shared_ptr<OrderingImpl> ordering_;
-        std::shared_ptr<ElementType> child_;
     };
-
 
     template<typename ElementType, typename OrderingImpl>
     OrderDerivedParentSet<ElementType, OrderingImpl>::OrderDerivedParentSet(std::shared_ptr<OrderingImpl> ordering, std::shared_ptr<ElementType> child, const std::vector<std::shared_ptr<ElementType>>& allowedParents) : ordering_(std::move(ordering)), child_(std::move(child)) {
         ordering_->registerCacheableCheckpointTarget(this);
 
+        // If the element moves to the left of child_, trigger this event
         ordering_->add_keyed_moved_left_listener(child_, [=, this](std::shared_ptr<ElementType> element) {
             if (allowedParents_.contains(element)) {
                 this->setDirty();
@@ -66,11 +68,20 @@ namespace transmission_nets::core::computation {
             }
         });
 
+        // If the element moves to the right of child_, trigger this event
         ordering_->add_keyed_moved_right_listener(child_, [=, this](std::shared_ptr<ElementType> element) {
             if (allowedParents_.contains(element)) {
                 this->setDirty();
                 this->value_.erase(element);
                 this->notify_element_removed(element);
+            }
+        });
+
+        // If an element changes, trigger this event
+        ordering_->add_element_changed_listener([=, this](std::shared_ptr<ElementType> element) {
+            if (this->value_.contains(element)) {
+                this->setDirty();
+                this->notify_element_changed(element);
             }
         });
 
@@ -110,14 +121,7 @@ namespace transmission_nets::core::computation {
         return this->value_;
     }
 
-    template<typename ElementType, typename OrderingImpl>
-    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::serialize() noexcept {
-        std::cout << "{ ";
-        for (auto& p : this->value()) {
-            std::cout << *p << ", ";
-        }
-        std::cout << "}" << std::endl;
-    }
+
 }// namespace transmission_nets::core::computation
 
 

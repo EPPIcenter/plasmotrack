@@ -28,4 +28,4 @@ target_link_libraries(transmission_networks_model_eight
         )
 
 message(${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
-install(TARGETS transmission_networks_model_seven DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
+install(TARGETS transmission_networks_model_eight DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

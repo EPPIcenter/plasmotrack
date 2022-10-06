@@ -23,7 +23,7 @@ namespace transmission_nets::model::transmission_process {
 
     using Likelihood = core::computation::Likelihood;
 
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl>
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
     /*
      * Functional Node -- implements calculateLogLikelihood(child, parent_set)
      * Transmission process is a function of the loss and mutation rate per transmission event.
@@ -31,9 +31,9 @@ namespace transmission_nets::model::transmission_process {
      * is then integrated over MAX_TRANSMISSIONS to get the probability of an allele being lost or gained
      */
     class SimpleLossMutation : public core::computation::Computation<std::array<long double, (MAX_TRANSMISSIONS + 1) * 4>>,
-                       public core::abstract::Observable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>>,
-                       public core::abstract::Cacheable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>>,
-                       public core::abstract::Checkpointable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>, std::array<long double, (MAX_TRANSMISSIONS + 1) * 4>> {
+                       public core::abstract::Observable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>,
+                       public core::abstract::Cacheable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>,
+                       public core::abstract::Checkpointable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<long double, (MAX_TRANSMISSIONS + 1) * 4>> {
 
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
 
@@ -44,27 +44,45 @@ namespace transmission_nets::model::transmission_process {
 
         long double getLossProb(int generation);
         long double getMutationProb(int generation);
+        long double peekLossProb(int generation);
+        long double peekMutationProb(int generation);
 
         template<typename GeneticsImpl>
-        Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet);
+        Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+                                          const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet);
 
 
         template<typename GeneticsImpl>
         Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
                                           std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent,
-                                          const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet);
+                                          const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet,
+                                          std::shared_ptr<SourceTransmissionProcessImpl> stp);
 
         template<typename GeneticsImpl>
         Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
-                                          std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent);
+                                          std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent,
+                                          std::shared_ptr<SourceTransmissionProcessImpl> stp);
 
-//        template<typename GeneticsImpl>
-//        Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>> ps) noexcept;
+        template<typename GeneticsImpl>
+        Likelihood peekLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+                                          const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet);
+
+
+        template<typename GeneticsImpl>
+        Likelihood peekLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+                                          std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent,
+                                          const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet,
+                                          std::shared_ptr<SourceTransmissionProcessImpl> stp);
+
+        template<typename GeneticsImpl>
+        Likelihood peekLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+                                          std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent,
+                                          std::shared_ptr<SourceTransmissionProcessImpl> stp);
 
 
     private:
-        friend class core::abstract::Checkpointable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>, std::array<long double, (MAX_TRANSMISSIONS + 1) * 4>>;
-        friend class core::abstract::Cacheable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>>;
+        friend class core::abstract::Checkpointable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<long double, (MAX_TRANSMISSIONS + 1) * 4>>;
+        friend class core::abstract::Cacheable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>;
 
 
         std::array<std::array<unsigned int, MAX_PARENTSET_SIZE + 1>, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> kVecs_ = core::utils::initKvecs<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE>();
@@ -82,11 +100,8 @@ namespace transmission_nets::model::transmission_process {
         std::array<unsigned int, core::utils::const_pow(2, MAX_PARENTSET_SIZE + 1)> jointAllelesLostCounter_{0};
     };
 
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl>
-    SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>::SimpleLossMutation(p_ParameterDouble loss_prob, p_ParameterDouble mutation_rate, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb) :
-            mutProb_(std::move(mutation_rate)),
-            lossProb_(std::move(loss_prob)),
-                                                                                                                                                                                                                                               interTransmissionProb_(std::move(interTransmissionProb)) {
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
+    SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::SimpleLossMutation(p_ParameterDouble loss_prob, p_ParameterDouble mutation_rate, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb) : mutProb_(std::move(mutation_rate)), lossProb_(std::move(loss_prob)), interTransmissionProb_(std::move(interTransmissionProb)) {
 
         mutProb_->template registerCacheableCheckpointTarget(this);
         mutProb_->add_post_change_listener([this]() {
@@ -109,8 +124,8 @@ namespace transmission_nets::model::transmission_process {
         this->value();
     }
 
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl>
-    std::array<long double, (MAX_TRANSMISSIONS + 1) * 4> SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>::value() noexcept {
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
+    std::array<long double, (MAX_TRANSMISSIONS + 1) * 4> SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::value() noexcept {
         if (this->isDirty()) {
             this->value_.fill(0.0);
 
@@ -148,19 +163,30 @@ namespace transmission_nets::model::transmission_process {
         return this->value_;
     }
 
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl>
-    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>::getLossProb(int generation) {
-        return this->value_[(generation - 1) * 4 + 1];
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
+    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::getLossProb(int generation) {
+        return this->value()[(generation - 1) * 4 + 1];
     }
 
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl>
-    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>::getMutationProb(int generation) {
-        return this->value_[(generation - 1) * 4 + 2];
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
+    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::getMutationProb(int generation) {
+        return this->value()[(generation - 1) * 4 + 2];
     }
 
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl>
+
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
+    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::peekLossProb(int generation) {
+        return this->peek()[(generation - 1) * 4 + 1];
+    }
+
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
+    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::peekMutationProb(int generation) {
+        return this->peek()[(generation - 1) * 4 + 2];
+    }
+
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
     template<typename GeneticsImpl>
-    Likelihood SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet) {
+    Likelihood SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet) {
         size_t numParents = parentSet.size();
         auto loci         = infection->loci();
 
@@ -268,9 +294,9 @@ namespace transmission_nets::model::transmission_process {
         return core::utils::logSumExp(probs_.begin(), probs_.begin() + (unsigned int) std::pow(MAX_TRANSMISSIONS, numParents) - 1);
     }
 
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl>
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
     template<typename GeneticsImpl>
-    Likelihood SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet) {
+    Likelihood SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet, std::shared_ptr<SourceTransmissionProcessImpl> stp) {
         size_t numParents = parentSet.size();
         auto loci         = infection->loci();
 
@@ -306,11 +332,11 @@ namespace transmission_nets::model::transmission_process {
             allelesLostCounter_[numParents] += GeneticsImpl::falseNegativeCount(parentGenotypes[numParents], childGenotype);
             base = GeneticsImpl::shared(base, parentGenotypes[numParents]); // apply the latent parent genotype
 
-            // only allow loss from the source parent, must be a complete subset of the child genotype
-            auto mutationFlag = childGenotype.mutationMask(parentGenotypes[numParents]);
-            if (mutationFlag.totalPositiveCount() > 0) {
-                return -std::numeric_limits<Likelihood>::infinity();
-            }
+//            // only allow loss from the source parent, must be a complete subset of the child genotype
+//            auto mutationFlag = childGenotype.mutationMask(parentGenotypes[numParents]);
+//            if (mutationFlag.totalPositiveCount() > 0) {
+//                return -std::numeric_limits<Likelihood>::infinity();
+//            }
 
             // Calculating the alternative situation, where alleles are not lost
             jointAllelesLostCounter_[0] += base.totalPositiveCount();
@@ -331,7 +357,6 @@ namespace transmission_nets::model::transmission_process {
                     for (size_t ii = 0; ii <= numParents; ++ii) {
                         base = GeneticsImpl::shared(base, parentGenotypes[ii]);
                     }
-
 
                     // Record the number of alleles that would be lost under that transmission
                     jointAllelesLostCounter_[jointIdx] += base.totalPositiveCount();
@@ -372,6 +397,8 @@ namespace transmission_nets::model::transmission_process {
             all_parents_lost_prob *= lost_in_one_gen;
             probs_[ii] += allelesLostCounter_[numParents] * std::log(lost_in_one_gen) +
                           (totalNegativeAlleles - allelesLostCounter_[numParents]) * std::log(not_mutated_in_one_gen);
+            // tack on probability of latentParent being drawn from the background population
+            probs_[ii] += stp->value();
 
             // Calculate the probability of retentions in the transmission process where no alleles are lost
             probs_[ii] += jointAllelesLostCounter_[0] * std::log(1 - all_parents_lost_prob);
@@ -401,9 +428,9 @@ namespace transmission_nets::model::transmission_process {
     }
 
 
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl>
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
     template<typename GeneticsImpl>
-    Likelihood SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent) {
+    Likelihood SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, std::shared_ptr<SourceTransmissionProcessImpl> stp) {
         auto loci                    = infection->loci();
         unsigned int allelesLost     = 0;
         unsigned int allelesRetained = 0;
@@ -418,19 +445,304 @@ namespace transmission_nets::model::transmission_process {
             allelesRetained += GeneticsImpl::truePositiveCount(latentParent->latentGenotype(locus)->value(), childGenotype);
             allelesMutated += GeneticsImpl::falsePositiveCount(latentParent->latentGenotype(locus)->value(), childGenotype);
             allelesNotMutated += GeneticsImpl::trueNegativeCount(latentParent->latentGenotype(locus)->value(), childGenotype);
-            if (allelesMutated > 0) {
-                return -std::numeric_limits<Likelihood>::infinity();
-            }
+//            if (allelesMutated > 0) {
+//                return -std::numeric_limits<Likelihood>::infinity();
+//            }
         }
 
         // 1 -> 0
-        Likelihood llik = allelesLost * this->getLossProb(1);
+        Likelihood llik = allelesLost * std::log(this->getLossProb(1));
         // 1 -> 1
         llik += allelesRetained * std::log(1 - this->getLossProb(1));
         // 0 -> 1
         llik += allelesMutated * std::log(this->getMutationProb(1));
         // 0 -> 0
         llik += allelesNotMutated * std::log(1 - this->getMutationProb(1));
+        // Add in the probability of the transmission process
+        llik += stp->value();
+
+        return llik;
+    }
+
+
+
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
+    template<typename GeneticsImpl>
+    Likelihood SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::peekLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet) {
+        size_t numParents = parentSet.size();
+        auto loci         = infection->loci();
+
+        core::utils::generators::CombinationIndicesGenerator psIdxGen;
+        // re-initialize the arrays
+        probs_.fill(0);
+        allelesLostCounter_.fill(0);
+        jointAllelesLostCounter_.fill(0);
+        std::array<GeneticsImpl, MAX_PARENTSET_SIZE> parentGenotypes{};
+        int totalNegativeAlleles = 0;
+
+
+        // Calculate the number of events that occur in the transmission process, where
+        // events are either the loss or retention of alleles.
+        for (const auto& locus : loci) {
+            auto childGenotype         = infection->latentGenotype(locus)->value();
+            auto invertedChildGenotype = GeneticsImpl::invert(childGenotype);
+            auto base                  = invertedChildGenotype;
+            size_t parentIdx           = 0;
+            totalNegativeAlleles += childGenotype.totalNegativeCount();
+
+            // iterate over all parents to get their genotypes and calculate the number of
+            // alleles that are lost in the transmission process.
+            for (const auto& parent : parentSet) {
+                parentGenotypes[parentIdx] = parent->latentGenotype(locus)->value();
+                allelesLostCounter_[parentIdx] += GeneticsImpl::falseNegativeCount(parentGenotypes[parentIdx], childGenotype);
+                base = GeneticsImpl::shared(base, parentGenotypes[parentIdx]);
+                ++parentIdx;
+            }
+
+
+            // Calculating the alternative situation, where alleles are not lost
+            jointAllelesLostCounter_[0] += base.totalPositiveCount();
+            size_t jointIdx = 1;
+            for (parentIdx = 1; parentIdx <= numParents; ++parentIdx) {
+                psIdxGen.reset(numParents, parentIdx);
+
+                while (!psIdxGen.completed) {
+                    base = childGenotype;
+
+                    // Invert parent genotypes by the index of the selected subset
+                    for (const auto& kk : psIdxGen.curr) {
+                        parentGenotypes[kk] = GeneticsImpl::invert(parentGenotypes[kk]);
+                    }
+
+                    // AND all (maybe inverted) parent genotypes with the inverted child genotype
+                    for (size_t ii = 0; ii < numParents; ++ii) {
+                        base = GeneticsImpl::shared(base, parentGenotypes[ii]);
+                    }
+
+                    // Record the number of alleles that would be lost under that transmission
+                    jointAllelesLostCounter_[jointIdx] += base.totalPositiveCount();
+                    ++jointIdx;
+
+                    // Invert again to get back to original state
+                    for (const auto& kk : psIdxGen.curr) {
+                        parentGenotypes[kk] = GeneticsImpl::invert(parentGenotypes[kk]);
+                    }
+
+                    // Go to the next combination of parent indices
+                    psIdxGen.next();
+                }
+            }
+        }
+
+        for (size_t ii = 0; ii < (unsigned long) std::pow(MAX_TRANSMISSIONS, numParents); ++ii) {
+            auto kVec = kVecs_[ii];
+
+            double all_parents_lost_prob = 1.0;
+            // Calculate the probability of losses in the transmission process -- i.e. 1->0 or 0->0
+            for (size_t parentIdx = 0; parentIdx < numParents; ++parentIdx) {
+                // probability that an allele is lost after k generations
+                const double loss_prob = this->peekLossProb(kVec[parentIdx]);
+                const double not_mutated_prob = 1.0 - this->peekMutationProb(kVec[parentIdx]);
+                all_parents_lost_prob *= loss_prob;
+                probs_[ii] += allelesLostCounter_[parentIdx] * std::log(loss_prob) +
+                              (totalNegativeAlleles - allelesLostCounter_[parentIdx]) * std::log(not_mutated_prob);
+
+                // tack on probability of k generations for parent at parentIdx
+                probs_[ii] += std::log(interTransmissionProb_->value()(kVec[parentIdx]));
+            }
+
+            // Calculate the probability of retentions in the transmission process
+            probs_[ii] += jointAllelesLostCounter_[0] * std::log(1 - all_parents_lost_prob);
+            size_t jointEventCounter = 1;
+            for (size_t parentCount = 1; parentCount < numParents; ++parentCount) {
+
+                // Now we need to iterate over the subsets of events
+                psIdxGen.reset(numParents, parentCount);
+                while (!psIdxGen.completed) {
+                    // start with everything being multiplied out, i.e. all events happened
+                    // for example (abc)
+                    double eventProb = all_parents_lost_prob;
+                    for (const auto& pIdx : psIdxGen.curr) {
+                        // remove each parent inside the indexed subset and replace with a 0->0 event
+                        eventProb /= this->peekLossProb(kVec[pIdx]);
+                        eventProb *= (1.0 - this->peekMutationProb(kVec[pIdx]));
+                    }
+                    probs_[ii] += jointAllelesLostCounter_[jointEventCounter] * std::log(1 - eventProb);
+                    ++jointEventCounter;
+                    psIdxGen.next();
+                }
+            }
+        }
+        return core::utils::logSumExp(probs_.begin(), probs_.begin() + (unsigned int) std::pow(MAX_TRANSMISSIONS, numParents) - 1);
+    }
+
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
+    template<typename GeneticsImpl>
+    Likelihood SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::peekLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet, std::shared_ptr<SourceTransmissionProcessImpl> stp) {
+        size_t numParents = parentSet.size();
+        auto loci         = infection->loci();
+
+        core::utils::generators::CombinationIndicesGenerator psIdxGen;
+        // re-initialize the arrays
+        probs_.fill(0);
+        allelesLostCounter_.fill(0);
+        jointAllelesLostCounter_.fill(0);
+        std::array<GeneticsImpl, MAX_PARENTSET_SIZE + 1> parentGenotypes{};
+        int totalNegativeAlleles = 0;
+
+
+        // Calculate the number of events that occur in the transmission process, where
+        // events are either the loss or retention of alleles.
+        for (const auto& locus : loci) {
+            auto childGenotype         = infection->latentGenotype(locus)->value();
+            auto invertedChildGenotype = GeneticsImpl::invert(childGenotype);
+            auto base                  = invertedChildGenotype;
+            size_t parentIdx           = 0;
+            totalNegativeAlleles += childGenotype.totalNegativeCount();
+
+            // iterate over all parents to get their genotypes and calculate the number of
+            // alleles that are lost in the transmission process.
+            for (const auto& parent : parentSet) {
+                parentGenotypes[parentIdx] = parent->latentGenotype(locus)->value();
+                allelesLostCounter_[parentIdx] += GeneticsImpl::falseNegativeCount(parentGenotypes[parentIdx], childGenotype);
+                base = GeneticsImpl::shared(base, parentGenotypes[parentIdx]);
+                ++parentIdx;
+            }
+
+            // calculate the latentParent contrib
+            parentGenotypes[numParents] = latentParent->latentGenotype(locus)->value();
+            allelesLostCounter_[numParents] += GeneticsImpl::falseNegativeCount(parentGenotypes[numParents], childGenotype);
+            base = GeneticsImpl::shared(base, parentGenotypes[numParents]); // apply the latent parent genotype
+
+//            // only allow loss from the source parent, must be a complete subset of the child genotype
+//            auto mutationFlag = childGenotype.mutationMask(parentGenotypes[numParents]);
+//            if (mutationFlag.totalPositiveCount() > 0) {
+//                return -std::numeric_limits<Likelihood>::infinity();
+//            }
+
+            // Calculating the alternative situation, where alleles are not lost
+            jointAllelesLostCounter_[0] += base.totalPositiveCount();
+            size_t jointIdx = 1;
+            for (parentIdx = 1; parentIdx <= numParents + 1; ++parentIdx) {
+                psIdxGen.reset(numParents + 1, parentIdx);
+
+                while (!psIdxGen.completed) {
+                    base = childGenotype;
+
+                    // Invert parent genotypes by the index of the selected subset
+                    for (const auto& kk : psIdxGen.curr) {
+                        parentGenotypes[kk] = GeneticsImpl::invert(parentGenotypes[kk]);
+                    }
+
+                    // AND all (maybe inverted) parent genotypes plus the latent parent genotype
+                    // with the inverted child genotype
+                    for (size_t ii = 0; ii <= numParents; ++ii) {
+                        base = GeneticsImpl::shared(base, parentGenotypes[ii]);
+                    }
+
+                    // Record the number of alleles that would be lost under that transmission
+                    jointAllelesLostCounter_[jointIdx] += base.totalPositiveCount();
+                    ++jointIdx;
+
+                    // Invert again to get back to original state
+                    for (const auto& kk : psIdxGen.curr) {
+                        parentGenotypes[kk] = GeneticsImpl::invert(parentGenotypes[kk]);
+                    }
+
+                    // Go to the next combination of parent indices
+                    psIdxGen.next();
+                }
+            }
+        }
+
+        for (size_t ii = 0; ii < (unsigned long) std::pow(MAX_TRANSMISSIONS, numParents); ++ii) {
+            auto kVec        = kVecs_[ii];// vector of numbers of transmission events for each parent
+            kVec[numParents] = 1;         // the latent parent always has one transmission event
+
+            double all_parents_lost_prob = 1.0;
+            // Calculate the probability of losses in the transmission process
+            for (size_t parentIdx = 0; parentIdx < numParents; ++parentIdx) {
+                // probability that an allele is lost after k generations
+                const double loss_prob = this->peekLossProb(kVec[parentIdx]);
+                const double not_mutated_prob = 1.0 - this->peekMutationProb(kVec[parentIdx]);
+                all_parents_lost_prob *= loss_prob;
+                probs_[ii] += allelesLostCounter_[parentIdx] * std::log(loss_prob) +
+                              (totalNegativeAlleles - allelesLostCounter_[parentIdx]) * std::log(not_mutated_prob);
+
+                // tack on probability of k generations for parent at parentIdx
+                probs_[ii] += std::log(interTransmissionProb_->peek()(kVec[parentIdx]));
+            }
+
+            // losing the latentParent in a single transmission event
+            const double lost_in_one_gen = this->peekLossProb(1);
+            const double not_mutated_in_one_gen = 1.0 - this->peekMutationProb(1);
+            all_parents_lost_prob *= lost_in_one_gen;
+            probs_[ii] += allelesLostCounter_[numParents] * std::log(lost_in_one_gen) +
+                          (totalNegativeAlleles - allelesLostCounter_[numParents]) * std::log(not_mutated_in_one_gen);
+            // tack on probability of latentParent being drawn from the background population
+            probs_[ii] += stp->peek();
+
+            // Calculate the probability of retentions in the transmission process where no alleles are lost
+            probs_[ii] += jointAllelesLostCounter_[0] * std::log(1 - all_parents_lost_prob);
+            size_t jointEventCounter = 1;
+
+            for (size_t parentCount = 1; parentCount <= numParents; ++parentCount) {
+
+                // Now we need to iterate over the subsets of events
+                psIdxGen.reset(numParents + 1, parentCount);
+                while (!psIdxGen.completed) {
+                    // start with everything being multiplied out, i.e. all events happened
+                    // for example (abc)
+                    double tmpProb = all_parents_lost_prob;
+                    for (const auto& pIdx : psIdxGen.curr) {
+                        // remove each parent inside the indexed subset
+                        tmpProb /= this->peekLossProb(kVec[pIdx]);
+                        tmpProb *= (1.0 - this->peekMutationProb(kVec[pIdx]));
+                    }
+                    probs_[ii] += jointAllelesLostCounter_[jointEventCounter] * std::log(1 - tmpProb);
+                    ++jointEventCounter;
+                    psIdxGen.next();
+                }
+            }
+        }
+        Likelihood llik = core::utils::logSumExp(probs_.begin(), probs_.begin() + (unsigned int) std::pow(MAX_TRANSMISSIONS, numParents) - 1);
+        return llik;
+    }
+
+
+    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
+    template<typename GeneticsImpl>
+    Likelihood SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::peekLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, std::shared_ptr<SourceTransmissionProcessImpl> stp) {
+        auto loci                    = infection->loci();
+        unsigned int allelesLost     = 0;
+        unsigned int allelesRetained = 0;
+        unsigned int allelesMutated  = 0;
+        unsigned int allelesNotMutated = 0;
+
+        // Calculate the number of events that occur in the transmission process, where
+        // events are either the loss or retention of alleles.
+        for (const auto& locus : loci) {
+            auto childGenotype = infection->latentGenotype(locus)->value();
+            allelesLost += GeneticsImpl::falseNegativeCount(latentParent->latentGenotype(locus)->value(), childGenotype);
+            allelesRetained += GeneticsImpl::truePositiveCount(latentParent->latentGenotype(locus)->value(), childGenotype);
+            allelesMutated += GeneticsImpl::falsePositiveCount(latentParent->latentGenotype(locus)->value(), childGenotype);
+            allelesNotMutated += GeneticsImpl::trueNegativeCount(latentParent->latentGenotype(locus)->value(), childGenotype);
+//            if (allelesMutated > 0) {
+//                return -std::numeric_limits<Likelihood>::infinity();
+//            }
+        }
+
+        // 1 -> 0
+        Likelihood llik = allelesLost * std::log(this->peekLossProb(1));
+        // 1 -> 1
+        llik += allelesRetained * std::log(1 - this->peekLossProb(1));
+        // 0 -> 1
+        llik += allelesMutated * std::log(this->peekMutationProb(1));
+        // 0 -> 0
+        llik += allelesNotMutated * std::log(1 - this->peekMutationProb(1));
+
+        // Add in the probability of the transmission process
+        llik += stp->peek();
 
         return llik;
     }

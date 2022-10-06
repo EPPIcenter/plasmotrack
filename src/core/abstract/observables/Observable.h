@@ -31,7 +31,7 @@ public:                                                                         
 private:                                                                                                \
     core::abstract::ObserverMap<core::abstract::ListenerId_t, callback_type> callback_name##_callbacks_{};
 
-
+//// Enables adding and removing of callbacks that are keyed (i.e. callbacks that depend on specific elements can be registered)
 #define CREATE_KEYED_EVENT(callback_name, KeyType, CallbackType)                                                                          \
 public:                                                                                                                                   \
     template<typename... Args>                                                                                                            \

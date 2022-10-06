@@ -6,9 +6,11 @@
 
 #include "core/computation/OrderDerivedParentSet.h"
 #include "core/parameters/Ordering.h"
+#include "core/io/serialize.h"
 
 using namespace transmission_nets::core::parameters;
 using namespace transmission_nets::core::computation;
+using namespace transmission_nets::core::io;
 
 TEST(OrderingTest, HandlesSwapsNotifies) {
     auto el1 = std::make_shared<int>(1);
@@ -56,14 +58,14 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
     ordering->saveState("state1");
 
     ordering->swap(0, 2);
-    p_el1.serialize();
-    p_el2.serialize();
-    p_el3.serialize();
-    p_el4.serialize();
+    fmt::print("{}\n", serialize(p_el1));
+    fmt::print("{}\n", serialize(p_el2));
+    fmt::print("{}\n", serialize(p_el3));
+    fmt::print("{}\n", serialize(p_el4));
 
     ordering->restoreState("state1");
-    p_el1.serialize();
-    p_el2.serialize();
-    p_el3.serialize();
-    p_el4.serialize();
+    fmt::print("{}\n", serialize(p_el1));
+    fmt::print("{}\n", serialize(p_el2));
+    fmt::print("{}\n", serialize(p_el3));
+    fmt::print("{}\n", serialize(p_el4));
 }

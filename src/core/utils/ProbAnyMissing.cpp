@@ -2,8 +2,6 @@
 // Created by Maxwell Murphy on 7/14/20.
 //
 
-#include <cmath>
-#include <iostream>
 #include <vector>
 
 #include "ProbAnyMissing.h"
@@ -16,7 +14,7 @@ namespace transmission_nets::core::utils {
      * @return
      */
 
-    double transmission_nets::core::utils::probAnyMissingFunctor::operator()(const std::vector<double>& eventProbs, unsigned int numEvents) {
+    double transmission_nets::core::utils::probAnyMissingFunctor::operator()(const std::vector<Likelihood>& eventProbs, unsigned int numEvents) {
         std::size_t totalEvents = eventProbs.size();
         int multCounter;
         double r;

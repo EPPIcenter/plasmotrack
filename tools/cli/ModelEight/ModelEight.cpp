@@ -38,9 +38,16 @@ bool interrupted = false;
 std::unique_ptr<ReplicaExchange<ModelEight::State, ModelEight::Model, ModelEight::SampleScheduler, ModelEight::ModelLogger, ModelEight::StateLogger>> repex;
 
 void finalize_output(int signal_num) {
+    if (interrupted) {
+        fmt::print("Killing process, output inconsistent...\n");
+        exit(SUCCESS);
+    }
     interrupted = true;
     fmt::print("Interrupt signal {} received. Finalizing output...", signal_num);
 }
+
+using Time = std::chrono::high_resolution_clock;
+using dsec = std::chrono::duration<double>;
 
 int main(int argc, char** argv) {
     signal(SIGINT, finalize_output);
@@ -110,7 +117,7 @@ int main(int argc, char** argv) {
         const fs::path outputDir{output_dir};
 
         if (!fs::exists(nodesFile)) {
-            std::cerr << "Nodes test file does not exist." << std::endl;
+            std::cerr << "Nodes input file does not exist." << std::endl;
             return ERROR_IN_COMMAND_LINE;
         }
 
@@ -130,8 +137,15 @@ int main(int argc, char** argv) {
         auto r = std::make_shared<boost::random::mt19937>(seed);
         repex  = std::make_unique<ReplicaExchange<ModelEight::State, ModelEight::Model, ModelEight::SampleScheduler, ModelEight::ModelLogger, ModelEight::StateLogger>>(numChains, thin, gradient, r, outputDir, hotload, j);
 
+
+
         repex->logState();
         repex->finalize();
+
+        double totalSamples = 0;
+        double totalSeconds = 0;
+        double samplesPerSecond = 0;
+
         fmt::print("Starting Llik: {0:.2f}\n", repex->hotValue());
         for (int kk = 0; kk < burnin; ++kk) {
             if (interrupted) {
@@ -139,8 +153,17 @@ int main(int argc, char** argv) {
                 repex->logState();
                 break;
             }
+
+            auto t0 = Time::now();
             repex->sample();
-            fmt::print("(b={0}) Current Llik: {1:.2f}\n", kk, repex->hotValue());
+
+            auto t1 = Time::now();
+            dsec ds = t1 - t0;
+            totalSamples += thin;
+            totalSeconds += ds.count();
+            samplesPerSecond = (totalSamples / totalSeconds);
+
+            fmt::print("(b={0}) Current Llik: {1:.2f} ({2} samples/sec)\n", kk, repex->hotValue(), samplesPerSecond);
         }
 
 
@@ -148,10 +171,20 @@ int main(int argc, char** argv) {
             if (interrupted) {
                 break;
             }
+
+            auto t0 = Time::now();
             repex->sample();
+
+            auto t1 = Time::now();
+            dsec ds = t1 - t0;
+            totalSamples += thin;
+            totalSeconds += ds.count();
+            samplesPerSecond = totalSamples / totalSeconds;
+
             repex->logModel();
             repex->logState();
-            fmt::print("(s={0}) Current Llik: {1:.2f}\n", jj, repex->hotValue());
+
+            fmt::print("(s={0}) Current Llik: {1:.2f} ({2} samples/sec)\n", jj, repex->hotValue(), samplesPerSecond);
         }
 
         repex->finalize();

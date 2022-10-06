@@ -4,6 +4,7 @@
 //
 #include <Eigen/Core>
 #include <boost/random.hpp>
+#include <utility>
 
 #include "gtest/gtest.h"
 
@@ -19,7 +20,7 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
     using Alleles = AllelesBitSet<24>;
 
     struct AllelesBitSetTestTarget {
-        explicit AllelesBitSetTestTarget(std::shared_ptr<Parameter<Alleles>> alleles) : alleles_(alleles) {
+        explicit AllelesBitSetTestTarget(std::shared_ptr<Parameter<Alleles>> alleles) : alleles_(std::move(alleles)) {
             alleles_->add_post_change_listener([=, this]() {
                 dirty = true;
             });
@@ -53,7 +54,7 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
     auto myTestTar = std::make_shared<AllelesBitSetTestTarget>(myAlleles);
     auto r         = std::make_shared<boost::random::mt19937>();
 
-    genetics::RandomAllelesBitSetSampler sampler(myAlleles, myTestTar, r);
+    genetics::RandomAllelesBitSetSampler sampler(myAlleles, myTestTar, r, 6);
 
     int i = 5000;
     while (i > 0) {

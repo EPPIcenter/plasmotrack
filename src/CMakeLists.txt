@@ -92,44 +92,44 @@ set(SOURCE_FILES
         core/computation/transformers/Tempered.h
         core/samplers/meta/ReplicaExchange.h
 
-        impl/model/ModelFive/State.cpp
-        impl/model/ModelFive/State.h
-        impl/model/ModelFive/Model.cpp
-        impl/model/ModelFive/Model.h
-        impl/model/ModelFive/config.h
-        impl/model/ModelFive/SampleScheduler.h
-        impl/model/ModelFive/StateLogger.cpp
-        impl/model/ModelFive/StateLogger.h
-        impl/model/ModelFive/ModelLogger.cpp
-        impl/model/ModelFive/ModelLogger.h
-        impl/model/ModelFive/SamplerLogger.cpp
-        impl/model/ModelFive/SamplerLogger.h
+#        impl/model/ModelFive/State.cpp
+#        impl/model/ModelFive/State.h
+#        impl/model/ModelFive/Model.cpp
+#        impl/model/ModelFive/Model.h
+#        impl/model/ModelFive/config.h
+#        impl/model/ModelFive/SampleScheduler.h
+#        impl/model/ModelFive/StateLogger.cpp
+#        impl/model/ModelFive/StateLogger.h
+#        impl/model/ModelFive/ModelLogger.cpp
+#        impl/model/ModelFive/ModelLogger.h
+#        impl/model/ModelFive/SamplerLogger.cpp
+#        impl/model/ModelFive/SamplerLogger.h
 
-        impl/model/ModelSix/State.cpp
-        impl/model/ModelSix/State.h
-        impl/model/ModelSix/Model.cpp
-        impl/model/ModelSix/Model.h
-        impl/model/ModelSix/config.h
-        impl/model/ModelSix/SampleScheduler.h
-        impl/model/ModelSix/StateLogger.cpp
-        impl/model/ModelSix/StateLogger.h
-        impl/model/ModelSix/ModelLogger.cpp
-        impl/model/ModelSix/ModelLogger.h
-        impl/model/ModelSix/SamplerLogger.cpp
-        impl/model/ModelSix/SamplerLogger.h
+#        impl/model/ModelSix/State.cpp
+#        impl/model/ModelSix/State.h
+#        impl/model/ModelSix/Model.cpp
+#        impl/model/ModelSix/Model.h
+#        impl/model/ModelSix/config.h
+#        impl/model/ModelSix/SampleScheduler.h
+#        impl/model/ModelSix/StateLogger.cpp
+#        impl/model/ModelSix/StateLogger.h
+#        impl/model/ModelSix/ModelLogger.cpp
+#        impl/model/ModelSix/ModelLogger.h
+#        impl/model/ModelSix/SamplerLogger.cpp
+#        impl/model/ModelSix/SamplerLogger.h
 
-        impl/model/ModelSeven/State.cpp
-        impl/model/ModelSeven/State.h
-        impl/model/ModelSeven/Model.cpp
-        impl/model/ModelSeven/Model.h
-        impl/model/ModelSeven/config.h
-        impl/model/ModelSeven/SampleScheduler.h
-        impl/model/ModelSeven/StateLogger.cpp
-        impl/model/ModelSeven/StateLogger.h
-        impl/model/ModelSeven/ModelLogger.cpp
-        impl/model/ModelSeven/ModelLogger.h
-        impl/model/ModelSeven/SamplerLogger.cpp
-        impl/model/ModelSeven/SamplerLogger.h
+#        impl/model/ModelSeven/State.cpp
+#        impl/model/ModelSeven/State.h
+#        impl/model/ModelSeven/Model.cpp
+#        impl/model/ModelSeven/Model.h
+#        impl/model/ModelSeven/config.h
+#        impl/model/ModelSeven/SampleScheduler.h
+#        impl/model/ModelSeven/StateLogger.cpp
+#        impl/model/ModelSeven/StateLogger.h
+#        impl/model/ModelSeven/ModelLogger.cpp
+#        impl/model/ModelSeven/ModelLogger.h
+#        impl/model/ModelSeven/SamplerLogger.cpp
+#        impl/model/ModelSeven/SamplerLogger.h
 
         impl/model/ModelEight/State.cpp
         impl/model/ModelEight/State.h

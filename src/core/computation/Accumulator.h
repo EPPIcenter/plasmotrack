@@ -14,6 +14,7 @@
 #include "core/abstract/observables/Observable.h"
 
 #include <boost/container/flat_set.hpp>
+#include <fmt/core.h>
 
 #include <cassert>
 #include <cmath>
@@ -90,11 +91,6 @@ namespace transmission_nets::core::computation {
             const auto& [_2, inserted_] = dirtyTargets_.insert(target);
             if (inserted_) {
                 this->setDirty();
-#ifndef DNDEBUG
-                if (target->peek() <= -std::numeric_limits<Likelihood>::infinity()) {
-                    std::cerr << target->identifier() << " returns -inf" << std::endl;
-                }
-#endif
                 this->value_ -= target->peek();
             }
         });
@@ -146,6 +142,7 @@ namespace transmission_nets::core::computation {
 
         for (auto& el : dirtyTargets_) {
             assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
+
             if (std::isnan(el->value())) {
                 this->value_ = -std::numeric_limits<Likelihood>::infinity();
             } else {

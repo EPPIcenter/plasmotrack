@@ -34,7 +34,7 @@ namespace transmission_nets::impl::ModelEight {
         std::vector<std::shared_ptr<SourceTransmissionImpl>> sourceTransmissionProcessList{};
 
         // Transmission Process
-        std::vector<std::shared_ptr<ParentSetImpl>> parentSetList{};
+//        std::map<std::shared_ptr<InfectionEvent>, std::shared_ptr<ParentSetImpl>> parentSetList{};
         std::vector<std::shared_ptr<TransmissionProcess>> transmissionProcessList{};
     };
 }// namespace transmission_nets::impl::ModelEight

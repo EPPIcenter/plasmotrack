@@ -15,12 +15,13 @@ namespace transmission_nets::impl::ModelEight {
         likelihood.registerCacheableCheckpointTarget(this);
 
         intp                    = std::make_shared<InterTransmissionProbImpl>(state_->geometricGenerationProb);
-        nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->lossProb, state_->mutationProb, intp);
+//        nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->lossProb, state_->mutationProb, intp);
+        nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->lossProb, intp);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
 
         // Register Priors
         likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->lossProb, state_->lossProbPriorAlpha, state_->lossProbPriorBeta));
-        likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->mutationProb, state_->mutationProbPriorAlpha, state_->mutationProbPriorBeta));
+//        likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->mutationProb, state_->mutationProbPriorAlpha, state_->mutationProbPriorBeta));
         likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanCOI, state_->meanCOIPriorShape, state_->meanCOIPriorScale));
         likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
         //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationShape, state_->infectionDurationShapePriorShape, state_->infectionDurationShapePriorScale));
@@ -44,13 +45,13 @@ namespace transmission_nets::impl::ModelEight {
                 likelihood.addTarget(observationProcessLikelihoodList.back());
             }
 
-            parentSetList.push_back(std::make_shared<ParentSetImpl>(state_->infectionEventOrdering, infection, state_->allowedParents[infection]));
+            state_->parentSetList[infection->id()] = std::make_shared<ParentSetImpl>(state_->infectionEventOrdering, infection, state_->allowedParents[infection]);
             i++;
         }
 
         for (unsigned int j = 0; j < state_->infections.size(); ++j) {
             auto infection = state_->infections[j];
-            auto parentSet = parentSetList[j];
+            auto parentSet = state_->parentSetList[infection->id()];
             auto latentParent = state_->latentParents[j];
 
             sourceTransmissionProcessList.push_back(std::make_shared<SourceTransmissionImpl>(
@@ -58,10 +59,10 @@ namespace transmission_nets::impl::ModelEight {
                     state_->alleleFrequencies,
                     latentParent->loci(),
                     latentParent->latentGenotype()));
-            likelihood.addTarget(sourceTransmissionProcessList.back());
 
             transmissionProcessList.push_back(std::make_shared<TransmissionProcess>(
                     nodeTransmissionProcess,
+                    sourceTransmissionProcessList.back(),
                     infection,
                     parentSet,
                     latentParent));

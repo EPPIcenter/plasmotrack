@@ -6,9 +6,11 @@
 #define TRANSMISSION_NETWORKS_APP_PROBANYMISSING_H
 
 #include "core/utils/generators/CombinationIndicesGenerator.h"
+#include "core/computation/PartialLikelihood.h"
 
 namespace transmission_nets::core::utils {
 
+    using core::computation::Likelihood;
     struct probAnyMissingFunctor {
 
         probAnyMissingFunctor() = default;
@@ -19,10 +21,10 @@ namespace transmission_nets::core::utils {
          * @param numEvents Number of trials
          * @return
          */
-        double operator()(const std::vector<double>& eventProbs, unsigned int numEvents);
+        double operator()(const std::vector<Likelihood>& eventProbs, unsigned int numEvents);
 
-        double prob{};
-        double eventCombo{};
+        Likelihood prob{};
+        Likelihood eventCombo{};
         generators::CombinationIndicesGenerator c;
     };
 

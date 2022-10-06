@@ -8,9 +8,12 @@
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
 
+
+#include <nlohmann/json.hpp>
+#include <boost/random.hpp>
+
 #include <iostream>
 #include <memory>
-#include <nlohmann/json.hpp>
 
 namespace transmission_nets::core::io {
     using nlohmann::json;
@@ -60,11 +63,12 @@ namespace transmission_nets::core::io {
         return locusMap;
     }
 
-    template<typename InfectionEvent, typename LocusImpl>
+    template<typename InfectionEvent, typename LocusImpl, typename Engine = boost::random::mt19937>
     std::vector<std::shared_ptr<InfectionEvent>> parseInfectionsFromJSON(
             const json& input,
             const int max_coi,
             std::map<std::string, std::shared_ptr<LocusImpl>> loci,
+            std::shared_ptr<Engine> rng,
             const char infectionsKey[]      = "nodes",
             const char obsGenotypesKey[]    = "observed_genotype",
             const char idKey[]              = "id",
@@ -89,7 +93,8 @@ namespace transmission_nets::core::io {
                 } else {
                     std::string latent_genetics;
                     latent_genetics.resize(locusItr->second->totalAlleles(), '0');
-                    latent_genetics[0] = '1';
+                    boost::random::uniform_int_distribution<> dist(0, locusItr->second->totalAlleles() - 1);
+                    latent_genetics[dist(*rng)] = '1';
                     infections.back()->addLatentGenetics(locusItr->second, latent_genetics);
                 }
             }

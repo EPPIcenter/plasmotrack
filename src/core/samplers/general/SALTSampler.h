@@ -10,6 +10,7 @@
 #include <boost/math/distributions.hpp>
 #include <boost/random.hpp>
 #include <boost/range/algorithm.hpp>
+#include <utility>
 
 #include "core/datatypes/Simplex.h"
 #include "core/io/serialize.h"
@@ -91,7 +92,7 @@ namespace transmission_nets::core::samplers {
     };
 
     template<typename T, typename Engine>
-    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) : parameter_(parameter), target_(target), rng_(rng) {
+    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) : parameter_(std::move(parameter)), target_(target), rng_(rng) {
         for (size_t j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.push_back(1);
             acceptances_.push_back(0);
@@ -100,7 +101,7 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance) : parameter_(parameter), target_(target), rng_(rng) {
+    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance) : parameter_(std::move(parameter)), target_(target), rng_(rng) {
         for (size_t j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.push_back(variance);
             acceptances_.push_back(0);
@@ -109,7 +110,7 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, double minVariance, double maxVariance) : parameter_(parameter), target_(target), rng_(rng), minVariance_(minVariance), maxVariance_(maxVariance) {
+    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, double minVariance, double maxVariance) : parameter_(std::move(parameter)), target_(target), rng_(rng), minVariance_(minVariance), maxVariance_(maxVariance) {
         for (size_t j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.push_back(variance);
             acceptances_.push_back(0);

@@ -19,14 +19,16 @@ namespace transmission_nets::impl::ModelEight {
         //        State(std::map<std::string, LocusImpl *> loci, const std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> allowedParents);
 
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
-        explicit State(const nlohmann::json& input);
-        State(const nlohmann::json& input, const fs::path& outputDir);
+
+        explicit State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng);
+        State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const fs::path& outputDir);
         void initPriors();
 
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
         std::vector<std::shared_ptr<InfectionEvent>> latentParents{};
         std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> allowedParents{};
+        std::map<std::string, std::shared_ptr<ParentSetImpl>> parentSetList{};
 
         std::shared_ptr<AlleleFrequencyContainerImpl> alleleFrequencies;
 

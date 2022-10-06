@@ -6,9 +6,9 @@
 #include "core/io/serialize.h"
 
 namespace transmission_nets::impl::ModelEight {
-    State::State(const nlohmann::json& input) {
+    State::State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng) {
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
-        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci);
+        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng);
         allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
 
         initPriors();
@@ -23,18 +23,19 @@ namespace transmission_nets::impl::ModelEight {
 
 
         for (const auto& infection : infections) {
-            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.1));
-            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.1));
-            latentParents.push_back(std::make_shared<InfectionEvent>(*infection, "", false));
+            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
+            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.01));
+//            latentParents.push_back(std::make_shared<InfectionEvent>(*infection, "", false));
+            latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
         }
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.95);
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(.1);
-        mutationProb                = std::make_shared<core::parameters::Parameter<double>>(.01);
+        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(.05);
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(1.01);
     }
 
-    State::State(const nlohmann::json& input, const fs::path& outputDir) {
+    State::State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const fs::path& outputDir) {
         // hotstart constructor
         auto paramOutputDir = outputDir / "parameters";
         auto epsPosFolder   = paramOutputDir / "eps_pos";
@@ -45,7 +46,7 @@ namespace transmission_nets::impl::ModelEight {
         auto latentParentsDir = paramOutputDir / "latent_parents";
 
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
-        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci);
+        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng);
         allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
 
         initPriors();
@@ -83,31 +84,31 @@ namespace transmission_nets::impl::ModelEight {
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "geo_gen_prob.csv"));
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "loss_prob.csv"));
-        mutationProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mutation_prob.csv"));
+        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mutation_prob.csv"));
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_coi.csv"));
     }
 
     void State::initPriors() {
-        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
-        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(10);
+        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.001);
 
-        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
-        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(10);
+        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.001);
 
-        geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(90);
-        geometricGenerationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(10);
+        geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
+        geometricGenerationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(1);
 
-        lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
-        lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(90);
+        lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
+        lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(1);
 
-        mutationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
-        mutationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(99);
+//        mutationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
+//        mutationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(99999);
 
         meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(20);
         meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
 
-        infectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(100);
-        infectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(1);
+        infectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(10);
+        infectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(10);
 
     }
 }// namespace transmission_nets::impl::ModelEight

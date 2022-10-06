@@ -29,6 +29,8 @@
 #include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
 #include "core/samplers/general/SALTSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
+#include "core/samplers/genetics/RandomAllelesBitSetSampler2.h"
+#include "core/samplers/genetics/SequentialAllelesBitSetSampler.h"
 #include "core/samplers/genetics/ZanellaAllelesBitSetSampler.h"
 #include "core/samplers/scheduler/RandomizedScheduler.h"
 
@@ -36,8 +38,9 @@
 #include "model/observation_process/AlleleCounts.h"
 #include "model/observation_process/ObservationProcessLikelihoodv2.h"
 
-#include "model/transmission_process/OrderBasedTransmissionProcessV2.h"
+#include "model/transmission_process/OrderBasedTransmissionProcessV3.h"
 #include "model/transmission_process/node_transmission_process/SimpleLossMutation.h"
+#include "model/transmission_process/node_transmission_process/SimpleLoss.h"
 
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
@@ -48,9 +51,9 @@
 namespace transmission_nets::impl::ModelEight {
 
     static constexpr int MAX_ALLELES       = 64;
-    static constexpr int MAX_COI           = 8;
+    static constexpr int MAX_COI           = 16;
     static constexpr int MAX_PARENTS       = 2;
-    static constexpr int MAX_TRANSMISSIONS = 4;
+    static constexpr int MAX_TRANSMISSIONS = 8;
     namespace fs                           = std::filesystem;
 
     using Likelihood                   = core::computation::Likelihood;
@@ -60,19 +63,17 @@ namespace transmission_nets::impl::ModelEight {
     using AlleleFrequencyImpl          = core::datatypes::Simplex;
     using AlleleFrequencyContainerImpl = core::containers::AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>;
 
-    using AlleleCounterImpl        = model::observation_process::AlleleCounter<GeneticsImpl>;
-    using AlleleCounterAccumulator = core::computation::Accumulator<AlleleCounterImpl, model::observation_process::AlleleCounts>;
     using ObservationProcessImpl   = model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>;
-
-    using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
-    using NodeTransmissionImpl      = model::transmission_process::SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTS, InterTransmissionProbImpl>;
 
     using COIProbabilityImpl     = core::distributions::ZTPoisson<MAX_COI>;
     using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent::GenotypeParameterMap , MAX_COI>;
+    using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
+    using NodeTransmissionImpl      = model::transmission_process::SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTS, InterTransmissionProbImpl, SourceTransmissionImpl>;
+
 
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
     using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
-    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcessV2<MAX_PARENTS, NodeTransmissionImpl, InfectionEvent, ParentSetImpl>;
+    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcessV3<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
 
 }// namespace transmission_nets::impl::ModelEight
 

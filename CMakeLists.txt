@@ -13,7 +13,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -fno-omit-frame-pointer")
 if (CMAKE_COMPILER_IS_GNUCC)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -fno-omit-frame-pointer")
 #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Werror -O3 -DNDEBUG -g -march=native -frename-registers -funroll-loops") # -Ofast is throwing nan errors
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Werror -O2 -DNDEBUG -pg -g -march=native") # -Ofast is throwing nan errors
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Werror -O2 -DNDEBUG -march=native") # -Ofast is throwing nan errors
 endif ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -50,6 +50,7 @@ include_directories(${PROJECT_BINARY_DIR})
 
 add_subdirectory(src)
 add_subdirectory(test)
-add_subdirectory(tools/cli/ModelFive)
-add_subdirectory(tools/cli/ModelSix)
-add_subdirectory(tools/cli/ModelSeven)
+#add_subdirectory(tools/cli/ModelFive)
+#add_subdirectory(tools/cli/ModelSix)
+#add_subdirectory(tools/cli/ModelSeven)
+add_subdirectory(tools/cli/ModelEight)

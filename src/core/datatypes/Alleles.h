@@ -7,6 +7,7 @@
 
 #include <bitset>
 #include <cassert>
+#include <vector>
 
 
 namespace transmission_nets::core::datatypes {

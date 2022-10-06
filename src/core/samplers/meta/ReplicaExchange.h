@@ -40,9 +40,9 @@ namespace transmission_nets::core::samplers {
                 double temp = 1.0 / std::pow(gradient, ii);
                 std::shared_ptr<State> state;
                 if (hotload) {
-                    state = std::make_shared<State>(args..., outputDir);
+                    state = std::make_shared<State>(args..., chain_r, outputDir);
                 } else {
-                    state = std::make_shared<State>(args...);
+                    state = std::make_shared<State>(args..., chain_r);
                 }
                 auto model       = std::make_shared<Model>(state);
                 auto target      = std::make_shared<TemperedTarget>(model, temp);
@@ -85,7 +85,7 @@ namespace transmission_nets::core::samplers {
                 Likelihood prop_llik_a = chains[ii].target->value();
                 Likelihood prop_llik_b = chains[ii + 1].target->value();
 
-                double acceptanceRatio = (prop_llik_a - curr_llik_a + prop_llik_b - curr_llik_b);
+                long double acceptanceRatio = (prop_llik_a - curr_llik_a + prop_llik_b - curr_llik_b);
                 const bool accept      = log(uniform_dist_(*r_)) < acceptanceRatio;
 
                 if (accept) {

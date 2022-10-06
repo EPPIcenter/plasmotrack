@@ -54,11 +54,11 @@ namespace transmission_nets::core::containers {
                 } else {
                     const auto obsGenetics = data->value().allelesStr();
                     std::string bitstr;
-                    bool alleleFound = false;
+                    int alleleFound = 0;
                     for (const auto c : obsGenetics) {
-                        if (c == '1' and not alleleFound) {
+                        if (c == '1' and alleleFound < 2) {
                             bitstr += "1";
-                            alleleFound = true;
+                            alleleFound += true;
                         } else {
                             bitstr += "0";
                         }
@@ -66,7 +66,8 @@ namespace transmission_nets::core::containers {
                     if (!alleleFound) {
                         bitstr[bitstr.size() - 1] = '1';
                     }
-                    fmt::print("{}\n", bitstr);
+
+
                     addGenetics(locus, GeneticImpl(bitstr), GeneticImpl(bitstr));
                 }
             }
@@ -169,6 +170,36 @@ namespace transmission_nets::core::containers {
          */
         [[nodiscard]] std::string serialize() const {
             return id_;
+        }
+
+
+        // Infections are comparable by their id.
+        bool operator<(const Infection& rhs) const {
+            if (static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this) < static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs))
+                return true;
+            if (static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs) < static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this))
+                return false;
+            if (static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this) < static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs))
+                return true;
+            if (static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs) < static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this))
+                return false;
+            if (static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this) < static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs))
+                return true;
+            if (static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs) < static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this))
+                return false;
+            return id_ < rhs.id_;
+        }
+
+        bool operator>(const Infection& rhs) const {
+            return rhs < *this;
+        }
+
+        bool operator<=(const Infection& rhs) const {
+            return !(rhs < *this);
+        }
+
+        bool operator>=(const Infection& rhs) const {
+            return !(*this < rhs);
         }
 
     private:

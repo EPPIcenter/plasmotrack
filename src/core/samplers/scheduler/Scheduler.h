@@ -28,7 +28,7 @@ namespace transmission_nets::core::samplers {
     };
 
 
-    inline bool isBetween(int val, int lower, int upper) {
+    inline bool isBetween(unsigned long val, unsigned long lower, unsigned long upper) {
         return val >= lower and val < upper;
     }
 

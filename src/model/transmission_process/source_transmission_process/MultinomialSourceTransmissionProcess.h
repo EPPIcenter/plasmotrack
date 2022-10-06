@@ -32,7 +32,7 @@ namespace transmission_nets::model::transmission_process {
     public:
         MultinomialSourceTransmissionProcess(std::shared_ptr<COIProbabilityImpl> coiProb,
                                              std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer,
-                                             const std::vector<std::shared_ptr<core::containers::Locus>>& loci,
+                                             std::vector<std::shared_ptr<core::containers::Locus>>  loci,
                                              const GenotypeParameterMap& genetics);
 
         Likelihood value() override;
@@ -65,24 +65,24 @@ namespace transmission_nets::model::transmission_process {
         int totalLoci_;
 
         // buffers for calculations
-        std::vector<double> coiPartialLlik_{};
-        std::vector<double> prVec_{};
+        std::vector<Likelihood> coiPartialLlik_{};
+        std::vector<Likelihood> prVec_{};
 
         // stateful -- must be cached
-        std::vector<double> locusLlikBuffer_{};
-        std::vector<double> llikMatrix_{};
-        std::vector<std::vector<double>> locusLlikBufferCache_{};
-        std::vector<std::vector<double>> llikMatrixCache_{};
+        std::vector<Likelihood> locusLlikBuffer_{};
+        std::vector<Likelihood> llikMatrix_{};
+        std::vector<std::vector<Likelihood>> locusLlikBufferCache_{};
+        std::vector<std::vector<Likelihood>> llikMatrixCache_{};
 
-        std::vector<double> tmpCalculationVec_{};
+        std::vector<Likelihood> tmpCalculationVec_{};
 
         core::utils::probAnyMissingFunctor probAnyMissing_;
     };
 
 
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename GenotypeParameterMap, int MAX_COI>
-    MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>::MultinomialSourceTransmissionProcess(std::shared_ptr<COIProbabilityImpl> coiProb, std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer, const std::vector<std::shared_ptr<core::containers::Locus>>& loci, const GenotypeParameterMap& genetics)
-        : coiProb_(std::move(coiProb)), alleleFrequenciesContainer_(std::move(alleleFrequenciesContainer)), loci_(loci), genetics_(genetics) {
+    MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>::MultinomialSourceTransmissionProcess(std::shared_ptr<COIProbabilityImpl> coiProb, std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer, std::vector<std::shared_ptr<core::containers::Locus>>  loci, const GenotypeParameterMap& genetics)
+        : coiProb_(std::move(coiProb)), alleleFrequenciesContainer_(std::move(alleleFrequenciesContainer)), loci_(std::move(loci)), genetics_(genetics) {
         value_     = 0;
         totalLoci_ = alleleFrequenciesContainer_->totalLoci();
 
@@ -126,7 +126,6 @@ namespace transmission_nets::model::transmission_process {
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename GenotypeParameterMap, int MAX_COI>
     Likelihood MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>::value() {
         if (this->isDirty()) {
-
             for (const auto& locus : dirtyLoci_) {
                 this->calculateLocusLogLikelihood(locus);
                 std::copy(locusLlikBuffer_.begin(), locusLlikBuffer_.end(), llikMatrix_.begin() + locusIdxMap_[locus] * (MAX_COI + 1));
@@ -150,14 +149,26 @@ namespace transmission_nets::model::transmission_process {
                 tmpCalculationVec_.push_back(coiPartialLlik_.at(l));
             }
 
+//            this->value_ = validate();
             this->value_ = core::utils::logSumExp(tmpCalculationVec_);
 
-            //#ifdef DEBUG_LIKELIHOOD
-            //            auto tmp = recalculate();
-            //            if (std::abs(tmp - this->value_) > 1e-4) {
-            //                fmt::print(stderr, "Likelihood mismatch MSTP: {}, {}\n", tmp, this->value_);
-            //            }
-            //#endif
+            if (std::isnan(this->value_) or this->value_ <= -std::numeric_limits<double>::infinity()) {
+                fmt::print("NAN in MultinomialSourceTransmissionProcess::value()\n");
+                fmt::print("\ttmpCalculationVec_ = {}\n", core::io::serialize(tmpCalculationVec_));
+                fmt::print("Allele frequencies:\n");
+                for (const auto& locus : loci_) {
+                    fmt::print("\tlocus {} = {}\n", locus->label, core::io::serialize(alleleFrequenciesContainer_->alleleFrequencies(locus)->value()));
+                    fmt::print("\tgenotype = {}\n", core::io::serialize(genetics_.at(locus)->value()));
+                }
+                this->value_ = -std::numeric_limits<double>::infinity();
+            }
+
+            #ifdef DEBUG_LIKELIHOOD
+                        auto tmp = validate();
+                        if (std::abs(tmp - this->value_) > 1) {
+                            fmt::print(stderr, "Likelihood mismatch MSTP: {}, {}\n", tmp, this->value_);
+                        }
+            #endif
 
             this->setClean();
         }
@@ -221,7 +232,7 @@ namespace transmission_nets::model::transmission_process {
 
         if (constrainedSetProb > 0 and !zeroProbEvent) {
             // Normalize the probability density
-            for (double& k : prVec_) {
+            for (auto& k : prVec_) {
                 k = k / constrainedSetProb;
             }
 
@@ -229,8 +240,14 @@ namespace transmission_nets::model::transmission_process {
                 // Prob that after `coi` draws 1 or more alleles are not drawn
                 Likelihood pam = probAnyMissing_(prVec_, coi);
 
+
                 // prob that after `coi` draws all alleles are drawn at least once conditional on all draws come from the constrained set.
-                locusLlikBuffer_[coi] = std::log(1 - pam) + std::log(constrainedSetProb) * coi;
+                if (pam >= 1) {
+                    locusLlikBuffer_[coi] = -std::numeric_limits<Likelihood>::infinity();
+                } else {
+                    locusLlikBuffer_[coi] = std::log(1 - pam) + std::log(constrainedSetProb) * coi;
+                }
+
             }
 
         } else {
