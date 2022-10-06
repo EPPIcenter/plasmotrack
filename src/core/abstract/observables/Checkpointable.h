@@ -42,27 +42,27 @@ namespace transmission_nets::core::abstract {
         template<typename T0>
         std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> registerCacheableCheckpointTarget(T0* target);
 
-        void addPreSaveHook(const CallbackType& cb) {
+        void addPreSaveHook(const SaveRestoreCallbackType& cb) {
             this->pre_save_hooks_.emplace_back(cb);
         }
 
-        void addPostSaveHook(const CallbackType& cb) {
+        void addPostSaveHook(const SaveRestoreCallbackType& cb) {
             this->post_save_hooks_.emplace_back(cb);
         }
 
-        void addPreRestoreHook(const CallbackType& cb) {
+        void addPreRestoreHook(const SaveRestoreCallbackType& cb) {
             this->pre_restore_hooks_.emplace_back(cb);
         }
 
-        void addPostRestoreHook(const CallbackType& cb) {
+        void addPostRestoreHook(const SaveRestoreCallbackType& cb) {
             this->post_restore_hooks_.emplace_back(cb);
         }
 
-        void addPreAcceptHook(const CallbackType& cb) {
+        void addPreAcceptHook(const AcceptCallbackType& cb) {
             this->pre_accept_hooks_.emplace_back(cb);
         }
 
-        void addPostAcceptHook(const CallbackType& cb) {
+        void addPostAcceptHook(const AcceptCallbackType& cb) {
             this->post_accept_hooks_.emplace_back(cb);
         }
 
@@ -76,12 +76,12 @@ namespace transmission_nets::core::abstract {
 
     protected:
         std::vector<StateCheckpoint, boost::pool_allocator<StateCheckpoint>> saved_states_stack_{};
-        std::vector<CallbackType> pre_save_hooks_{};
-        std::vector<CallbackType> post_save_hooks_{};
-        std::vector<CallbackType> pre_restore_hooks_{};
-        std::vector<CallbackType> post_restore_hooks_{};
-        std::vector<CallbackType> pre_accept_hooks_{};
-        std::vector<CallbackType> post_accept_hooks_{};
+        std::vector<SaveRestoreCallbackType> pre_save_hooks_{};
+        std::vector<SaveRestoreCallbackType> post_save_hooks_{};
+        std::vector<SaveRestoreCallbackType> pre_restore_hooks_{};
+        std::vector<SaveRestoreCallbackType> post_restore_hooks_{};
+        std::vector<AcceptCallbackType> pre_accept_hooks_{};
+        std::vector<AcceptCallbackType> post_accept_hooks_{};
     };
 
 
@@ -130,14 +130,14 @@ namespace transmission_nets::core::abstract {
     void Checkpointable<T, ValueType>::saveState(const std::string& savedStateId) noexcept {
         if (!isSaved() or saved_states_stack_.back().saved_state_id != savedStateId) {
             for (auto& cb : pre_save_hooks_) {
-                cb();
+                cb(savedStateId);
             }
 
             this->underlying().notify_save_state(savedStateId);
             saved_states_stack_.emplace_back(this->underlying().value(), savedStateId);
 
             for (auto& cb : post_save_hooks_) {
-                cb();
+                cb(savedStateId);
             }
         }
     }
@@ -146,7 +146,7 @@ namespace transmission_nets::core::abstract {
     void Checkpointable<T, ValueType>::restoreState(const std::string& savedStateId) noexcept {
         if (isSaved() and saved_states_stack_.back().saved_state_id == savedStateId) {
             for (auto& cb : pre_restore_hooks_) {
-                cb();
+                cb(savedStateId);
             }
 
             this->underlying().notify_restore_state(savedStateId);
@@ -154,7 +154,7 @@ namespace transmission_nets::core::abstract {
             saved_states_stack_.pop_back();
 
             for (auto& cb : post_restore_hooks_) {
-                cb();
+                cb(savedStateId);
             }
         }
     }

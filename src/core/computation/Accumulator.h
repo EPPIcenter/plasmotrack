@@ -35,9 +35,9 @@ namespace transmission_nets::core::computation {
         //        void addTarget(Input target);
         void addTarget(const std::shared_ptr<Input>& target);
 
-        void postSaveState();
+        void postSaveState(const std::string& savedStateId);
         void postAcceptState();
-        void postRestoreState();
+        void postRestoreState(const std::string& savedStateId);
 
         Output value() noexcept override;
 
@@ -113,14 +113,14 @@ namespace transmission_nets::core::computation {
 
 
     template<typename Input, typename Output>
-    void Accumulator<Input, Output>::postSaveState() {
+    void Accumulator<Input, Output>::postSaveState([[maybe_unused]] const std::string& savedStateId) {
         targetsCache_.emplace_back(targets_);
         dirtyTargetsCache_.emplace_back(dirtyTargets_);
     }
 
 
     template<typename Input, typename Output>
-    void Accumulator<Input, Output>::postRestoreState() {
+    void Accumulator<Input, Output>::postRestoreState([[maybe_unused]] const std::string& savedStateId) {
         targets_      = targetsCache_.back();
         dirtyTargets_ = dirtyTargetsCache_.back();
 
@@ -165,8 +165,8 @@ namespace transmission_nets::core::computation {
 
     template<typename Input, typename Output>
     Accumulator<Input, Output>::Accumulator() {
-        this->addPostSaveHook([=, this]() { this->postSaveState(); });
-        this->addPostRestoreHook([=, this]() { this->postRestoreState(); });
+        this->addPostSaveHook([=, this](const auto& savedStateId) { this->postSaveState(savedStateId); });
+        this->addPostRestoreHook([=, this](const auto& savedStateId) { this->postRestoreState(savedStateId); });
         this->addPostAcceptHook([=, this]() { this->postAcceptState(); });
     }
 

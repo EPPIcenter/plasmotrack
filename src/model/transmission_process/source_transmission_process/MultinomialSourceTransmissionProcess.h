@@ -44,9 +44,9 @@ namespace transmission_nets::model::transmission_process {
         friend class core::abstract::Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>, double>;
 
         void calculateLocusLogLikelihood(std::shared_ptr<core::containers::Locus> locus);
-        void postSaveState();
+        void postSaveState(const std::string& savedStateId);
         void postAcceptState();
-        void postRestoreState();
+        void postRestoreState(const std::string& savedStateId);
 
         std::shared_ptr<COIProbabilityImpl> coiProb_;
         std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer_;
@@ -115,8 +115,8 @@ namespace transmission_nets::model::transmission_process {
             });
         }
 
-        this->addPostSaveHook([=, this]() { this->postSaveState(); });
-        this->addPostRestoreHook([=, this]() { this->postRestoreState(); });
+        this->addPostSaveHook([=, this](const auto savedStateId) { this->postSaveState(savedStateId); });
+        this->addPostRestoreHook([=, this](const auto savedStateId) { this->postRestoreState(savedStateId); });
         this->addPostAcceptHook([=, this]() { this->postAcceptState(); });
 
         this->setDirty();
@@ -256,7 +256,7 @@ namespace transmission_nets::model::transmission_process {
     }
 
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
-    void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::postSaveState() {
+    void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::postSaveState([[maybe_unused]] const std::string& savedStateId) {
         locusLlikBufferCache_.emplace_back(locusLlikBuffer_);
         llikMatrixCache_.emplace_back(llikMatrix_);
     }
@@ -268,7 +268,7 @@ namespace transmission_nets::model::transmission_process {
     }
 
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
-    void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::postRestoreState() {
+    void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::postRestoreState([[maybe_unused]] const std::string& savedStateId) {
         locusLlikBuffer_ = std::move(locusLlikBufferCache_.back());
         locusLlikBufferCache_.pop_back();
         llikMatrix_ = std::move(llikMatrixCache_.back());

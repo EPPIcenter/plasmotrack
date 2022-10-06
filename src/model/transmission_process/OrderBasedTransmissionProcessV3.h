@@ -64,11 +64,11 @@ namespace transmission_nets::model::transmission_process {
         std::shared_ptr<InfectionEventImpl> latentParent_;
 
     private:
-        void postSaveState();
+        void postSaveState(const std::string& savedStateId);
 
         void postAcceptState();
 
-        void postRestoreState();
+        void postRestoreState(const std::string& savedStateId);
 
         Likelihood getLikelihood(const core::containers::ParentSet<InfectionEventImpl> &ps);
         bool likelihoodCalculated(const core::containers::ParentSet<InfectionEventImpl> &ps);
@@ -78,13 +78,16 @@ namespace transmission_nets::model::transmission_process {
 
         // Container to track the calculated parent set likelihoods over which we sum
         // to get the total likelihood
+        // todo: figure out how to reduce overhead of tracking. currently violates state tracking...
         using LikelihoodTracker = boost::container::flat_map<boost::container::flat_set<std::string>, Likelihood>;
-        LikelihoodTracker *parentSetLliks_ = new LikelihoodTracker {};
-        std::deque<LikelihoodTracker*> parentSetLliksCache_{};
+
+        std::array<LikelihoodTracker, 25> parentSetLliks_{};
+        size_t parentSetLLiksIndex_ = 0;
+
+//        LikelihoodTracker *parentSetLliks_ = new LikelihoodTracker {};
+//        std::deque<LikelihoodTracker*> parentSetLliksCache_{};
+
     };
-
-
-
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::OrderBasedTransmissionProcessV3(
@@ -138,8 +141,8 @@ namespace transmission_nets::model::transmission_process {
 
         parentSet_->registerCacheableCheckpointTarget(this);
 
-        this->addPostSaveHook([=, this]() { this->postSaveState(); });
-        this->addPostRestoreHook([=, this]() { this->postRestoreState(); });
+        this->addPostSaveHook([=, this](const auto savedStateID) { this->postSaveState(savedStateID); });
+        this->addPostRestoreHook([=, this](const auto savedStateID) { this->postRestoreState(savedStateID); });
         this->addPostAcceptHook([=, this]() { this->postAcceptState(); });
 
         this->value_ = -std::numeric_limits<Likelihood>::infinity();
@@ -189,7 +192,7 @@ namespace transmission_nets::model::transmission_process {
             exit(1);
         }
 #endif
-        return parentSetLliks_->at(key);
+        return parentSetLliks_[parentSetLLiksIndex_].at(key);
     }
 
     //likelihood calculated
@@ -199,7 +202,7 @@ namespace transmission_nets::model::transmission_process {
         for (const auto &parent : ps) {
             key.insert(parent->id());
         }
-        return parentSetLliks_->contains(key);
+        return parentSetLliks_[parentSetLLiksIndex_].contains(key);
     }
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
@@ -208,14 +211,14 @@ namespace transmission_nets::model::transmission_process {
         for (const auto &parent : ps) {
             key.insert(parent->id());
         }
-        (*parentSetLliks_)[key] = llik;
+        parentSetLliks_[parentSetLLiksIndex_][key] = llik;
     }
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::clearParentLikelihood(const std::shared_ptr<InfectionEventImpl> parent) {
-        for (auto it = parentSetLliks_->begin(); it != parentSetLliks_->end();) {
+        for (auto it = parentSetLliks_[parentSetLLiksIndex_].begin(); it != parentSetLliks_[parentSetLLiksIndex_].end();) {
             if (it->first.find(parent->id()) != it->first.end()) {
-                it = parentSetLliks_->erase(it);
+                it = parentSetLliks_[parentSetLLiksIndex_].erase(it);
             } else {
                 ++it;
             }
@@ -224,12 +227,13 @@ namespace transmission_nets::model::transmission_process {
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::clearLikelihood() {
-        parentSetLliks_->clear();
+        parentSetLliks_[parentSetLLiksIndex_].clear();
     }
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     std::string OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::identifier() {
-        return "OrderBasedTransmissionProcessV3";
+        auto out = fmt::format("OrderBasedTransmissionProcessV3<{}>", child_->id());
+        return out;
     }
 
 
@@ -307,26 +311,31 @@ namespace transmission_nets::model::transmission_process {
 
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postSaveState() {
-        parentSetLliksCache_.push_back(parentSetLliks_);
-        parentSetLliks_ = new LikelihoodTracker {*parentSetLliksCache_.back()};
+    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postSaveState([[maybe_unused]] const std::string& savedStateId) {
+        parentSetLliks_[parentSetLLiksIndex_ + 1] = parentSetLliks_[parentSetLLiksIndex_];
+        parentSetLLiksIndex_++;
+//        parentSetLliksCache_.push_back(parentSetLliks_);
+//        parentSetLliks_ = new LikelihoodTracker {*parentSetLliksCache_.back()};
     }
 
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postRestoreState() {
-        delete parentSetLliks_;
-        parentSetLliks_ = parentSetLliksCache_.back();
-        parentSetLliksCache_.pop_back();
+    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postRestoreState([[maybe_unused]] const std::string& savedStateId) {
+        parentSetLLiksIndex_--;
+//        delete parentSetLliks_;
+//        parentSetLliks_ = parentSetLliksCache_.back();
+//        parentSetLliksCache_.pop_back();
     }
 
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postAcceptState() {
-        for (auto el : parentSetLliksCache_) {
-            delete el;
-        }
-        parentSetLliksCache_.clear();
+        parentSetLliks_[0] = parentSetLliks_[parentSetLLiksIndex_];
+        parentSetLLiksIndex_ = 0;
+//        for (auto el : parentSetLliksCache_) {
+//            delete el;
+//        }
+//        parentSetLliksCache_.clear();
     }
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>

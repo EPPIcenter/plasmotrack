@@ -261,7 +261,6 @@ namespace transmission_nets::model::transmission_process {
         size_t numParents = parentSet.size();
         auto loci         = infection->loci();
 
-        core::utils::generators::CombinationIndicesGenerator psIdxGen;
         // re-initialize the arrays
         probs_.fill(0);
         allelesLostCounter_.fill(0);
@@ -269,9 +268,11 @@ namespace transmission_nets::model::transmission_process {
         std::array<GeneticsImpl, MAX_PARENTSET_SIZE + 1> parentGenotypes{};
 
 
+        Likelihood stpVal = stp->value();
 
         // Calculate the number of events that occur in the transmission process, where
         // events are either the loss or retention of alleles.
+
         for (const auto& locus : loci) {
             auto childGenotype         = infection->latentGenotype(locus)->value();
             auto invertedChildGenotype = GeneticsImpl::invert(childGenotype);
@@ -297,7 +298,6 @@ namespace transmission_nets::model::transmission_process {
 
             mutationFlag = mutationFlag.mutationMask(parentGenotypes[numParents]);
             if (mutationFlag.totalPositiveCount() > 0) {
-//                fmt::print("Mutation flag is not zero: {}\n", core::io::serialize(mutationFlag));
                 return -std::numeric_limits<Likelihood>::infinity();
             }
 
@@ -305,6 +305,7 @@ namespace transmission_nets::model::transmission_process {
             jointAllelesLostCounter_[0] += base.totalPositiveCount();
             size_t jointIdx = 1;
             for (parentIdx = 1; parentIdx <= numParents + 1; ++parentIdx) {
+                core::utils::generators::CombinationIndicesGenerator psIdxGen;
                 psIdxGen.reset(numParents + 1, parentIdx);
 
                 // invert the latent parent immediately
@@ -337,7 +338,9 @@ namespace transmission_nets::model::transmission_process {
             }
         }
 
+
         for (size_t ii = 0; ii < (unsigned long) std::pow(MAX_TRANSMISSIONS, numParents); ++ii) {
+            core::utils::generators::CombinationIndicesGenerator psIdxGen;
             auto kVec        = kVecs_[ii];// vector of numbers of transmission events for each parent
             kVec[numParents] = 1;         // the latent parent always has one transmission event
 
@@ -356,7 +359,7 @@ namespace transmission_nets::model::transmission_process {
             // losing the latentParent in a single transmission event
             all_parents_lost_prob *= 1.0 - this->value()[1];
             probs_[ii] += allelesLostCounter_[numParents] * std::log(1.0 - this->value()[1]);
-            probs_[ii] += stp->value();
+            probs_[ii] += stpVal;
 
             // Calculate the probability of retentions in the transmission process where no alleles are lost
             probs_[ii] += jointAllelesLostCounter_[0] * std::log(1 - all_parents_lost_prob);
@@ -382,6 +385,7 @@ namespace transmission_nets::model::transmission_process {
                 }
             }
         }
+
         Likelihood llik = core::utils::logSumExp(probs_.begin(), probs_.begin() + (unsigned int) std::pow(MAX_TRANSMISSIONS, numParents) - 1);
 //        if (std::isnan(llik)) {
 //            llik = -std::numeric_limits<Likelihood>::infinity();
