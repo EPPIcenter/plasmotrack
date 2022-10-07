@@ -1,5 +1,3 @@
-import pytest
-
 from simtools.lib.Network import Network, Node
 
 

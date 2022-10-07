@@ -1,26 +1,23 @@
-import copy
-from collections import defaultdict, deque
-from typing import Callable, List, Optional
-
 import numpy as np
-
-from simulations.Node import NodeLike, SimpleNode, SourcePopulation
+from collections import defaultdict, deque
+from simulations.Node import NodeLike, SourcePopulation
+from typing import Callable, List, Optional
 
 
 class TransmissionNetwork:
     def __init__(
-        self,
-        r0: float,
-        node_constructor: Callable[[Optional[NodeLike], Optional[str]], NodeLike],
-        offspring_sampler: Callable[..., int],
-        source_population: SourcePopulation,
-        num_founders: int,
-        false_positive_rate=0.01,
-        false_negative_rate=0.05,
-        infection_duration_shape=10,
-        infection_duration_scale=10,
-        loss_rate=0.1,
-        mutation_rate=0.0,
+            self,
+            r0: float,
+            node_constructor: Callable[[Optional[NodeLike], Optional[str]], NodeLike],
+            offspring_sampler: Callable[..., int],
+            source_population: SourcePopulation,
+            num_founders: int,
+            false_positive_rate=0.01,
+            false_negative_rate=0.05,
+            infection_duration_shape=10,
+            infection_duration_scale=10,
+            loss_rate=0.1,
+            mutation_rate=0.0,
     ):
         self.num_founders = 0
         self.num_nodes = 0
@@ -48,8 +45,12 @@ class TransmissionNetwork:
 
         # generate transmissions at rate r0
         while self.parent_list:
-            parent = self.parent_list.popleft()
-            self.add_children(parent)
+            if len(self.parent_list) > 1:
+                num_parents = 1 if np.random.random(1) > .2 else 2
+            else:
+                num_parents = 1
+            parents = [self.parent_list.popleft() for _ in range(num_parents)]
+            self.add_children(parents)
 
     def add_edge(self, source: NodeLike, dest: NodeLike):
         self.edges[source].append(dest)
@@ -71,7 +72,7 @@ class TransmissionNetwork:
         self.num_founders += 1
         self.num_nodes += 1
 
-    def add_children(self, parent):
+    def add_children(self, parents):
         num_offspring = self.offspring_sampler(self.r0)
         for _ in range(num_offspring):
             child = self.node_constructor(
@@ -81,12 +82,13 @@ class TransmissionNetwork:
                 infection_duration_shape=self.infection_duration_shape,
                 mutation_rate=self.mutation_rate,
                 loss_rate=self.loss_rate,
-                parent=parent,
+                parents=parents
             )
             self.nodes.append(child)
             self.edges[child] = []
-            self.add_edge(parent, child)
-            self.edge_list.append((parent, child))
+            for parent in parents:
+                self.add_edge(parent, child)
+                self.edge_list.append((parent, child))
             self.parent_list.append(child)
             self.num_nodes += 1
 
@@ -133,7 +135,7 @@ def reduce_network(tnet: TransmissionNetwork, nodes: List[NodeLike]):
                 if node in edges[parent_node]
             ]
             if (
-                parent_set
+                    parent_set
             ):  # does the node have a parent? if so, make that the parent of the children nodes
                 for parent_node in parent_set:
                     for child_node in child_set:

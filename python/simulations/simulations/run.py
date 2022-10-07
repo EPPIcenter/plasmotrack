@@ -1,11 +1,9 @@
 import json
-from collections import defaultdict
-from typing import Dict
-
 import numpy as np
-
+from collections import defaultdict
 from simulations.Node import SimpleNode, SourcePopulation, calculate_distance
 from simulations.TransmissionNetwork import TransmissionNetwork, subsample_network
+from typing import Dict
 
 
 def parse_loci(allele_frequencies, allowed_loci=None):
@@ -23,7 +21,7 @@ def parse_loci(allele_frequencies, allowed_loci=None):
     return loci
 
 
-def parse_nodes(nodes, disallowed_parents, loci=None):
+def parse_nodes(nodes, allowed_parents, loci=None):
     if not loci:
         loci = nodes[0].true_alleles.keys()
     nodes = [
@@ -42,7 +40,7 @@ def parse_nodes(nodes, disallowed_parents, loci=None):
             "infection_duration": node.infection_duration,
             "infection_time": node.infection_time,
             "observation_time": node.observation_time,
-            "disallowed_parents": [p[0].label for p in disallowed_parents[node]],
+            "allowed_parents": [p[0].label for p in allowed_parents[node]],
         }
         for node in nodes
     ]
@@ -72,14 +70,14 @@ def calculate_distance_matrix(nodes, loci=None):
     return pairwise_distances
 
 
-def generate_disallowed_parents(nodes, max_allowed_parents: int, loci=None) -> Dict:
+def generate_allowed_parents(nodes, max_allowed_parents: int, loci=None) -> Dict:
     pairwise_distances = calculate_distance_matrix(nodes, loci)
-    disallowed_parents = {}
+    allowed_parents = {}
     for node in nodes:
         dists = pairwise_distances[node]
         dists.sort(key=lambda x: x[1])
-        disallowed_parents[node] = dists[max_allowed_parents:]
-    return disallowed_parents
+        allowed_parents[node] = dists[0:max_allowed_parents]
+    return allowed_parents
 
 
 def calc_mean_bf(edge_sets):
@@ -90,7 +88,7 @@ rng = np.random.default_rng()
 
 allele_frequencies = {}
 for k in range(100):
-    allele_frequencies[f"L{k+1}"] = rng.dirichlet(np.array([1] * 10))
+    allele_frequencies[f"L{k + 1}"] = rng.dirichlet(np.array([1] * 10))
 
 source_pop = SourcePopulation(
     allele_frequencies=allele_frequencies, mean_coi=4, label="S"
@@ -101,10 +99,10 @@ t1 = TransmissionNetwork(
     node_constructor=SimpleNode,
     offspring_sampler=lambda x: rng.poisson(x),
     source_population=source_pop,
-    num_founders=50,
+    num_founders=25,
 )
 
-disallowed_parents = generate_disallowed_parents(t1.nodes, 25)
+# disallowed_parents = generate_allowed_parents(t1.nodes, 25)
 
 # out = {
 #     "loci": parse_loci(allele_frequencies),
@@ -113,7 +111,7 @@ disallowed_parents = generate_disallowed_parents(t1.nodes, 25)
 # }
 
 # with open(
-#     "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/nodes11.json",
+#     "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/nodes11.json",
 #     "w",
 # ) as f:
 #     json.dump(out, f, separators=(",", ":"))
@@ -124,13 +122,12 @@ disallowed_parents = generate_disallowed_parents(t1.nodes, 25)
 # obs_125 = [subsample_network(t1, 0.125) for _ in range(10000)]
 # obs_0625 = [subsample_network(t1, 0.0625) for _ in range(10000)]
 
-obs_90 = subsample_network(t1, 0.9)
-obs_75 = subsample_network(t1, 0.75)
-obs_50 = subsample_network(t1, 0.5)
-obs_25 = subsample_network(t1, 0.25)
-obs_125 = subsample_network(t1, 0.125)
-obs_0625 = subsample_network(t1, 0.0625)
-
+# obs_90 = subsample_network(t1, 0.9)
+# obs_75 = subsample_network(t1, 0.75)
+# obs_50 = subsample_network(t1, 0.5)
+# obs_25 = subsample_network(t1, 0.25)
+# obs_125 = subsample_network(t1, 0.125)
+# obs_0625 = subsample_network(t1, 0.0625)
 
 # mean_bfs_50 = [calc_mean_bf(net[1].values()) for net in obs_50]
 # mean_bfs_25 = [calc_mean_bf(net[1].values()) for net in obs_25]
@@ -141,13 +138,13 @@ obs_0625 = subsample_network(t1, 0.0625)
 
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/obs_exp/full_nodes.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/superinf_2022_07_27/full_nodes.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies),
-            "nodes": parse_nodes(t1.nodes, generate_disallowed_parents(t1.nodes, 25)),
+            "nodes": parse_nodes(t1.nodes, generate_allowed_parents(t1.nodes, 25)),
             "network": parse_network(t1.edges),
         },
         f,
@@ -155,13 +152,13 @@ with open(
     )
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/obs_exp/nodes_90.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/obs_exp/nodes_90.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies),
-            "nodes": parse_nodes(obs_90[0], generate_disallowed_parents(obs_90[0], 25)),
+            "nodes": parse_nodes(obs_90[0], generate_allowed_parents(obs_90[0], 25)),
             "network": parse_network(obs_90[1]),
         },
         f,
@@ -169,28 +166,27 @@ with open(
     )
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/obs_exp/nodes_75.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/obs_exp/nodes_75.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies),
-            "nodes": parse_nodes(obs_75[0], generate_disallowed_parents(obs_75[0], 25)),
+            "nodes": parse_nodes(obs_75[0], generate_allowed_parents(obs_75[0], 25)),
             "network": parse_network(obs_75[1]),
         },
         f,
         separators=(",", ":"),
     )
 
-
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/obs_exp/nodes_50.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/obs_exp/nodes_50.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies),
-            "nodes": parse_nodes(obs_50[0], generate_disallowed_parents(obs_50[0], 25)),
+            "nodes": parse_nodes(obs_50[0], generate_allowed_parents(obs_50[0], 25)),
             "network": parse_network(obs_50[1]),
         },
         f,
@@ -198,13 +194,13 @@ with open(
     )
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/obs_exp/nodes_25.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/obs_exp/nodes_25.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies),
-            "nodes": parse_nodes(obs_25[0], generate_disallowed_parents(obs_25[0], 25)),
+            "nodes": parse_nodes(obs_25[0], generate_allowed_parents(obs_25[0], 25)),
             "network": parse_network(obs_25[1]),
         },
         f,
@@ -212,21 +208,20 @@ with open(
     )
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/obs_exp/nodes_125.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/obs_exp/nodes_125.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies),
             "nodes": parse_nodes(
-                obs_125[0], generate_disallowed_parents(obs_125[0], 25)
+                obs_125[0], generate_allowed_parents(obs_125[0], 25)
             ),
             "network": parse_network(obs_125[1]),
         },
         f,
         separators=(",", ":"),
     )
-
 
 # ********************************************************************************
 # ********************************************************************************
@@ -240,13 +235,13 @@ with open(
 loci = list(allele_frequencies.keys())[0:25]
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/locus_subset_exp/full_nodes.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/locus_subset_exp/full_nodes.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies, loci),
-            "nodes": parse_nodes(t1.nodes, generate_disallowed_parents(t1.nodes, 25, loci), loci),
+            "nodes": parse_nodes(t1.nodes, generate_allowed_parents(t1.nodes, 25, loci), loci),
             "network": parse_network(t1.edges),
         },
         f,
@@ -254,13 +249,13 @@ with open(
     )
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/locus_subset_exp/nodes_90.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/locus_subset_exp/nodes_90.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies, loci),
-            "nodes": parse_nodes(obs_90[0], generate_disallowed_parents(obs_90[0], 25, loci), loci),
+            "nodes": parse_nodes(obs_90[0], generate_allowed_parents(obs_90[0], 25, loci), loci),
             "network": parse_network(obs_90[1]),
         },
         f,
@@ -268,28 +263,27 @@ with open(
     )
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/locus_subset_exp/nodes_75.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/locus_subset_exp/nodes_75.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies, loci),
-            "nodes": parse_nodes(obs_75[0], generate_disallowed_parents(obs_75[0], 25, loci), loci),
+            "nodes": parse_nodes(obs_75[0], generate_allowed_parents(obs_75[0], 25, loci), loci),
             "network": parse_network(obs_75[1]),
         },
         f,
         separators=(",", ":"),
     )
 
-
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/locus_subset_exp/nodes_50.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/locus_subset_exp/nodes_50.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies, loci),
-            "nodes": parse_nodes(obs_50[0], generate_disallowed_parents(obs_50[0], 25, loci), loci),
+            "nodes": parse_nodes(obs_50[0], generate_allowed_parents(obs_50[0], 25, loci), loci),
             "network": parse_network(obs_50[1]),
         },
         f,
@@ -297,13 +291,13 @@ with open(
     )
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/locus_subset_exp/nodes_25.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/locus_subset_exp/nodes_25.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies, loci),
-            "nodes": parse_nodes(obs_25[0], generate_disallowed_parents(obs_25[0], 25, loci), loci),
+            "nodes": parse_nodes(obs_25[0], generate_allowed_parents(obs_25[0], 25, loci), loci),
             "network": parse_network(obs_25[1]),
         },
         f,
@@ -311,14 +305,14 @@ with open(
     )
 
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/locus_subset_exp/nodes_125.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/locus_subset_exp/nodes_125.json",
+        "w",
 ) as f:
     json.dump(
         {
             "loci": parse_loci(allele_frequencies, loci),
             "nodes": parse_nodes(
-                obs_125[0], generate_disallowed_parents(obs_125[0], 25, loci), loci
+                obs_125[0], generate_allowed_parents(obs_125[0], 25, loci), loci
             ),
             "network": parse_network(obs_125[1]),
         },

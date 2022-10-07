@@ -1,7 +1,5 @@
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Protocol
-
 import numpy as np
+from typing import Dict, List, Optional, Protocol
 
 
 class NodeLike(Protocol):
@@ -22,7 +20,7 @@ class SourcePopulation(object):
     rng = np.random.default_rng()
 
     def __init__(
-        self, allele_frequencies: Dict[str, List[float]], mean_coi: float, label: str
+            self, allele_frequencies: Dict[str, List[float]], mean_coi: float, label: str
     ) -> None:
         self.allele_frequencies = allele_frequencies
         self.mean_coi = mean_coi
@@ -42,16 +40,16 @@ class SimpleNode(object):
     rng = np.random.default_rng()
 
     def __init__(
-        self,
-        false_positive_rate: float,
-        false_negative_rate: float,
-        mutation_rate: float,
-        loss_rate: float,
-        infection_duration_shape: float,
-        infection_duration_scale: float,
-        parent: Optional["SimpleNode"] = None,
-        source: Optional[SourcePopulation] = None,
-        label: str = None,
+            self,
+            false_positive_rate: float,
+            false_negative_rate: float,
+            mutation_rate: float,
+            loss_rate: float,
+            infection_duration_shape: float,
+            infection_duration_scale: float,
+            parents: List[Optional["SimpleNode"]] = [],
+            source: Optional[SourcePopulation] = None,
+            label: str = None,
     ) -> None:
         SimpleNode._id_counter += 1
         self.id = SimpleNode._id_counter
@@ -63,7 +61,7 @@ class SimpleNode(object):
         self.infection_duration = SimpleNode.rng.gamma(
             infection_duration_shape, infection_duration_scale
         )
-        self.parent = parent
+        self.parents = parents
         self.source = source
 
         self.infection_time = 0
@@ -72,8 +70,8 @@ class SimpleNode(object):
         self.true_alleles: Dict[str, List[float]] = {}
         self.observed_alleles: Dict[str, List[float]] = {}
 
-        if parent:
-            self.construct_from_parent()
+        if parents:
+            self.construct_from_parents()
         else:
             self.construct_from_source()
 
@@ -86,8 +84,8 @@ class SimpleNode(object):
     def __repr__(self) -> str:
         return f"<Node: {str(self)}>"
 
-    def construct_from_parent(self):
-        self.parent.init_child(self)
+    def construct_from_parents(self):
+        self.init_from_parents()
         self.generate_observed_alleles()
 
     def construct_from_source(self):
@@ -108,26 +106,58 @@ class SimpleNode(object):
                     )
             self.observed_alleles[locus] = np.array(observed_alleles)
 
-    def init_child(self, child: "SimpleNode"):
-        child.infection_time = SimpleNode.rng.uniform(
-            self.infection_time, self.observation_time
+    def init_from_parents(self):
+        min_infection_time = max([_.infection_time for _ in self.parents])
+        max_observation_time = max([_.observation_time for _ in self.parents])
+        self.infection_time = SimpleNode.rng.uniform(
+            min_infection_time, max_observation_time
         )
-        child.observation_time = child.infection_time + child.infection_duration
-        for locus, alleles in self.true_alleles.items():
-            child_alleles = []
-            total_alleles = sum(alleles)
-            for allele in alleles:
-                if allele == 1:
-                    if total_alleles > 1:
-                        child_alleles.append(
-                            SimpleNode.rng.binomial(1, 1 - self.loss_rate)
-                        )
-                        total_alleles -= 1 - child_alleles[-1]
-                    else:
-                        child_alleles.append(allele)
-                elif allele == 0:
-                    child_alleles.append(SimpleNode.rng.binomial(1, self.mutation_rate))
-            child.true_alleles[locus] = np.array(child_alleles)
+        allele_tracker = {}
+        self.observation_time = self.infection_time + self.infection_duration
+        for parent in self.parents:
+            for locus, alleles in parent.true_alleles.items():
+                child_alleles = []
+                total_alleles = sum(alleles)
+                for allele in alleles:
+                    if allele == 1:
+                        if total_alleles > 1:
+                            child_alleles.append(
+                                SimpleNode.rng.binomial(1, 1 - parent.loss_rate)
+                            )
+                            total_alleles -= 1 - child_alleles[-1]
+                        else:
+                            child_alleles.append(allele)
+                    elif allele == 0:
+                        child_alleles.append(SimpleNode.rng.binomial(1, parent.mutation_rate))
+                if (locus in allele_tracker):
+                    allele_tracker[locus] += child_alleles
+                else:
+                    allele_tracker[locus] = np.array(child_alleles)
+        for locus, alleles in allele_tracker.items():
+            self.true_alleles[locus] = np.array(alleles > 0, dtype=int)
+
+                            
+
+    # def init_child(self, child: "SimpleNode"):
+    #     child.infection_time = SimpleNode.rng.uniform(
+    #         self.infection_time, self.observation_time
+    #     )
+    #     child.observation_time = child.infection_time + child.infection_duration
+    #     for locus, alleles in self.true_alleles.items():
+    #         child_alleles = []
+    #         total_alleles = sum(alleles)
+    #         for allele in alleles:
+    #             if allele == 1:
+    #                 if total_alleles > 1:
+    #                     child_alleles.append(
+    #                         SimpleNode.rng.binomial(1, 1 - self.loss_rate)
+    #                     )
+    #                     total_alleles -= 1 - child_alleles[-1]
+    #                 else:
+    #                     child_alleles.append(allele)
+    #             elif allele == 0:
+    #                 child_alleles.append(SimpleNode.rng.binomial(1, self.mutation_rate))
+    #         child.true_alleles[locus] = np.array(child_alleles)
 
 
 def calculate_distance(node1, node2, loci=None) -> int:

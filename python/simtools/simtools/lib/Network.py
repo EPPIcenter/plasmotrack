@@ -53,37 +53,50 @@ class Network:
         ]
 
     def get_topological_sorting(self):
+        """
+        Returns a topological ordering of the nodes in the network. This is useful when needing to process the nodes
+        in an ordering such that all parents are processed before their children.
+        """
         t = []
-        all_nodes = sorted(list(set(list(self.child_sets.keys()) + list(self.parent_sets.keys()))))
-        print(len(all_nodes))
-        print(self.total_nodes)
-        assert(len(all_nodes) == self.total_nodes)
-        in_degree = [0] * self.total_nodes
-        visited = [False] * self.total_nodes
+        all_nodes = sorted(
+            list(
+                set(
+                    list(self.child_sets.keys())
+                    + self.get_roots()
+                    + list(self.parent_sets.keys())
+                )
+            ),
+            key=lambda x: int(x),
+        )
+        total_nodes = len(all_nodes)
+        in_degree = [0] * total_nodes
+        visited = [False] * total_nodes
 
-        for i in range(self.total_nodes):
-            for j in range(self.total_nodes):
-                if all_nodes[j] in self.get_children(all_nodes[i]):
-                    in_degree[j] += 1
-        
+        for i in range(total_nodes):
+            in_degree[i] = len(self.get_parents(all_nodes[i]))
+
+        print("In Degree: ", in_degree)
+
         to_process = []
-        for i in range(self.total_nodes):
+        for i in range(total_nodes):
             if in_degree[i] == 0:
                 to_process.append(i)
                 visited[i] = True
-        
-        print(to_process)
-        
+
         while to_process:
-            tar = to_process.pop(0)
-            t.append(all_nodes[tar])
-            for j in range(self.total_nodes):
-                if all_nodes[j] in self.get_children(all_nodes[tar]) and visited[j] is False:
-                    in_degree[j] -= 1 
+            tar_index = to_process.pop(0)
+            # add the node to the topological ordering
+            t.append(all_nodes[tar_index])
+
+            # for each child of the node, decrement the in-degree
+            for j in range(total_nodes):
+                if (
+                    all_nodes[j] in self.get_children(all_nodes[tar_index])
+                    and visited[j] is False
+                ):
+                    in_degree[j] -= 1
                     if in_degree[j] == 0:
                         to_process.append(j)
                         visited[j] = True
-        
-        return t 
 
-
+        return t

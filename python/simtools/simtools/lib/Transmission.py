@@ -1,7 +1,5 @@
-from copy import deepcopy
-
 import numpy as np
-
+from copy import deepcopy
 from simtools.lib.Network import Network
 
 """
@@ -72,37 +70,50 @@ class SimpleSourceTransmissionProcess(SourceTransmissionProcess):
 
 
 class SimpleTransmissionProcess(TransmissionProcess):
-    """
-    No super infection
-    """
-
     def __init__(self, loss_rate: float, seed: int = 0) -> None:
         self.seed = seed
         self.rng = np.random.default_rng(seed=seed)
         self.loss_rate = loss_rate
 
     def apply(self, infections: List[Infection]) -> Infection:
-        transmitted_infection: Infection = []
-        all_strains = [deepcopy(strain) for infection in infections for strain in infection]
-        transmitted_infection.append(all_strains.pop(random.choice(range(len(all_strains)))))
-        for strain in all_strains:
-            if self.rng.binomial(1, 1 - self.loss_rate):
-                transmitted_infection.append(strain)
-        # for infection in infections:
-        #     for strain in infection:
-        #         if self.rng.binomial(1, 1 - self.loss_rate):
-        #             transmitted_infection.append(deepcopy(strain))
+        latent_infection: Infection = [
+            deepcopy(strain) for infection in infections for strain in infection
+        ]
+
+        # for strain in all_strains:
+        #     if self.rng.binomial(1, 1 - self.loss_rate):
+        #         latent_infection.append(strain)
+
+        gametocytes = random.choices(latent_infection, k=np.random.poisson(5) + 1)
+        num_oocyst = np.random.poisson(5) + 1
+        strains = []
+        for _ in range(num_oocyst):
+            strains.append(recombine_strains(gametocytes))
+
+        num_spor = np.random.poisson(3) + 1
+        transmitted_infection = random.choices(strains, k=num_spor)
+
         return transmitted_infection
+
+
+def recombine_strains(infection: Infection):
+    s1 = random.choice(infection)
+    s2 = random.choice(infection)
+    s_out = deepcopy(s1)
+    for locus in s_out.keys():
+        if random.random() > 0.5:
+            s_out[locus] = deepcopy(s2[locus])
+
+    return s_out
 
 
 def generate_genetics_on_dag(
     dag: Network, stp: SourceTransmissionProcess, tp: TransmissionProcess
 ) -> None:
     to_process = dag.get_topological_sorting()
-        
+
     for node in to_process:
-        # to_process += dag.child_sets[node]
-        parent_set = dag.parent_sets[node]
+        parent_set = dag.get_parents(node)
         if not parent_set:
             gp = stp.apply()
             Infections(node, gp)

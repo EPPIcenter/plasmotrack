@@ -16,14 +16,14 @@ def test_transmission_infection_time(dag):
     assert InfectionDuration.get_infection_duration("c").duration > 0
     assert InfectionDuration.get_infection_duration("d").duration > 0
     assert (
-        InfectionTime.get_infection_time("a").time
-        < InfectionTime.get_infection_time("b").time
+            InfectionTime.get_infection_time("a").time
+            < InfectionTime.get_infection_time("b").time
     )
     assert (
-        InfectionTime.get_infection_time("b").time
-        < InfectionTime.get_infection_time("c").time
+            InfectionTime.get_infection_time("b").time
+            < InfectionTime.get_infection_time("c").time
     )
     assert (
-        InfectionTime.get_infection_time("c").time
-        < InfectionTime.get_infection_time("d").time
+            InfectionTime.get_infection_time("c").time
+            < InfectionTime.get_infection_time("d").time
     )

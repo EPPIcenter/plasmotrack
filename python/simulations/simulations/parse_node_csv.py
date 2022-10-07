@@ -1,19 +1,20 @@
 import csv
 import json
-from collections import defaultdict
-
 import numpy as np
+from collections import defaultdict
 
 
 def parse_node_csv(file_path):
     nodes = []
+    ignore = ["Type", "History", "Lat", "Lon", "gpslat", "gpslon"]
     with open(file_path, "r") as f:
         r = csv.DictReader(f)
         i = 1
         for node in r:
             node_entry = {"id": str(i), "observation_time": int(node.pop("Time"))}
+            # node_entry = {"id": str(i), "observation_time": int(node.pop("Date"))}
             node_entry["observed_genotype"] = [
-                {"locus": locus, "genotype": node[locus]} for locus in node.keys()
+                {"locus": locus, "genotype": node[locus]} for locus in node.keys() if locus not in ignore
             ]
             nodes.append(node_entry)
             i += 1
@@ -66,22 +67,20 @@ def generate_allowed_parents(nodes, max_allowed_parents):
 
 
 parsed_nodes = parse_node_csv(
-    "/Users/maxwellmurphy/Workspace/namibia_transmission_nets/nodes_data.csv"
+    "/home/mmurphy/analysis/Zanzibar2021/Data/Microsat/Znz_nodes_data20.csv"
 )
 allowed_parents = generate_allowed_parents(parsed_nodes, 15)
 
 for node in parsed_nodes:
     node["allowed_parents"] = [str(x[0]) for x in allowed_parents[node["id"]]]
 
-
 loci = [
     {"locus": l["locus"], "num_alleles": len(l["genotype"])}
     for l in parsed_nodes[0]["observed_genotype"]
 ]
 
-
 with open(
-    "/Users/maxwellmurphy/Workspace/transmission_nets/test/resources/JSON/namibia/nodes.json",
-    "w",
+        "/home/mmurphy/Dropbox/transmission_nets_test_files/resources/JSON/zanzibar/nodes.json",
+        "w",
 ) as f:
     json.dump({"loci": loci, "nodes": parsed_nodes}, f, separators=(",", ":"))

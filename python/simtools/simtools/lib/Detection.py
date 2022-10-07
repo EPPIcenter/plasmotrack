@@ -1,8 +1,6 @@
-from typing import Dict, Protocol
-
 import numpy as np
-
 from simtools.lib.Network import Network
+from typing import Dict, Protocol
 
 
 class InfectionTime:
@@ -102,7 +100,7 @@ def generate_infection_times_on_dag(
         to_process += dag.child_sets[node]
     for node in to_process:
         parent_set = dag.parent_sets[node]
-        if not parent_set: 
+        if not parent_set:
             InfectionTime(node, sitp.apply())
             InfectionDuration(node, dtp.apply())
         else:
@@ -112,6 +110,8 @@ def generate_infection_times_on_dag(
             parent_set_infection_durations = [
                 InfectionDuration.get_infection_duration(p) for p in parent_set
             ]
+
+            # get the latest time of infection
             infection_time = max(
                 [
                     itp.apply(i.time, d.duration)
