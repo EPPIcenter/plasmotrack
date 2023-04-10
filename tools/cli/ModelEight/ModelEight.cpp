@@ -4,6 +4,7 @@
 
 #include "core/io/parse_json.h"
 #include "core/samplers/meta/ReplicaExchange.h"
+#include "core/utils/timers.h"
 #include "impl/model/ModelEight/Model.h"
 #include "impl/model/ModelEight/ModelLogger.h"
 #include "impl/model/ModelEight/SampleScheduler.h"
@@ -23,6 +24,7 @@ using namespace transmission_nets::impl;
 using namespace transmission_nets::core::io;
 using namespace transmission_nets::core::computation;
 using namespace transmission_nets::core::samplers;
+using namespace transmission_nets::core::utils;
 
 namespace {
     const size_t SUCCESS                   = 0;
@@ -46,22 +48,24 @@ void finalize_output(int signal_num) {
     fmt::print("Interrupt signal {} received. Finalizing output...", signal_num);
 }
 
-using Time = std::chrono::high_resolution_clock;
-using dsec = std::chrono::duration<double>;
+//using Time = std::chrono::high_resolution_clock;
+//using dsec = std::chrono::duration<double>;
 
 int main(int argc, char** argv) {
     signal(SIGINT, finalize_output);
     signal(SIGQUIT, finalize_output);
     signal(SIGABRT, finalize_output);
 
-    try {
-        int numChains;
+//    try {
+        int num_chains;
+        unsigned int num_cores;
         double gradient;
 
         int burnin;
         int sample;
         int thin;
-        int seed;
+        long seed;
+        bool null_model;
         std::string input;
         std::string output_dir;
 
@@ -72,13 +76,14 @@ int main(int argc, char** argv) {
         opts("burnin,b", po::value<int>(&burnin)->default_value(5000), "Number of steps to be used for burnin");
         opts("sample,s", po::value<int>(&sample)->default_value(10000), "Total number of steps to be used for sampling");
         opts("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned");
-        opts("numchains,n", po::value<int>(&numChains)->default_value(1), "Number of chains to run in replica exchange algorithm. Do not exceed the number of threads available.");
+        opts("numchains,n", po::value<int>(&num_chains)->default_value(1), "Number of chains to run in replica exchange algorithm.");
+        opts("numcores,c", po::value<unsigned int>(&num_cores)->default_value(1), "Number of cores to use in replica exchange algorithm.");
         opts("gradient,g", po::value<double>(&gradient)->default_value(1), "Temperature gradient to use in replica exchange algorithm");
-        opts("seed", po::value<int>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.");
+        opts("seed", po::value<long>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.");
         opts("hotload,h", "Hotload parameters from the output directory");
         opts("input,i", po::value<std::string>(&input)->required(), "Input file");
         opts("output-dir,o", po::value<std::string>(&output_dir)->required(), "Output directory");
-
+        opts("null-model", po::bool_switch(&null_model)->default_value(false), "Run the null model (no genetics)");
 
         po::positional_options_description p;
         p.add("input", 1);
@@ -126,18 +131,20 @@ int main(int argc, char** argv) {
             return ERROR_IN_COMMAND_LINE;
         }
 
+        if (null_model) {
+            fmt::print("Running the null model (no genetics)\n");
+        }
+
         std::ifstream inputFile{nodesFile};
         auto j = loadJSON(inputFile);
 
         if (seed == -1) {
-            seed = std::chrono::system_clock::now().time_since_epoch().count();
+            seed = timers::time().time_since_epoch().count();
         }
 
         fmt::print("Seed Used: {}\n", seed);
         auto r = std::make_shared<boost::random::mt19937>(seed);
-        repex  = std::make_unique<ReplicaExchange<ModelEight::State, ModelEight::Model, ModelEight::SampleScheduler, ModelEight::ModelLogger, ModelEight::StateLogger>>(numChains, thin, gradient, r, outputDir, hotload, j);
-
-
+        repex  = std::make_unique<ReplicaExchange<ModelEight::State, ModelEight::Model, ModelEight::SampleScheduler, ModelEight::ModelLogger, ModelEight::StateLogger>>(num_chains, thin, gradient, r, outputDir, hotload, null_model, num_cores, j);
 
         repex->logState();
         repex->finalize();
@@ -154,16 +161,20 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            auto t0 = Time::now();
+            auto t0 = timers::time();
             repex->sample();
+            auto t1 = timers::time();
 
-            auto t1 = Time::now();
-            dsec ds = t1 - t0;
+            timers::dsec ds = t1 - t0;
             totalSamples += thin;
             totalSeconds += ds.count();
             samplesPerSecond = (totalSamples / totalSeconds);
 
-            fmt::print("(b={0}) Current Llik: {1:.2f} ({2} samples/sec)\n", kk, repex->hotValue(), samplesPerSecond);
+            fmt::print("(b={0})", kk);
+            repex->printModelLlik();
+            fmt::print("({0:.2f} samples/sec)\n", samplesPerSecond);
+
+//            fmt::print("(b={0}) Current Llik: {1:.2f} ({2} samples/sec)\n", kk, repex->hotValue(), samplesPerSecond);
         }
 
 
@@ -172,28 +183,32 @@ int main(int argc, char** argv) {
                 break;
             }
 
-            auto t0 = Time::now();
+            auto t0 = timers::time();
             repex->sample();
+            auto t1 = timers::time();
 
-            auto t1 = Time::now();
-            dsec ds = t1 - t0;
+            timers::dsec ds = t1 - t0;
             totalSamples += thin;
             totalSeconds += ds.count();
-            samplesPerSecond = totalSamples / totalSeconds;
+            samplesPerSecond = thin / ds.count();
 
             repex->logModel();
             repex->logState();
 
-            fmt::print("(s={0}) Current Llik: {1:.2f} ({2} samples/sec)\n", jj, repex->hotValue(), samplesPerSecond);
+            fmt::print("(s={0}) ", jj);
+            repex->printModelLlik();
+            fmt::print(" ({0:.2f} samples/sec)\n", samplesPerSecond);
+
+//            fmt::print("(s={0}) Current Llik: {1:.2f} ({2} samples/sec)\n", jj, repex->hotValue(), samplesPerSecond);
         }
 
         repex->finalize();
 
-    } catch (std::exception& e) {
-        std::cerr << "Unhandled Exception reached the top of main: "
-                  << e.what() << ", application will now exit" << std::endl;
-        return ERROR_UNHANDLED_EXCEPTION;
-    }
+//    } catch (std::exception& e) {
+//        std::cerr << "Unhandled Exception reached the top of main: "
+//                  << e.what() << ", application will now exit" << std::endl;
+//        return ERROR_UNHANDLED_EXCEPTION;
+//    }
 
     return SUCCESS;
 

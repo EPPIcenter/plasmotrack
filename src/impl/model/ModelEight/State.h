@@ -16,12 +16,10 @@
 
 namespace transmission_nets::impl::ModelEight {
     struct State {
-        //        State(std::map<std::string, LocusImpl *> loci, const std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> allowedParents);
-
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
 
-        explicit State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng);
-        State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const fs::path& outputDir);
+        explicit State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const bool null_model = false);
+        State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const fs::path& outputDir, const bool null_model = false);
         void initPriors();
 
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
@@ -35,8 +33,11 @@ namespace transmission_nets::impl::ModelEight {
         // Network Structure
         std::shared_ptr<OrderingImpl> infectionEventOrdering;
 
-        p_ParameterDouble infectionDurationShape;
-        p_ParameterDouble infectionDurationScale;
+        // Symptomatic vs Asymptomatic infection duration -- time between infection and detection
+        p_ParameterDouble symptomaticInfectionDurationShape;
+        p_ParameterDouble symptomaticInfectionDurationScale;
+        p_ParameterDouble asymptomaticInfectionDurationShape;
+        p_ParameterDouble asymptomaticInfectionDurationScale;
 
         // Observation Process
         std::vector<p_ParameterDouble> expectedFalsePositives{};

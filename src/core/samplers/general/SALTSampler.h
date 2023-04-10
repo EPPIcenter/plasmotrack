@@ -86,7 +86,7 @@ namespace transmission_nets::core::samplers {
         double adaptationRate_       = 1;
         double targetAcceptanceRate_ = .23;
 
-        double lowerLimit_ = .0001;
+        double lowerLimit_ = .01;
 
         int totalUpdates_ = 0;
     };

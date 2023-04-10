@@ -211,7 +211,7 @@
 //    for (auto &infection : model.state.infections) {
 //        scheduler.registerSampler({
 //                                          .sampler = new ConstrainedContinuousRandomWalk(infection->infectionDuration(), model, 0.0, 10000.0,  &r, 1, .1, 100),
-//                                          //.adaptationEnd = 2000,
+//                                          //.adaptation_end_ = 2000,
 //                                          .weight = totalLoci * 10
 //                                  });
 //        for (const auto &[locus_label, locus] : model.state.loci) {
@@ -380,7 +380,7 @@
 //    for (auto &infection : model.state.infections) {
 //        scheduler.registerSampler({
 //                                          .sampler = new ConstrainedContinuousRandomWalk(infection->infectionDuration(), model, 0.0, 10000.0,  &r, 1, .1, 100),
-//                                          //.adaptationEnd = 2000,
+//                                          //.adaptation_end_ = 2000,
 //                                          .weight = totalLoci * 10
 //                                  });
 //        for (const auto &[locus_label, locus] : model.state.loci) {
@@ -549,7 +549,7 @@
 //    for (auto &infection : model.state.infections) {
 //        scheduler.registerSampler({
 //                                          .sampler = new ConstrainedContinuousRandomWalk(infection->infectionDuration(), model, 0.0, 10000.0,  &r, 1, .1, 100),
-//                                          //.adaptationEnd = 2000,
+//                                          //.adaptation_end_ = 2000,
 //                                          .weight = totalLoci * 10
 //                                  });
 //        for (const auto &[locus_label, locus] : model.state.loci) {
@@ -718,7 +718,7 @@
 //    for (auto &infection : model.state.infections) {
 //        scheduler.registerSampler({
 //                                          .sampler = new ConstrainedContinuousRandomWalk(infection->infectionDuration(), model, 0.0, 10000.0,  &r, 1, .1, 100),
-//                                          //.adaptationEnd = 2000,
+//                                          //.adaptation_end_ = 2000,
 //                                          .weight = totalLoci * 10
 //                                  });
 //        for (const auto &[locus_label, locus] : model.state.loci) {
@@ -887,7 +887,7 @@
 //    for (auto &infection : model.state.infections) {
 //        scheduler.registerSampler({
 //                                          .sampler = new ConstrainedContinuousRandomWalk(infection->infectionDuration(), model, 0.0, 10000.0,  &r, 1, .1, 100),
-//                                          //.adaptationEnd = 2000,
+//                                          //.adaptation_end_ = 2000,
 //                                          .weight = totalLoci * 10
 //                                  });
 //        for (const auto &[locus_label, locus] : model.state.loci) {

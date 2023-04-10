@@ -72,7 +72,7 @@ namespace transmission_nets::impl::ModelSeven {
 
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
     using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
-    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcessV2<MAX_PARENTS, NodeTransmissionImpl, InfectionEvent, ParentSetImpl>;
+    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcessV2<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
 
 }// namespace transmission_nets::impl::ModelSeven
 

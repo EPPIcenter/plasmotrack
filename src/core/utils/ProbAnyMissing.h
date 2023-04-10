@@ -21,7 +21,7 @@ namespace transmission_nets::core::utils {
          * @param numEvents Number of trials
          * @return
          */
-        double operator()(const std::vector<Likelihood>& eventProbs, unsigned int numEvents);
+        Likelihood operator()(const std::vector<Likelihood>& eventProbs, unsigned int numEvents);
 
         Likelihood prob{};
         Likelihood eventCombo{};

@@ -29,6 +29,7 @@ namespace transmission_nets::core::utils::generators {
         void reset();
 
         void next() noexcept;
+        void advance(int n) noexcept;
 
         combination_t curr{};
 

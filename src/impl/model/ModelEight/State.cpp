@@ -6,9 +6,9 @@
 #include "core/io/serialize.h"
 
 namespace transmission_nets::impl::ModelEight {
-    State::State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng) {
+    State::State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const bool null_model) {
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
-        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng);
+        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng, null_model);
         allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
 
         initPriors();
@@ -30,12 +30,12 @@ namespace transmission_nets::impl::ModelEight {
         }
 
         geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.95);
-        lossProb                = std::make_shared<core::parameters::Parameter<double>>(.1);
+        lossProb                = std::make_shared<core::parameters::Parameter<double>>(.5);
         mutationProb            = std::make_shared<core::parameters::Parameter<double>>(.05);
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(1.01);
     }
 
-    State::State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const fs::path& outputDir) {
+    State::State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const fs::path& outputDir, const bool null_model) {
         // hotstart constructor
         auto paramOutputDir = outputDir / "parameters";
         auto epsPosFolder   = paramOutputDir / "eps_pos";
@@ -46,7 +46,7 @@ namespace transmission_nets::impl::ModelEight {
         auto latentParentsDir = paramOutputDir / "latent_parents";
 
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
-        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng);
+        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng, null_model);
         allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
 
         initPriors();
@@ -95,7 +95,7 @@ namespace transmission_nets::impl::ModelEight {
         obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(10);
         obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.001);
 
-        geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
+        geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
         geometricGenerationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(1);
 
         lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
@@ -107,8 +107,14 @@ namespace transmission_nets::impl::ModelEight {
         meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(20);
         meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
 
-        infectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(10);
-        infectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(10);
+        /*
+         * Symptomatic vs Asymptomatic Infection Duration
+         * Parameterizes the time between infection and clinical detection
+         */
+        symptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(10);
+        symptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(10);
+        asymptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        asymptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(100);
 
     }
 }// namespace transmission_nets::impl::ModelEight

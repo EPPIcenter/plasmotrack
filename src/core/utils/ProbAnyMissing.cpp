@@ -14,10 +14,10 @@ namespace transmission_nets::core::utils {
      * @return
      */
 
-    double transmission_nets::core::utils::probAnyMissingFunctor::operator()(const std::vector<Likelihood>& eventProbs, unsigned int numEvents) {
+    Likelihood transmission_nets::core::utils::probAnyMissingFunctor::operator()(const std::vector<Likelihood>& eventProbs, unsigned int numEvents) {
         std::size_t totalEvents = eventProbs.size();
         int multCounter;
-        double r;
+        Likelihood r;
 
         if (numEvents < totalEvents) {
             return 1.0;

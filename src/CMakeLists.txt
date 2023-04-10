@@ -91,6 +91,7 @@ set(SOURCE_FILES
         core/io/loggers/MultiValueLogger.h
         core/computation/transformers/Tempered.h
         core/samplers/meta/ReplicaExchange.h
+        core/config.h
 
 #        impl/model/ModelFive/State.cpp
 #        impl/model/ModelFive/State.h
@@ -145,7 +146,7 @@ set(SOURCE_FILES
         impl/model/ModelEight/SamplerLogger.h
 
         model/transmission_process/node_transmission_process/SuperInfectionNoMutation.h
-        model/observation_process/ObservationProcessLikelihoodv2.h model/transmission_process/node_transmission_process/SimpleLossMutation.h model/transmission_process/node_transmission_process/SimpleLoss.h)
+        model/observation_process/ObservationProcessLikelihoodv2.h model/transmission_process/node_transmission_process/SimpleLossMutation.h model/transmission_process/node_transmission_process/SimpleLoss.h core/utils/timers.h core/config.h core/samplers/specialized/JointGeneticsTimeSampler.h impl/model/ModelEight/Prior.cpp impl/model/ModelEight/Prior.h impl/model/ModelEight/Likelihood.cpp impl/model/ModelEight/Likelihood.h)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})

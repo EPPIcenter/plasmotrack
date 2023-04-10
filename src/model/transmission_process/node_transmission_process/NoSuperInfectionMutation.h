@@ -27,17 +27,17 @@ namespace transmission_nets::model::transmission_process {
      * allele transitioning state [0,1] x [0,1]
      */
     template<int MaxTransmissions, typename InterTransmissionProbImpl>
-    class NoSuperInfectionMutation : public core::computation::Computation<core::datatypes::LogProbabilityTransitionMatrix<2>>,
+    class NoSuperInfectionMutation : public core::computation::Computation<std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>>>,
                                      public core::abstract::Observable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>>,
                                      public core::abstract::Cacheable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>>,
-                                     public core::abstract::Checkpointable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>, core::datatypes::LogProbabilityTransitionMatrix<2>> {
+                                     public core::abstract::Checkpointable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>, std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>>> {
 
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
 
     public:
         explicit NoSuperInfectionMutation(p_ParameterDouble mutProb, p_ParameterDouble lossProb, std::shared_ptr<InterTransmissionProbImpl> intp);
 
-        core::datatypes::LogProbabilityTransitionMatrix<2> value() noexcept override;
+        std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>> value() noexcept override;
 
         template<typename GeneticsImpl>
         Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& ps);
@@ -53,7 +53,7 @@ namespace transmission_nets::model::transmission_process {
 
 
     private:
-        friend class core::abstract::Checkpointable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>, core::datatypes::LogProbabilityTransitionMatrix<2>>;
+        friend class core::abstract::Checkpointable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>, std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>>>;
         friend class core::abstract::Cacheable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>>;
 
         p_ParameterDouble mutProb_;
@@ -74,28 +74,35 @@ namespace transmission_nets::model::transmission_process {
         intp_->registerCacheableCheckpointTarget(this);
         intp_->add_set_dirty_listener([=, this]() { this->setDirty(); });
 
-        value_.setZero();
+        value_ = std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>>(MaxTransmissions + 1);
+        for (auto v : value_) {
+            v.setZero();
+        }
+
         this->setDirty();
         this->value();
     }
 
-
+    /**
+     * Return a vector of transition matrices representing the probability of an allele transitioning state [0,1] x [0,1]. Vector is
+     * indexed by total number of transmission events between the child and the parent.
+     * @return
+     */
     template<int MaxTransmissions, typename InterTransmissionProbImpl>
-    core::datatypes::LogProbabilityTransitionMatrix<2> NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::value() noexcept {
+    std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>> NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::value() noexcept {
         if (this->isDirty()) {
             core::datatypes::SquareMatrix<double, 2> t_mat;
             t_mat << 1 - mutProb_->value(), mutProb_->value(),
                     lossProb_->value(), 1 - lossProb_->value();
 
+            value_[1] = t_mat.array().log();
+
             auto tmp = t_mat;
-            value_   = tmp * intp_->value()(1);
 
             for (int i = 2; i <= MaxTransmissions; ++i) {
                 tmp = tmp * t_mat;
-                value_ += tmp * intp_->value()(i);
+                value_[i] = tmp.array().log();
             }
-
-            value_ = this->value_.array().log();
             this->setClean();
         }
         return value_;
@@ -108,12 +115,7 @@ namespace transmission_nets::model::transmission_process {
         if (ps.size() > 1) {
             return -std::numeric_limits<Likelihood>::infinity();
         }
-        double llik      = 0.0;
-        double total_t00 = 0;
-        double total_t01 = 0;
-        double total_t10 = 0;
-        double total_t11 = 0;
-
+        auto llik_vec = std::vector<Likelihood>(MaxTransmissions + 1, 0);
         auto const& childGenotypes    = child->latentGenotype();
         auto const childGenotypesIter = childGenotypes.begin();
         for (auto const& parent : ps) {
@@ -123,17 +125,23 @@ namespace transmission_nets::model::transmission_process {
                 // assume loci are ordered the same -- should enforce this at construction
                 auto const& parentGenotypeAtLocus = (*(parentGenotypesIter + i)).second;
                 auto const& childGenotypeAtLocus  = (*(childGenotypesIter + i)).second;
-                total_t00 += GeneticsImpl::trueNegativeCount(parentGenotypeAtLocus->value(), childGenotypeAtLocus->value());
-                total_t01 += GeneticsImpl::falsePositiveCount(parentGenotypeAtLocus->value(), childGenotypeAtLocus->value());
-                total_t10 += GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus->value(), childGenotypeAtLocus->value());
-                total_t11 += GeneticsImpl::truePositiveCount(parentGenotypeAtLocus->value(), childGenotypeAtLocus->value());
+                const unsigned int total_t00 = GeneticsImpl::trueNegativeCount(parentGenotypeAtLocus->value(), childGenotypeAtLocus->value());
+                const unsigned int total_t01 = GeneticsImpl::falsePositiveCount(parentGenotypeAtLocus->value(), childGenotypeAtLocus->value());
+                const unsigned int total_t10 = GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus->value(), childGenotypeAtLocus->value());
+                const unsigned int total_t11 = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus->value(), childGenotypeAtLocus->value());
+
+                for (int tt = 1; tt <= MaxTransmissions; ++tt) {
+                    // tt is the number of transmissions between the child and the parent.
+                    // calculate the probability of the genetics given tt transmissions
+                    llik_vec[tt] += total_t00 * value()[tt](0, 0) + total_t01 * value()[tt](0, 1) + total_t10 * value()[tt](1, 0) + total_t11 * value()[tt](1, 1);
+                }
             }
         }
-        llik += total_t00 * value()(0, 0);
-        llik += total_t01 * value_(0, 1);// direct access after ensuring value has been set clean
-        llik += total_t10 * value_(1, 0);
-        llik += total_t11 * value_(1, 1);
-
+        for (int tt = 1; tt <= MaxTransmissions; ++tt) {
+            // add the log probability of there being tt transmissions
+            llik_vec[tt] += std::log(intp_->value()(tt));
+        }
+        Likelihood llik = core::utils::logSumExp(llik_vec);
         return llik;
     }
 
@@ -143,12 +151,8 @@ namespace transmission_nets::model::transmission_process {
         if (ps.size() > 1) {
             return -std::numeric_limits<Likelihood>::infinity();
         }
-        double llik      = 0.0;
-        double total_t00 = 0;
-        double total_t01 = 0;
-        double total_t10 = 0;
-        double total_t11 = 0;
 
+        auto llik_vec = std::vector<Likelihood>(MaxTransmissions + 1, 0);
         auto const& childGenotypes    = child->latentGenotype();
         auto const childGenotypesIter = childGenotypes.begin();
         for (auto const& parent : ps) {
@@ -159,29 +163,22 @@ namespace transmission_nets::model::transmission_process {
                 // assume loci are ordered the same
                 auto const& parentGenotypeAtLocus = (*(parentGenotypesIter + i)).second;
                 auto const& childGenotypeAtLocus  = (*(childGenotypesIter + i)).second;
-                const unsigned int t00            = GeneticsImpl::trueNegativeCount(parentGenotypeAtLocus->peek(), childGenotypeAtLocus->peek());
-                const unsigned int t01            = GeneticsImpl::falsePositiveCount(parentGenotypeAtLocus->peek(), childGenotypeAtLocus->peek());
-                const unsigned int t10            = GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus->peek(), childGenotypeAtLocus->peek());
-                const unsigned int t11            = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus->peek(), childGenotypeAtLocus->peek());
-
-                // no mutation
-                total_t00 += t00;
-
-                // mutation
-                total_t01 += t01;
-
-                // loss
-                total_t10 += t10;
-
-                // no loss
-                total_t11 += t11;
+                const unsigned int total_t00            = GeneticsImpl::trueNegativeCount(parentGenotypeAtLocus->peek(), childGenotypeAtLocus->peek());
+                const unsigned int total_t01            = GeneticsImpl::falsePositiveCount(parentGenotypeAtLocus->peek(), childGenotypeAtLocus->peek());
+                const unsigned int total_t10            = GeneticsImpl::falseNegativeCount(parentGenotypeAtLocus->peek(), childGenotypeAtLocus->peek());
+                const unsigned int total_t11            = GeneticsImpl::truePositiveCount(parentGenotypeAtLocus->peek(), childGenotypeAtLocus->peek());
+                for (int tt = 1; tt <= MaxTransmissions; ++tt) {
+                    // tt is the number of transmissions between the child and the parent.
+                    // calculate the probability of the genetics given tt transmissions
+                    llik_vec[tt] += total_t00 * peek()[tt](0, 0) + total_t01 * peek()[tt](0, 1) + total_t10 * peek()[tt](1, 0) + total_t11 * peek()[tt](1, 1);
+                }
             }
         }
-        llik += total_t00 * peek()(0, 0);
-        llik += total_t01 * peek()(0, 1);
-        llik += total_t10 * peek()(1, 0);
-        llik += total_t11 * peek()(1, 1);
-
+        for (int tt = 1; tt <= MaxTransmissions; ++tt) {
+            // add the log probability of there being tt transmissions
+            llik_vec[tt] += std::log(intp_->peek()(tt));
+        }
+        Likelihood llik = core::utils::logSumExp(llik_vec);
         return llik;
     }
 

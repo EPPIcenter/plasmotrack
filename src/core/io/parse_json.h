@@ -9,8 +9,8 @@
 #include "core/containers/Locus.h"
 
 
-#include <nlohmann/json.hpp>
 #include <boost/random.hpp>
+#include <nlohmann/json.hpp>
 
 #include <iostream>
 #include <memory>
@@ -19,7 +19,9 @@ namespace transmission_nets::core::io {
     using nlohmann::json;
 
     inline json loadJSON(std::istream& input) {
+        fmt::print("Loading JSON");
         auto j = json::parse(input);
+        fmt::print("...done\n");
         return j;
     }
 
@@ -69,17 +71,37 @@ namespace transmission_nets::core::io {
             const int max_coi,
             std::map<std::string, std::shared_ptr<LocusImpl>> loci,
             std::shared_ptr<Engine> rng,
+            const bool null_model           = false,
             const char infectionsKey[]      = "nodes",
             const char obsGenotypesKey[]    = "observed_genotype",
             const char idKey[]              = "id",
             const char observationDateKey[] = "observation_time",
+            const char asymptomaticKey[]    = "asymptomatic",
             const char genotypeKey[]        = "genotype",
             const char locusKey[]           = "locus") {
 
+        if (null_model) {
+            std::cout << "WARNING: Null model is enabled. All observed genotypes and infection times will be ignored.\n";
+        }
+
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
         for (const auto& inf : input.at(infectionsKey)) {
-            infections.push_back(std::make_shared<InfectionEvent>(inf.at(idKey), inf.at(observationDateKey)));
+            bool asymptomatic = false;
+            if (inf.count(asymptomaticKey) != 0) {
+                asymptomatic = inf.at(asymptomaticKey);
+            }
 
+            double obs_time = inf.at(observationDateKey);
+            if (obs_time < 0) {
+                std::cerr << "Observation time for node " << inf.at(idKey) << " is negative.\n";
+                exit(1);
+            }
+
+            if (null_model) {
+                obs_time = 1000;
+            }
+
+            infections.push_back(std::make_shared<InfectionEvent>(inf.at(idKey), obs_time, asymptomatic));
             for (const auto& genetics : inf.at(obsGenotypesKey)) {
                 auto locusLabel = genetics.at(locusKey);
                 auto locusItr   = loci.find(locusLabel);
@@ -87,7 +109,7 @@ namespace transmission_nets::core::io {
                     std::cerr << "Locus " << locusLabel << " for node " << infections.back()->id() << " does not exist.\n";
                     exit(1);
                 }
-                if (!missingGenotype(genetics.at(genotypeKey))) {
+                if (!null_model and !missingGenotype(genetics.at(genotypeKey))) {
                     std::string obs_genetics = genetics.at(genotypeKey);
                     infections.back()->addGenetics(locusItr->second, obs_genetics, constrainCOI(obs_genetics, max_coi));
                 } else {

@@ -8,22 +8,20 @@
 
 namespace transmission_nets::impl::ModelEight {
 
-    Model::Model(std::shared_ptr<State> state) : state_(std::move(state)) {
+    Model::Model(std::shared_ptr<State> state, double temperature) : state_(std::move(state)), temperature(temperature) {
         likelihood.add_set_dirty_listener([=, this]() {
             this->setDirty();
         });
         likelihood.registerCacheableCheckpointTarget(this);
 
         intp                    = std::make_shared<InterTransmissionProbImpl>(state_->geometricGenerationProb);
-//        nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->lossProb, state_->mutationProb, intp);
         nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->lossProb, intp);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
 
         // Register Priors
-        likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->lossProb, state_->lossProbPriorAlpha, state_->lossProbPriorBeta));
-//        likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->mutationProb, state_->mutationProbPriorAlpha, state_->mutationProbPriorBeta));
-        likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanCOI, state_->meanCOIPriorShape, state_->meanCOIPriorScale));
-        likelihood.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
+        prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->lossProb, state_->lossProbPriorAlpha, state_->lossProbPriorBeta));
+        prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanCOI, state_->meanCOIPriorShape, state_->meanCOIPriorScale));
+        prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
         //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationShape, state_->infectionDurationShapePriorShape, state_->infectionDurationShapePriorScale));
         //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationScale, state_->infectionDurationScalePriorShape, state_->infectionDurationScalePriorScale));
         for (auto& obs : state_->expectedFalsePositives) {
@@ -35,7 +33,15 @@ namespace transmission_nets::impl::ModelEight {
 
         int i = 0;
         for (auto& infection : state_->infections) {
-            likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(infection->infectionDuration(), state_->infectionDurationShape, state_->infectionDurationScale));
+            // infection duration likelihood
+
+            if (infection->isSymptomatic()) {
+                likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(infection->infectionDuration(), state_->symptomaticInfectionDurationShape, state_->symptomaticInfectionDurationScale));
+            } else {
+                likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(infection->infectionDuration(), state_->asymptomaticInfectionDurationShape, state_->asymptomaticInfectionDurationScale));
+            }
+
+
             for (auto& [locus, obsGenotype] : infection->observedGenotype()) {
                 observationProcessLikelihoodList.push_back(std::make_shared<ObservationProcessImpl>(
                         obsGenotype,
@@ -71,15 +77,32 @@ namespace transmission_nets::impl::ModelEight {
         this->setDirty();
     }
 
-    Model::Model(State& state) : Model(std::make_shared<State>(state)) {}
+    Model::Model(State& state, double temperature) : Model(std::make_shared<State>(state), temperature) {}
 
     std::string Model::identifier() {
         return "ModelEight";
     }
 
+    double Model::getTemperature() const {
+        return temperature;
+    }
+
+    void Model::setTemperature(double t) {
+        this->temperature = t;
+        this->setDirty();
+    }
+
+    double Model::getPrior() {
+        return prior.value();
+    }
+
+    double Model::getLikelihood() {
+        return likelihood.value();
+    }
+
     Likelihood Model::value() {
         if (isDirty()) {
-            value_ = likelihood.value();
+            value_ = temperature * likelihood.value() + prior.value();
             this->setClean();
         }
         return value_;

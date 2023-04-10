@@ -2,8 +2,8 @@
 // Created by mmurphy on 10/29/21.
 //
 
-#ifndef TRANSMISSION_NETWORKS_APP_CONFIG_H
-#define TRANSMISSION_NETWORKS_APP_CONFIG_H
+#ifndef TRANSMISSION_NETWORKS_APP_MODEL_EIGHT_CONFIG_H
+#define TRANSMISSION_NETWORKS_APP_MODEL_EIGHT_CONFIG_H
 
 #include "core/computation/Accumulator.h"
 #include "core/computation/ObservationTimeDerivedOrdering.h"
@@ -30,8 +30,10 @@
 #include "core/samplers/general/SALTSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler2.h"
+#include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
 #include "core/samplers/genetics/SequentialAllelesBitSetSampler.h"
 #include "core/samplers/genetics/ZanellaAllelesBitSetSampler.h"
+#include "core/samplers/specialized/JointGeneticsTimeSampler.h"
 #include "core/samplers/scheduler/RandomizedScheduler.h"
 
 #include "model/observation_process/AlleleCounter.h"
@@ -51,9 +53,10 @@
 namespace transmission_nets::impl::ModelEight {
 
     static constexpr int MAX_ALLELES       = 64;
-    static constexpr int MAX_COI           = 16;
+    static constexpr int MAX_COI           = 20;
     static constexpr int MAX_PARENTS       = 2;
-    static constexpr int MAX_TRANSMISSIONS = 8;
+    static constexpr int MAX_TRANSMISSIONS = 3;
+
     namespace fs                           = std::filesystem;
 
     using Likelihood                   = core::computation::Likelihood;
@@ -77,4 +80,4 @@ namespace transmission_nets::impl::ModelEight {
 
 }// namespace transmission_nets::impl::ModelEight
 
-#endif//TRANSMISSION_NETWORKS_APP_CONFIG_H
+#endif//TRANSMISSION_NETWORKS_APP_MODEL_EIGHT_CONFIG_H

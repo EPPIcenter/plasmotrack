@@ -89,46 +89,46 @@
 //    RandomizedScheduler scheduler(&r, 50000);
 //
 //    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.geometricGenerationProb, model, 0.0, 1.0, &r, .1, .01, 2),
-//                               //                               .adaptationStart = 1000,
-//                               //                               .adaptationEnd = 3000,
-//                               //                               .scaledAdaptation = true,
+//                               //                               .adaptation_start_ = 1000,
+//                               //                               .adaptation_end_ = 3000,
+//                               //                               .scaled_adaptation_ = true,
 //                               .weight = 40});
 //
 //    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.lossProb, model, 0.0, 1.0, &r, .1, .01, 2),
-//                               //                               .adaptationStart = 1000,
-//                               //                               .adaptationEnd = 3000,
-//                               //                               .updateStart = 100,
-//                               //                               .scaledAdaptation = true,
+//                               //                               .adaptation_start_ = 1000,
+//                               //                               .adaptation_end_ = 3000,
+//                               //                               .update_start_ = 100,
+//                               //                               .scaled_adaptation_ = true,
 //                               .weight = 40});
 //
 //        scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.mutationProb, model, 0.0, .05, &r, .1, .01, 2),
-////                                   .adaptationStart = 1000,
-////                                   .adaptationEnd = 3000,
+////                                   .adaptation_start_ = 1000,
+////                                   .adaptation_end_ = 3000,
 //                                   .weight = 40});
 //
 //    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.meanCOI, model, 0.0, double(ModelFour::MAX_COI), &r, .1, .01, 1),
-//                               //                               .adaptationStart = 1000,
-//                               //                               .adaptationEnd = 3000,
-//                               //                               .scaledAdaptation = true,
+//                               //                               .adaptation_start_ = 1000,
+//                               //                               .adaptation_end_ = 3000,
+//                               //                               .scaled_adaptation_ = true,
 //                               .weight = 40});
 //
 //    //    scheduler.registerSampler({.sampler = new ZanellaOrderSampler(model.state.infectionEventOrdering, model, &r, infections.size()),
-//    ////                               .updateStart = 0,
+//    ////                               .update_start_ = 0,
 //    //                               .weight = 1});
 //    ////
 //    //    scheduler.registerSampler({.sampler = new ZanellaNeighborOrderSampler(model.state.infectionEventOrdering, model, &r),
-//    ////                               .updateStart = 0,
+//    ////                               .update_start_ = 0,
 //    //                               .weight = 1});
 //
 //    scheduler.registerSampler({.sampler = new topology::OrderSampler(model.state.infectionEventOrdering, model, &r, infections.size() / 2),
-//                               //                           .adaptationStart = 1000,
-//                               //                           .adaptationEnd = 3000,
+//                               //                           .adaptation_start_ = 1000,
+//                               //                           .adaptation_end_ = 3000,
 //                               .weight = 1000});
 //
 //    //    for (int l = 1; l < (int) model.state.infections.size() / 2; ++l) {
 //    //        scheduler.registerSampler({.sampler = new OrderSampler(model.state.infectionEventOrdering, model, &r, 5),
-//    //                                   .adaptationStart = 1000,
-//    //                                   .adaptationEnd = 3000,
+//    //                                   .adaptation_start_ = 1000,
+//    //                                   .adaptation_end_ = 3000,
 //    //                                   .weight = 400});
 //    //    }
 //
@@ -137,11 +137,11 @@
 //            if (infection->latentGenotype().contains(locus)) {
 //                auto &latentGenotype = infection->latentGenotype(locus);
 //                //                scheduler.registerSampler({.sampler = new genetics::ZanellaAllelesBitSetSampler(latentGenotype, model, &r),
-//                ////                                           .updateStart = 0,
-//                ////                                           .updateEnd = 1000,
+//                ////                                           .update_start_ = 0,
+//                ////                                           .update_end_ = 1000,
 //                //                                                  .weight = .02});
 //                scheduler.registerSampler({.sampler = new genetics::RandomAllelesBitSetSampler(latentGenotype, model, &r),
-//                                           //                                           .updateStart = 0,
+//                                           //                                           .update_start_ = 0,
 //                                           .weight = 2});
 //            }
 //        }
@@ -149,25 +149,25 @@
 //
 //    for (auto &infFNR : model.state.observationFalseNegativeRates) {
 //        scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(infFNR, model, 0.0, 0.4, &r, .1),
-//                                   //                               .adaptationStart = 1000,
-//                                   //                               .adaptationEnd = 3000,
-//                                   //                                          .updateStart = 1000,
+//                                   //                               .adaptation_start_ = 1000,
+//                                   //                               .adaptation_end_ = 3000,
+//                                   //                                          .update_start_ = 1000,
 //                                   .weight = 6});
 //    }
 //
 //    for (auto &infFPR : model.state.observationFalsePositiveRates) {
 //        scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(infFPR, model, 0.0, 0.4, &r, .1),
-//                                   //                               .adaptationStart = 1000,
-//                                   //                               .adaptationEnd = 3000,
-//                                   //                                          .updateStart = 1000,
+//                                   //                               .adaptation_start_ = 1000,
+//                                   //                               .adaptation_end_ = 3000,
+//                                   //                                          .update_start_ = 1000,
 //                                   .weight = 6});
 //    }
 //
 //    for (const auto &[locus_label, locus] : model.state.loci) {
 //        scheduler.registerSampler({.sampler = new SALTSampler(model.state.alleleFrequencies.alleleFrequencies(locus), model, &r, .5, .01, .5),
-//                                   //                                   .adaptationStart = 100,
-//                                   //                                   .adaptationEnd = 3000,
-////                                   .updateStart = 1000,
+//                                   //                                   .adaptation_start_ = 100,
+//                                   //                                   .adaptation_end_ = 3000,
+////                                   .update_start_ = 1000,
 //                                   .weight = 1});
 //    }
 //

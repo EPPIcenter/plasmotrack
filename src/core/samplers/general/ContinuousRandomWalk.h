@@ -73,6 +73,9 @@ namespace transmission_nets::core::samplers {
         unsigned int rejections_    = 0;
         unsigned int total_updates_ = 0;
 
+        double timeSpentSampling_ = 0;
+
+
     };
 
     template<typename T, typename Engine, typename U>

@@ -38,8 +38,10 @@ namespace transmission_nets::impl::ModelEight {
         loggers_.push_back(new core::io::ValueLogger(state_->lossProb, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "loss_prob.csv", "loss_prob", resetOutput)));
         loggers_.push_back(new core::io::ValueLogger(state_->mutationProb, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "mutation_prob.csv", "mutation_prob", resetOutput)));
         loggers_.push_back(new core::io::ValueLogger(state_->meanCOI, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "mean_coi.csv", "mean_coi", resetOutput)));
-        loggers_.push_back(new core::io::ValueLogger(state_->infectionDurationShape, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_duration_shape.csv", "infection_duration_shape", resetOutput)));
-        loggers_.push_back(new core::io::ValueLogger(state_->infectionDurationScale, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_duration_scale.csv", "infection_duration_scale", resetOutput)));
+//        loggers_.push_back(new core::io::ValueLogger(state_->symptomaticInfectionDurationShape, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "symptomatic_infection_duration_shape.csv", "infection_duration_shape", resetOutput)));
+//        loggers_.push_back(new core::io::ValueLogger(state_->symptomaticInfectionDurationScale, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "symptomatic_infection_duration_scale.csv", "infection_duration_scale", resetOutput)));
+//        loggers_.push_back(new core::io::ValueLogger(state_->asymptomaticInfectionDurationShape, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "asymptomatic_infection_duration_shape.csv", "infection_duration_shape", resetOutput)));
+//        loggers_.push_back(new core::io::ValueLogger(state_->asymptomaticInfectionDurationScale, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "asymptomatic_infection_duration_scale.csv", "infection_duration_scale", resetOutput)));
         loggers_.push_back(new core::io::ValueLogger(state_->infectionEventOrdering, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_order.csv", "infection_order", resetOutput)));
 
         int i = 0;

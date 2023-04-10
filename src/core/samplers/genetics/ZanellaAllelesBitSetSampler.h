@@ -64,16 +64,16 @@ namespace transmission_nets::core::samplers::genetics {
         const auto curr    = parameter_->value();
         const auto currLik = target_->value();
 
-//        auto currNeighborhood    = calculateNeighborhoodLik();
-        auto [indices, currNeighborhood] = calculateNeighborhoodLik(std::min(curr.totalAlleles() - 1, NeighborhoodSize));
+        auto currNeighborhood    = calculateNeighborhoodLik();
+//        auto [indices, currNeighborhood] = calculateNeighborhoodLik(std::min(curr.totalAlleles() - 1, NeighborhoodSize));
         auto currNeighborhoodSum = core::utils::logSumExp(currNeighborhood);
 
         if (currNeighborhoodSum <= -std::numeric_limits<Likelihood>::infinity()) {
             rejections_++;
             parameter_->restoreState(stateId);
         } else {
-//            auto proposal = sampleProposal(curr, currNeighborhood);
-            auto proposal = sampleProposal(curr, currNeighborhood, indices);
+            auto proposal = sampleProposal(curr, currNeighborhood);
+//            auto proposal = sampleProposal(curr, currNeighborhood, indices);
             parameter_->setValue(proposal);
 
             auto propLik = target_->value();

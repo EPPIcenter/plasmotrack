@@ -152,23 +152,23 @@ namespace transmission_nets::model::transmission_process {
 //            this->value_ = validate();
             this->value_ = core::utils::logSumExp(tmpCalculationVec_);
 
-            if (std::isnan(this->value_) or this->value_ <= -std::numeric_limits<double>::infinity()) {
-                fmt::print("NAN in MultinomialSourceTransmissionProcess::value()\n");
-                fmt::print("\ttmpCalculationVec_ = {}\n", core::io::serialize(tmpCalculationVec_));
-                fmt::print("Allele frequencies:\n");
-                for (const auto& locus : loci_) {
-                    fmt::print("\tlocus {} = {}\n", locus->label, core::io::serialize(alleleFrequenciesContainer_->alleleFrequencies(locus)->value()));
-                    fmt::print("\tgenotype = {}\n", core::io::serialize(genetics_.at(locus)->value()));
-                }
-                this->value_ = -std::numeric_limits<double>::infinity();
-            }
+//            if (std::isnan(this->value_) or this->value_ <= -std::numeric_limits<double>::infinity()) {
+//                fmt::print("NAN in MultinomialSourceTransmissionProcess::value()\n");
+//                fmt::print("\ttmpCalculationVec_ = {}\n", core::io::serialize(tmpCalculationVec_));
+//                fmt::print("Allele frequencies:\n");
+//                for (const auto& locus : loci_) {
+//                    fmt::print("\tlocus {} = {}\n", locus->label, core::io::serialize(alleleFrequenciesContainer_->alleleFrequencies(locus)->value()));
+//                    fmt::print("\tgenotype = {}\n", core::io::serialize(genetics_.at(locus)->value()));
+//                }
+//                this->value_ = -std::numeric_limits<double>::infinity();
+//            }
 
-            #ifdef DEBUG_LIKELIHOOD
-                        auto tmp = validate();
-                        if (std::abs(tmp - this->value_) > 1) {
-                            fmt::print(stderr, "Likelihood mismatch MSTP: {}, {}\n", tmp, this->value_);
-                        }
-            #endif
+#ifdef DEBUG_LIKELIHOOD
+            auto tmp = validate();
+            if (std::abs(tmp - this->value_) > 1) {
+                fmt::print(stderr, "Likelihood mismatch MSTP: {}, {}\n", tmp, this->value_);
+            }
+#endif
 
             this->setClean();
         }
@@ -226,7 +226,7 @@ namespace transmission_nets::model::transmission_process {
             if (genotype.allele(j)) {
                 prVec_.push_back(alleleFreqs.frequencies(j));
                 constrainedSetProb += alleleFreqs.frequencies(j);
-                zeroProbEvent = std::abs(alleleFreqs.frequencies(j)) < 1e-12;
+                zeroProbEvent = std::abs(alleleFreqs.frequencies(j)) < 1e-6;
             }
         }
 

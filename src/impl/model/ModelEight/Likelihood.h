@@ -1,0 +1,13 @@
+//
+// Created by Maxwell Murphy on 2/2/23.
+//
+
+#ifndef TRANSMISSION_NETWORKS_APP_LIKELIHOOD_H
+#define TRANSMISSION_NETWORKS_APP_LIKELIHOOD_H
+
+
+class Likelihood {
+};
+
+
+#endif//TRANSMISSION_NETWORKS_APP_LIKELIHOOD_H

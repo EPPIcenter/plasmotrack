@@ -54,11 +54,12 @@ namespace transmission_nets::impl::ModelSeven {
                                     .debug           = false});
 
         for (auto& infection : state_->infections) {
-            scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target_, 1.0, 1000.0, r, 1, .1, 100),
+            scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target_, 1.0, 1000.0, r, 50, .1, 100),
                                         .id              = fmt::format("Infection Duration {}", infection->id()),
-                                        .adaptationStart = 20,
-                                        .adaptationEnd   = 2000,
-                                        .weight          = totalLoci * 100});
+//                                        .adaptationStart = 20,
+//                                        .adaptationEnd   = 2000,
+                                        .weight          = totalLoci * 100,
+                                        .debug           = true});
             for (const auto& [locus_label, locus] : state_->loci) {
                 if (infection->latentGenotype().contains(locus)) {
                     auto latentGenotype = infection->latentGenotype(locus);
@@ -109,6 +110,7 @@ namespace transmission_nets::impl::ModelSeven {
                                         .id              = fmt::format("Allele Freq {}", locus->label),
                                         .adaptationStart = 20,
                                         .adaptationEnd   = 2000,
+                                        .updateStart    = 150,
                                         .weight          = totalInfections
             });
         }

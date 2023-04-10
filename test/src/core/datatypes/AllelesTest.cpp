@@ -108,5 +108,4 @@ TEST(AllelesTest, HandlesMutationMask) {
     ASSERT_EQ(a1.mutationMask(a2).mutationMask(a3), a1.mutationMask(a3).mutationMask(a2));
 
 
-
 }

@@ -5,6 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ORDERBASEDTRANSMISSIONPROCESSV3_H
 #define TRANSMISSION_NETWORKS_APP_ORDERBASEDTRANSMISSIONPROCESSV3_H
 
+
+#include "core/config.h"
 #include "core/computation/OrderDerivedParentSet.h"
 #include "core/computation/PartialLikelihood.h"
 #include "core/containers/Infection.h"
@@ -17,11 +19,11 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/range/adaptors.hpp>
 #include <fmt/core.h>
-//#include <fmt/ranges.h>
+
 
 namespace transmission_nets::model::transmission_process {
 
-    using Likelihood = core::computation::Likelihood;
+    using Likelihood = transmission_nets::core::computation::Likelihood;
 
     template<typename InfectionEventImpl>
     struct ParentSetDist {
@@ -81,8 +83,10 @@ namespace transmission_nets::model::transmission_process {
         // todo: figure out how to reduce overhead of tracking. currently violates state tracking...
         using LikelihoodTracker = boost::container::flat_map<boost::container::flat_set<std::string>, Likelihood>;
 
-        std::array<LikelihoodTracker, 25> parentSetLliks_{};
+        std::array<LikelihoodTracker, core::config::MAX_CACHE_SIZE> parentSetLliks_{};
         size_t parentSetLLiksIndex_ = 0;
+
+        std::string lastUpdated_ = "None";
 
 //        LikelihoodTracker *parentSetLliks_ = new LikelihoodTracker {};
 //        std::deque<LikelihoodTracker*> parentSetLliksCache_{};
@@ -102,39 +106,46 @@ namespace transmission_nets::model::transmission_process {
                                                                  latentParent_(std::move(latent_parent)) {
 
         ntp_->add_set_dirty_listener([=, this]() {
+            lastUpdated_ = "ntp updated";
             clearLikelihood();
             setDirty();
         });
         ntp_->registerCacheableCheckpointTarget(this);
 
         stp_->add_set_dirty_listener([=, this]() {
+            lastUpdated_ = "stp updated";
             clearParentLikelihood(latentParent_);
             setDirty();
         });
         stp_->registerCacheableCheckpointTarget(this);
 
         child_->add_post_change_listener([=, this]() {
+            lastUpdated_ = "child updated";
             clearLikelihood();
             setDirty();
         });
         child_->registerCacheableCheckpointTarget(this);
 
         latentParent_->add_post_change_listener([=, this]() {
+            lastUpdated_ = "latent parent updated";
             clearParentLikelihood(latentParent_);
             setDirty();
         });
         latentParent_->registerCacheableCheckpointTarget(this);
 
         parentSet_->add_element_changed_listener([=, this](const auto &parent) {
+            lastUpdated_ = "parent updated";
             clearParentLikelihood(parent);
             setDirty();
         });
 
         parentSet_->add_element_added_listener([=, this]([[maybe_unused]] const auto &parent) {
+            lastUpdated_ = "parent added";
             setDirty();
         });
 
         parentSet_->add_element_removed_listener([=, this](const auto &parent) {
+            lastUpdated_ = "parent removed";
             clearParentLikelihood(parent);
             setDirty();
         });
@@ -149,22 +160,22 @@ namespace transmission_nets::model::transmission_process {
         this->setDirty();
         this->value();
 
-#ifndef NDEBUG
-        if (this->value_ <= -std::numeric_limits<Likelihood>::infinity()) {
-            fmt::print("Child: {}\n", this->child_->id());
-            fmt::print("Parents: ");
-            for (const auto& parent : this->parentSet_->value()) {
-                fmt::print("{}, ", parent->id());
-            }
-            fmt::print("\n");
-            fmt::print("LLiks: \n");
-            for (const auto& [ps, llik]: parentSetLliks_) {
-                fmt::print("\t{}, {}\n", core::io::serialize(ps), llik);
-            }
-            fmt::print("\n");
-            exit(1);
-        }
-#endif
+//#ifndef NDEBUG
+//        if (this->value_ <= -std::numeric_limits<Likelihood>::infinity()) {
+//            fmt::print("Child: {}\n", this->child_->id());
+//            fmt::print("Parents: ");
+//            for (const auto& parent : this->parentSet_->value()) {
+//                fmt::print("{}, ", parent->id());
+//            }
+//            fmt::print("\n");
+//            fmt::print("LLiks: \n");
+//            for (const auto& [ps, llik]: parentSetLliks_) {
+//                fmt::print("\t{}, {}\n", core::io::serialize(ps), llik);
+//            }
+//            fmt::print("\n");
+//            exit(1);
+//        }
+//#endif
     }
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
@@ -173,25 +184,25 @@ namespace transmission_nets::model::transmission_process {
         for (const auto &parent : ps) {
             key.insert(parent->id());
         }
-#ifndef NDEBUG
-        if (!parentSetLliks_.contains(key)) {
-            fmt::print(stderr, "Likelihood not found for parent set: ");
-            for (const auto &parent : ps) {
-                fmt::print(stderr, "{} ", parent->id());
-            }
-            fmt::print(stderr, "\n");
-            fmt::print(stderr, "Valid parent sets: \n");
-            for (const auto &parentSet : parentSetLliks_) {
-                fmt::print(stderr, "\tParent set: ");
-                for (const auto &parent : parentSet.first) {
-                    fmt::print(stderr, "{} ", parent);
-                }
-                fmt::print(stderr, "\n");
-            }
-
-            exit(1);
-        }
-#endif
+//#ifndef NDEBUG
+//        if (!parentSetLliks_.contains(key)) {
+//            fmt::print(stderr, "Likelihood not found for parent set: ");
+//            for (const auto &parent : ps) {
+//                fmt::print(stderr, "{} ", parent->id());
+//            }
+//            fmt::print(stderr, "\n");
+//            fmt::print(stderr, "Valid parent sets: \n");
+//            for (const auto &parentSet : parentSetLliks_) {
+//                fmt::print(stderr, "\tParent set: ");
+//                for (const auto &parent : parentSet.first) {
+//                    fmt::print(stderr, "{} ", parent);
+//                }
+//                fmt::print(stderr, "\n");
+//            }
+//
+//            exit(1);
+//        }
+//#endif
         return parentSetLliks_[parentSetLLiksIndex_].at(key);
     }
 
@@ -302,6 +313,10 @@ namespace transmission_nets::model::transmission_process {
 
             this->value_ = core::utils::logSumExpKnownMax(lliks.begin(), lliks.end(), maxLlik);
 
+//            if (this->value_ == -std::numeric_limits<Likelihood>::infinity()) {
+//                fmt::print("OrderBasedTransmissionProcessV3::value() = {} ({})\n", this->value_, this->lastUpdated_);
+//            }
+
             assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
 
             this->setClean();
@@ -314,6 +329,7 @@ namespace transmission_nets::model::transmission_process {
     void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postSaveState([[maybe_unused]] const std::string& savedStateId) {
         parentSetLliks_[parentSetLLiksIndex_ + 1] = parentSetLliks_[parentSetLLiksIndex_];
         parentSetLLiksIndex_++;
+        assert(parentSetLLiksIndex_ >= 0);
 //        parentSetLliksCache_.push_back(parentSetLliks_);
 //        parentSetLliks_ = new LikelihoodTracker {*parentSetLliksCache_.back()};
     }
@@ -322,6 +338,7 @@ namespace transmission_nets::model::transmission_process {
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postRestoreState([[maybe_unused]] const std::string& savedStateId) {
         parentSetLLiksIndex_--;
+        assert(parentSetLLiksIndex_ >= 0);
 //        delete parentSetLliks_;
 //        parentSetLliks_ = parentSetLliksCache_.back();
 //        parentSetLliksCache_.pop_back();
@@ -363,7 +380,7 @@ namespace transmission_nets::model::transmission_process {
         dist.parentSetLliks.push_back(std::make_pair(getLikelihood(ps), ps));
 
         core::utils::generators::CombinationIndicesGenerator comboGen;
-        for (int i = 1; i <= ParentSetMaxCardinality; i++) {
+        for (int i = 1; i <= ParentSetMaxCardinality and i <= totalNodes; i++) {
             comboGen.reset(totalNodes, i);
             while (!comboGen.completed) {
                 ps.clear();

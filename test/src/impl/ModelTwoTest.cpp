@@ -115,58 +115,58 @@
 //    RandomizedScheduler scheduler(&r, 5000);
 ////
 //    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.observationFalsePositiveRate, model, 0.0, 0.1, &r, .01),
-////                               .adaptationStart = 1000,
-////                               .adaptationEnd = 3000,
-//                               .updateStart = 1000,
+////                               .adaptation_start_ = 1000,
+////                               .adaptation_end_ = 3000,
+//                               .update_start_ = 1000,
 //                               .weight = 20});
 //
 //    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.observationFalseNegativeRate, model, 0.0, 0.2, &r, .01),
-////                               .adaptationStart = 1000,
-////                               .adaptationEnd = 3000,
-//                               .updateStart = 1000,
+////                               .adaptation_start_ = 1000,
+////                               .adaptation_end_ = 3000,
+//                               .update_start_ = 1000,
 //                               .weight = 20});
 ////
 //    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.geometricGenerationProb, model, 0.0, 1.0, &r, .01, .01 ,2),
-////                               .adaptationStart = 1000,
-////                               .adaptationEnd = 3000,
-////                               .scaledAdaptation = true,
+////                               .adaptation_start_ = 1000,
+////                               .adaptation_end_ = 3000,
+////                               .scaled_adaptation_ = true,
 //                               .weight = 20});
 //
 //    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.lossProb, model, 0.0, 1.0, &r, .01, .01, 2),
-////                               .adaptationStart = 1000,
-////                               .adaptationEnd = 3000,
-////                               .updateStart = 100,
-////                               .scaledAdaptation = true,
+////                               .adaptation_start_ = 1000,
+////                               .adaptation_end_ = 3000,
+////                               .update_start_ = 100,
+////                               .scaled_adaptation_ = true,
 //                               .weight = 20});
 //
 ////    scheduler.registerSampler({.sampler = new ProbabilitySampler(model.state.mutationProb, model, 0.0, .1, &r, .1, .01, 1),
-////                               .adaptationStart = 1000,
-////                               .adaptationEnd = 3000,
+////                               .adaptation_start_ = 1000,
+////                               .adaptation_end_ = 3000,
 ////                               .weight = 5});
 //
 //    scheduler.registerSampler({.sampler = new ConstrainedContinuousRandomWalk(model.state.meanCOI, model, 0.0, double(model.MAX_COI), &r, .1, .01, 1),
-////                               .adaptationStart = 1000,
-////                               .adaptationEnd = 3000,
-////                               .scaledAdaptation = true,
+////                               .adaptation_start_ = 1000,
+////                               .adaptation_end_ = 3000,
+////                               .scaled_adaptation_ = true,
 //                               .weight = 20});
 //
 ////    scheduler.registerSampler({.sampler = new ZanellaOrderSampler(model.state.infectionEventOrdering, model, &r, 5),
-//////                               .updateStart = 0,
+//////                               .update_start_ = 0,
 ////                               .weight = 50});
 //////
 ////    scheduler.registerSampler({.sampler = new ZanellaNeighborOrderSampler(model.state.infectionEventOrdering, model, &r),
-//////                               .updateStart = 0,
+//////                               .update_start_ = 0,
 ////                               .weight = 1});
 //
 //    scheduler.registerSampler({.sampler = new topology::OrderSampler(model.state.infectionEventOrdering, model, &r, 50),
-////                           .adaptationStart = 1000,
-////                           .adaptationEnd = 3000,
+////                           .adaptation_start_ = 1000,
+////                           .adaptation_end_ = 3000,
 //                           .weight = 500});
 //
 ////    for (int l = 1; l < (int) model.state.infections.size() / 2; ++l) {
 ////        scheduler.registerSampler({.sampler = new OrderSampler(model.state.infectionEventOrdering, model, &r, 5),
-////                                   .adaptationStart = 1000,
-////                                   .adaptationEnd = 3000,
+////                                   .adaptation_start_ = 1000,
+////                                   .adaptation_end_ = 3000,
 ////                                   .weight = 400});
 ////    }
 //
@@ -175,11 +175,11 @@
 //            if (infection->latentGenotype().contains(locus)) {
 //                auto &latentGenotype = infection->latentGenotype(locus);
 //                scheduler.registerSampler({.sampler = new genetics::ZanellaAllelesBitSetSampler(latentGenotype, model, &r),
-////                                           .updateStart = 0,
-////                                           .updateEnd = 1000,
+////                                           .update_start_ = 0,
+////                                           .update_end_ = 1000,
 //                                           .weight = .02});
 //                scheduler.registerSampler({.sampler = new genetics::RandomAllelesBitSetSampler(latentGenotype, model, &r),
-////                                           .updateStart = 0,
+////                                           .update_start_ = 0,
 //                                           .weight = 2});
 //            }
 //        }
@@ -187,8 +187,8 @@
 //
 //    for (const auto &[locus_label, locus] : model.state.loci) {
 //        scheduler.registerSampler({.sampler = new SALTSampler<ModelTwo>(model.state.alleleFrequencies.alleleFrequencies(locus), model, &r, .05, .01, .5),
-////                                   .adaptationStart = 100,
-////                                   .adaptationEnd = 3000,
+////                                   .adaptation_start_ = 100,
+////                                   .adaptation_end_ = 3000,
 //                                   .weight = 1});
 //    }
 //

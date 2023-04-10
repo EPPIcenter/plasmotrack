@@ -10,12 +10,8 @@
 #include "core/abstract/observables/Observable.h"
 #include "core/computation/Computation.h"
 
-//#include <boost/multiprecision/cpp_dec_float.hpp>
-
 namespace transmission_nets::core::computation {
 
-    //    using Likelihood = long double;
-    //    using Likelihood = boost::multiprecision::cpp_dec_float_100;
     using Likelihood = long double;
 
     class PartialLikelihood : public Computation<Likelihood>,

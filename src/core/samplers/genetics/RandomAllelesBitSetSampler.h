@@ -71,15 +71,44 @@ namespace transmission_nets::core::samplers::genetics {
         const bool accept          = logProbAccept <= acceptanceRatio;
 
 
+        if (debug_) {
+            fmt::print("Acceptance ratio: {}\n", acceptanceRatio);
+            fmt::print("Llik change: {}\n", std::abs(acceptanceRatio) > 1e-10);
+            fmt::print("Log prob accept: {}\n", logProbAccept);
+            fmt::print("Accept: {}\n", accept);
+            fmt::print("Current likelihood: {}\n", curLik);
+            fmt::print("Proposed likelihood: {}\n", target_->value());
+            fmt::print("Adjustment: {}\n", adj);
+            fmt::print("Current value: {}\n", currentVal.serialize());
+            fmt::print("Proposal: {}\n", proposal.serialize());
+            fmt::print("------------------------\n");
+        }
+
+
 //        fmt::print("Current Likelihood: {}\n", curLik);
 //        fmt::print("New Llik: {} -- (AccR: {}, accepted: {})\n\n", target_->value(), acceptanceRatio, accept);
 
         if (accept) {
+            if (target_->value() < curLik and debug_) {
+                fmt::print("Likelihood decreased!\n");
+                fmt::print("Log prob accept: {}\n", logProbAccept);
+                fmt::print("Current Likelihood: {}\n", curLik);
+                fmt::print("New Llik: {} -- (AccR: {}, Adj: {})\n", target_->value(), acceptanceRatio, adj);
+                fmt::print("Current value: {}\n", currentVal.serialize());
+                fmt::print("Proposal: {}\n", proposal.serialize());
+
+                parameter_->setValue(currentVal);
+                fmt::print("Old Llik: {}\n", target_->value());
+                parameter_->setValue(proposal);
+                fmt::print("New Llik: {}\n", target_->value());
+                fmt::print("------------------------\n");
+            }
             acceptances_++;
             parameter_->acceptState();
         } else {
             rejections_++;
             parameter_->restoreState(stateId);
+            assert(parameter_->value() == currentVal);
         }
 
 //        assert(!target_->isDirty());
@@ -116,7 +145,7 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
-    Likelihood RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::logMetropolisHastingsAdjustment(const AllelesBitSetImpl& curr, const AllelesBitSetImpl& prop) noexcept {
+    Likelihood RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::logMetropolisHastingsAdjustment([[maybe_unused]] const AllelesBitSetImpl& curr, [[maybe_unused]] const AllelesBitSetImpl& prop) noexcept {
         // if there is only 1 allele, then there are total_alleles - 1 possible states to transition to.
         // If there are > 1 allele, then there are total_alleles possible states.
         // log(curr|proposed) - log(proposed|curr)
@@ -127,6 +156,7 @@ namespace transmission_nets::core::samplers::genetics {
         Likelihood denominator = curr_total_alleles == 1 ? std::log(1) - std::log(prop.totalAlleles() - 1) : std::log(1) - std::log(prop.totalAlleles());
 
         return numerator - denominator;
+//        return 0;
     }
 }// namespace transmission_nets::core::samplers::genetics
 

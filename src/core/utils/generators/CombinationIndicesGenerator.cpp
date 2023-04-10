@@ -46,6 +46,12 @@ namespace transmission_nets::core::utils::generators {
         }
     }
 
+    void CombinationIndicesGenerator::advance(int n) noexcept {
+        for (int i = 0; i < n; ++i) {
+            next();
+        }
+    }
+
     CombinationIndicesGenerator::CombinationIndicesGenerator() {
         completed = true;
         n_        = 0;

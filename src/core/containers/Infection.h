@@ -35,7 +35,7 @@ namespace transmission_nets::core::containers {
         using GenotypeDataMap      = GenotypeMap<std::shared_ptr<datatypes::Data<GeneticImpl>>>;
         using GenotypeParameterMap = GenotypeMap<std::shared_ptr<parameters::Parameter<GeneticImpl>>>;
 
-        explicit Infection(std::string id, double observationTime);
+        explicit Infection(std::string id, double observationTime, bool symptomatic);
 
         Infection(const Infection& other, const std::string& id = "", bool retain_alleles = true) {
             // Copy constructor -- create a new infection from an existing one using the latent genetics.
@@ -47,6 +47,7 @@ namespace transmission_nets::core::containers {
 
             observationTime_   = other.observationTime_;
             infectionDuration_ = other.infectionDuration_;
+            symptomatic_       = other.symptomatic_;
 
             for (const auto& [locus, data] : other.latentGenotype_) {
                 if (retain_alleles) {
@@ -202,6 +203,10 @@ namespace transmission_nets::core::containers {
             return !(*this < rhs);
         }
 
+        bool isSymptomatic() const {
+            return symptomatic_->value();
+        }
+
     private:
         std::string id_;
         GenotypeMap<std::shared_ptr<datatypes::Data<GeneticImpl>>> observedGenotype_{};
@@ -209,10 +214,11 @@ namespace transmission_nets::core::containers {
         std::vector<std::shared_ptr<LocusImpl>> loci_{};
         std::shared_ptr<datatypes::Data<double>> observationTime_;
         std::shared_ptr<parameters::Parameter<double>> infectionDuration_;// default to 100 days? or maybe something else -- look in constructor
+        std::shared_ptr<datatypes::Data<bool>> symptomatic_{};
     };
 
     template<typename GeneticImpl, typename LocusImpl>
-    Infection<GeneticImpl, LocusImpl>::Infection(std::string id, const double observationTime) : id_(std::move(id)), observationTime_(std::make_shared<datatypes::Data<double>>(observationTime)) {
+    Infection<GeneticImpl, LocusImpl>::Infection(std::string id, const double observationTime, const bool symptomatic) : id_(std::move(id)), observationTime_(std::make_shared<datatypes::Data<double>>(observationTime)), symptomatic_(std::make_shared<datatypes::Data<bool>>(symptomatic)) {
         infectionDuration_ = std::make_shared<parameters::Parameter<double>>(100);
         infectionDuration_->initializeValue(100.0);
 
@@ -223,25 +229,7 @@ namespace transmission_nets::core::containers {
         //        infectionDuration_->add_restore_state_listener([=, this](std::string savedStateId) { this->notify_restore_state(savedStateId); })
     }
 
-    //    template<typename GeneticImpl, typename LocusImpl>
-    //    template<typename LocusDataIter>
-    //    Infection<GeneticImpl, LocusImpl>::Infection(const std::string& id, const double observationTime, const LocusDataIter& obs, const LocusDataIter& latent) : Infection<GeneticImpl, LocusImpl>::Infection(id, observationTime) {
-    //        for (const auto& [locus, genetics] : obs) {
-    //            assert(locus->totalAlleles() == genetics.totalAlleles());
-    //            observedGenotype_.emplace(locus, genetics);
-    //        }
-    //
-    //        for (const auto& [locus, genetics] : latent) {
-    //            loci_.push_back(locus);
-    //            latentGenotype_.emplace(locus, genetics);
-    //            // Creating pass through of notifications
-    //            latentGenotype_.at(locus).add_pre_change_listener([=, this]() { this->template notify_pre_change(); });
-    //            latentGenotype_.at(locus).add_post_change_listener([=, this]() { this-> template notify_post_change(); });
-    //            latentGenotype_.at(locus).add_save_state_listener([=, this](std::string savedStateId) { this-> template notify_save_state(savedStateId); });
-    //            latentGenotype_.at(locus).add_accept_state_listener([=, this]() { this-> template notify_accept_state(); });
-    //            latentGenotype_.at(locus).add_restore_state_listener([=, this](std::string savedStateId) { this-> template notify_restore_state(savedStateId); });
-    //        }
-    //    }
+
 
     /**
      * @brief Add observed and latent genotypes to the infection.
