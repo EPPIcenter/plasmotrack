@@ -31,15 +31,28 @@ namespace transmission_nets::core::utils {
             sign = -sign;
             c.reset(totalEvents, i);
             while (!c.completed) {
-                eventCombo  = 0.0;
+
+                base = 1.0;
                 multCounter = (signed) numEvents;
-                for (const auto j : c.curr) {
-                    eventCombo += eventProbs[j];
+
+                for (const auto j : c.curr)
+                {
+                    base -= eventProbs[j];
                 }
 
+
                 r = sign;
-                while (--multCounter >= 0) {
-                    r *= (1 - eventCombo);
+
+                // squared exponentiation
+                while (multCounter > 0)
+                {
+                    if (multCounter & 1)
+                    {
+                        r *= base;
+                    }
+
+                    base = (base * base);
+                    multCounter >>= 1;
                 }
 
                 prob += r;
