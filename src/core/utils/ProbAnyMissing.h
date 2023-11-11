@@ -8,7 +8,7 @@
 #include "core/utils/generators/CombinationIndicesGenerator.h"
 #include "core/computation/PartialLikelihood.h"
 
-#include <emmintrin.h>  // For SSE2 instructions
+//#include <emmintrin.h>  // For SSE2 instructions
 #include <immintrin.h>  // For AVX instructions (if available)
 
 namespace transmission_nets::core::utils {
@@ -26,8 +26,13 @@ namespace transmission_nets::core::utils {
          */
         Likelihood operator()(const std::vector<Likelihood>& eventProbs, unsigned int numEvents);
 
-        Likelihood prob{};
-        Likelihood base{};
+        __m256d prob4{};
+        __m256d baseVec4{};
+        __m256d r4{};
+        double prob{};
+        double base{};
+        std::vector<double> baseVec{};
+        
         generators::CombinationIndicesGenerator c;
     };
 
