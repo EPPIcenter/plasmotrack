@@ -120,7 +120,7 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine>
     void SALTSampler<T, Engine>::update() noexcept {
-        const std::string stateId = "SALT";
+        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::SALTID;
         auto indices              = utils::generators::randomSequence(0, parameter_->value().totalElements(), rng_);
         for (const auto idx : indices) {
             Likelihood curLik = target_->value();

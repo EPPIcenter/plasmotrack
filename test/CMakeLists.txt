@@ -20,19 +20,22 @@ endif ()
 # settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-#find_package(Boost 1.74 REQUIRED container math_c99l random)
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(nlohmann_json 3.2.0 REQUIRED)
+find_package(Boost)
+find_package(Eigen3)
+find_package(nlohmann_json)
 find_package(OpenMP)
 
 
 if (OPENMP_FOUND)
+    message(STATUS "OpenMP found")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+else ()
+    message(STATUS "OpenMP not found")
 endif ()
 
-include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+#include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 #set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
 #if( NOT EIGEN3_INCLUDE_DIR )
@@ -80,7 +83,7 @@ set(SOURCE_FILES
         src/core/utils/NumericsTest.cpp
         src/impl/ModelFourTest.cpp
         src/core/computation/ObservationTimeDerivedOrderingTest.cpp
-        src/impl/ModelFiveTest.cpp src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp)
+        src/impl/ModelFiveTest.cpp src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp src/core/distributions/DiscreteTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests

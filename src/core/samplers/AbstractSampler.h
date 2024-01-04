@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "core/computation/PartialLikelihood.h"
+#include "core/samplers/SamplerEnum.h"
 
 namespace transmission_nets::core::samplers {
     using Likelihood = core::computation::Likelihood;

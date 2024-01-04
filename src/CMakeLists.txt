@@ -1,15 +1,16 @@
 cmake_minimum_required(VERSION 3.17)
+#include(FetchContent)
+
 project(transmission_networks)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules")
-
-find_package(Boost 1.74 REQUIRED container math_c99l random program_options)
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(nlohmann_json 3.2.0 REQUIRED)
-find_package(OpenMP REQUIRED)
+find_package(Boost REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(nlohmann_json REQUIRED)
+find_package(OpenMP)
 find_package(fmt REQUIRED)
-find_package(MPFR REQUIRED)
-find_package(gmp REQUIRED)
+find_package(mpfr REQUIRED)
+#find_package(TBB REQUIRED)
+
 
 if (OPENMP_FOUND)
     set(CMAKE_C_FLAGS " ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -17,6 +18,11 @@ if (OPENMP_FOUND)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS} ")
 endif ()
 
+set(SPLINE_PATH ${TRANSMISSION_NETWORKS_LIB_DIR}/spline)
+message(STATUS ${SPLINE_PATH})
+file(GLOB SPLINE_HEADERS ${SPLINE_PATH}/*.h)
+add_library("spline" INTERFACE ${SPLINE_HEADERS})
+target_include_directories("spline" INTERFACE ${SPLINE_PATH})
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
@@ -144,13 +150,55 @@ set(SOURCE_FILES
         impl/model/ModelEight/ModelLogger.h
         impl/model/ModelEight/SamplerLogger.cpp
         impl/model/ModelEight/SamplerLogger.h
+        impl/model/ModelEight/SequentialScheduler.h
+
+        impl/model/ModelNine/State.cpp
+        impl/model/ModelNine/State.h
+        impl/model/ModelNine/Model.cpp
+        impl/model/ModelNine/Model.h
+        impl/model/ModelNine/config.h
+        impl/model/ModelNine/SampleScheduler.h
+        impl/model/ModelNine/StateLogger.cpp
+        impl/model/ModelNine/StateLogger.h
+        impl/model/ModelNine/ModelLogger.cpp
+        impl/model/ModelNine/ModelLogger.h
+        impl/model/ModelNine/SamplerLogger.cpp
+        impl/model/ModelNine/SamplerLogger.h
+        impl/model/ModelNine/SequentialScheduler.h
 
         model/transmission_process/node_transmission_process/SuperInfectionNoMutation.h
-        model/observation_process/ObservationProcessLikelihoodv2.h model/transmission_process/node_transmission_process/SimpleLossMutation.h model/transmission_process/node_transmission_process/SimpleLoss.h core/utils/timers.h core/config.h core/samplers/specialized/JointGeneticsTimeSampler.h impl/model/ModelEight/Prior.cpp impl/model/ModelEight/Prior.h impl/model/ModelEight/Likelihood.cpp impl/model/ModelEight/Likelihood.h)
+        model/observation_process/ObservationProcessLikelihoodv2.h
+        model/transmission_process/node_transmission_process/SimpleLossMutation.h
+        model/transmission_process/node_transmission_process/SimpleLoss.h
+        core/utils/timers.h
+        core/config.h
+        core/samplers/specialized/JointGeneticsTimeSampler.h
+        core/samplers/SamplerEnum.h
+        core/distributions/DiscreteDistribution.h
+        core/distributions/pdfs/DiscretePDF.h
+        core/distributions/pdfs/DiscretePDF.h
+        core/distributions/pdfs/DiscretePDF.cpp
+        core/distributions/DiscreteDistribution.cpp
+        core/datatypes/AllelesBitVec.h
+        ../lib/spline/spline.h
+        model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h
+)
 
 
 add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})
-target_link_libraries(transmission_networks PRIVATE nlohmann_json::nlohmann_json OpenMP::OpenMP_CXX Eigen3::Eigen fmt::fmt mpfr)
+target_link_libraries(
+        transmission_networks
+        PUBLIC
+        spline
+        PRIVATE
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Eigen3::Eigen
+        fmt::fmt
+        mpfr::mpfr
+#        onetbb::onetbb
+)
+
 
 
 install(TARGETS transmission_networks DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

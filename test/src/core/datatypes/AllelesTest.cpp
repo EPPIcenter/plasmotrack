@@ -60,14 +60,14 @@ TEST_F(AllelesTestFixture, HandlesIteration) {
 
 TEST_F(AllelesTestFixture, ParameterTest) {
     Parameter<GeneticsImpl> p(a1);
-    p.saveState("state1");
+    p.saveState(1);
     p.setValue(GeneticsImpl("111000111001"));
-    p.saveState("state2");
+    p.saveState(2);
     p.setValue(GeneticsImpl("111000111011"));
     std::cout << p.value() << std::endl;
-    p.restoreState("state2");
+    p.restoreState(2);
     std::cout << p.value() << std::endl;
-    p.restoreState("state1");
+    p.restoreState(1);
     std::cout << p.value() << std::endl;
 }
 

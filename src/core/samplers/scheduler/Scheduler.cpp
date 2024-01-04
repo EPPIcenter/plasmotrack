@@ -6,25 +6,29 @@
 
 namespace transmission_nets::core::samplers {
 
+    Scheduler::Scheduler(int numSamples) : numSamples(numSamples) {}
+
     void Scheduler::registerSampler(std::unique_ptr<AbstractSampler> sampler) {
         samplers_.push_back(ScheduledSampler{.sampler = std::move(sampler)});
     }
 
     void Scheduler::registerSampler(ScheduledSampler sampler) {
+        if (sampler.debug) {
+            sampler.sampler->setDebug();
+        }
         samplers_.push_back(std::move(sampler));
     }
 
     void Scheduler::update(ScheduledSampler& sampler) const {
-        if (isUpdateStep(sampler.update_frequency_, totalSteps) and
-            isBetween(totalSteps, sampler.update_start_, sampler.update_end_)) {
+        if (isBetween(totalSteps, sampler.updateStart, sampler.updateEnd)) {
             sampler.update();
         }
     }
 
     void Scheduler::adapt(ScheduledSampler& sampler) const {
-        if (isBetween(totalSteps, sampler.adaptation_start_, sampler.adaptation_end_)) {
-            if (sampler.scaled_adaptation_) {
-                sampler.adapt(totalSteps - sampler.update_start_);
+        if (isBetween(totalSteps, sampler.adaptationStart, sampler.adaptationEnd)) {
+            if (sampler.scaledAdaptation) {
+                sampler.adapt(totalSteps - sampler.updateStart);
             } else {
                 sampler.adapt();
             }
@@ -36,6 +40,7 @@ namespace transmission_nets::core::samplers {
             update(sampler);
             adapt(sampler);
         }
+        ++totalSteps;
     }
 
     const std::vector<ScheduledSampler>& Scheduler::samplers() const noexcept {

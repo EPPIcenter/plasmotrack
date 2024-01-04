@@ -58,7 +58,7 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename AllelesBitSetImpl, typename LocusImpl, typename ParentSetImpl>
     void RandomAllelesBitSetSampler2<T, Engine, AllelesBitSetImpl, LocusImpl, ParentSetImpl>::update() noexcept {
-        const std::string stateId = "State1";
+        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::RandomAlleleBitSet2ID;
         Likelihood curLik         = target_->value();
         parameter_->saveState(stateId);
 

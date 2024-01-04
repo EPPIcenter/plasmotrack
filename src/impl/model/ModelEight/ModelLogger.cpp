@@ -25,7 +25,7 @@ namespace transmission_nets::impl::ModelEight {
         }
     }
 
-    ModelLogger::ModelLogger(Model& model, fs::path rootPath) : ModelLogger(std::make_shared<Model>(model), std::move(rootPath)) {}
+//    ModelLogger::ModelLogger(Model& model, fs::path rootPath) : ModelLogger(std::make_shared<Model>(model), std::move(rootPath)) {}
 
     void ModelLogger::log() const {
         for (const auto& logger : loggers_) {

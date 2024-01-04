@@ -17,6 +17,7 @@
 
 #include "gtest/gtest.h"
 
+
 #include <fmt/core.h>
 
 #include <memory>
@@ -76,10 +77,10 @@ protected:
     std::shared_ptr<Locus> a2 = std::make_shared<Locus>("a2", 4);
     ParentSet<Infection<GeneticsImpl>> ps;
 
-    std::shared_ptr<Infection<GeneticsImpl, Locus>> i1 = std::make_shared<Infection<GeneticsImpl, Locus>>("i1", 100);
-    std::shared_ptr<Infection<GeneticsImpl, Locus>> i2 = std::make_shared<Infection<GeneticsImpl, Locus>>("i2", 100);
-    std::shared_ptr<Infection<GeneticsImpl, Locus>> i3 = std::make_shared<Infection<GeneticsImpl, Locus>>("i3", 100);
-    std::shared_ptr<Infection<GeneticsImpl, Locus>> i4 = std::make_shared<Infection<GeneticsImpl, Locus>>("i4", 100);
+    std::shared_ptr<Infection<GeneticsImpl, Locus>> i1 = std::make_shared<Infection<GeneticsImpl, Locus>>("i1", 100, false);
+    std::shared_ptr<Infection<GeneticsImpl, Locus>> i2 = std::make_shared<Infection<GeneticsImpl, Locus>>("i2", 100, false);
+    std::shared_ptr<Infection<GeneticsImpl, Locus>> i3 = std::make_shared<Infection<GeneticsImpl, Locus>>("i3", 100, false);
+    std::shared_ptr<Infection<GeneticsImpl, Locus>> i4 = std::make_shared<Infection<GeneticsImpl, Locus>>("i4", 100, false);
 
     GeneticsImpl i1_a1 = GeneticsImpl("111001");
     GeneticsImpl i1_a2 = GeneticsImpl("110001");

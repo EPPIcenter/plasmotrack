@@ -11,7 +11,7 @@
 
 
 namespace transmission_nets::core::samplers {
-    // Discrete Random Walk constrained to a range [lower, upper]
+    // DiscreteDistribution Random Walk constrained to a range [lower, upper]
 
     template<int LOWER_BOUND, int UPPER_BOUND, typename T, typename Engine>
     class ConstrainedDiscreteRandomWalk : public DiscreteRandomWalk<T, Engine> {

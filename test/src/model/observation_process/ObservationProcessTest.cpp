@@ -40,7 +40,7 @@ TEST(ObservationProcessTest, CoreTest) {
 
     infections.reserve(4);
     for (int i = 0; i < 4; ++i) {
-        auto infection = std::make_shared<Infection>(std::to_string(i), 1);
+        auto infection = std::make_shared<Infection>(std::to_string(i), 1, false);
         infections.push_back(infection);
         for (auto& locus : loci) {
             infection->addGenetics(locus, "101010", "111111");
@@ -70,7 +70,7 @@ TEST(ObservationProcessTest, CoreTest) {
 
     auto oldValue = target.value();
 
-    infections.at(0)->latentGenotype(loci.at(0))->saveState("state1");
+    infections.at(0)->latentGenotype(loci.at(0))->saveState(1);
     infections.at(0)->latentGenotype(loci.at(0))->setValue(GeneticsImpl("100000"));
 
     EXPECT_EQ(alleleCountAccumulator->value().true_positive_count, 34);
@@ -84,7 +84,7 @@ TEST(ObservationProcessTest, CoreTest) {
 
     EXPECT_GT(oldValue, newValue);
 
-    infections.at(0)->latentGenotype(loci.at(0))->restoreState("state1");
+    infections.at(0)->latentGenotype(loci.at(0))->restoreState(1);
 
     EXPECT_FALSE(target.isDirty());
     EXPECT_EQ(alleleCountAccumulator->value().true_positive_count, 36);

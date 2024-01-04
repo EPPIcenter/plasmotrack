@@ -30,7 +30,6 @@ namespace transmission_nets::core::distributions {
     public:
         explicit ZTPoisson(p_ParameterDouble mean) noexcept;
 
-        //    ProbabilityVector<MAX_COUNT + 1> value() noexcept;
         std::array<long double, MAX_COUNT + 1> value() noexcept;
 
     private:
@@ -54,10 +53,10 @@ namespace transmission_nets::core::distributions {
     template<int MAX_COUNT>
     std::array<long double, MAX_COUNT + 1> ZTPoisson<MAX_COUNT>::value() noexcept {
         if (this->isDirty()) {
-
+            double lambda = mean_->value();
             long double denominator = 0.0;
             for (int j = 1; j < MAX_COUNT + 1; ++j) {
-                this->value_[j] = j * log(mean_->value()) - mean_->value() - log(boost::math::factorial<double>(j));
+                this->value_[j] = j * std::log(lambda) - std::log(std::exp(lambda) - 1) - std::log(boost::math::factorial<double>(j));
                 denominator += exp(this->value_[j]);
                 assert(!std::isnan(this->value_[j]));
             }

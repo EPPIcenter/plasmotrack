@@ -8,6 +8,9 @@
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
 
+#include "core/datatypes/Simplex.h"
+#include "core/distributions/DiscreteDistribution.h"
+
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
@@ -47,6 +50,7 @@ namespace transmission_nets::core::io {
         return out;
     }
 
+
     template<typename LocusImpl>
     std::map<std::string, std::shared_ptr<LocusImpl>> parseLociFromJSON(
             const json& input,
@@ -65,6 +69,36 @@ namespace transmission_nets::core::io {
         return locusMap;
     }
 
+    template<typename AlleleFrequencyContainerImpl, typename LocusImpl>
+    std::shared_ptr<AlleleFrequencyContainerImpl> parseAlleleFrequenciesFromJSON(
+            const json& input,
+            std::map<std::string, std::shared_ptr<LocusImpl>> loci,
+            const double minAlleleFreq = .01,
+            const char alleleFrequencyKey[] = "allele_freqs",
+            const char lociKey[] = "loci",
+            const char locusLabelKey[] = "locus"
+            ) {
+        auto afContainer = std::make_shared<AlleleFrequencyContainerImpl>();
+
+        for (const auto& afEntry : input.at(lociKey)) {
+            std::string locusLabel = afEntry.at(locusLabelKey);
+            auto locus = loci.at(locusLabel);
+            afContainer->addLocus(locus);
+            std::vector<double> afToLoad = afEntry.at(alleleFrequencyKey);
+
+            for (auto& af : afToLoad) {
+                if (af < minAlleleFreq) {
+                    af = minAlleleFreq;
+                }
+            }
+
+            auto af = core::datatypes::Simplex(std::vector<double>(afToLoad));
+            afContainer->alleleFrequencies(locus)->initializeValue(af);
+        }
+
+        return afContainer;
+    }
+
     template<typename InfectionEvent, typename LocusImpl, typename Engine = boost::random::mt19937>
     std::vector<std::shared_ptr<InfectionEvent>> parseInfectionsFromJSON(
             const json& input,
@@ -76,7 +110,7 @@ namespace transmission_nets::core::io {
             const char obsGenotypesKey[]    = "observed_genotype",
             const char idKey[]              = "id",
             const char observationDateKey[] = "observation_time",
-            const char asymptomaticKey[]    = "asymptomatic",
+            const char symptomaticKey[]    = "symptomatic",
             const char genotypeKey[]        = "genotype",
             const char locusKey[]           = "locus") {
 
@@ -86,9 +120,9 @@ namespace transmission_nets::core::io {
 
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
         for (const auto& inf : input.at(infectionsKey)) {
-            bool asymptomatic = false;
-            if (inf.count(asymptomaticKey) != 0) {
-                asymptomatic = inf.at(asymptomaticKey);
+            bool symptomatic = true;
+            if (inf.count(symptomaticKey) != 0) {
+                symptomatic = inf.at(symptomaticKey);
             }
 
             double obs_time = inf.at(observationDateKey);
@@ -101,7 +135,7 @@ namespace transmission_nets::core::io {
                 obs_time = 1000;
             }
 
-            infections.push_back(std::make_shared<InfectionEvent>(inf.at(idKey), obs_time, asymptomatic));
+            infections.push_back(std::make_shared<InfectionEvent>(inf.at(idKey), obs_time, symptomatic));
             for (const auto& genetics : inf.at(obsGenotypesKey)) {
                 auto locusLabel = genetics.at(locusKey);
                 auto locusItr   = loci.find(locusLabel);

@@ -124,12 +124,29 @@ namespace transmission_nets::core::io {
     }
 
     template<typename T, long unsigned int SIZE>
-    std::string serialize(std::array<T, SIZE> &val) {
+    std::string serialize(const std::array<T, SIZE> &val) {
         std::string out;
         for (const auto& el : val) {
             out += serialize(el);
             out += ",";
         }
+        out.pop_back();
+        return out;
+    }
+
+    template<typename T>
+    std::string serialize_matrix(std::vector<T> &val, int nrow, int ncol) {
+        std::string out;
+        for (int i = 0; i < nrow; ++i) {
+            out += "{";
+            for (int j = 0; j < ncol; ++j) {
+                out += serialize(val[i * ncol + j]);
+                out += ",";
+            }
+            out.pop_back();
+            out += "},\n";
+        }
+        out.pop_back();
         out.pop_back();
         return out;
     }

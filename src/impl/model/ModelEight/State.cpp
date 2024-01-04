@@ -6,7 +6,12 @@
 #include "core/io/serialize.h"
 
 namespace transmission_nets::impl::ModelEight {
-    State::State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const bool null_model) {
+    State::State(
+            const nlohmann::json& input,
+            const std::vector<core::computation::Probability>& symptomaticIDPDist,
+            const std::vector<core::computation::Probability>& asymptomaticIDPDist,
+            std::shared_ptr<boost::random::mt19937> rng,
+            const bool null_model) {
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
         infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng, null_model);
         allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
@@ -33,9 +38,17 @@ namespace transmission_nets::impl::ModelEight {
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(.5);
         mutationProb            = std::make_shared<core::parameters::Parameter<double>>(.05);
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(1.01);
+        symptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(symptomaticIDPDist);
+        asymptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(asymptomaticIDPDist);
     }
 
-    State::State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const fs::path& outputDir, const bool null_model) {
+    State::State(
+            const nlohmann::json& input,
+            const std::vector<core::computation::Probability>& symptomaticIDPDist,
+            const std::vector<core::computation::Probability>& asymptomaticIDPDist,
+            std::shared_ptr<boost::random::mt19937> rng,
+            const fs::path& outputDir,
+            const bool null_model) {
         // hotstart constructor
         auto paramOutputDir = outputDir / "parameters";
         auto epsPosFolder   = paramOutputDir / "eps_pos";
@@ -86,6 +99,8 @@ namespace transmission_nets::impl::ModelEight {
         lossProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "loss_prob.csv"));
         mutationProb            = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mutation_prob.csv"));
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_coi.csv"));
+        symptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(symptomaticIDPDist);
+        asymptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(asymptomaticIDPDist);
     }
 
     void State::initPriors() {
@@ -111,10 +126,10 @@ namespace transmission_nets::impl::ModelEight {
          * Symptomatic vs Asymptomatic Infection Duration
          * Parameterizes the time between infection and clinical detection
          */
-        symptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(10);
-        symptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(10);
-        asymptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(1);
-        asymptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(100);
+//        symptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(10);
+//        symptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(10);
+//        asymptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(1);
+//        asymptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(100);
 
     }
 }// namespace transmission_nets::impl::ModelEight

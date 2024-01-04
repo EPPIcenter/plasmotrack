@@ -17,14 +17,14 @@ namespace transmission_nets::core::abstract {
     class CheckpointablePassthrough : public crtp<T, CheckpointablePassthrough> {
         using CallbackType            = std::function<void()>;
         using AcceptCallbackType      = std::function<void()>;
-        using SaveRestoreCallbackType = std::function<void(const std::string& saved_state_id)>;
+        using SaveRestoreCallbackType = std::function<void(int saved_state_id)>;
         CRTP_CREATE_EVENT(save_state, SaveRestoreCallbackType)
         CRTP_CREATE_EVENT(accept_state, AcceptCallbackType)
         CRTP_CREATE_EVENT(restore_state, SaveRestoreCallbackType)
 
         struct StateCheckpoint {
-            explicit StateCheckpoint(std::string savedStateId) : saved_state_id(std::move(savedStateId)) {}
-            std::string saved_state_id;
+            explicit StateCheckpoint(int savedStateId) : saved_state_id(savedStateId) {}
+            int saved_state_id;
         };
 
 
@@ -59,9 +59,9 @@ namespace transmission_nets::core::abstract {
             this->post_accept_hooks_.emplace_back(cb);
         }
 
-        void saveState(std::string savedStateId) noexcept;
+        void saveState(int savedStateId) noexcept;
 
-        void restoreState(std::string savedStateId) noexcept;
+        void restoreState(int savedStateId) noexcept;
 
         void acceptState() noexcept;
 
@@ -79,23 +79,23 @@ namespace transmission_nets::core::abstract {
     template<typename T0>
     std::tuple<ListenerId_t, ListenerId_t, ListenerId_t>
     CheckpointablePassthrough<T>::registerCheckpointTarget(T0* target) {
-        ListenerId_t saveStateEventId    = this->underlying().add_save_state_listener([=](std::string savedStateId) { target->saveState(savedStateId); });
+        ListenerId_t saveStateEventId    = this->underlying().add_save_state_listener([=](int savedStateId) { target->saveState(savedStateId); });
         ListenerId_t acceptStateEventId  = this->underlying().add_accept_state_listener([=]() { target->acceptState(); });
-        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=](std::string savedStateId) { target->restoreState(savedStateId); });
+        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=](int savedStateId) { target->restoreState(savedStateId); });
         return std::make_tuple(saveStateEventId, acceptStateEventId, restoreStateEventId);
     }
 
     template<typename T>
     template<typename T0>
     std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> CheckpointablePassthrough<T>::registerCacheableCheckpointTarget(T0* target) {
-        ListenerId_t saveStateEventId    = this->underlying().add_save_state_listener([=](std::string savedStateId) { target->saveState(savedStateId); });
+        ListenerId_t saveStateEventId    = this->underlying().add_save_state_listener([=](int savedStateId) { target->saveState(savedStateId); });
         ListenerId_t acceptStateEventId  = this->underlying().add_accept_state_listener([=]() { target->acceptState(); target->setClean(); });
-        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=](std::string savedStateId) { target->restoreState(savedStateId); target->setClean(); });
+        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=](int savedStateId) { target->restoreState(savedStateId); target->setClean(); });
         return std::make_tuple(saveStateEventId, acceptStateEventId, restoreStateEventId);
     }
 
     template<typename T>
-    void CheckpointablePassthrough<T>::saveState(std::string savedStateId) noexcept {
+    void CheckpointablePassthrough<T>::saveState(int savedStateId) noexcept {
         if (saved_states_stack_.back().saved_state_id != savedStateId) {
             for (auto& cb : pre_save_hooks_) {
                 cb();
@@ -111,7 +111,7 @@ namespace transmission_nets::core::abstract {
     }
 
     template<typename T>
-    void CheckpointablePassthrough<T>::restoreState(std::string savedStateId) noexcept {
+    void CheckpointablePassthrough<T>::restoreState(int savedStateId) noexcept {
         if (saved_states_stack_.back().saved_state_id == savedStateId) {
             for (auto& cb : pre_restore_hooks_) {
                 cb();

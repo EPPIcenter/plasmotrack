@@ -11,6 +11,7 @@
 #include "impl/model/ModelSeven/StateLogger.h"
 
 #include <boost/program_options.hpp>
+
 #include <fmt/core.h>
 
 #include <csignal>

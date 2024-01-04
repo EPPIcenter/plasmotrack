@@ -22,7 +22,7 @@ namespace transmission_nets::core::datatypes {
             label_ = label;
         }
 
-        [[nodiscard]] T value() const noexcept {
+        [[nodiscard]] const T& value() const noexcept {
             return value_;
         }
 

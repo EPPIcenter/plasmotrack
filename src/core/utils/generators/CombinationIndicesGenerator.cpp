@@ -6,16 +6,18 @@
 
 #include <cassert>
 #include <numeric>
+#include <cmath>
 
 namespace transmission_nets::core::utils::generators {
-    CombinationIndicesGenerator::CombinationIndicesGenerator(std::size_t n, std::size_t r) : completed(n < 1 or r > n or r == 0),
+    CombinationIndicesGenerator::CombinationIndicesGenerator(std::size_t n, std::size_t r) noexcept : completed(n < 1 or r > n or r == 0),
                                                                                              n_(n),
-                                                                                             r_(r) {
+                                                                                             r_(r)  {
         curr.resize(r_);
         std::iota(curr.begin(), curr.end(), 0);
+        calculateNumCombinations();
     }
 
-    void CombinationIndicesGenerator::reset(std::size_t n, std::size_t r) {
+    void CombinationIndicesGenerator::reset(std::size_t n, std::size_t r) noexcept {
         completed = n < 1 or r > n or r == 0;
         generated = 1;
 
@@ -24,9 +26,10 @@ namespace transmission_nets::core::utils::generators {
 
         curr.resize(r_);
         std::iota(curr.begin(), curr.end(), 0);
+        calculateNumCombinations();
     }
 
-    void CombinationIndicesGenerator::reset() {
+    void CombinationIndicesGenerator::reset() noexcept {
         reset(n_, r_);
     }
 
@@ -52,9 +55,30 @@ namespace transmission_nets::core::utils::generators {
         }
     }
 
-    CombinationIndicesGenerator::CombinationIndicesGenerator() {
+    CombinationIndicesGenerator::CombinationIndicesGenerator() noexcept {
         completed = true;
         n_        = 0;
         r_        = 0;
+    }
+
+    void CombinationIndicesGenerator::calculateNumCombinations() noexcept {
+        unsigned int tmp = r_;
+        if (tmp > n_) {
+            numCombinations = 0;
+            return;
+        }
+        if (tmp * 2 > n_) {
+            tmp = n_ - tmp;
+        }
+        if (tmp == 0) {
+            numCombinations = 1;
+            return;
+        }
+
+        numCombinations = n_;
+        for(unsigned int i = 2; i <= tmp; ++i ) {
+            numCombinations *= (n_-i+1);
+            numCombinations /= i;
+        }
     }
 }// namespace transmission_nets::core::utils::generators

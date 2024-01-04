@@ -35,7 +35,7 @@ TEST(MultinomialSourceTransmissionProcessTest, BasicTest) {
     auto as1 = std::make_shared<Locus>("AS1", 3);
     auto as2 = std::make_shared<Locus>("AS2", 4);
 
-    auto inf1 = std::make_shared<Infection>("inf1", 10.0);
+    auto inf1 = std::make_shared<Infection>("inf1", 10.0, false);
     inf1->addGenetics(as1, "001", "001");
     inf1->addGenetics(as2, "0011", "0011");
 
@@ -51,13 +51,13 @@ TEST(MultinomialSourceTransmissionProcessTest, BasicTest) {
     MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, Infection::GenotypeParameterMap, MAX_COI> mstp(coip, alleleFreqs, inf1->loci(), inf1->latentGenotype());
 
     std::cout << "LogLikelihood: " << mstp.value() << std::endl;
-    coiProb->saveState("state1");
+    coiProb->saveState(1);
     EXPECT_FALSE(mstp.isDirty());
     coiProb->setValue(.001);
     EXPECT_TRUE(mstp.isDirty());
     EXPECT_TRUE(coip->isDirty());
     std::cout << "LogLikelihood: " << mstp.value() << std::endl;
-    coiProb->restoreState("state1");
+    coiProb->restoreState(1);
     EXPECT_FALSE(mstp.isDirty());
     EXPECT_FALSE(coip->isDirty());
     std::cout << "LogLikelihood: " << mstp.value() << std::endl;

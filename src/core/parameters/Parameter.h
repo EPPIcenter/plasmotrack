@@ -20,7 +20,7 @@ namespace transmission_nets::core::parameters {
                       public abstract::Checkpointable<Parameter<T>, T> {
 
     public:
-        template<typename Args, ENABLE_IF(core::utils::NonSelf<Args, Parameter<T>>())>
+        template<typename Args, ENABLE_IF(core::utils::NonSelf<Args, Parameter>())>
         explicit Parameter(Args&& args) : value_(std::forward<Args>(args)) {}
 
         template<typename T0>
@@ -38,8 +38,8 @@ namespace transmission_nets::core::parameters {
         }
 
     protected:
-        friend class abstract::Checkpointable<Parameter<T>, T>;
-        friend class abstract::Uncacheable<Parameter<T>, T>;
+        friend class abstract::Checkpointable<Parameter, T>;
+        friend class abstract::Uncacheable<Parameter, T>;
 
         T value_{};
         std::string label_{};

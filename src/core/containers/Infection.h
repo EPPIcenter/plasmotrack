@@ -35,9 +35,11 @@ namespace transmission_nets::core::containers {
         using GenotypeDataMap      = GenotypeMap<std::shared_ptr<datatypes::Data<GeneticImpl>>>;
         using GenotypeParameterMap = GenotypeMap<std::shared_ptr<parameters::Parameter<GeneticImpl>>>;
 
-        explicit Infection(std::string id, double observationTime, bool symptomatic);
+        explicit Infection(std::string id, double observationTime, bool symptomatic = true);
 
         Infection(const Infection& other, const std::string& id = "", bool retain_alleles = true) {
+            static int uid = 0;
+            uid_ = uid++;
             // Copy constructor -- create a new infection from an existing one using the latent genetics.
             if (id.empty()) {
                 id_ = other.id_ + "_copy";
@@ -67,8 +69,6 @@ namespace transmission_nets::core::containers {
                     if (!alleleFound) {
                         bitstr[bitstr.size() - 1] = '1';
                     }
-
-
                     addGenetics(locus, GeneticImpl(bitstr), GeneticImpl(bitstr));
                 }
             }
@@ -165,6 +165,10 @@ namespace transmission_nets::core::containers {
             return id_;
         }
 
+        [[nodiscard]] int uid() const {
+            return uid_;
+        }
+
         /**
          * @brief Returns the string representation of the infection using the id.
          * @return The string representation of the infection.
@@ -209,6 +213,7 @@ namespace transmission_nets::core::containers {
 
     private:
         std::string id_;
+        int uid_;
         GenotypeMap<std::shared_ptr<datatypes::Data<GeneticImpl>>> observedGenotype_{};
         GenotypeMap<std::shared_ptr<parameters::Parameter<GeneticImpl>>> latentGenotype_{};
         std::vector<std::shared_ptr<LocusImpl>> loci_{};
@@ -219,8 +224,10 @@ namespace transmission_nets::core::containers {
 
     template<typename GeneticImpl, typename LocusImpl>
     Infection<GeneticImpl, LocusImpl>::Infection(std::string id, const double observationTime, const bool symptomatic) : id_(std::move(id)), observationTime_(std::make_shared<datatypes::Data<double>>(observationTime)), symptomatic_(std::make_shared<datatypes::Data<bool>>(symptomatic)) {
-        infectionDuration_ = std::make_shared<parameters::Parameter<double>>(100);
-        infectionDuration_->initializeValue(100.0);
+        static int uid = 0;
+        uid_ = uid++;
+        infectionDuration_ = std::make_shared<parameters::Parameter<double>>(10.0);
+        infectionDuration_->initializeValue(10.0);
 
         //        infectionDuration_->add_pre_change_listener([=, this]() { this->notify_pre_change(); });
         //        infectionDuration_->add_post_change_listener([=, this]() { this->notify_post_change(); });
@@ -246,14 +253,14 @@ namespace transmission_nets::core::containers {
         loci_.push_back(locus);
         auto lat = std::make_shared<parameters::Parameter<GeneticImpl>>(latent);
         auto ob  = std::make_shared<datatypes::Data<GeneticImpl>>(obs);
-        observedGenotype_.template insert_or_assign(locus, ob);
-        latentGenotype_.template insert_or_assign(locus, lat);
+        observedGenotype_.insert_or_assign(locus, ob);
+        latentGenotype_.insert_or_assign(locus, lat);
         // Creating pass through of notifications
-        latentGenotype_.at(locus)->add_pre_change_listener([=, this]() { this->template notify_pre_change(); });
-        latentGenotype_.at(locus)->add_post_change_listener([=, this]() { this->template notify_post_change(); });
-        latentGenotype_.at(locus)->add_save_state_listener([=, this](std::string savedStateId) { this->template notify_save_state(savedStateId); });
-        latentGenotype_.at(locus)->add_accept_state_listener([=, this]() { this->template notify_accept_state(); });
-        latentGenotype_.at(locus)->add_restore_state_listener([=, this](std::string savedStateId) { this->template notify_restore_state(savedStateId); });
+        latentGenotype_.at(locus)->add_pre_change_listener([=, this]() { this->notify_pre_change(); });
+        latentGenotype_.at(locus)->add_post_change_listener([=, this]() { this->notify_post_change(); });
+        latentGenotype_.at(locus)->add_save_state_listener([=, this](int savedStateId) { this->notify_save_state(savedStateId); });
+        latentGenotype_.at(locus)->add_accept_state_listener([=, this]() { this->notify_accept_state(); });
+        latentGenotype_.at(locus)->add_restore_state_listener([=, this](int savedStateId) { this->notify_restore_state(savedStateId); });
     }
 
     /**
@@ -270,14 +277,14 @@ namespace transmission_nets::core::containers {
         loci_.push_back(locus);
         auto ob  = std::make_shared<datatypes::Data<GeneticImpl>>(obs);
         auto lat = std::make_shared<parameters::Parameter<GeneticImpl>>(obs);
-        observedGenotype_.template insert_or_assign(locus, ob);
-        latentGenotype_.template insert_or_assign(locus, lat);
+        observedGenotype_.insert_or_assign(locus, ob);
+        latentGenotype_.insert_or_assign(locus, lat);
         // Creating pass through of notifications
-        latentGenotype_.at(locus)->add_pre_change_listener([=, this]() { this->template notify_pre_change(); });
-        latentGenotype_.at(locus)->add_post_change_listener([=, this]() { this->template notify_post_change(); });
-        latentGenotype_.at(locus)->add_save_state_listener([=, this](std::string savedStateId) { this->template notify_save_state(savedStateId); });
-        latentGenotype_.at(locus)->add_accept_state_listener([=, this]() { this->template notify_accept_state(); });
-        latentGenotype_.at(locus)->add_restore_state_listener([=, this](std::string savedStateId) { this->template notify_restore_state(savedStateId); });
+        latentGenotype_.at(locus)->add_pre_change_listener([=, this]() { this->notify_pre_change(); });
+        latentGenotype_.at(locus)->add_post_change_listener([=, this]() { this->notify_post_change(); });
+        latentGenotype_.at(locus)->add_save_state_listener([=, this](int savedStateId) { this->notify_save_state(savedStateId); });
+        latentGenotype_.at(locus)->add_accept_state_listener([=, this]() { this->notify_accept_state(); });
+        latentGenotype_.at(locus)->add_restore_state_listener([=, this](int savedStateId) { this->notify_restore_state(savedStateId); });
     }
 
 
@@ -294,13 +301,13 @@ namespace transmission_nets::core::containers {
     void Infection<GeneticImpl, LocusImpl>::addLatentGenetics(std::shared_ptr<LocusImpl> locus, const T& latent) {
         loci_.push_back(locus);
         auto lat = std::make_shared<parameters::Parameter<GeneticImpl>>(latent);
-        latentGenotype_.template insert_or_assign(locus, lat);
+        latentGenotype_.insert_or_assign(locus, lat);
         // Creating pass through of notifications
-        latentGenotype_.at(locus)->add_pre_change_listener([=, this]() { this->template notify_pre_change(); });
-        latentGenotype_.at(locus)->add_post_change_listener([=, this]() { this->template notify_post_change(); });
-        latentGenotype_.at(locus)->add_save_state_listener([=, this](std::string savedStateId) { this->template notify_save_state(savedStateId); });
-        latentGenotype_.at(locus)->add_accept_state_listener([=, this]() { this->template notify_accept_state(); });
-        latentGenotype_.at(locus)->add_restore_state_listener([=, this](std::string savedStateId) { this->template notify_restore_state(savedStateId); });
+        latentGenotype_.at(locus)->add_pre_change_listener([=, this]() { this->notify_pre_change(); });
+        latentGenotype_.at(locus)->add_post_change_listener([=, this]() { this->notify_post_change(); });
+        latentGenotype_.at(locus)->add_save_state_listener([=, this](int savedStateId) { this->notify_save_state(savedStateId); });
+        latentGenotype_.at(locus)->add_accept_state_listener([=, this]() { this->notify_accept_state(); });
+        latentGenotype_.at(locus)->add_restore_state_listener([=, this](int savedStateId) { this->notify_restore_state(savedStateId); });
     }
 
 }// namespace transmission_nets::core::containers

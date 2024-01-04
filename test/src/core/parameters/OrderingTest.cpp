@@ -55,7 +55,7 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
     ASSERT_EQ(*el1, 1);
     ASSERT_EQ(*el2, 2);
 
-    ordering->saveState("state1");
+    ordering->saveState(1);
 
     ordering->swap(0, 2);
     fmt::print("{}\n", serialize(p_el1));
@@ -63,7 +63,7 @@ TEST(OrderingTest, HandlesSwapsNotifies) {
     fmt::print("{}\n", serialize(p_el3));
     fmt::print("{}\n", serialize(p_el4));
 
-    ordering->restoreState("state1");
+    ordering->restoreState(1);
     fmt::print("{}\n", serialize(p_el1));
     fmt::print("{}\n", serialize(p_el2));
     fmt::print("{}\n", serialize(p_el3));

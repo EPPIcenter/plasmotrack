@@ -15,6 +15,7 @@
 
 #include <boost/container/flat_set.hpp>
 #include <boost/range/adaptors.hpp>
+
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
@@ -83,11 +84,11 @@ namespace transmission_nets::model::transmission_process {
 
         void postParentUpdated(std::shared_ptr<InfectionEventImpl> parent);
 
-        void postSaveState();
+        void postSaveState(int savedStateId);
 
         void postAcceptState();
 
-        void postRestoreState();
+        void postRestoreState(int savedStateId);
 
         ListenerIdMap preChangeListenerIdMap{};
         ListenerIdMap postChangeListenerIdMap{};
@@ -144,8 +145,8 @@ namespace transmission_nets::model::transmission_process {
         parentSet_->add_element_removed_listener([=, this](std::shared_ptr<InfectionEventImpl> parent) { removeParent(parent); });
         parentSet_->registerCacheableCheckpointTarget(this);
 
-        this->addPostSaveHook([=, this]() { this->postSaveState(); });
-        this->addPostRestoreHook([=, this]() { this->postRestoreState(); });
+        this->addPostSaveHook([=, this](const auto savedStateID) { this->postSaveState(savedStateID); });
+        this->addPostRestoreHook([=, this](const auto savedStateID) { this->postRestoreState(savedStateID); });
         this->addPostAcceptHook([=, this]() { this->postAcceptState(); });
 
         for (auto& parent : parentSet_->value()) {
@@ -370,9 +371,9 @@ namespace transmission_nets::model::transmission_process {
             std::shared_ptr<InfectionEventImpl> parent) {
         const auto preChangeListenerId    = parent->add_pre_change_listener([=, this]() { preParentUpdated(parent); });
         const auto postChangeListenerId   = parent->add_post_change_listener([=, this]() { postParentUpdated(parent); });
-        const auto saveStateListenerId    = parent->add_save_state_listener([=, this](const std::string& savedStateId) { saveState(savedStateId); });
+        const auto saveStateListenerId    = parent->add_save_state_listener([=, this](const int savedStateId) { saveState(savedStateId); });
         const auto acceptStateListenerId  = parent->add_accept_state_listener([=, this]() { acceptState(); });
-        const auto restoreStateListenerId = parent->add_restore_state_listener([=, this](const std::string& savedStateId) { restoreState(savedStateId); });
+        const auto restoreStateListenerId = parent->add_restore_state_listener([=, this](const int savedStateId) { restoreState(savedStateId); });
 
         assert(!preChangeListenerIdMap.contains(parent));
         preChangeListenerIdMap[parent]    = preChangeListenerId;
@@ -471,7 +472,7 @@ namespace transmission_nets::model::transmission_process {
 
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postSaveState() {
+    void OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postSaveState([[maybe_unused]] int savedStateId) {
         calculatedCache_.emplace_back(calculated_);
         toCalculateCache_.emplace_back(toCalculate_);
         toSubtractCache_.emplace_back(toSubtract_);
@@ -487,7 +488,7 @@ namespace transmission_nets::model::transmission_process {
 
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postRestoreState() {
+    void OrderBasedTransmissionProcess<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postRestoreState([[maybe_unused]] int savedStateId) {
         for (const auto& parent : addedParents_) {
             removeParentListeners(parent);
         }

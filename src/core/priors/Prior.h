@@ -8,6 +8,8 @@
 
 #include "core/computation/PartialLikelihood.h"
 
+#include <cmath>
+
 namespace transmission_nets::core::priors {
     template<typename Distribution, typename TargetParam, typename... Args>
     class Prior : public computation::PartialLikelihood {

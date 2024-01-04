@@ -8,10 +8,12 @@
 #include "impl/model/ModelEight/Model.h"
 #include "impl/model/ModelEight/ModelLogger.h"
 #include "impl/model/ModelEight/SampleScheduler.h"
+#include "impl/model/ModelEight/SequentialScheduler.h"
 #include "impl/model/ModelEight/State.h"
 #include "impl/model/ModelEight/StateLogger.h"
 
 #include <boost/program_options.hpp>
+
 #include <fmt/core.h>
 
 #include <csignal>
@@ -37,7 +39,7 @@ namespace {
 bool interrupted = false;
 
 // Global replica exchange object
-std::unique_ptr<ReplicaExchange<ModelEight::State, ModelEight::Model, ModelEight::SampleScheduler, ModelEight::ModelLogger, ModelEight::StateLogger>> repex;
+std::unique_ptr<ReplicaExchange<ModelEight::State, ModelEight::Model, ModelEight::SequentialSampleScheduler, ModelEight::ModelLogger, ModelEight::StateLogger>> repex;
 
 void finalize_output(int signal_num) {
     if (interrupted) {
@@ -48,8 +50,6 @@ void finalize_output(int signal_num) {
     fmt::print("Interrupt signal {} received. Finalizing output...", signal_num);
 }
 
-//using Time = std::chrono::high_resolution_clock;
-//using dsec = std::chrono::duration<double>;
 
 int main(int argc, char** argv) {
     signal(SIGINT, finalize_output);
@@ -68,19 +68,23 @@ int main(int argc, char** argv) {
         bool null_model;
         std::string input;
         std::string output_dir;
+        std::string symptomatic_idp_path;
+        std::string asymptomatic_idp_path;
 
         namespace po = boost::program_options;
         po::options_description desc("Options");
         auto opts = desc.add_options();
-        opts("help", "Runs the model six implementation");
+        opts("help", "Runs the model implementation");
         opts("burnin,b", po::value<int>(&burnin)->default_value(5000), "Number of steps to be used for burnin");
         opts("sample,s", po::value<int>(&sample)->default_value(10000), "Total number of steps to be used for sampling");
         opts("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned");
         opts("numchains,n", po::value<int>(&num_chains)->default_value(1), "Number of chains to run in replica exchange algorithm.");
         opts("numcores,c", po::value<unsigned int>(&num_cores)->default_value(1), "Number of cores to use in replica exchange algorithm.");
-        opts("gradient,g", po::value<double>(&gradient)->default_value(1), "Temperature gradient to use in replica exchange algorithm");
+        opts("gradient,g", po::value<double>(&gradient)->default_value(0), "Lower temperature of gradient to use in replica exchange algorithm");
         opts("seed", po::value<long>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.");
         opts("hotload,h", "Hotload parameters from the output directory");
+        opts("symptomatic-idp", po::value<std::string>(&symptomatic_idp_path)->required(), "file path to Symptomatic IDP");
+        opts("asymptomatic-idp", po::value<std::string>(&asymptomatic_idp_path)->required(), "file path to Symptomatic IDP");
         opts("input,i", po::value<std::string>(&input)->required(), "Input file");
         opts("output-dir,o", po::value<std::string>(&output_dir)->required(), "Output directory");
         opts("null-model", po::bool_switch(&null_model)->default_value(false), "Run the null model (no genetics)");
@@ -120,6 +124,8 @@ int main(int argc, char** argv) {
 
         const fs::path nodesFile{input};
         const fs::path outputDir{output_dir};
+        const std::vector<long double> symptomatic_idp = loadVectorFromFile<long double>(symptomatic_idp_path);
+        const std::vector<long double> asymptomatic_idp = loadVectorFromFile<long double>(asymptomatic_idp_path);
 
         if (!fs::exists(nodesFile)) {
             std::cerr << "Nodes input file does not exist." << std::endl;
@@ -144,14 +150,16 @@ int main(int argc, char** argv) {
 
         fmt::print("Seed Used: {}\n", seed);
         auto r = std::make_shared<boost::random::mt19937>(seed);
-        repex  = std::make_unique<ReplicaExchange<ModelEight::State, ModelEight::Model, ModelEight::SampleScheduler, ModelEight::ModelLogger, ModelEight::StateLogger>>(num_chains, thin, gradient, r, outputDir, hotload, null_model, num_cores, j);
+        repex  = std::make_unique<ReplicaExchange<ModelEight::State, ModelEight::Model, ModelEight::SequentialSampleScheduler, ModelEight::ModelLogger, ModelEight::StateLogger>>(num_chains, thin, gradient, r, outputDir, hotload, null_model, num_cores, j, symptomatic_idp, asymptomatic_idp);
 
         repex->logState();
         repex->finalize();
 
-        double totalSamples = 0;
-        double totalSeconds = 0;
         double samplesPerSecond = 0;
+        double totalSamples = 0;
+        double averageSamplesPerSecond = 0;
+        timers::dsec totalDuration{0};
+
 
         fmt::print("Starting Llik: {0:.2f}\n", repex->hotValue());
         for (int kk = 0; kk < burnin; ++kk) {
@@ -162,19 +170,23 @@ int main(int argc, char** argv) {
             }
 
             auto t0 = timers::time();
-            repex->sample();
+            repex->burnin();
+
+            if (kk % 25 == 0 and num_chains > 1) {
+                repex->adaptTemp();
+            }
+
             auto t1 = timers::time();
 
             timers::dsec ds = t1 - t0;
-            totalSamples += thin;
-            totalSeconds += ds.count();
-            samplesPerSecond = (totalSamples / totalSeconds);
+            totalDuration += ds;
+            totalSamples += thin * num_chains;
+            samplesPerSecond = (thin * num_chains / ds.count());
+            averageSamplesPerSecond = totalSamples / totalDuration.count();
 
-            fmt::print("(b={0})", kk);
+            fmt::print("(b={0}) ", kk);
             repex->printModelLlik();
-            fmt::print("({0:.2f} samples/sec)\n", samplesPerSecond);
-
-//            fmt::print("(b={0}) Current Llik: {1:.2f} ({2} samples/sec)\n", kk, repex->hotValue(), samplesPerSecond);
+            fmt::print(" ({0:.2f} samples/sec -- Average: {1:.2f} samples/sec)\n", samplesPerSecond, averageSamplesPerSecond);
         }
 
 
@@ -188,18 +200,17 @@ int main(int argc, char** argv) {
             auto t1 = timers::time();
 
             timers::dsec ds = t1 - t0;
-            totalSamples += thin;
-            totalSeconds += ds.count();
-            samplesPerSecond = thin / ds.count();
+            totalDuration += ds;
+            totalSamples += thin * num_chains;
+            samplesPerSecond = (thin * num_chains / ds.count());
+            averageSamplesPerSecond = totalSamples / totalDuration.count();
 
             repex->logModel();
             repex->logState();
 
             fmt::print("(s={0}) ", jj);
             repex->printModelLlik();
-            fmt::print(" ({0:.2f} samples/sec)\n", samplesPerSecond);
-
-//            fmt::print("(s={0}) Current Llik: {1:.2f} ({2} samples/sec)\n", jj, repex->hotValue(), samplesPerSecond);
+            fmt::print("({0:.2f} samples/sec -- Average: {1:.2f} samples/sec)\n", samplesPerSecond, averageSamplesPerSecond);
         }
 
         repex->finalize();

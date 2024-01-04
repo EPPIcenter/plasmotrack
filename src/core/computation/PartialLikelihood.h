@@ -13,6 +13,7 @@
 namespace transmission_nets::core::computation {
 
     using Likelihood = long double;
+    using Probability = long double;
 
     class PartialLikelihood : public Computation<Likelihood>,
                               public abstract::Observable<PartialLikelihood>,

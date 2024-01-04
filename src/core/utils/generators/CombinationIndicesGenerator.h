@@ -15,27 +15,30 @@ namespace transmission_nets::core::utils::generators {
 
         bool completed;
         unsigned long generated = 1;
+        unsigned long numCombinations = 0;
+        combination_t curr{};
 
         /**
          * Generate a sequences of indices representing n choose r element combinations.
          * @param n number of elements
          * @param r number of choices
          */
-        CombinationIndicesGenerator(std::size_t n, std::size_t r);
+        CombinationIndicesGenerator(std::size_t n, std::size_t r) noexcept;
 
-        CombinationIndicesGenerator();
+        CombinationIndicesGenerator() noexcept;
 
-        void reset(std::size_t n, std::size_t r);
-        void reset();
+        void reset(std::size_t n, std::size_t r) noexcept;
+        void reset() noexcept;
 
         void next() noexcept;
         void advance(int n) noexcept;
 
-        combination_t curr{};
-
     private:
         std::size_t n_;
         std::size_t r_;
+
+        void calculateNumCombinations() noexcept;
+
     };
 }// namespace transmission_nets::core::utils::generators
 

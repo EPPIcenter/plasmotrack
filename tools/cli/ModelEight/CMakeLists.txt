@@ -1,9 +1,30 @@
 cmake_minimum_required(VERSION 3.17)
+include(FetchContent)
+
 project(transmission_networks_model_eight)
 
-find_package(Boost 1.74 COMPONENTS program_options REQUIRED container math_c99l random filesystem)
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(nlohmann_json 3.2.0 REQUIRED)
+#FetchContent_Declare(json
+#        GIT_REPOSITORY https://github.com/nlohmann/json.git
+#        GIT_TAG master
+#        GIT_SHALLOW TRUE
+#        GIT_PROGRESS TRUE)
+#FetchContent_MakeAvailable(json)
+#
+#FetchContent_Declare(
+#        Eigen
+#        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+#        GIT_TAG master
+#        GIT_SHALLOW TRUE
+#        GIT_PROGRESS TRUE)
+#set(EIGEN_BUILD_DOC OFF)
+#set(BUILD_TESTING OFF)
+#set(EIGEN_BUILD_PKGCONFIG OFF)
+#FetchContent_MakeAvailable(Eigen)
+
+
+find_package(Boost)
+find_package(Eigen3)
+find_package(nlohmann_json)
 find_package(OpenMP)
 
 if (OPENMP_FOUND)
@@ -12,13 +33,14 @@ if (OPENMP_FOUND)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif ()
 
-include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+#include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
 
 set(SOURCE_FILES ModelEight.cpp)
 add_executable(transmission_networks_model_eight ${SOURCE_FILES})
 target_link_libraries(transmission_networks_model_eight
+
         PRIVATE
         transmission_networks
         nlohmann_json::nlohmann_json
@@ -27,5 +49,5 @@ target_link_libraries(transmission_networks_model_eight
         ${Boost_LIBRARIES}
         )
 
-message(${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
+message(STATUS ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
 install(TARGETS transmission_networks_model_eight DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

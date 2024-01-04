@@ -7,6 +7,7 @@
 
 #include <boost/container/flat_map.hpp>
 #include <iostream>
+
 #include <fmt/core.h>
 
 #include "core/abstract/crtp.h"

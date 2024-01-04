@@ -71,15 +71,20 @@ namespace transmission_nets::model::observation_process {
     template<typename GeneticsImpl>
     core::computation::Likelihood ObservationProcessLikelihoodv2<GeneticsImpl>::value() {
         if (this->isDirty()) {
-            int true_positive_count  = truePositiveCount(latent_genetics_->value(), observed_genetics_->value());
-            int false_positive_count = falsePositiveCount(latent_genetics_->value(), observed_genetics_->value());
-            int true_negative_count  = trueNegativeCount(latent_genetics_->value(), observed_genetics_->value());
-            int false_negative_count = falseNegativeCount(latent_genetics_->value(), observed_genetics_->value());
+            const auto& latent_genetics = latent_genetics_->value();
+            const auto& observed_genetics = observed_genetics_->value();
+            const int true_positive_count  = truePositiveCount(latent_genetics, observed_genetics);
+            const int false_positive_count = falsePositiveCount(latent_genetics, observed_genetics);
+            const int true_negative_count  = trueNegativeCount(latent_genetics, observed_genetics);
+            const int false_negative_count = falseNegativeCount(latent_genetics, observed_genetics);
 
-            value_ = true_positive_count * log(1 - (expected_false_positives_->value() / total_alleles_)) +
-                     true_negative_count * log(1 - (expected_false_negatives_->value() / total_alleles_)) +
-                     false_positive_count * log(expected_false_positives_->value() / total_alleles_) +
-                     false_negative_count * log(expected_false_negatives_->value() / total_alleles_);
+            const double expected_false_positives = expected_false_positives_->value();
+            const double expected_false_negatives = expected_false_negatives_->value();
+
+            value_ = true_positive_count * log(1 - (expected_false_positives / total_alleles_)) +
+                     true_negative_count * log(1 - (expected_false_negatives / total_alleles_)) +
+                     false_positive_count * log(expected_false_positives / total_alleles_) +
+                     false_negative_count * log(expected_false_negatives / total_alleles_);
 
             this->setClean();
         }

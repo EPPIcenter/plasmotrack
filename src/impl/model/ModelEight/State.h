@@ -17,9 +17,19 @@
 namespace transmission_nets::impl::ModelEight {
     struct State {
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
+        using p_DiscreteDist = std::shared_ptr<core::distributions::DiscreteDistribution>;
 
-        explicit State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const bool null_model = false);
-        State(const nlohmann::json& input, std::shared_ptr<boost::random::mt19937> rng, const fs::path& outputDir, const bool null_model = false);
+        explicit State(const nlohmann::json& input,
+                       const std::vector<core::computation::Probability>& symptomaticIDPDist,
+                       const std::vector<core::computation::Probability>& asymptomaticIDPDist,
+                       std::shared_ptr<boost::random::mt19937> rng,
+                       bool null_model = false);
+        State(const nlohmann::json& input,
+              const std::vector<core::computation::Probability>& symptomaticIDPDist,
+              const std::vector<core::computation::Probability>& asymptomaticIDPDist,
+              std::shared_ptr<boost::random::mt19937> rng,
+              const fs::path& outputDir, bool null_model = false);
+
         void initPriors();
 
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
@@ -34,10 +44,13 @@ namespace transmission_nets::impl::ModelEight {
         std::shared_ptr<OrderingImpl> infectionEventOrdering;
 
         // Symptomatic vs Asymptomatic infection duration -- time between infection and detection
-        p_ParameterDouble symptomaticInfectionDurationShape;
-        p_ParameterDouble symptomaticInfectionDurationScale;
-        p_ParameterDouble asymptomaticInfectionDurationShape;
-        p_ParameterDouble asymptomaticInfectionDurationScale;
+//        p_ParameterDouble symptomaticInfectionDurationShape;
+//        p_ParameterDouble symptomaticInfectionDurationScale;
+//        p_ParameterDouble asymptomaticInfectionDurationShape;
+//        p_ParameterDouble asymptomaticInfectionDurationScale;
+
+        p_DiscreteDist symptomaticInfectionDurationDist;
+        p_DiscreteDist asymptomaticInfectionDurationDist;
 
         // Observation Process
         std::vector<p_ParameterDouble> expectedFalsePositives{};

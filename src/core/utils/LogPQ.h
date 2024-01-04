@@ -9,7 +9,7 @@
 
 namespace transmission_nets::core::utils {
     struct LogPQ {
-        LogPQ(const std::vector<double>& x);
+        explicit LogPQ(const std::vector<double>& x);
         std::vector<double> logP{};
         std::vector<double> logQ{};
     };

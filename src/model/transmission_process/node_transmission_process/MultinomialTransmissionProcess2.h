@@ -1,0 +1,424 @@
+//
+// Created by Maxwell Murphy on 11/17/23.
+//
+
+#ifndef TRANSMISSION_NETWORKS_APP_MULTINOMIALTRANSMISSIONPROCESS_H
+#define TRANSMISSION_NETWORKS_APP_MULTINOMIALTRANSMISSIONPROCESS_H
+
+#include "core/abstract/observables/Cacheable.h"
+#include "core/abstract/observables/Checkpointable.h"
+#include "core/abstract/observables/Observable.h"
+#include "core/computation/Computation.h"
+#include "core/computation/PartialLikelihood.h"
+#include "core/containers/Infection.h"
+#include "core/containers/ParentSet.h"
+#include "core/parameters/Parameter.h"
+#include "core/utils/ProbAnyMissing.h"
+#include "core/utils/numerics.h"
+#include <boost/math/special_functions/factorials.hpp>
+#include <cmath>
+#include <memory>
+
+namespace transmission_nets::model::transmission_process {
+
+    using Likelihood = core::computation::Likelihood;
+
+    template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
+    class MultinomialTransmissionProcess : public core::computation::Computation<std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)>>,
+                                           public core::abstract::Observable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>,
+                                           public core::abstract::Cacheable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>,
+                                           public core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)>> {
+
+        using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
+
+    public:
+        explicit MultinomialTransmissionProcess(p_ParameterDouble mean_strains_transmitted);
+
+        std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)> value() override;
+
+        Likelihood probNumStrains(int num_strains, int num_parents) {
+            return this->value_[(num_parents - 1) * MAX_STRAINS + (num_strains - 1)];
+        }
+
+        template<typename GeneticsImpl>
+        Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+                                          const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet);
+
+
+        template<typename GeneticsImpl>
+        Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+                                          std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent,
+                                          const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet,
+                                          std::shared_ptr<SourceTransmissionProcessImpl> stp);
+
+        template<typename GeneticsImpl>
+        Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+                                          std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent,
+                                          std::shared_ptr<SourceTransmissionProcessImpl> stp);
+
+
+    private:
+        friend class core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)>>;
+        friend class core::abstract::Cacheable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>;
+
+        p_ParameterDouble mean_strains_transmitted_;
+        core::utils::probAnyMissingFunctor probAnyMissing_;
+        double mutationRate_ = 0.001;
+
+    };
+
+    template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
+    MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::MultinomialTransmissionProcess(p_ParameterDouble mean_strains_transmitted) : mean_strains_transmitted_(std::move(mean_strains_transmitted)) {
+        mean_strains_transmitted_->registerCacheableCheckpointTarget(this);
+        mean_strains_transmitted_->add_post_change_listener([this]() {
+            this->setDirty();
+        });
+
+        this->value_.fill(-std::numeric_limits<long double>::infinity());
+        this->setDirty();
+        this->value();
+    }
+
+    template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
+    std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)> MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::value() {
+        /*
+         * Value is a matrix that gives the probability of transmitting some number of strains from some number of parents. The
+         * rows are the number of parents, and the columns are the number of strains. We assume the number of strains transmitted
+         * from a single parent is zt-poisson with rate equal to `mean_strains_transmitted_`. In the case of multiple parents, the number
+         * of strains transmitted is the sum of the number of strains transmitted from each parent, which is also poisson with mean
+         * `mean_strains_transmitted_` * k where k is the number of parents.
+         * todo: mean_strains_transmitted isn't actually the mean of the distribution
+         */
+        if (this->isDirty()) {
+            double lambda = mean_strains_transmitted_->value();
+            int num_strains;
+            int num_parents;
+            double denominator;
+            for (unsigned int kk = 0; kk < MAX_PARENTSET_SIZE + 1; ++kk) {
+                num_parents = kk + 1;
+                denominator = 0.0;
+                for (unsigned int jj = kk; jj < MAX_STRAINS; ++jj) {
+                    num_strains = jj + 1;
+
+                    double correction = 0;
+                    for (int ii = 0; ii < num_parents; ++ii) {
+                        correction += std::pow(-1, ii) * std::pow(num_parents - ii, num_strains) * boost::math::binomial_coefficient<double>(num_parents, ii);
+                    }
+                    this->value_[kk * MAX_STRAINS + jj] = num_strains * std::log(lambda) - (num_parents * std::log(std::exp(lambda) - 1)) - std::log(boost::math::factorial<double>(num_strains)) + std::log(correction);
+                    denominator += exp(this->value_[kk * MAX_STRAINS + jj]);
+                }
+
+                // Normalize
+                denominator = log(denominator);
+                for (unsigned int jj = 0; jj < MAX_STRAINS; ++jj) {
+                    this->value_[kk * MAX_STRAINS + jj] -= denominator;
+                }
+            }
+            this->setClean();
+        }
+        return this->value_;
+    }
+
+    template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
+    template<typename GeneticsImpl>
+    Likelihood MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet) {
+        size_t numParents = parentSet.size();
+        const auto& loci = infection->loci();
+
+        std::array<long double, MAX_STRAINS> logLikelihoods{0};
+
+        for (const auto& locus : loci) {
+            const auto& childGenotype = infection->latentGenotype(locus)->value();
+//            const int totalAlleles = childGenotype.totalAlleles();
+//            const double min_rate = mutationRate_ / totalAlleles;
+            std::vector<double> parent_pop_freqs(childGenotype.totalAlleles(), 0);
+
+            for (const auto& parent : parentSet) {
+                const auto& parentGenotype = parent->latentGenotype(locus)->value();
+                // Every parent must have at least one allele in common with the child at each locus
+                if (GeneticsImpl::truePositiveCount(parentGenotype, childGenotype) == 0) {
+                    return -std::numeric_limits<Likelihood >::infinity();
+                }
+
+                const int totalAllelesPresent = parentGenotype.totalPositiveCount();
+                for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
+                    if (parentGenotype.allele(j)) {
+                        parent_pop_freqs[j] += ((double) parentGenotype.allele(j) / totalAllelesPresent / numParents);
+                    }
+                }
+            }
+
+//            double denom = 0.0;
+//            for (auto& af : parent_pop_freqs) {
+//                denom += af;
+//            }
+//
+//
+//            // normalize
+//            for (auto& af : parent_pop_freqs) {
+//                af /= denom;
+//            }
+
+            double constrainedSetProb = 0.0;
+            std::vector<Likelihood> prVec{};
+            bool zeroProbEvent = false;
+
+            for (size_t i = 0; i < childGenotype.totalAlleles(); ++i) {
+                if (childGenotype.allele(i) > 0) {
+                    prVec.push_back(parent_pop_freqs[i]);
+                    constrainedSetProb += parent_pop_freqs[i];
+                    zeroProbEvent = zeroProbEvent || std::abs(parent_pop_freqs[i]) < 1e-10;
+                }
+            }
+
+            if (zeroProbEvent) {
+                return -std::numeric_limits<Likelihood >::infinity();
+            }
+
+            for (Likelihood & af : prVec) {
+                af /= constrainedSetProb;
+            }
+
+            for (unsigned int numStrains = 1; numStrains <= MAX_STRAINS; ++numStrains) {
+                unsigned int idx = numStrains - 1;
+
+                if (numStrains < numParents or numStrains < childGenotype.totalPositiveCount()) {
+                    logLikelihoods[idx] = -std::numeric_limits<Likelihood >::infinity();
+                } else {
+//                    fmt::print("prVec: {}\n", core::io::serialize(prVec));
+                    const double pam = probAnyMissing_(prVec, numStrains);
+                    if (pam > 1) {
+                        logLikelihoods[idx] = -std::numeric_limits<Likelihood >::infinity();
+                    } else {
+                        // Conditional on all strains coming from the constrained set (the alleles in the child), the probability of no missing alleles
+                        logLikelihoods[idx] += std::log(1 - pam) + std::log(constrainedSetProb) * numStrains;
+                    }
+                }
+            }
+        }
+
+        for (unsigned int numStrains = numParents; numStrains <= MAX_STRAINS; ++numStrains) {
+            unsigned int idx = numStrains - 1;
+            // Add the probability of the number of strains
+            logLikelihoods[idx] += this->probNumStrains(numStrains, numParents);
+        }
+
+//        Likelihood  logLikelihood = core::utils::logSumExp(logLikelihoods);
+//        if (logLikelihood <= -std::numeric_limits<Likelihood>::infinity()) {
+//            fmt::print("parent set -inf\n");
+//            fmt::print("logLikelihoods: {}\n", core::io::serialize(logLikelihoods));
+//        }
+
+        return core::utils::logSumExp(logLikelihoods);
+    }
+
+    template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
+    template<typename GeneticsImpl>
+    Likelihood MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+                                                                                                                                          std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent,
+                                                                                                                                          const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet,
+                                                                                                                                          std::shared_ptr<SourceTransmissionProcessImpl> stp) {
+        size_t numParents = parentSet.size();
+        const auto& loci  = infection->loci();
+
+        std::array<long double, MAX_STRAINS> logLikelihoods{0};
+        for (const auto& locus : loci) {
+            auto childGenotype = infection->latentGenotype(locus)->value();
+
+            std::vector<double> parent_pop_freqs(childGenotype.totalAlleles(), 0.0);
+//            const int totalAlleles = childGenotype.totalAlleles();
+//            const double minRate = mutationRate_ / totalAlleles;
+//            std::vector<double> parent_pop_freqs(childGenotype.totalAlleles(), minRate);
+
+            for (const auto& parent : parentSet) {
+                const auto& parentGenotype = parent->latentGenotype(locus)->value();
+                // Every parent must have at least one allele in common with the child at each locus
+                if (GeneticsImpl::truePositiveCount(parentGenotype, childGenotype) == 0) {
+                    return -std::numeric_limits<Likelihood>::infinity();
+                }
+
+                const int totalAllelesPresent = parentGenotype.totalPositiveCount();
+                for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
+                    // add an extra count to numParents to account for the latent parent
+                    if (parentGenotype.allele(j)) {
+                        parent_pop_freqs[j] += ((double) parentGenotype.allele(j) / totalAllelesPresent / (numParents + 1.0));
+                    }
+                }
+            }
+
+
+            const auto& latentParentGenotype = latentParent->latentGenotype(locus)->value();
+            int totalAllelesPresent   = latentParentGenotype.totalPositiveCount();
+
+            if (GeneticsImpl::truePositiveCount(latentParentGenotype, childGenotype) == 0) {
+                return -std::numeric_limits<Likelihood>::infinity();
+            }
+
+            for (size_t j = 0; j < latentParentGenotype.totalAlleles(); ++j) {
+                parent_pop_freqs[j] += ((double) latentParentGenotype.allele(j) / totalAllelesPresent / (numParents + 1.0));
+            }
+
+//            double denom = 0;
+//            for (auto& af : parent_pop_freqs) {
+//                denom += af;
+//            }
+//
+//            // normalize
+//            for (auto& af : parent_pop_freqs) {
+//                af /= denom;
+//            }
+
+            double constrainedSetProb = 0.0;
+            std::vector<Likelihood> prVec{};
+            bool zeroProbEvent = false;
+
+            for (size_t i = 0; i < childGenotype.totalAlleles(); ++i) {
+                if (childGenotype.allele(i) > 0) {
+                    prVec.push_back(parent_pop_freqs[i]);
+                    constrainedSetProb += parent_pop_freqs[i];
+                    zeroProbEvent = zeroProbEvent || std::abs(parent_pop_freqs[i]) < 1e-6;
+                }
+            }
+
+            if (zeroProbEvent) {
+                return -std::numeric_limits<Likelihood>::infinity();
+            }
+
+            for (Likelihood& af : prVec) {
+                af /= constrainedSetProb;
+            }
+
+            // std::vector<Likelihood> pamVec = probAnyMissing_.vectorized(prVec, MAX_STRAINS);
+            // fmt::print("pamVec: {}\n", core::io::serialize(pamVec));
+            for (unsigned int numStrains = 1; numStrains <= MAX_STRAINS; ++numStrains) {
+                unsigned int idx = numStrains - 1;
+
+
+                // if (pamVec[idx] >= 1.0) {
+                //     logLikelihoods[idx] = -std::numeric_limits<Likelihood>::infinity();
+                //     continue;
+                // }
+                // logLikelihoods[idx] += std::log(1 - pamVec[idx]) + logConstrainedSetProb * numStrains;
+                //
+
+
+                if (numStrains < (numParents + 1) or numStrains < childGenotype.totalPositiveCount()) {
+                    logLikelihoods[idx] = -std::numeric_limits<Likelihood>::infinity();
+                } else {
+                    if (const Likelihood pam = probAnyMissing_(prVec, numStrains); pam > 1) {
+                        logLikelihoods[idx] = -std::numeric_limits<Likelihood>::infinity();
+                    } else {
+                        // Conditional on all strains coming from the constrained set (the alleles in the child), the probability of no missing alleles
+                        logLikelihoods[idx] += std::log(1 - pam) + std::log(constrainedSetProb) * numStrains;
+                    }
+                }
+            }
+        }
+
+        for (unsigned int numStrains = numParents + 1; numStrains <= MAX_STRAINS; ++numStrains) {
+            unsigned int idx = numStrains - 1;
+            // Add the probability of the number of strains
+            logLikelihoods[idx] += this->probNumStrains(numStrains, numParents + 1);
+        }
+
+//        Likelihood  logLikelihood = core::utils::logSumExp(logLikelihoods);
+//        if (logLikelihood <= -std::numeric_limits<Likelihood>::infinity()) {
+//            fmt::print("parent set + latent parent -inf\n");
+//            fmt::print("logLikelihoods: {}\n", core::io::serialize(logLikelihoods));
+//        }
+
+        return core::utils::logSumExp(logLikelihoods) + stp->value();
+    }
+
+    template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
+    template<typename GeneticsImpl>
+    Likelihood MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+                                                                                                                                          std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent,
+                                                                                                                                          std::shared_ptr<SourceTransmissionProcessImpl> stp) {
+        size_t numParents = 1;
+        const auto& loci  = infection->loci();
+
+        std::array<long double, MAX_STRAINS> logLikelihoods{0};
+        for (const auto& locus : loci) {
+            const auto& childGenotype = infection->latentGenotype(locus)->value();
+
+            std::vector<double> parent_pop_freqs(childGenotype.totalAlleles(), 0.0);
+//            const int totalAlleles = childGenotype.totalAlleles();
+//            const double minRate = mutationRate_ / totalAlleles;
+//            std::vector<double> parent_pop_freqs(totalAlleles, minRate);
+
+            const auto& parent         = latentParent;
+            const auto& parentGenotype = parent->latentGenotype(locus)->value();
+            // Every parent must have at least one allele in common with the child at each locus
+            if (GeneticsImpl::truePositiveCount(parentGenotype, childGenotype) == 0) {
+                return -std::numeric_limits<Likelihood>::infinity();
+            }
+
+            const int totalAllelesPresent = parentGenotype.totalPositiveCount();
+            for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
+                if (parentGenotype.allele(j)) {
+                    parent_pop_freqs[j] += ((double) parentGenotype.allele(j) / totalAllelesPresent);
+                }
+            }
+
+//            double denom = 0;
+//            for (auto& af : parent_pop_freqs) {
+//                denom += af;
+//            }
+//
+//            // normalize
+//            for (auto& af : parent_pop_freqs) {
+//                af /= denom;
+//            }
+
+            double constrainedSetProb = 0.0;
+            std::vector<Likelihood> prVec{};
+            bool zeroProbEvent = false;
+
+            for (size_t i = 0; i < childGenotype.totalAlleles(); ++i) {
+                if (childGenotype.allele(i) > 0) {
+                    prVec.push_back(parent_pop_freqs[i]);
+                    constrainedSetProb += parent_pop_freqs[i];
+                    zeroProbEvent = zeroProbEvent || std::abs(parent_pop_freqs[i]) < 1e-6;
+                }
+            }
+
+            if (zeroProbEvent) {
+                return -std::numeric_limits<Likelihood>::infinity();
+            }
+
+            for (Likelihood& af : prVec) {
+                af /= constrainedSetProb;
+            }
+
+
+            for (unsigned int numStrains = 1; numStrains <= MAX_STRAINS; ++numStrains) {
+                unsigned int idx = numStrains - 1;
+
+                if (numStrains < (numParents) or numStrains < childGenotype.totalPositiveCount()) {
+                    logLikelihoods[idx] = -std::numeric_limits<Likelihood>::infinity();
+                } else {
+                    const double pam = probAnyMissing_(prVec, numStrains);
+                    if (pam > 1) {
+                        logLikelihoods[idx] = -std::numeric_limits<Likelihood>::infinity();
+                    } else {
+                        // Conditional on all strains coming from the constrained set (the alleles in the child), the probability of no missing alleles
+                        logLikelihoods[idx] += std::log(1 - pam) + std::log(constrainedSetProb) * numStrains;
+                    }
+                }
+            }
+        }
+
+        for (unsigned int numStrains = numParents; numStrains <= MAX_STRAINS; ++numStrains) {
+            unsigned int idx = numStrains - 1;
+            // Add the probability of the number of strains
+            logLikelihoods[idx] += this->probNumStrains(numStrains, numParents);
+        }
+
+        return core::utils::logSumExp(logLikelihoods) + stp->value();
+    }
+
+}
+
+
+#endif//TRANSMISSION_NETWORKS_APP_MULTINOMIALTRANSMISSIONPROCESS_H

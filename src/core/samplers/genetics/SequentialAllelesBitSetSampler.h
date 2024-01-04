@@ -56,16 +56,18 @@ namespace transmission_nets::core::samplers::genetics {
     void SequentialAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept {
         const auto rs = core::utils::generators::randomSequence(1, parameter_->value().totalAlleles(), rng_);
         for (const auto& i : rs) {
-            const std::string stateId = "State1";
+            SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::SequentialAllelesBitSetID;
             Likelihood curLik         = target_->value();
             parameter_->saveState(stateId);
+
+            const auto currentVal     = parameter_->value();
             const auto proposal = sampleProposal(parameter_->value(), i);
 
             assert(!target_->isDirty());
             parameter_->setValue(proposal);
             const auto acceptanceRatio = target_->value() - curLik;
             const auto logProbAccept   = log(uniform_dist_(*rng_));
-            const bool accept          = logProbAccept <= acceptanceRatio;
+            const bool accept          = (logProbAccept <= acceptanceRatio) and std::abs(acceptanceRatio) > 1e-10;
 
             if (accept) {
                 acceptances_++;
@@ -76,6 +78,18 @@ namespace transmission_nets::core::samplers::genetics {
             }
 
             assert(!target_->isDirty());
+
+            if (debug_) {
+                fmt::print("Acceptance ratio: {}\n", acceptanceRatio);
+                fmt::print("Llik change: {}\n", std::abs(acceptanceRatio) > 1e-10);
+                fmt::print("Log prob accept: {}\n", logProbAccept);
+                fmt::print("Accept: {}\n", accept);
+                fmt::print("Current likelihood: {}\n", curLik);
+                fmt::print("Proposal likelihood: {}\n", target_->value());
+                fmt::print("Current value: {}\n", currentVal.serialize());
+                fmt::print("Proposal: {}\n", proposal.serialize());
+                fmt::print("------------------------\n");
+            }
 
             total_updates_++;
         }

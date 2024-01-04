@@ -18,8 +18,11 @@ namespace transmission_nets::core::parameters {
     class Ordering : public Parameter<std::vector<std::shared_ptr<T>>> {
 
         using MovedCallback = std::function<void(std::shared_ptr<T> element)>;
+        using ChangedCallback = std::function<void(std::shared_ptr<T> element)>;
         CREATE_KEYED_EVENT(moved_left, std::shared_ptr<T>, MovedCallback) // Notifies that an element has been moved left of key
         CREATE_KEYED_EVENT(moved_right, std::shared_ptr<T>, MovedCallback)// Notifies that an element has been moved right of key
+        CREATE_EVENT(element_changed, ChangedCallback);
+
 
     public:
         explicit Ordering() noexcept;
@@ -42,6 +45,7 @@ namespace transmission_nets::core::parameters {
 
     private:
         void notifySwap(int left_idx, int right_idx) noexcept;
+        void elementChanged(std::shared_ptr<T> ref) noexcept;
     };
 
     template<typename T>
@@ -103,6 +107,12 @@ namespace transmission_nets::core::parameters {
             // value_[left_idx] has been moved left of element at value_[i]
             keyed_notify_moved_left(this->value_[i], this->value_[left_idx]);
         }
+    }
+
+    template<typename T>
+    void Ordering<T>::elementChanged(std::shared_ptr<T> ref) noexcept {
+        this->notify_element_changed(ref);
+        this->setDirty();
     }
 
 }// namespace transmission_nets::core::parameters

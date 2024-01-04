@@ -15,12 +15,16 @@ namespace transmission_nets::core::samplers {
 
     struct ScheduledSampler {
         std::unique_ptr<AbstractSampler> sampler;
-        int adaptation_start_ = -1;
-        int adaptation_end_   = -1;
-        bool scaled_adaptation_{false};
-        int update_start_   = -1;
-        int update_end_     = std::numeric_limits<int>::infinity();
-        int update_frequency_ = 0;
+
+        std::string id = "Unknown";
+        int adaptationStart = 0;
+        int adaptationEnd = 0;
+        bool scaledAdaptation  = false;
+        long unsigned int updateStart = 0;
+        long unsigned int updateEnd = std::numeric_limits<int>::max();
+        int updateFrequency = 1;
+        long double weight = 1.0;
+        bool debug = false;
 
         void update() const;
         void adapt() const;
@@ -39,6 +43,7 @@ namespace transmission_nets::core::samplers {
     class Scheduler {
 
     public:
+        explicit Scheduler(int numSamples);
         void registerSampler(std::unique_ptr<AbstractSampler> sampler);
         void registerSampler(ScheduledSampler sampler);
 
@@ -52,6 +57,7 @@ namespace transmission_nets::core::samplers {
 
     protected:
         std::vector<ScheduledSampler> samplers_{};
+        int numSamples = 0;
         int totalSteps = 0;
     };
 

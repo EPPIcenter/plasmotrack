@@ -12,8 +12,8 @@
 #include <utility>
 
 #include "core/parameters/Parameter.h"
-
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/SamplerEnum.h"
 
 
 // Random Walk Metropolis Hastings using a gaussian proposal distribution centered at the current value
@@ -97,7 +97,7 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine, typename U>
     void ContinuousRandomWalk<T, Engine, U>::update() noexcept {
-        const std::string stateId = "ContinuousRW";
+        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::ConstrainedContinuousRandomWalkID;
         Likelihood curLik         = target_->value();
         parameter_->saveState(stateId);
 
@@ -113,6 +113,8 @@ namespace transmission_nets::core::samplers {
             std::cout << "Curr: " << currentVal << std::endl;
             std::cout << "Prop: " << proposal << std::endl;
             std::cout << "Var: " << variance() << std::endl;
+            std::cout << "Acceptance Rate: " << acceptanceRate() << std::endl;
+            std::cout << "Total Samples: " << acceptances_ + rejections_ << std::endl;
 //            std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << " " << acceptanceRatio << std::endl;
             std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << std::endl;
             std::cout << "----------------------------------------------------" << std::endl;
@@ -148,12 +150,18 @@ namespace transmission_nets::core::samplers {
     void ContinuousRandomWalk<T, Engine, U>::adapt() noexcept {
         variance_ += (acceptanceRate() - target_acceptance_rate_) / std::pow(total_updates_ + 1, adaptation_rate_);
         variance_ = std::clamp(variance_, min_variance_, max_variance_);
+        if (std::isnan(variance_)) {
+            variance_ = min_variance_;
+        }
     }
 
     template<typename T, typename Engine, typename U>
     void ContinuousRandomWalk<T, Engine, U>::adapt(unsigned int idx) noexcept {
         variance_ += (acceptanceRate() - target_acceptance_rate_) / std::pow(idx, adaptation_rate_);
         variance_ = std::clamp(variance_, min_variance_, max_variance_);
+        if (std::isnan(variance_)) {
+            variance_ = min_variance_;
+        }
     }
 
     template<typename T, typename Engine, typename U>

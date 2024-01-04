@@ -56,19 +56,19 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
     void RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept {
-        const std::string stateId = "State1";
+        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::RandomAlleleBitSetID;
         Likelihood curLik         = target_->value();
         parameter_->saveState(stateId);
 
-        const auto currentVal = parameter_->value();
-        const auto proposal = sampleProposal(parameter_->value());
+        const auto& currentVal = parameter_->value();
+        const auto& proposal = sampleProposal(currentVal);
 
         assert(!target_->isDirty());
         parameter_->setValue(proposal);
-        const auto adj = logMetropolisHastingsAdjustment(currentVal, proposal);
-        const auto acceptanceRatio = target_->value() - curLik + adj;
-        const auto logProbAccept   = log(uniform_dist_(*rng_));
-        const bool accept          = logProbAccept <= acceptanceRatio;
+        const Likelihood adj = logMetropolisHastingsAdjustment(currentVal, proposal);
+        const Likelihood acceptanceRatio = target_->value() - curLik + adj;
+        const Likelihood logProbAccept   = log(uniform_dist_(*rng_));
+        const bool accept          = (logProbAccept <= acceptanceRatio) and std::abs(acceptanceRatio) > 1e-10;
 
 
         if (debug_) {

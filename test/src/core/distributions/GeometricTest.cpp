@@ -22,7 +22,7 @@ TEST(GeometricTest, CoreTest) {
     ASSERT_DOUBLE_EQ(geoProb.value().sum(), 1);
 
     ASSERT_FALSE(geoProb.isDirty());
-    pGeoGenProb->saveState("state1");
+    pGeoGenProb->saveState(1);
     pGeoGenProb->setValue(.75);
     ASSERT_TRUE(geoProb.isDirty());
     ASSERT_DOUBLE_EQ(geoProb.value().sum(), 1);

@@ -9,6 +9,7 @@
 #include "config.h"
 
 #include <memory>
+#include <shared_mutex>
 
 namespace transmission_nets::impl::ModelEight {
     struct Model : core::computation::PartialLikelihood {
@@ -17,6 +18,7 @@ namespace transmission_nets::impl::ModelEight {
         explicit Model(State& state, double temperature = 1.0);
 
         Likelihood value() override;
+        Likelihood valueThreadSafe();
         std::string identifier() override;
         [[nodiscard]] double getTemperature() const;
         void setTemperature(double t);
@@ -29,7 +31,6 @@ namespace transmission_nets::impl::ModelEight {
         ModelLikelihood likelihood;
         ModelLikelihood prior;
         double temperature;
-//        core::computation::Tempered<ModelLikelihood> tempered_likelihood;
 
         // Observation Process
         std::vector<std::shared_ptr<model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>>> observationProcessLikelihoodList{};
@@ -45,6 +46,7 @@ namespace transmission_nets::impl::ModelEight {
         // Transmission Process
 //        std::map<std::shared_ptr<InfectionEvent>, std::shared_ptr<ParentSetImpl>> parentSetList{};
         std::vector<std::shared_ptr<TransmissionProcess>> transmissionProcessList{};
+        std::shared_mutex valueMutex;
     };
 }// namespace transmission_nets::impl::ModelEight
 

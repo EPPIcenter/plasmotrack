@@ -14,6 +14,11 @@ namespace transmission_nets::impl::ModelEight {
         });
         likelihood.registerCacheableCheckpointTarget(this);
 
+        prior.add_set_dirty_listener([=, this]() {
+            this->setDirty();
+        });
+        prior.registerCacheableCheckpointTarget(this);
+
         intp                    = std::make_shared<InterTransmissionProbImpl>(state_->geometricGenerationProb);
         nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->lossProb, intp);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
@@ -22,8 +27,6 @@ namespace transmission_nets::impl::ModelEight {
         prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->lossProb, state_->lossProbPriorAlpha, state_->lossProbPriorBeta));
         prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanCOI, state_->meanCOIPriorShape, state_->meanCOIPriorScale));
         prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
-        //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationShape, state_->infectionDurationShapePriorShape, state_->infectionDurationShapePriorScale));
-        //        likelihood.addTarget(new core::distributions::GammaLogPDF(state_->infectionDurationScale, state_->infectionDurationScalePriorShape, state_->infectionDurationScalePriorScale));
         for (auto& obs : state_->expectedFalsePositives) {
             likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
         }
@@ -36,9 +39,9 @@ namespace transmission_nets::impl::ModelEight {
             // infection duration likelihood
 
             if (infection->isSymptomatic()) {
-                likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(infection->infectionDuration(), state_->symptomaticInfectionDurationShape, state_->symptomaticInfectionDurationScale));
+                prior.addTarget(std::make_shared<core::distributions::DiscretePDF<double>>(infection->infectionDuration(), state_->symptomaticInfectionDurationDist, "symptomatic_infection_duration"));
             } else {
-                likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(infection->infectionDuration(), state_->asymptomaticInfectionDurationShape, state_->asymptomaticInfectionDurationScale));
+                prior.addTarget(std::make_shared<core::distributions::DiscretePDF<double>>(infection->infectionDuration(), state_->asymptomaticInfectionDurationDist, "asymptomatic_infection_duration"));
             }
 
 
@@ -102,9 +105,18 @@ namespace transmission_nets::impl::ModelEight {
 
     Likelihood Model::value() {
         if (isDirty()) {
+            std::unique_lock lock(valueMutex);
             value_ = temperature * likelihood.value() + prior.value();
+            lock.unlock();
             this->setClean();
         }
         return value_;
+    }
+
+    Likelihood Model::valueThreadSafe() {
+        std::shared_lock lock(valueMutex);
+        auto val = value_;
+        lock.unlock();
+        return val;
     }
 };// namespace transmission_nets::impl::ModelEight

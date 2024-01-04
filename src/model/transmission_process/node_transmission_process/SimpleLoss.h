@@ -35,7 +35,6 @@ namespace transmission_nets::model::transmission_process {
 
     public:
         explicit SimpleLoss(p_ParameterDouble loss_prob, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb);
-//        SimpleLoss();
 
         std::array<long double, MAX_TRANSMISSIONS + 1> value() noexcept override;
 
@@ -130,7 +129,7 @@ namespace transmission_nets::model::transmission_process {
     template<typename GeneticsImpl>
     Likelihood SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet) {
         size_t numParents = parentSet.size();
-        auto loci         = infection->loci();
+        const auto& loci   = infection->loci();
 
         // re-initialize the arrays
         probs_.fill(0);
@@ -158,7 +157,8 @@ namespace transmission_nets::model::transmission_process {
             // iterate over all parents to get their genotypes and calculate the number of
             // alleles that are lost in the transmission process.
             for (const auto& parent : parentSet) {
-                parentGenotypes[parentIdx] = parent->latentGenotype(locus)->value();
+                const auto& parentGenotype = parent->latentGenotype(locus);
+                parentGenotypes[parentIdx] = parentGenotype->value();
                 allelesLostCounter_[parentIdx] += GeneticsImpl::falseNegativeCount(parentGenotypes[parentIdx], childGenotype);
                 int allelesShared = GeneticsImpl::truePositiveCount(parentGenotypes[parentIdx], childGenotype);
 
@@ -270,8 +270,11 @@ namespace transmission_nets::model::transmission_process {
         if (std::isnan(llik) or llik <= -std::numeric_limits<Likelihood>::infinity()) {
             fmt::print("NaN Encountered in SimpleLoss::calculateLogLikelihood without parent: {}\n", llik);
             fmt::print("allelesLost: {}\n", core::io::serialize(allelesLostCounter_));
-            fmt::print("loss: {}\n", this->value()[1]);
-            fmt::print("retained: {}\n", 1.0 - this->value()[1]);
+            fmt::print("loss: {}\n", core::io::serialize(this->value()));
+            fmt::print("loss_prob: {}\n", this->lossProb_->value());
+            fmt::print("id: {}\n", infection->id());
+//            fmt::print("loss: {}\n", this->value()[1]);
+//            fmt::print("retained: {}\n", 1.0 - this->value()[1]);
             llik = -std::numeric_limits<Likelihood>::infinity();
         }
 
@@ -286,7 +289,7 @@ namespace transmission_nets::model::transmission_process {
     template<typename GeneticsImpl>
     Likelihood SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& parentSet, std::shared_ptr<SourceTransmissionProcessImpl> stp) {
         size_t numParents = parentSet.size();
-        auto loci         = infection->loci();
+        const auto& loci         = infection->loci();
 
         // re-initialize the arrays
         probs_.fill(0);
@@ -317,16 +320,14 @@ namespace transmission_nets::model::transmission_process {
             // iterate over all parents to get their genotypes and calculate the number of
             // alleles that are lost in the transmission process.
             for (const auto& parent : parentSet) {
-                parentGenotypes[parentIdx] = parent->latentGenotype(locus)->value();
+                const auto& parentGenotype = parent->latentGenotype(locus);
+                parentGenotypes[parentIdx] = parentGenotype->value();
                 allelesLostCounter_[parentIdx] += GeneticsImpl::falseNegativeCount(parentGenotypes[parentIdx], childGenotype);
                 int allelesShared = GeneticsImpl::truePositiveCount(parentGenotypes[parentIdx], childGenotype);
 
                 if (allelesShared == 0) {
                     // At least one allele must be shared between the parent and child.
                     // If no alleles are shared, then the transmission process is impossible.
-//                    fmt::print("No alleles shared with {} ({})\n", parent->id(), locus->label);
-//                    fmt::print("Parent genotype: \t{}\n", parentGenotypes[parentIdx].allelesStr());
-//                    fmt::print("Child genotype: \t{}\n", childGenotype.allelesStr());
                     return -std::numeric_limits<Likelihood>::infinity();
                 }
                 base = GeneticsImpl::shared(base, parentGenotypes[parentIdx]);
@@ -345,9 +346,6 @@ namespace transmission_nets::model::transmission_process {
             if (allelesShared == 0) {
                 // At least one allele must be shared between the parent and child.
                 // If no alleles are shared, then the transmission process is impossible.
-//                fmt::print("No alleles shared with latent parent\n");
-//                fmt::print("Parent genotype: \t{}\n", parentGenotypes[numParents].allelesStr());
-//                fmt::print("Child genotype: \t{}\n", childGenotype.allelesStr());
                 return -std::numeric_limits<Likelihood>::infinity();
             }
 
@@ -355,9 +353,6 @@ namespace transmission_nets::model::transmission_process {
             // apply the latent parent genotype
             mutationFlag = mutationFlag.mutationMask(parentGenotypes[numParents]);
             if (mutationFlag.totalPositiveCount() > 0) {
-//                fmt::print("total mutations: {}\n", mutationFlag.totalPositiveCount());
-//                fmt::print("mutation flag: \t\t{}\n", mutationFlag.allelesStr());
-//                fmt::print("child genotype: \t{}\n", childGenotype.allelesStr());
                 return -std::numeric_limits<Likelihood>::infinity();
             }
 
@@ -401,7 +396,7 @@ namespace transmission_nets::model::transmission_process {
         for (size_t ii = 0; ii < (unsigned long) std::pow(MAX_TRANSMISSIONS, numParents); ++ii) {
             core::utils::generators::CombinationIndicesGenerator psIdxGen;
             auto kVec        = kVecs_[ii];// vector of numbers of transmission events for each parent
-            kVec[numParents] = 1;         // the latent parent always has one transmission event
+            kVec[numParents] = 0;         // the latent parent must be a subset of the observed node
 
             double all_parents_lost_prob = 1.0;
             // Calculate the probability of losses in the transmission process
@@ -411,7 +406,7 @@ namespace transmission_nets::model::transmission_process {
                 all_parents_lost_prob *= loss_prob;
                 probs_[ii] += allelesLostCounter_[parentIdx] * std::log(loss_prob);
 
-                // tack on probability of k generations for parent at parentIdx
+                // add probability of k generations for parent at parentIdx
                 probs_[ii] += std::log(interTransmissionProb_->value()(kVec[parentIdx]));
             }
 
@@ -452,18 +447,15 @@ namespace transmission_nets::model::transmission_process {
             llik = core::utils::logSumExp(probs_.begin(), probs_.begin() + (unsigned int) std::pow(MAX_TRANSMISSIONS, numParents) - 1);
         }
         llik += stpVal;
-//        if (std::isnan(llik)) {
-//            llik = -std::numeric_limits<Likelihood>::infinity();
-//        }
 
 
-//        fmt::print("llik: {}\n", llik);
         if (std::isnan(llik) or llik <= -std::numeric_limits<Likelihood>::infinity()) {
             fmt::print("NaN Encountered in SimpleLoss::calculateLogLikelihood with parent: {}\n", llik);
             fmt::print("allelesLost: {}\n", core::io::serialize(allelesLostCounter_));
             fmt::print("stp: {}\n", stp->value());
-            fmt::print("loss: {}\n", this->value()[1]);
-            fmt::print("retained: {}\n", 1.0 - this->value()[1]);
+            fmt::print("loss: {}\n", core::io::serialize(this->value()));
+            fmt::print("loss_prob: {}\n", this->lossProb_->value());
+            fmt::print("id:{}\n", infection->id());
             llik = -std::numeric_limits<Likelihood>::infinity();
         }
 
@@ -472,8 +464,10 @@ namespace transmission_nets::model::transmission_process {
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
     template<typename GeneticsImpl>
-    Likelihood SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, std::shared_ptr<SourceTransmissionProcessImpl> stp) {
-        auto loci                    = infection->loci();
+    Likelihood SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::calculateLogLikelihood(
+            std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection, std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent, std::shared_ptr<SourceTransmissionProcessImpl> stp
+            ) {
+        const auto& loci                    = infection->loci();
 //        unsigned int allelesLost     = 0;
 //        unsigned int allelesRetained = 0;
 

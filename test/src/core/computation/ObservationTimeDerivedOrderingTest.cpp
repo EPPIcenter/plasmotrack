@@ -24,10 +24,10 @@ TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
     using InfectionEventImpl = Infection<GeneticsImpl>;
 
 
-    auto inf1       = std::make_shared<InfectionEventImpl>("1", 1000);
-    auto inf2       = std::make_shared<InfectionEventImpl>("2", 1010);
-    auto inf3       = std::make_shared<InfectionEventImpl>("3", 1020);
-    auto inf4       = std::make_shared<InfectionEventImpl>("4", 1030);
+    auto inf1       = std::make_shared<InfectionEventImpl>("1", 1000, false);
+    auto inf2       = std::make_shared<InfectionEventImpl>("2", 1010, false);
+    auto inf3       = std::make_shared<InfectionEventImpl>("3", 1020, false);
+    auto inf4       = std::make_shared<InfectionEventImpl>("4", 1030, false);
     auto infections = std::vector({inf1, inf2, inf3, inf4});
     auto ord        = std::make_shared<ObservationTimeDerivedOrdering<InfectionEventImpl>>(infections);
 
@@ -67,7 +67,7 @@ TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
     ASSERT_EQ(ps3.value().size(), 2);
     ASSERT_EQ(ps4.value().size(), 3);
 
-    inf1->infectionDuration()->saveState("state1");
+    inf1->infectionDuration()->saveState(1);
     inf1->infectionDuration()->setValue(inf1->infectionDuration()->value() - 5);
     ASSERT_EQ(ps1.value().size(), 0);
     ASSERT_FALSE(ps1_parent_added);
@@ -78,10 +78,10 @@ TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
     ASSERT_FALSE(ps2_parent_removed);
     ASSERT_FALSE(ps3_parent_removed);
     ASSERT_FALSE(ps4_parent_removed);
-    inf1->infectionDuration()->restoreState("state1");
+    inf1->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps1.value().size(), 0);
 
-    inf1->infectionDuration()->saveState("state1");
+    inf1->infectionDuration()->saveState(1);
     inf1->infectionDuration()->setValue(inf1->infectionDuration()->value() - 15);
     ASSERT_EQ(ps1.value().size(), 1);
     ASSERT_TRUE(ps1_parent_added);
@@ -92,7 +92,7 @@ TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
     ASSERT_TRUE(ps2_parent_removed);
     ASSERT_FALSE(ps3_parent_removed);
     ASSERT_FALSE(ps4_parent_removed);
-    inf1->infectionDuration()->restoreState("state1");
+    inf1->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps1.value().size(), 0);
     ps1_parent_added   = false;
     ps2_parent_added   = false;
@@ -104,7 +104,7 @@ TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
     ps4_parent_removed = false;
 
 
-    inf1->infectionDuration()->saveState("state1");
+    inf1->infectionDuration()->saveState(1);
     inf1->infectionDuration()->setValue(inf1->infectionDuration()->value() - 25);
     ASSERT_EQ(ps1.value().size(), 2);
     ASSERT_TRUE(ps1_parent_added);
@@ -115,7 +115,7 @@ TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
     ASSERT_TRUE(ps2_parent_removed);
     ASSERT_TRUE(ps3_parent_removed);
     ASSERT_FALSE(ps4_parent_removed);
-    inf1->infectionDuration()->restoreState("state1");
+    inf1->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps1.value().size(), 0);
     ps1_parent_added   = false;
     ps2_parent_added   = false;
@@ -126,65 +126,65 @@ TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
     ps3_parent_removed = false;
     ps4_parent_removed = false;
 
-    inf1->infectionDuration()->saveState("state1");
+    inf1->infectionDuration()->saveState(1);
     inf1->infectionDuration()->setValue(inf1->infectionDuration()->value() - 35);
     ASSERT_EQ(ps1.value().size(), 3);
-    inf1->infectionDuration()->restoreState("state1");
+    inf1->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps1.value().size(), 0);
 
-    inf2->infectionDuration()->saveState("state1");
+    inf2->infectionDuration()->saveState(1);
     inf2->infectionDuration()->setValue(inf2->infectionDuration()->value() + 15);
     ASSERT_EQ(ps2.value().size(), 0);
-    inf2->infectionDuration()->restoreState("state1");
+    inf2->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps2.value().size(), 1);
 
-    inf2->infectionDuration()->saveState("state1");
+    inf2->infectionDuration()->saveState(1);
     inf2->infectionDuration()->setValue(inf2->infectionDuration()->value() + 5);
     ASSERT_EQ(ps2.value().size(), 1);
-    inf2->infectionDuration()->restoreState("state1");
+    inf2->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps2.value().size(), 1);
 
-    inf2->infectionDuration()->saveState("state1");
+    inf2->infectionDuration()->saveState(1);
     inf2->infectionDuration()->setValue(inf2->infectionDuration()->value() - 15);
     ASSERT_EQ(ps2.value().size(), 2);
-    inf2->infectionDuration()->restoreState("state1");
+    inf2->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps2.value().size(), 1);
 
-    inf2->infectionDuration()->saveState("state1");
+    inf2->infectionDuration()->saveState(1);
     inf2->infectionDuration()->setValue(inf2->infectionDuration()->value() - 25);
     ASSERT_EQ(ps2.value().size(), 3);
-    inf2->infectionDuration()->restoreState("state1");
+    inf2->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps2.value().size(), 1);
 
 
-    inf3->infectionDuration()->saveState("state1");
+    inf3->infectionDuration()->saveState(1);
     inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() + 25);
     ASSERT_EQ(ps3.value().size(), 0);
-    inf3->infectionDuration()->restoreState("state1");
+    inf3->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps3.value().size(), 2);
 
-    inf3->infectionDuration()->saveState("state1");
+    inf3->infectionDuration()->saveState(1);
     inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() + 15);
     ASSERT_EQ(ps3.value().size(), 1);
-    inf3->infectionDuration()->restoreState("state1");
+    inf3->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps3.value().size(), 2);
 
-    inf3->infectionDuration()->saveState("state1");
+    inf3->infectionDuration()->saveState(1);
     inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() + 5);
     ASSERT_EQ(ps3.value().size(), 2);
-    inf3->infectionDuration()->restoreState("state1");
+    inf3->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps3.value().size(), 2);
 
-    inf3->infectionDuration()->saveState("state1");
+    inf3->infectionDuration()->saveState(1);
     inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() - 5);
     ASSERT_EQ(ps3.value().size(), 2);
-    inf3->infectionDuration()->restoreState("state1");
+    inf3->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps3.value().size(), 2);
 
-    inf3->infectionDuration()->saveState("state1");
+    inf3->infectionDuration()->saveState(1);
     inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() - 15);
     ASSERT_EQ(ps3.value().size(), 3);
-    inf3->infectionDuration()->restoreState("state1");
+    inf3->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps3.value().size(), 2);
     ps1_parent_added   = false;
     ps2_parent_added   = false;
@@ -196,7 +196,7 @@ TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
     ps4_parent_removed = false;
 
 
-    inf4->infectionDuration()->saveState("state1");
+    inf4->infectionDuration()->saveState(1);
     inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() + 35);
     ASSERT_EQ(ps4.value().size(), 0);
     ASSERT_TRUE(ps1_parent_added);
@@ -207,30 +207,30 @@ TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
     ASSERT_FALSE(ps2_parent_removed);
     ASSERT_FALSE(ps3_parent_removed);
     ASSERT_TRUE(ps4_parent_removed);
-    inf4->infectionDuration()->restoreState("state1");
+    inf4->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps4.value().size(), 3);
 
-    inf4->infectionDuration()->saveState("state1");
+    inf4->infectionDuration()->saveState(1);
     inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() + 25);
     ASSERT_EQ(ps4.value().size(), 1);
-    inf4->infectionDuration()->restoreState("state1");
+    inf4->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps4.value().size(), 3);
 
-    inf4->infectionDuration()->saveState("state1");
+    inf4->infectionDuration()->saveState(1);
     inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() + 15);
     ASSERT_EQ(ps4.value().size(), 2);
-    inf4->infectionDuration()->restoreState("state1");
+    inf4->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps4.value().size(), 3);
 
-    inf4->infectionDuration()->saveState("state1");
+    inf4->infectionDuration()->saveState(1);
     inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() - 5);
     ASSERT_EQ(ps4.value().size(), 3);
-    inf4->infectionDuration()->restoreState("state1");
+    inf4->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps4.value().size(), 3);
 
-    inf4->infectionDuration()->saveState("state1");
+    inf4->infectionDuration()->saveState(1);
     inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() - 15);
     ASSERT_EQ(ps4.value().size(), 3);
-    inf4->infectionDuration()->restoreState("state1");
+    inf4->infectionDuration()->restoreState(1);
     ASSERT_EQ(ps4.value().size(), 3);
 }

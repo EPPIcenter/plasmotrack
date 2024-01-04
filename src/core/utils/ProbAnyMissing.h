@@ -5,11 +5,14 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PROBANYMISSING_H
 #define TRANSMISSION_NETWORKS_APP_PROBANYMISSING_H
 
-#include "core/utils/generators/CombinationIndicesGenerator.h"
 #include "core/computation/PartialLikelihood.h"
+#include "core/utils/generators/CombinationIndicesGenerator.h"
+
+#include <vector>
+#include <execution>
 
 //#include <emmintrin.h>  // For SSE2 instructions
-#include <immintrin.h>  // For AVX instructions (if available)
+#include <immintrin.h>// For AVX instructions (if available)
 
 namespace transmission_nets::core::utils {
 
@@ -26,13 +29,14 @@ namespace transmission_nets::core::utils {
          */
         Likelihood operator()(const std::vector<Likelihood>& eventProbs, unsigned int numEvents);
 
-        __m256d prob4{};
-        __m256d baseVec4{};
-        __m256d r4{};
-        double prob{};
-        double base{};
-        std::vector<double> baseVec{};
-        
+        std::vector<Likelihood> vectorized(const std::vector<Likelihood>& eventProbs, unsigned int numEvents);
+
+
+        // __m256 prob8{};
+        // __m256 baseVec8{};
+        // __m256 r8{};
+        std::vector<Likelihood> baseVec{};
+        // std::vector<double> signVec{};
         generators::CombinationIndicesGenerator c;
     };
 

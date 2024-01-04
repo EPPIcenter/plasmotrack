@@ -5,7 +5,6 @@
 #define TRANSMISSION_NETWORKS_APP_SAMPLESCHEDULER_H
 
 #include "config.h"
-
 namespace transmission_nets::impl::ModelEight {
 
     template<typename T, typename Engine = boost::random::mt19937, typename Scheduler = core::samplers::RandomizedScheduler<Engine>>
@@ -30,45 +29,42 @@ namespace transmission_nets::impl::ModelEight {
 
         scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->geometricGenerationProb, target_, 0.01, .99, r, 1, .1, 2),
                                     .id              = "Geometric Generation Prob",
-//                                    .adaptation_start_ = 0,
-//                                    .adaptation_end_   = 2000,
-//                                                                        .update_start_     = 100,
+                                    .adaptationStart = 20,
+                                    .adaptationEnd = 200,
                                     .weight = 100,
-                                    //                                    .weight          = 1,
                                     .debug = false});
 
         scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->lossProb, target_, 0.01, .99, r, 1, .1, 2),
                                     .id              = "Loss Probability",
-//                                    .adaptation_start_ = 0,
-//                                    .adaptation_end_   = 2000,
-                                                                        .updateStart    = 100,
+                                    .adaptationStart = 20,
+                                    .adaptationEnd = 200,
                                     .weight = 100,
-                                    //                                    .weight          = 1,
                                     .debug = false});
 
 
-        scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->meanCOI, target_, 1.0, 100, r, 1, .1, 1),
+        scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->meanCOI, target_, 1.0, 20, r, 1, .1, 1),
                                     .id              = "Mean COI",
-//                                    .adaptation_start_ = 20,
-//                                    .adaptation_end_   = 2000,
-                                    //                                    .update_start_ = 100,
+                                    .adaptationStart = 20,
+                                    .adaptationEnd = 200,
                                     .weight = 100,
-                                    //                                    .weight          = 1,
                                     .debug = false});
 
         int infection_idx_ = 0;
         for (auto& infection : state_->infections) {
-            scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target_, 1.0, 10000.0, r, 10, .1, 10),
-                                        .id      = fmt::format("Infection Duration {}", infection->id()),
-                                                                                .adaptationStart = 4,
-                                                                                .adaptationEnd   = 100,
-//                                        .update_start_ = 100,
-                                        .weight = totalInfections * 10,
-                                        //                                        .weight          = 1,
-                                        .debug = false});
+
+            bool isSymptomatic = infection->isSymptomatic();
+            double upperBound = isSymptomatic ? state_->symptomaticInfectionDurationDist->value().size() : state_->asymptomaticInfectionDurationDist->value().size();
+
+            scheduler_.registerSampler({
+                    .sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target_, 1.0, upperBound, r, 1, .1, 2),
+                    .id      = fmt::format("Infection Duration {}", infection->id()),
+                    .adaptationStart = 20,
+                    .adaptationEnd   = 200,
+                    .weight = totalInfections * 10,
+                    .debug = false});
             scheduler_.registerSampler({
 //                    .sampler = std::make_unique<specialized::JointGeneticsTimeSampler<T, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>>(infection, state_->parentSetList[infection->id()], state_->latentParents[infection_idx_], target_, r),
-                    .sampler = std::make_unique<specialized::JointGeneticsTimeSampler<T, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>>(infection, state_->parentSetList[infection->id()], state_->latentParents[infection_idx_], infection->infectionDuration(), target_, r),
+                    .sampler = std::make_unique<specialized::JointGeneticsTimeSampler<T, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>>(infection, state_->parentSetList[infection->id()], state_->latentParents[infection_idx_], infection->infectionDuration(), target_, r, 1.0,                                                 infection->isSymptomatic() ? state_->symptomaticInfectionDurationDist->value().size() : state_->asymptomaticInfectionDurationDist->value().size()),
                     .id      = fmt::format("Infection Alleles/Infection Duration {}", infection->id()),
                     .weight  = totalLoci
             });
@@ -85,9 +81,7 @@ namespace transmission_nets::impl::ModelEight {
 //                            .sampler = std::make_unique<genetics::RandomAllelesBitSetSampler2<T, Engine, GeneticsImpl, LocusImpl, ParentSetImpl>>(latentGenotype, locus, state_->parentSetList[infection->id()], target_, r, MAX_COI),
                             .sampler = std::make_unique<genetics::RandomAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r, MAX_COI),
                             .id      = fmt::format("Genotype {} {}", infection->id(), locus->label),
-                            //                                                                    .update_start_ = 20,
                             .weight = 5
-                            //                                                                    .weight = 1
                     });
 //                                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl, 1>>(latentGenotype, target_, r),
 //                                                                    .weight  = 1});
@@ -103,25 +97,23 @@ namespace transmission_nets::impl::ModelEight {
                     auto latentGenotype = infection->latentGenotype(locus);
                     scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r, MAX_COI),
                                                 .id      = fmt::format("Latent Genotype {} {}", infection->id(), locus->label),
-                                                //                                                                    .update_start_ = 200,
                                                 .weight = 5,
-                                                //                                                                    .weight = 1,
                                                 .debug = false});
 
 //                                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl, 2>>(latentGenotype, target_, r),
 //                                                                    .weight  = 1});
 //                                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::SequentialAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
-//                                                                    .weight  = 1});
+//                                                                    .weight  = 1, .debug = true});
                 }
             }
         }
 
         for ([[maybe_unused]] auto& infFNR : state_->expectedFalseNegatives) {
             scheduler_.registerSampler({
-                    .sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infFNR, target_, 1e-6, .5, r, .1),
+                    .sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infFNR, target_, 1e-6, .5, r, 1, .1, 2),
                     .id              = fmt::format("False Negative Rate"),
-//                    .adaptation_start_ = 20,
-//                    .adaptation_end_   = 2000,
+                    .adaptationStart = 20,
+                    .adaptationEnd = 200,
                     //                                        .update_start_     = 100,
                     .weight = 100
                     //                                        .weight          = 1
@@ -130,25 +122,21 @@ namespace transmission_nets::impl::ModelEight {
 
         for ([[maybe_unused]] auto& infFPR : state_->expectedFalsePositives) {
             scheduler_.registerSampler({
-                    .sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infFPR, target_, 1e-6, .5, r, .1),
+                    .sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infFPR, target_, 1e-6, .5, r, 1, .1, 2),
                     .id              = fmt::format("False Positive Rate"),
-//                    .adaptation_start_ = 20,
-//                    .adaptation_end_   = 2000,
-                    //                                        .update_start_     = 100,
+                    .adaptationStart = 20,
+                    .adaptationEnd = 200,
                     .weight = 100
-                    //                                        .weight          = 1
             });
         }
 
         for ([[maybe_unused]] const auto& [locus_label, locus] : state_->loci) {
             scheduler_.registerSampler({
-                    .sampler         = std::make_unique<SALTSampler<T, Engine>>(state_->alleleFrequencies->alleleFrequencies(locus), target_, r, 1, .01, 10),
+                    .sampler         = std::make_unique<SALTSampler<T, Engine>>(state_->alleleFrequencies->alleleFrequencies(locus), target_, r, 1, .1, 2),
                     .id              = fmt::format("Allele Freq {}", locus->label),
-//                    .adaptation_start_ = 20,
-//                    .adaptation_end_   = 2000,
-                    //                                        .update_start_    = 50,
+                    .adaptationStart = 20,
+                    .adaptationEnd = 200,
                     .weight = 50
-                    //                                        .weight          = 1
             });
         }
     }

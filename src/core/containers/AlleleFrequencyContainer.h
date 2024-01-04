@@ -82,9 +82,9 @@ namespace transmission_nets::core::containers {
         alleleFrequencies_.insert_or_assign(locus, af);
         alleleFrequencies_.at(locus)->add_pre_change_listener([=, this]() { this->notify_pre_change(); });
         alleleFrequencies_.at(locus)->add_post_change_listener([=, this]() { this->notify_post_change(); });
-        alleleFrequencies_.at(locus)->add_save_state_listener([=, this](const std::string saveStateId) { this->notify_save_state(saveStateId); });
+        alleleFrequencies_.at(locus)->add_save_state_listener([=, this](int saveStateId) { this->notify_save_state(saveStateId); });
         alleleFrequencies_.at(locus)->add_accept_state_listener([=, this]() { this->notify_accept_state(); });
-        alleleFrequencies_.at(locus)->add_restore_state_listener([=, this](const std::string saveStateId) { this->notify_restore_state(saveStateId); });
+        alleleFrequencies_.at(locus)->add_restore_state_listener([=, this](int saveStateId) { this->notify_restore_state(saveStateId); });
     }
 
 

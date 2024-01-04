@@ -6,6 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_MUTABLEPASSTHROUGH_H
 
 #include <tuple>
+#include <functional>
 
 #include "core/abstract/crtp.h"
 #include "core/abstract/observables/Observable.h"

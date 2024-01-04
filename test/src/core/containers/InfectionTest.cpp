@@ -19,7 +19,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     auto as2            = std::make_shared<Locus>("AS2", 8);
     bool allelesChanged = false;
 
-    auto inf1 = std::make_shared<Infection>("inf1", 10.0);
+    auto inf1 = std::make_shared<Infection>("inf1", 10.0, false);
     inf1->addLatentGenetics(as1, GeneticsImpl("011010"));
     inf1->addLatentGenetics(as2, GeneticsImpl("00000011"));
     inf1->addObservedGenetics(as1, GeneticsImpl("011010"));
@@ -31,7 +31,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     tmp1.flip(0);
     EXPECT_FALSE(allelesChanged);
 
-    inf1->latentGenotype(as1)->saveState("State1");
+    inf1->latentGenotype(as1)->saveState(1);
     inf1->latentGenotype(as1)->setValue(tmp1);
 
     EXPECT_TRUE(allelesChanged);
@@ -44,7 +44,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     tmp2.flip(0);
     EXPECT_FALSE(allelesChanged);
 
-    inf1->latentGenotype(as2)->saveState("State1");
+    inf1->latentGenotype(as2)->saveState(1);
     inf1->latentGenotype(as2)->setValue(tmp2);
 
     EXPECT_TRUE(allelesChanged);
@@ -53,7 +53,7 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
     inf1->latentGenotype(as2)->acceptState();
 
     allelesChanged = false;
-    inf1->latentGenotype(as2)->saveState("State1");
+    inf1->latentGenotype(as2)->saveState(1);
     inf1->latentGenotype(as2)->setValue(GeneticsImpl("00000011"));
     EXPECT_TRUE(allelesChanged);
     inf1->latentGenotype(as2)->acceptState();
@@ -69,7 +69,7 @@ TEST(InfectionTest, HandlesCopyingInfection) {
     bool allelesChanged = false;
     bool allelesChanged2 = false;
 
-    auto inf1 = std::make_shared<Infection>("inf1", 10.0);
+    auto inf1 = std::make_shared<Infection>("inf1", 10.0, false);
 
     inf1->addObservedGenetics(as1, GeneticsImpl("011010"));
     inf1->addLatentGenetics(as1, GeneticsImpl("011010"));
@@ -87,7 +87,7 @@ TEST(InfectionTest, HandlesCopyingInfection) {
     EXPECT_FALSE(allelesChanged);
     EXPECT_FALSE(allelesChanged2);
 
-    inf1->latentGenotype(as2)->saveState("State1");
+    inf1->latentGenotype(as2)->saveState(1);
     inf1->latentGenotype(as2)->setValue(tmp1);
 
     EXPECT_TRUE(allelesChanged);

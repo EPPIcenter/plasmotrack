@@ -43,8 +43,7 @@ namespace transmission_nets::core::distributions {
     };
 
     template<int MAX_COUNT>
-    ZTGeometric<MAX_COUNT>::ZTGeometric(std::shared_ptr<Parameter<double>> prob) noexcept : prob_(
-                                                                                                                std::move(prob)) {
+    ZTGeometric<MAX_COUNT>::ZTGeometric(std::shared_ptr<Parameter<double>> prob) noexcept : prob_(std::move(prob)) {
         this->value_(0) = 0;
         prob_->registerCacheableCheckpointTarget(this);
         prob_->add_post_change_listener([=, this]() { this->setDirty(); });

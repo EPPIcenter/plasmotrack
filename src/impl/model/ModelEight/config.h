@@ -20,6 +20,8 @@
 #include "core/distributions/ZTPoisson.h"
 #include "core/distributions/pdfs/BetaLogPDF.h"
 #include "core/distributions/pdfs/GammaLogPDF.h"
+#include "core/distributions/DiscreteDistribution.h"
+#include "core/distributions/pdfs/DiscretePDF.h"
 
 #include "core/io/loggers/AbstractLogger.h"
 #include "core/io/loggers/FileOutput.h"
@@ -27,6 +29,7 @@
 #include "core/io/loggers/ValueLogger.h"
 
 #include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
+#include "core/samplers/general/ConstrainedDiscreteRandomWalk.h"
 #include "core/samplers/general/SALTSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler2.h"
@@ -53,9 +56,9 @@
 namespace transmission_nets::impl::ModelEight {
 
     static constexpr int MAX_ALLELES       = 64;
-    static constexpr int MAX_COI           = 20;
+    static constexpr int MAX_COI           = 15;
     static constexpr int MAX_PARENTS       = 2;
-    static constexpr int MAX_TRANSMISSIONS = 3;
+    static constexpr int MAX_TRANSMISSIONS = 8;
 
     namespace fs                           = std::filesystem;
 

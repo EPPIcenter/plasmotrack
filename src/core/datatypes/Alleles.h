@@ -15,13 +15,47 @@ namespace transmission_nets::core::datatypes {
     class AllelesBitSet {
     public:
         explicit AllelesBitSet(const std::string& bitstr);
-        AllelesBitSet(int totalAlleles);
+        explicit AllelesBitSet(int totalAlleles);
         AllelesBitSet();
 
         template<int T>
         friend std::ostream& operator<<(std::ostream& os, const AllelesBitSet<T>& alleles) noexcept;
         bool operator==(const AllelesBitSet& rhs) const;
         bool operator!=(const AllelesBitSet& rhs) const;
+
+        AllelesBitSet(const AllelesBitSet& other)
+            : total_alleles_(other.total_alleles_),
+              alleles_(other.alleles_),
+              mask_(other.mask_) {
+            // fmt::print("Copy constructor called\n");
+        }
+
+        AllelesBitSet(AllelesBitSet&& other) noexcept
+            : total_alleles_(other.total_alleles_),
+              alleles_(std::move(other.alleles_)),
+              mask_(std::move(other.mask_)) {
+            // fmt::print("Move constructor called\n");
+        }
+
+        AllelesBitSet& operator=(const AllelesBitSet& other) {
+            // fmt::print("Copy assignment called\n");
+            if (this == &other)
+                return *this;
+            total_alleles_ = other.total_alleles_;
+            alleles_       = other.alleles_;
+            mask_          = other.mask_;
+            return *this;
+        }
+
+        AllelesBitSet& operator=(AllelesBitSet&& other) noexcept {
+            // fmt::print("Move assignment called\n");
+            if (this == &other)
+                return *this;
+            total_alleles_ = other.total_alleles_;
+            alleles_       = std::move(other.alleles_);
+            mask_          = std::move(other.mask_);
+            return *this;
+        }
 
         [[nodiscard]] std::string serialize() const noexcept;
 
@@ -203,6 +237,7 @@ namespace transmission_nets::core::datatypes {
     std::string AllelesBitSet<MaxAlleles>::serialize() const noexcept {
         return allelesStr();
     }
+
     template<int MaxAlleles>
     AllelesBitSet<MaxAlleles>::AllelesBitSet() {
         total_alleles_ = 0;

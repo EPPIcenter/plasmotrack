@@ -13,6 +13,7 @@
 #include "core/parameters/Parameter.h"
 
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/SamplerEnum.h"
 
 
 namespace transmission_nets::core::samplers {
@@ -93,7 +94,7 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine>
     void DiscreteRandomWalk<T, Engine>::update() noexcept {
-        const std::string stateId = "State1";
+        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::DiscreteRandomWalkID;
         Likelihood curLik         = target_->value();
         parameter_->saveState(stateId);
 

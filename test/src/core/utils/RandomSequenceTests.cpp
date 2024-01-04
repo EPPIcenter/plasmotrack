@@ -9,6 +9,7 @@
 #include "core/utils/generators/RandomSequence.h"
 
 #include <boost/random.hpp>
+
 #include <fmt/core.h>
 
 #include <algorithm>

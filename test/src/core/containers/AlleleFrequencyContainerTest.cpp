@@ -8,6 +8,7 @@
 #include "core/datatypes/Simplex.h"
 #include "core/io/serialize.h"
 
+
 #include <fmt/core.h>
 #include <memory>
 #include <vector>
@@ -37,8 +38,8 @@ TEST(AlleleFrequencyContainerTest, HandlesChangedFrequencies) {
 
     afc->add_post_change_listener([&]() { frequencyChanged = true; });
 
-    afc->alleleFrequencies(as1)->saveState("state1");
+    afc->alleleFrequencies(as1)->saveState(1);
     afc->alleleFrequencies(as1)->setValue({.1, .2, .3, .4});
     EXPECT_TRUE(frequencyChanged);
-    afc->alleleFrequencies(as1)->restoreState("state1");
+    afc->alleleFrequencies(as1)->restoreState(1);
 }

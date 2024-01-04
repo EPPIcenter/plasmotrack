@@ -22,7 +22,6 @@ namespace transmission_nets::impl::ModelEight {
 
     public:
         ModelLogger(std::shared_ptr<Model> model, fs::path rootPath);
-        ModelLogger(Model& model, fs::path rootPath);
         void log() const;
         void finalize() const;
     };

@@ -7,12 +7,13 @@
 
 #include "LogPQ.h"
 
+
 #include <fmt/core.h>
 
 #include <algorithm>
 #include <cmath>
-#include <mpfr.h>
 #include <numeric>
+#include <execution>
 
 namespace transmission_nets::core::utils {
     template<typename T>
@@ -296,10 +297,21 @@ namespace transmission_nets::core::utils {
             return -std::numeric_limits<ValueType>::infinity();
         }
 
+        // auto sum = std::transform_reduce(std::execution::unseq,
+        //         begin,
+        //         end,
+        //         ValueType{},
+        //         std::plus<ValueType>{},
+        //         [max_el](ValueType a) { return std::exp(a - max_el); });
 
-        auto sum = std::accumulate(
+        auto sum = std::reduce(
                 begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
         return max_el + std::log(sum);
+    }
+
+    template<typename T>
+    T logSumExpKnownMax(const std::vector<T>& x, const T& max_el) {
+        return logSumExpKnownMax(x.begin(), x.end(), max_el);
     }
 
     /**

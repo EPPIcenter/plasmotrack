@@ -49,7 +49,7 @@ namespace transmission_nets::core::samplers::topology {
 
     template<typename T, typename OrderingElement, typename Engine>
     void OrderSampler<T, OrderingElement, Engine>::update() noexcept {
-        const std::string stateId = "OrderSampler";
+        const int stateId = 1;
         Likelihood curLik         = target_.value();
         parameter_.saveState(stateId);
 

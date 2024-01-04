@@ -29,7 +29,12 @@ namespace transmission_nets::core::samplers::specialized {
                 std::shared_ptr<InfectionEventImpl> latent_parent,
                 std::shared_ptr<parameters::Parameter<double>> infection_time,
                 std::shared_ptr<T> target,
-                std::shared_ptr<Engine> rng
+                std::shared_ptr<Engine> rng,
+                double lower_bound = 1.0,
+                double upper_bound = 1000.0,
+                double variance = 3.0,
+                double fn_rate = 0.05,
+                double fp_rate = 0.05
                 ) noexcept;
 
         void update() noexcept override;
@@ -48,12 +53,12 @@ namespace transmission_nets::core::samplers::specialized {
         std::shared_ptr<InfectionEventImpl> latent_parent_;
         std::shared_ptr<parameters::Parameter<double>> infection_duration_;
         std::shared_ptr<T> target_;
-        double lower_bound_ = 1;
-        double upper_bound_ = 1000;
-        double variance_ = 3.0;
-        double fn_rate_ = 0.05;
-        double fp_rate_ = 0.05;
         std::shared_ptr<Engine> rng_;
+        double lower_bound_;
+        double upper_bound_;
+        double variance_;
+        double fn_rate_;
+        double fp_rate_;
 
         boost::random::uniform_01<> uniform_dist_{};
         boost::random::normal_distribution<> normal_dist_{0, 1};
@@ -71,20 +76,29 @@ namespace transmission_nets::core::samplers::specialized {
             std::shared_ptr<InfectionEventImpl> latent_parent,
             std::shared_ptr<parameters::Parameter<double>> infection_time,
             std::shared_ptr<T> target,
-            std::shared_ptr<Engine> rng) noexcept :
+            std::shared_ptr<Engine> rng,
+            double lower_bound,
+            double upper_bound,
+            double variance,
+            double fn_rate,
+            double fp_rate) noexcept :
                                                     infection_(std::move(infection)),
                                                     ps_(std::move(ps)),
                                                     latent_parent_(std::move(latent_parent)),
                                                     infection_duration_(std::move(infection_time)),
                                                     target_(std::move(target)),
-                                                    rng_(rng)
+                                                    rng_(rng),
+                                                    lower_bound_(lower_bound),
+                                                    upper_bound_(upper_bound),
+                                                    variance_(variance),
+                                                    fn_rate_(fn_rate),
+                                                    fp_rate_(fp_rate)
     {}
 
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename ParentSetImpl, int MaxParentSetSize, int MaxCOI>
     void JointGeneticsTimeSampler<T, Engine, InfectionEventImpl, GeneticsImpl, ParentSetImpl, MaxParentSetSize, MaxCOI>::update() noexcept {
-        const std::string stateId = "updateAllelesParentSetInformed";
-
+        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::JointGeneticsTimeID;
         core::utils::generators::CombinationIndicesGenerator ps_idx_gen;
 
         int total_possible_parent_sets = 0;
@@ -258,7 +272,6 @@ namespace transmission_nets::core::samplers::specialized {
 
         Likelihood proposed_state_prob = calculateSamplingProb();
 
-//        assert(!target_->isDirty());
         const auto acceptanceRatio = target_->value() - cur_lik + current_state_prob - proposed_state_prob + adj;
         const auto logProbAccept   = log(uniform_dist_(*rng_));
         const bool accept          = logProbAccept <= acceptanceRatio;
@@ -358,7 +371,7 @@ namespace transmission_nets::core::samplers::specialized {
                             int tp_count         = GeneticsImpl::truePositiveCount(child_latent_genotype, child_observed_genotype);
                             int tn_count         = GeneticsImpl::trueNegativeCount(child_latent_genotype, child_observed_genotype) - illegal_tn_count;
                             int fp_count         = GeneticsImpl::falsePositiveCount(child_latent_genotype, child_observed_genotype) - illegal_fp_count;
-                            assert(all_shared.totalPositiveCount() == tp_count + fn_count + tn_count + fp_count);
+                            assert((int) all_shared.totalPositiveCount() == tp_count + fn_count + tn_count + fp_count);
 
                             total_tn += tn_count;
                             total_fn += fn_count;
@@ -409,7 +422,7 @@ namespace transmission_nets::core::samplers::specialized {
                 int tp_count         = GeneticsImpl::truePositiveCount(child_latent_genotype, child_observed_genotype);
                 int tn_count         = GeneticsImpl::trueNegativeCount(child_latent_genotype, child_observed_genotype) - illegal_tn_count;
                 int fp_count         = GeneticsImpl::falsePositiveCount(child_latent_genotype, child_observed_genotype) - illegal_fp_count;
-                assert(all_shared.totalPositiveCount() == tp_count + fn_count + tn_count + fp_count);
+                assert((int) all_shared.totalPositiveCount() == tp_count + fn_count + tn_count + fp_count);
 
                 total_tn += tn_count;
                 total_fn += fn_count;

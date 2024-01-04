@@ -1,6 +1,7 @@
 # Transmission Nets
 
 ## ToDo:
+
     - joint graph/genetics update
     - super infection
     - parallelized multiple chain implementation

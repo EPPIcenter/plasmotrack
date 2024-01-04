@@ -51,10 +51,10 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     auto as1 = std::make_shared<Locus>("AS1", 5);
     auto as2 = std::make_shared<Locus>("AS2", 6);
 
-    auto inf1 = std::make_shared<InfectionEvent>("1", 100);
-    auto inf2 = std::make_shared<InfectionEvent>("2", 100);
-    auto inf3 = std::make_shared<InfectionEvent>("3", 100);
-    auto inf4 = std::make_shared<InfectionEvent>("4", 100);
+    auto inf1 = std::make_shared<InfectionEvent>("1", 100, false);
+    auto inf2 = std::make_shared<InfectionEvent>("2", 100, false);
+    auto inf3 = std::make_shared<InfectionEvent>("3", 100, false);
+    auto inf4 = std::make_shared<InfectionEvent>("4", 100, false);
 
     inf1->addGenetics(as1, "11010", "11010");
     inf1->addGenetics(as2, "000011", "000011");
@@ -104,7 +104,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     auto tp4 = std::make_shared<TransmissionProcess>(nodeTransmission, mstp4, inf4, ps4);
 
 
-    geoCOIProb->saveState("state1");
+    geoCOIProb->saveState(1);
     geoCOIProb->setValue(.5);
     EXPECT_TRUE(geoCOI->isDirty());
     EXPECT_TRUE(mstp1->isDirty());
@@ -127,7 +127,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp3->isDirty());
     EXPECT_FALSE(tp4->isDirty());
 
-    ztmbAssoc->saveState("state1");
+    ztmbAssoc->saveState(1);
     ztmbAssoc->setValue(.5);
     EXPECT_TRUE(ztmbCTP->isDirty());
     EXPECT_TRUE(nodeTransmission->isDirty());
@@ -151,7 +151,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp4->isDirty());
 
 
-    ztmbProb->saveState("state1");
+    ztmbProb->saveState(1);
     ztmbProb->setValue(.5);
     EXPECT_TRUE(ztmbCTP->isDirty());
     EXPECT_TRUE(nodeTransmission->isDirty());
@@ -174,7 +174,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp3->isDirty());
     EXPECT_FALSE(tp4->isDirty());
 
-    geoGenProb->saveState("state1");
+    geoGenProb->saveState(1);
     geoGenProb->setValue(.25);
     EXPECT_TRUE(tp1->isDirty());
     EXPECT_TRUE(tp2->isDirty());
@@ -186,7 +186,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp3->isDirty());
     EXPECT_FALSE(tp4->isDirty());
 
-    afc->alleleFrequencies(as1)->saveState("state1");
+    afc->alleleFrequencies(as1)->saveState(1);
     afc->alleleFrequencies(as1)->setValue(Simplex({.01, .01, .999996, .01, .01}));
     EXPECT_TRUE(tp1->isDirty());
     EXPECT_TRUE(tp2->isDirty());
@@ -199,7 +199,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp4->isDirty());
 
 
-    afc->alleleFrequencies(as2)->saveState("state1");
+    afc->alleleFrequencies(as2)->saveState(1);
     afc->alleleFrequencies(as2)->setValue(Simplex({.01, .01, .9999999996, .01, .01, .01}));
     EXPECT_TRUE(tp1->isDirty());
     EXPECT_TRUE(tp2->isDirty());
@@ -212,7 +212,7 @@ TEST(OrderBasedTransmissionProcessTest, CoreTest) {
     EXPECT_FALSE(tp4->isDirty());
 
 
-    infectionOrder->saveState("state1");
+    infectionOrder->saveState(1);
     infectionOrder->swap(2, 3);
     EXPECT_FALSE(tp1->isDirty());
     EXPECT_FALSE(tp2->isDirty());

@@ -58,7 +58,7 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename AllelesBitSetImpl, unsigned int NeighborhoodSize>
     void ZanellaAllelesBitSetSampler<T, Engine, AllelesBitSetImpl, NeighborhoodSize>::update() noexcept {
-        const std::string stateId = "ZanellaAllelesBitSetSampler init";
+        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::ZanellaAllelesBitSetID;
         parameter_->saveState(stateId);
 
         const auto curr    = parameter_->value();
@@ -203,7 +203,7 @@ namespace transmission_nets::core::samplers::genetics {
         for (unsigned int i = 0; i < tmp.totalAlleles(); ++i) {
             tmp.flip(i);
             if (tmp.totalPositiveCount() > 0) {
-                parameter_->saveState("flip1");
+                parameter_->saveState(SAMPLER_STATE_ID::ZanellaAllelesBitSetFlipID);
                 parameter_->setValue(tmp);
                 neighborhood.push_back(target_->value() * 0.5);
 #ifdef DNDEBUG
@@ -211,7 +211,7 @@ namespace transmission_nets::core::samplers::genetics {
                     std::cerr << "Encountered NaN: " << target_->value() << std::endl;
                 }
 #endif
-                parameter_->restoreState("flip1");
+                parameter_->restoreState(SAMPLER_STATE_ID::ZanellaAllelesBitSetFlipID);
             } else {
                 neighborhood.push_back(-std::numeric_limits<Likelihood>::infinity());
             }

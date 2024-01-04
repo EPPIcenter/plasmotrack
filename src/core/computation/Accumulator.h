@@ -13,7 +13,6 @@
 #include "core/abstract/observables/Checkpointable.h"
 #include "core/abstract/observables/Observable.h"
 
-#include <boost/container/flat_set.hpp>
 #include <fmt/core.h>
 
 #include <cassert>
@@ -22,7 +21,6 @@
 
 
 namespace transmission_nets::core::computation {
-    using Likelihood = core::computation::Likelihood;
 
     template<typename Input, typename Output>
     class Accumulator : public Computation<Output>,
@@ -35,44 +33,49 @@ namespace transmission_nets::core::computation {
         //        void addTarget(Input target);
         void addTarget(const std::shared_ptr<Input>& target);
 
-        void postSaveState(const std::string& savedStateId);
+        void postSaveState(int savedStateId);
         void postAcceptState();
-        void postRestoreState(const std::string& savedStateId);
+        void postRestoreState(int savedStateId);
 
         Output value() noexcept override;
 
         [[nodiscard]] int getNumTargets() const;
 
     private:
-        friend class abstract::Cacheable<Accumulator<Input, Output>>;
+        friend class abstract::Cacheable<Accumulator>;
 
-        friend class abstract::Checkpointable<Accumulator<Input, Output>, Output>;
+        friend class abstract::Checkpointable<Accumulator, Output>;
 
-        using TargetSet = boost::container::flat_set<std::shared_ptr<Input>>;
+        // using TargetSet = boost::container::flat_set<std::shared_ptr<Input>>;
+        using TargetSet = std::vector<std::shared_ptr<Input>>;
 
         TargetSet targets_{};
         TargetSet dirtyTargets_{};
 
-        std::vector<TargetSet> targetsCache_{};
-        std::vector<TargetSet> dirtyTargetsCache_{};
+        // std::vector<TargetSet> targetsCache_{};
+        // std::vector<TargetSet> dirtyTargetsCache_{};
     };
 
 
     template<typename Input, typename Output>
     void Accumulator<Input, Output>::addTarget(const std::shared_ptr<Input>& target) {
         this->setDirty();
-        targets_.insert(target);
-        dirtyTargets_.insert(target);
+        targets_.emplace_back(target);
+        dirtyTargets_.emplace_back(target);
 
         target->add_set_dirty_listener([=, this]() {
-            const auto& [_, inserted] = dirtyTargets_.insert(target);
-            this->setDirty();
-            this->value_ -= target->peek();
-#ifndef DNDEBUG
-            if (!inserted) {
-                std::cerr << "Model misspecified. Attempting to insert target likelihood more than once." << std::endl;
+            bool alreadyDirty = false;
+            for (auto& el : dirtyTargets_) {
+                if (el == target) {
+                    alreadyDirty = true;
+                    break;
+                }
             }
-#endif
+            if (!alreadyDirty) {
+                dirtyTargets_.emplace_back(target);
+                this->setDirty();
+                this->value_ -= target->peek();
+            }
         });
         target->registerCacheableCheckpointTarget(this);
     }
@@ -81,15 +84,32 @@ namespace transmission_nets::core::computation {
     template<>
     inline void Accumulator<PartialLikelihood, Likelihood>::addTarget(const std::shared_ptr<PartialLikelihood>& target) {
         this->setDirty();
-        const auto& [_1, inserted] = targets_.insert(target);
+
+        //check if target is already in targets_
+        bool inserted = false;
+        for (auto& el : targets_) {
+            if (el == target) {
+                inserted = true;
+                break;
+            }
+        }
 #ifndef DNDEBUG
-        if (!inserted) assert(!"Target added more than once. Check model specification.");
+        if (inserted) assert(!"Target added more than once. Check model specification.");
 #endif
-        dirtyTargets_.insert(target);
+        targets_.emplace_back(target);
+        dirtyTargets_.emplace_back(target);
 
         target->add_set_dirty_listener([=, this]() {
-            const auto& [_2, inserted_] = dirtyTargets_.insert(target);
-            if (inserted_) {
+            bool alreadyDirty = false;
+            for (auto& el : dirtyTargets_) {
+                if (el == target) {
+                    alreadyDirty = true;
+                    break;
+                }
+            }
+
+            if (!alreadyDirty) {
+                dirtyTargets_.emplace_back(target);
                 this->setDirty();
                 this->value_ -= target->peek();
             }
@@ -101,38 +121,39 @@ namespace transmission_nets::core::computation {
 
     template<typename Input, typename Output>
     Output Accumulator<Input, Output>::value() noexcept {
-
         for (auto el : dirtyTargets_) {
             this->value_ += el->value();
         }
         this->setClean();
-        dirtyTargets_.clear();
+        dirtyTargets_.resize(0);
 
         return this->value_;
     }
 
 
     template<typename Input, typename Output>
-    void Accumulator<Input, Output>::postSaveState([[maybe_unused]] const std::string& savedStateId) {
-        targetsCache_.emplace_back(targets_);
-        dirtyTargetsCache_.emplace_back(dirtyTargets_);
+    void Accumulator<Input, Output>::postSaveState([[maybe_unused]] int savedStateId) {
+        // fmt::print("Saving {} targets\n", targets_.size());
+        // fmt::print("Saving {} dirty targets\n", dirtyTargets_.size());
+        // targetsCache_.emplace_back(targets_);
+        // dirtyTargetsCache_.emplace_back(dirtyTargets_);
     }
 
 
     template<typename Input, typename Output>
-    void Accumulator<Input, Output>::postRestoreState([[maybe_unused]] const std::string& savedStateId) {
-        targets_      = targetsCache_.back();
-        dirtyTargets_ = dirtyTargetsCache_.back();
+    void Accumulator<Input, Output>::postRestoreState([[maybe_unused]] int savedStateId) {
+        // targets_      = targetsCache_.back();
+        // dirtyTargets_ = dirtyTargetsCache_.back();
 
-        targetsCache_.pop_back();
-        dirtyTargetsCache_.pop_back();
+        // targetsCache_.pop_back();
+        // dirtyTargetsCache_.pop_back();
     }
 
 
     template<typename Input, typename Output>
     void Accumulator<Input, Output>::postAcceptState() {
-        targetsCache_.clear();
-        dirtyTargetsCache_.clear();
+        // targetsCache_.resize(0);
+        // dirtyTargetsCache_.resize(0);
     }
 
 
