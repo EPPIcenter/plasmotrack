@@ -118,7 +118,7 @@ namespace transmission_nets::core::samplers {
 //                Likelihood prop_llik_a = chain_a.target->value();
 //                Likelihood prop_llik_b = chain_b.target->value();
 //
-//                long double acceptanceRatio = (prop_llik_a - curr_llik_a + prop_llik_b - curr_llik_b);
+//                double acceptanceRatio = (prop_llik_a - curr_llik_a + prop_llik_b - curr_llik_b);
 //                const bool accept           = log(uniform_dist_(*r_)) < acceptanceRatio;
 //
 //                if (accept) {
@@ -144,7 +144,7 @@ namespace transmission_nets::core::samplers {
                 Likelihood V_b = -chain_b.target->getLikelihood();
                 double temp_b  = chain_b.target->getTemperature();
 
-                long double acceptance_ratio = (temp_b - temp_a) * (V_b - V_a);
+                 double acceptance_ratio = (temp_b - temp_a) * (V_b - V_a);
 
                 double acceptance_rate = std::min(1.0, (double) std::exp(acceptance_ratio));
 

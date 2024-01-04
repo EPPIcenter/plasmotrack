@@ -23,7 +23,7 @@ namespace transmission_nets::core::samplers {
         long unsigned int updateStart = 0;
         long unsigned int updateEnd = std::numeric_limits<int>::max();
         int updateFrequency = 1;
-        long double weight = 1.0;
+        double weight = 1.0;
         bool debug = false;
 
         void update() const;

@@ -26,17 +26,17 @@ namespace transmission_nets::model::transmission_process {
     using Likelihood = core::computation::Likelihood;
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    class SimpleLoss : public core::computation::Computation<std::array<long double, MAX_TRANSMISSIONS + 1>>,
+    class SimpleLoss : public core::computation::Computation<std::array<double, MAX_TRANSMISSIONS + 1>>,
                        public core::abstract::Observable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>,
                        public core::abstract::Cacheable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>,
-                       public core::abstract::Checkpointable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<long double, MAX_TRANSMISSIONS + 1>> {
+                       public core::abstract::Checkpointable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<double, MAX_TRANSMISSIONS + 1>> {
 
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
 
     public:
         explicit SimpleLoss(p_ParameterDouble loss_prob, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb);
 
-        std::array<long double, MAX_TRANSMISSIONS + 1> value() noexcept override;
+        std::array<double, MAX_TRANSMISSIONS + 1> value() noexcept override;
 
         template<typename GeneticsImpl>
         Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
@@ -73,7 +73,7 @@ namespace transmission_nets::model::transmission_process {
 
 
     private:
-        friend class core::abstract::Checkpointable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<long double, MAX_TRANSMISSIONS + 1>>;
+        friend class core::abstract::Checkpointable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<double, MAX_TRANSMISSIONS + 1>>;
         friend class core::abstract::Cacheable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>;
 
 
@@ -83,7 +83,7 @@ namespace transmission_nets::model::transmission_process {
         std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb_;
 
         // Private store for probabilities when calculating the likelihood.
-        std::array<long double, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> probs_{};
+        std::array<double, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> probs_{};
 
         // tracks [x, y, z] where x, y, and z are the number of alleles that are lost in the transmission process.
         std::array<unsigned int, MAX_PARENTSET_SIZE + 1> allelesLostCounter_{0};
@@ -111,7 +111,7 @@ namespace transmission_nets::model::transmission_process {
     }
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    std::array<long double, MAX_TRANSMISSIONS + 1> SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::value() noexcept {
+    std::array<double, MAX_TRANSMISSIONS + 1> SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::value() noexcept {
         /*
          * Value is probability vector of not losing an allele up to that number of transmissions. Probability of losing an allele is 1 - value().
          */

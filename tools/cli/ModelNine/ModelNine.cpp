@@ -52,6 +52,7 @@ void finalize_output(int signal_num) {
 }
 
 
+
 int main(int argc, char** argv) {
     signal(SIGINT, finalize_output);
     signal(SIGQUIT, finalize_output);
@@ -125,8 +126,8 @@ int main(int argc, char** argv) {
 
         const fs::path nodesFile{input};
         const fs::path outputDir{output_dir};
-        const std::vector<long double> symptomatic_idp = loadVectorFromFile<long double>(symptomatic_idp_path);
-        const std::vector<long double> asymptomatic_idp = loadVectorFromFile<long double>(asymptomatic_idp_path);
+        const std::vector<double> symptomatic_idp = loadVectorFromFile<double>(symptomatic_idp_path);
+        const std::vector<double> asymptomatic_idp = loadVectorFromFile<double>(asymptomatic_idp_path);
 
         if (!fs::exists(nodesFile)) {
             std::cerr << "Nodes input file does not exist." << std::endl;

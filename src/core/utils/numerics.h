@@ -12,8 +12,8 @@
 
 #include <algorithm>
 #include <cmath>
-#include <numeric>
 #include <execution>
+#include <numeric>
 
 namespace transmission_nets::core::utils {
     template<typename T>
@@ -62,7 +62,7 @@ namespace transmission_nets::core::utils {
         return r;
     }
 
-    inline long double logit(long double x) {
+    inline double logit(double x) {
         if (x < .5) {
             return std::log(x) - std::log1p(-x);
         } else {
@@ -110,7 +110,7 @@ namespace transmission_nets::core::utils {
         return out;
     }
 
-    inline long double expit(long double x) {
+    inline double expit(double x) {
         return 1 / (1 + std::exp(-x));
     }
 
@@ -125,10 +125,10 @@ namespace transmission_nets::core::utils {
         double eumo;
         bool ok;
         for (auto const& el : x) {
-            ok   = (scale < std::log(2)) and (std::abs(scale) < std::abs(el + scale));
-            u    = -scale - (!ok) * el;
-            v    = -scale - ok * el;
-            ev   = std::exp(v);
+            ok = (scale < std::log(2)) and (std::abs(scale) < std::abs(el + scale));
+            u = -scale - (!ok) * el;
+            v = -scale - ok * el;
+            ev = std::exp(v);
             eumo = std::expm1(u);
 
             if (std::isinf(eumo)) {
@@ -158,7 +158,7 @@ namespace transmission_nets::core::utils {
         return expit(x.begin(), x.end());
     }
 
-    inline long double logLogit(long double x) {
+    inline double logLogit(double x) {
         if (x < std::log(.5)) {
             return x - std::log1p(-std::exp(x));
         } else {
@@ -172,12 +172,12 @@ namespace transmission_nets::core::utils {
      * @param b Second argument
      * @return The log of the sum of exp(a) and exp(b)
      */
-    inline long double logSumExp(const long double a, const long double b) {
-        long double max_el = std::max(a, b);
-        if (max_el == -std::numeric_limits<long double>::infinity()) {
-            return -std::numeric_limits<long double>::infinity();
+    inline double logSumExp(const double a, const double b) {
+        double max_el = std::max(a, b);
+        if (max_el == -std::numeric_limits<double>::infinity()) {
+            return -std::numeric_limits<double>::infinity();
         }
-        long double sum = std::exp(a - max_el) + std::exp(b - max_el);
+        double sum = std::exp(a - max_el) + std::exp(b - max_el);
         return max_el + std::log(sum);
     }
 
@@ -209,12 +209,12 @@ namespace transmission_nets::core::utils {
     }
 
     template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
-    long double logSumExp(const It& x) {
+    double logSumExp(const It& x) {
         return logSumExp(x.begin(), x.end());
     }
 
     template<typename T>
-    long double logDiffExp(const T a, const T b, const bool verbose = false) {
+    double logDiffExp(const T a, const T b, const bool verbose = false) {
         /**
          * return the numerically stable log(exp(a) - exp(b))
          * if b > a, returns -inf
@@ -237,7 +237,7 @@ namespace transmission_nets::core::utils {
         //        mpfr_inits2(256, a_, b_, out_, tmp1_, one_, (mpfr_ptr) 0);
         //        mpfr_set_ld(a_, a, mpfr_get_default_rounding_mode());
         //        mpfr_set_ld(b_, b, mpfr_get_default_rounding_mode());
-        //        mpfr_set_ld(one_, (long double) 1.0, mpfr_get_default_rounding_mode());
+        //        mpfr_set_ld(one_, (double) 1.0, mpfr_get_default_rounding_mode());
         //
         //        mpfr_sub(out_, b_, a_, mpfr_get_default_rounding_mode());
         //        mpfr_exp(out_, out_, mpfr_get_default_rounding_mode());
@@ -270,8 +270,8 @@ namespace transmission_nets::core::utils {
         }
 
         auto max_el = *begin;
-        auto sum    = std::accumulate(
-                   begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
+        auto sum = std::accumulate(
+                begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
         return max_el + std::log(sum);
     }
 
@@ -304,9 +304,20 @@ namespace transmission_nets::core::utils {
         //         std::plus<ValueType>{},
         //         [max_el](ValueType a) { return std::exp(a - max_el); });
 
-        auto sum = std::reduce(
-                begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
-        return max_el + std::log(sum);
+        // auto sum = std::accumulate(
+                // begin, end, ValueType{}, [max_el](const ValueType a, const ValueType b) { return a + std::exp(b - max_el); });
+
+        auto red_sum = std::transform_reduce(
+                std::execution::unseq,
+                begin,
+                end,
+                ValueType{},
+                std::plus<ValueType>{},
+                [max_el](const ValueType a) { return std::exp(a - max_el); });
+        // if (std::abs(sum - red_sum) > 1e-6) {
+            // fmt::print("Sum: {}, Red Sum: {}\n", sum, red_sum);
+        // }
+        return max_el + std::log(red_sum);
     }
 
     template<typename T>
@@ -321,12 +332,12 @@ namespace transmission_nets::core::utils {
      * @return
      */
     template<typename T>
-    std::vector<long double> expNormalize(const T& x) {
-        std::vector<long double> out{};
+    std::vector<double> expNormalize(const T& x) {
+        std::vector<double> out{};
         out.reserve(x.size());
 
-        long double sum = 0.0;
-        auto max_el     = *std::max_element(x.begin(), x.end());
+        double sum = 0.0;
+        auto max_el = *std::max_element(x.begin(), x.end());
 
         for (auto& el : x) {
             out.push_back(std::exp(el - max_el));

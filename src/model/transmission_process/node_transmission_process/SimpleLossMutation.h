@@ -30,22 +30,22 @@ namespace transmission_nets::model::transmission_process {
      * Internally calculates a 2x2 transition matrix M representing the probability of a gain or loss of a single allele, which
      * is then integrated over MAX_TRANSMISSIONS to get the probability of an allele being lost or gained
      */
-    class SimpleLossMutation : public core::computation::Computation<std::array<long double, (MAX_TRANSMISSIONS + 1) * 4>>,
+    class SimpleLossMutation : public core::computation::Computation<std::array<double, (MAX_TRANSMISSIONS + 1) * 4>>,
                        public core::abstract::Observable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>,
                        public core::abstract::Cacheable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>,
-                       public core::abstract::Checkpointable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<long double, (MAX_TRANSMISSIONS + 1) * 4>> {
+                       public core::abstract::Checkpointable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<double, (MAX_TRANSMISSIONS + 1) * 4>> {
 
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
 
     public:
         explicit SimpleLossMutation(p_ParameterDouble loss_prob, p_ParameterDouble mutation_rate, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb);
 
-        std::array<long double, (MAX_TRANSMISSIONS + 1) * 4> value() noexcept override;
+        std::array<double, (MAX_TRANSMISSIONS + 1) * 4> value() noexcept override;
 
-        long double getLossProb(int generation);
-        long double getMutationProb(int generation);
-        long double peekLossProb(int generation);
-        long double peekMutationProb(int generation);
+        double getLossProb(int generation);
+        double getMutationProb(int generation);
+        double peekLossProb(int generation);
+        double peekMutationProb(int generation);
 
         template<typename GeneticsImpl>
         Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
@@ -81,7 +81,7 @@ namespace transmission_nets::model::transmission_process {
 
 
     private:
-        friend class core::abstract::Checkpointable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<long double, (MAX_TRANSMISSIONS + 1) * 4>>;
+        friend class core::abstract::Checkpointable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<double, (MAX_TRANSMISSIONS + 1) * 4>>;
         friend class core::abstract::Cacheable<SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>;
 
 
@@ -91,7 +91,7 @@ namespace transmission_nets::model::transmission_process {
         std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb_;
 
         // Private store for probabilities when calculating the likelihood.
-        std::array<long double, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> probs_{};
+        std::array<double, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> probs_{};
 
         // tracks [x, y, z] where x, y, and z are the number of alleles that are lost in the transmission process.
         std::array<unsigned int, MAX_PARENTSET_SIZE + 1> allelesLostCounter_{0};
@@ -125,7 +125,7 @@ namespace transmission_nets::model::transmission_process {
     }
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    std::array<long double, (MAX_TRANSMISSIONS + 1) * 4> SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::value() noexcept {
+    std::array<double, (MAX_TRANSMISSIONS + 1) * 4> SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::value() noexcept {
         if (this->isDirty()) {
             this->value_.fill(0.0);
 
@@ -164,23 +164,23 @@ namespace transmission_nets::model::transmission_process {
     }
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::getLossProb(int generation) {
+    double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::getLossProb(int generation) {
         return this->value()[(generation - 1) * 4 + 1];
     }
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::getMutationProb(int generation) {
+    double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::getMutationProb(int generation) {
         return this->value()[(generation - 1) * 4 + 2];
     }
 
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::peekLossProb(int generation) {
+    double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::peekLossProb(int generation) {
         return this->peek()[(generation - 1) * 4 + 1];
     }
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    long double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::peekMutationProb(int generation) {
+    double SimpleLossMutation<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::peekMutationProb(int generation) {
         return this->peek()[(generation - 1) * 4 + 2];
     }
 

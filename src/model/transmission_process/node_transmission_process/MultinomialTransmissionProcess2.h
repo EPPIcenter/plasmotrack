@@ -24,17 +24,17 @@ namespace transmission_nets::model::transmission_process {
     using Likelihood = core::computation::Likelihood;
 
     template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
-    class MultinomialTransmissionProcess : public core::computation::Computation<std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)>>,
+    class MultinomialTransmissionProcess : public core::computation::Computation<std::array<double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)>>,
                                            public core::abstract::Observable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>,
                                            public core::abstract::Cacheable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>,
-                                           public core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)>> {
+                                           public core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)>> {
 
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
 
     public:
         explicit MultinomialTransmissionProcess(p_ParameterDouble mean_strains_transmitted);
 
-        std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)> value() override;
+        std::array<double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)> value() override;
 
         Likelihood probNumStrains(int num_strains, int num_parents) {
             return this->value_[(num_parents - 1) * MAX_STRAINS + (num_strains - 1)];
@@ -58,7 +58,7 @@ namespace transmission_nets::model::transmission_process {
 
 
     private:
-        friend class core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)>>;
+        friend class core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)>>;
         friend class core::abstract::Cacheable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>;
 
         p_ParameterDouble mean_strains_transmitted_;
@@ -74,13 +74,13 @@ namespace transmission_nets::model::transmission_process {
             this->setDirty();
         });
 
-        this->value_.fill(-std::numeric_limits<long double>::infinity());
+        this->value_.fill(-std::numeric_limits<double>::infinity());
         this->setDirty();
         this->value();
     }
 
     template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
-    std::array<long double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)> MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::value() {
+    std::array<double, MAX_STRAINS * (MAX_PARENTSET_SIZE + 1)> MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::value() {
         /*
          * Value is a matrix that gives the probability of transmitting some number of strains from some number of parents. The
          * rows are the number of parents, and the columns are the number of strains. We assume the number of strains transmitted
@@ -125,7 +125,7 @@ namespace transmission_nets::model::transmission_process {
         size_t numParents = parentSet.size();
         const auto& loci = infection->loci();
 
-        std::array<long double, MAX_STRAINS> logLikelihoods{0};
+        std::array<double, MAX_STRAINS> logLikelihoods{0};
 
         for (const auto& locus : loci) {
             const auto& childGenotype = infection->latentGenotype(locus)->value();
@@ -221,7 +221,7 @@ namespace transmission_nets::model::transmission_process {
         size_t numParents = parentSet.size();
         const auto& loci  = infection->loci();
 
-        std::array<long double, MAX_STRAINS> logLikelihoods{0};
+        std::array<double, MAX_STRAINS> logLikelihoods{0};
         for (const auto& locus : loci) {
             auto childGenotype = infection->latentGenotype(locus)->value();
 
@@ -338,7 +338,7 @@ namespace transmission_nets::model::transmission_process {
         size_t numParents = 1;
         const auto& loci  = infection->loci();
 
-        std::array<long double, MAX_STRAINS> logLikelihoods{0};
+        std::array<double, MAX_STRAINS> logLikelihoods{0};
         for (const auto& locus : loci) {
             const auto& childGenotype = infection->latentGenotype(locus)->value();
 

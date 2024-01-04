@@ -20,10 +20,6 @@ namespace transmission_nets::core::io {
         return fmt::format("{}", val);
     }
 
-    inline std::string serialize(const long double val) noexcept {
-        return fmt::format("{}", val);
-    }
-
     inline std::string serialize(const long int val) noexcept {
         return fmt::format("{}", val);
     }

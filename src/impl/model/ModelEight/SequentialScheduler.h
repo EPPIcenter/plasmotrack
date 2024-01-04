@@ -25,8 +25,8 @@ namespace transmission_nets::impl::ModelEight {
     SequentialSampleScheduler<T, Engine, Scheduler>::SequentialSampleScheduler(std::shared_ptr<State> state, std::shared_ptr<T> target, std::shared_ptr<Engine> r, int samplesPerStep) : state_(std::move(state)), target_(std::move(target)), r_(r), scheduler_(samplesPerStep) {
         using namespace core::samplers;
 
-        [[maybe_unused]] long double totalInfections = state_->infections.size();
-        [[maybe_unused]] long double totalLoci       = state_->loci.size();
+        [[maybe_unused]] double totalInfections = state_->infections.size();
+        [[maybe_unused]] double totalLoci       = state_->loci.size();
 
         scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->geometricGenerationProb, target_, 0.01, .99, r, 1, .1, 2),
                                     .id              = "Geometric Generation Prob",

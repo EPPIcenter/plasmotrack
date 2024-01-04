@@ -129,7 +129,7 @@ namespace transmission_nets::core::samplers::genetics {
         auto unifSample            = uniform_dist_(*rng_);
 
         int i         = 0;
-        long double cumsum = 0;
+        double cumsum = 0;
         while (unifSample >= cumsum) {
 
 #ifdef DNDEBUG
@@ -165,7 +165,7 @@ namespace transmission_nets::core::samplers::genetics {
         auto unifSample            = uniform_dist_(*rng_);
 
         int i         = 0;
-        long double cumsum = 0;
+        double cumsum = 0;
         while (unifSample >= cumsum) {
 
 #ifdef DNDEBUG

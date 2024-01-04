@@ -20,7 +20,7 @@ namespace transmission_nets::core::samplers {
         bool scaledAdaptation         = false;
         long unsigned int updateStart = 0;
         long unsigned int updateEnd   = std::numeric_limits<int>::max();
-        long double weight            = 1.0;
+        double weight            = 1.0;
         bool debug                    = false;
 
         bool operator<(const WeightedScheduledSampler& rhs) const {
@@ -75,9 +75,9 @@ namespace transmission_nets::core::samplers {
         int num_samples_;
 
         std::vector<WeightedScheduledSampler> samplers_{};
-        std::vector<long double> cumulative_weight_{};
+        std::vector<double> cumulative_weight_{};
         int total_steps_         = 0;
-        long double total_weight_ = 0;
+        double total_weight_ = 0;
         boost::random::uniform_int_distribution<> dist_;
 
         bool cumulative_weights_calculated_{false};
@@ -127,7 +127,7 @@ namespace transmission_nets::core::samplers {
     template<typename Engine>
     void RandomizedScheduler<Engine>::calculateCumulativeWeights() {
         std::sort(samplers_.begin(), samplers_.end(), std::greater<>());
-        long double total = 0;
+        double total = 0;
         cumulative_weight_.clear();
         cumulative_weight_.reserve(samplers_.size());
         for (auto& sampler : samplers_) {
