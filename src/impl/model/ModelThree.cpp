@@ -61,7 +61,7 @@
 //        }
 //    }
 //
-//    double ModelThree::value() {
+//    float ModelThree::value() {
 //        return likelihood.value();
 //    }
 //

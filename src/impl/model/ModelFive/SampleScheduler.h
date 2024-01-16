@@ -26,8 +26,8 @@ namespace transmission_nets::impl::ModelFive {
     SampleScheduler<T, Engine, Scheduler>::SampleScheduler(std::shared_ptr<State> state, std::shared_ptr<T> target, std::shared_ptr<Engine> r, int samplesPerStep) : state_(std::move(state)), target_(std::move(target)), r_(r), scheduler_(r_, samplesPerStep) {
         using namespace core::samplers;
 
-        double totalInfections = state_->infections.size();
-        double totalLoci       = state_->loci.size();
+        float totalInfections = state_->infections.size();
+        float totalLoci       = state_->loci.size();
 
         scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->geometricGenerationProb, target_, 0.0, 1.0, r, 1, .01, 2),
                                     .adaptationStart = 20,

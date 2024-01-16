@@ -23,17 +23,17 @@ namespace transmission_nets::model::transmission_process {
     using Likelihood = core::computation::Likelihood;
 
     template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
-    class MultinomialTransmissionProcess : public core::computation::Computation<std::array<double, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>>,
+    class MultinomialTransmissionProcess : public core::computation::Computation<std::array<float, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>>,
                                            public core::abstract::Observable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>,
                                            public core::abstract::Cacheable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>,
-                                           public core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<double, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>> {
+                                           public core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<float, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>> {
 
-        using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
+        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
 
     public:
-        explicit MultinomialTransmissionProcess(p_ParameterDouble mean_strains_transmitted);
+        explicit MultinomialTransmissionProcess(p_Parameterfloat mean_strains_transmitted);
 
-        std::array<double, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)> value() override;
+        std::array<float, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)> value() override;
 
         Likelihood probNumStrains(int num_strains, int num_parents) {
             return this->value_[(num_parents - 1) * MAX_STRAINS + (num_strains - 1)];
@@ -57,28 +57,28 @@ namespace transmission_nets::model::transmission_process {
 
 
     private:
-        friend class core::abstract::Checkpointable<MultinomialTransmissionProcess, std::array<double, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>>;
+        friend class core::abstract::Checkpointable<MultinomialTransmissionProcess, std::array<float, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>>;
         friend class core::abstract::Cacheable<MultinomialTransmissionProcess>;
 
-        p_ParameterDouble mean_strains_transmitted_;
+        p_Parameterfloat mean_strains_transmitted_;
         core::utils::probAnyMissingFunctor probAnyMissing_;
-        // double mutationRate_ = 0.001;
+        // float mutationRate_ = 0.001;
     };
 
     template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
-    MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::MultinomialTransmissionProcess(p_ParameterDouble mean_strains_transmitted) : mean_strains_transmitted_(std::move(mean_strains_transmitted)) {
+    MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::MultinomialTransmissionProcess(p_Parameterfloat mean_strains_transmitted) : mean_strains_transmitted_(std::move(mean_strains_transmitted)) {
         mean_strains_transmitted_->registerCacheableCheckpointTarget(this);
         mean_strains_transmitted_->add_post_change_listener([this]() {
             this->setDirty();
         });
 
-        this->value_.fill(-std::numeric_limits<double>::infinity());
+        this->value_.fill(-std::numeric_limits<float>::infinity());
         this->setDirty();
         this->MultinomialTransmissionProcess::value();
     }
 
     template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
-    std::array<double, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)> MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::value() {
+    std::array<float, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)> MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::value() {
         /*
          * Value is a matrix that gives the probability of transmitting some number of strains from some number of parents. The
          * rows are the number of parents, and the columns are the number of strains. We assume the number of strains transmitted
@@ -88,18 +88,18 @@ namespace transmission_nets::model::transmission_process {
          * todo: mean_strains_transmitted isn't actually the mean of the distribution
          */
         if (this->isDirty()) {
-            const double lambda = mean_strains_transmitted_->value();
+            const float lambda = mean_strains_transmitted_->value();
             for (unsigned int kk = 0; kk < MAX_PARENTSET_SIZE + 1; ++kk) {
                 const int num_parents = static_cast<int>(kk) + 1;
-                double denominator = 0.0;
+                float denominator = 0.0;
                 for (unsigned int jj = kk; jj < MAX_STRAINS; ++jj) {
                     const int num_strains = static_cast<int>(jj) + 1;
 
-                    double correction = 0;
+                    float correction = 0;
                     for (int ii = 0; ii < num_parents; ++ii) {
-                        correction += std::pow(-1, ii) * std::pow(num_parents - ii, num_strains) * boost::math::binomial_coefficient<double>(num_parents, ii);
+                        correction += std::pow(-1, ii) * std::pow(num_parents - ii, num_strains) * boost::math::binomial_coefficient<float>(num_parents, ii);
                     }
-                    this->value_[kk * MAX_STRAINS + jj] = num_strains * std::log(lambda) - (num_parents * std::log(std::exp(lambda) - 1)) - std::log(boost::math::factorial<double>(num_strains)) + std::log(correction);
+                    this->value_[kk * MAX_STRAINS + jj] = num_strains * std::log(lambda) - (num_parents * std::log(std::exp(lambda) - 1)) - std::log(boost::math::factorial<float>(num_strains)) + std::log(correction);
                     denominator += exp(this->value_[kk * MAX_STRAINS + jj]);
                 }
 
@@ -120,12 +120,12 @@ namespace transmission_nets::model::transmission_process {
         const size_t numParents = parentSet.size();
         const auto& loci = infection->loci();
 
-        std::array<double, MAX_STRAINS> logLikelihoods{0};
+        std::array<float, MAX_STRAINS> logLikelihoods{0};
 
 
         for (const auto& locus : loci) {
             const auto& childGenotype = infection->latentGenotype(locus)->value();
-            std::vector<double> parent_pop_freqs(childGenotype.totalAlleles(), 0);
+            std::vector<float> parent_pop_freqs(childGenotype.totalAlleles(), 0);
 
             for (const auto& parent : parentSet) {
                 const auto& parentGenotype = parent->latentGenotype(locus)->value();
@@ -137,12 +137,12 @@ namespace transmission_nets::model::transmission_process {
                 const int totalAllelesPresent = parentGenotype.totalPositiveCount();
                 for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
                     if (parentGenotype.allele(j)) {
-                        parent_pop_freqs[j] += (static_cast<double>(parentGenotype.allele(j)) / (totalAllelesPresent * numParents));
+                        parent_pop_freqs[j] += (static_cast<float>(parentGenotype.allele(j)) / (totalAllelesPresent * numParents));
                     }
                 }
             }
 
-            double constrainedSetProb = 0.0;
+            float constrainedSetProb = 0.0;
             std::vector<Likelihood> prVec{};
             prVec.reserve(childGenotype.totalAlleles());
             bool zeroProbEvent = false;
@@ -198,11 +198,11 @@ namespace transmission_nets::model::transmission_process {
         const size_t numParents = parentSet.size();
         const auto& loci = infection->loci();
 
-        std::array<double, MAX_STRAINS> logLikelihoods{0};
+        std::array<float, MAX_STRAINS> logLikelihoods{0};
         for (const auto& locus : loci) {
             const auto& childGenotype = infection->latentGenotype(locus)->value();
 
-            std::vector<double> parent_pop_freqs(childGenotype.totalAlleles(), 0.0);
+            std::vector<float> parent_pop_freqs(childGenotype.totalAlleles(), 0.0);
 
             for (const auto& parent : parentSet) {
                 const auto& parentGenotype = parent->latentGenotype(locus)->value();
@@ -215,7 +215,7 @@ namespace transmission_nets::model::transmission_process {
                 for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
                     // add an extra count to numParents to account for the latent parent
                     if (parentGenotype.allele(j)) {
-                        parent_pop_freqs[j] += (static_cast<double>(parentGenotype.allele(j)) / totalAllelesPresent / (numParents + 1.0));
+                        parent_pop_freqs[j] += (static_cast<float>(parentGenotype.allele(j)) / totalAllelesPresent / (numParents + 1.0));
                     }
                 }
             }
@@ -229,10 +229,10 @@ namespace transmission_nets::model::transmission_process {
             }
 
             for (size_t j = 0; j < latentParentGenotype.totalAlleles(); ++j) {
-                parent_pop_freqs[j] += (static_cast<double>(latentParentGenotype.allele(j)) / totalAllelesPresent / (numParents + 1.0));
+                parent_pop_freqs[j] += (static_cast<float>(latentParentGenotype.allele(j)) / totalAllelesPresent / (numParents + 1.0));
             }
 
-            double constrainedSetProb = 0.0;
+            float constrainedSetProb = 0.0;
             std::vector<Likelihood> prVec{};
             prVec.reserve(childGenotype.totalAlleles());
             bool zeroProbEvent = false;
@@ -287,11 +287,11 @@ namespace transmission_nets::model::transmission_process {
         constexpr size_t numParents = 1;
         const auto& loci = infection->loci();
 
-        std::array<double, MAX_STRAINS> logLikelihoods{0};
+        std::array<float, MAX_STRAINS> logLikelihoods{0};
         for (const auto& locus : loci) {
             const auto& childGenotype = infection->latentGenotype(locus)->value();
 
-            std::vector<double> parent_pop_freqs(childGenotype.totalAlleles(), 0.0);
+            std::vector<float> parent_pop_freqs(childGenotype.totalAlleles(), 0.0);
 
             const auto& parent = latentParent;
             const auto& parentGenotype = parent->latentGenotype(locus)->value();
@@ -303,11 +303,11 @@ namespace transmission_nets::model::transmission_process {
             const int totalAllelesPresent = parentGenotype.totalPositiveCount();
             for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
                 if (parentGenotype.allele(j)) {
-                    parent_pop_freqs[j] += (static_cast<double>(parentGenotype.allele(j)) / totalAllelesPresent);
+                    parent_pop_freqs[j] += (static_cast<float>(parentGenotype.allele(j)) / totalAllelesPresent);
                 }
             }
 
-            double constrainedSetProb = 0.0;
+            float constrainedSetProb = 0.0;
             std::vector<Likelihood> prVec{};
             prVec.reserve(childGenotype.totalAlleles());
             bool zeroProbEvent = false;

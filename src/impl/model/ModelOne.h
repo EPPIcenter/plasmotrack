@@ -58,8 +58,8 @@
 //        using ParentSetImpl = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
 //        using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent, ParentSetImpl>;
 //
-//        using BetaPrior = core::priors::Prior<boost::math::beta_distribution<>, core::parameters::Parameter<double>, int, int>;
-//        using GammaPrior = core::priors::Prior<boost::math::gamma_distribution<>, core::parameters::Parameter<double>, double, double>;
+//        using BetaPrior = core::priors::Prior<boost::math::beta_distribution<>, core::parameters::Parameter<float>, int, int>;
+//        using GammaPrior = core::priors::Prior<boost::math::gamma_distribution<>, core::parameters::Parameter<float>, float, float>;
 //
 //    public:
 //        explicit ModelOne(State& state);

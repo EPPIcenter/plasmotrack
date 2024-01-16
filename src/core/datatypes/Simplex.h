@@ -21,33 +21,33 @@ namespace transmission_nets::core::datatypes {
         explicit Simplex(unsigned int totalElements);
         Simplex();
 
-        explicit Simplex(const std::vector<double>& freqs);
+        explicit Simplex(const std::vector<float>& freqs);
 
-        Simplex(const std::initializer_list<double>& freqs);
+        Simplex(const std::initializer_list<float>& freqs);
 
         friend std::ostream& operator<<(std::ostream& os, const Simplex& simplex);
 
-        void set(const std::vector<double>& valueArray);
+        void set(const std::vector<float>& valueArray);
 
-        void set(unsigned int idx, double value);
+        void set(unsigned int idx, float value);
 
-        [[nodiscard]] double frequencies(unsigned int idx) const noexcept;
+        [[nodiscard]] float frequencies(unsigned int idx) const noexcept;
 
-        [[nodiscard]] const std::vector<double>& frequencies() const noexcept;
+        [[nodiscard]] const std::vector<float>& frequencies() const noexcept;
 
         [[nodiscard]] unsigned int totalElements() const noexcept;
 
-        [[nodiscard]] double min() const noexcept;
+        [[nodiscard]] float min() const noexcept;
 
-        [[nodiscard]] double max() const noexcept;
+        [[nodiscard]] float max() const noexcept;
 
         [[nodiscard]] std::string serialize() const noexcept;
 
     private:
-        std::vector<double> coefficients_{};
+        std::vector<float> coefficients_{};
         unsigned int total_elements_;
-        double min_;
-        double max_;
+        float min_;
+        float max_;
     };
 
 }// namespace transmission_nets::core::datatypes

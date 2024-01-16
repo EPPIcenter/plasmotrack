@@ -15,7 +15,7 @@
 
 namespace transmission_nets::impl::ModelNine {
     struct State {
-        using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
+        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
         using p_DiscreteDist = std::shared_ptr<core::distributions::DiscreteDistribution>;
 
         explicit State(const nlohmann::json& input,
@@ -43,43 +43,43 @@ namespace transmission_nets::impl::ModelNine {
         std::shared_ptr<OrderingImpl> infectionEventOrdering;
 
         // Symptomatic vs Asymptomatic infection duration -- time between infection and detection
-//        p_ParameterDouble symptomaticInfectionDurationShape;
-//        p_ParameterDouble symptomaticInfectionDurationScale;
-//        p_ParameterDouble asymptomaticInfectionDurationShape;
-//        p_ParameterDouble asymptomaticInfectionDurationScale;
+//        p_Parameterfloat symptomaticInfectionDurationShape;
+//        p_Parameterfloat symptomaticInfectionDurationScale;
+//        p_Parameterfloat asymptomaticInfectionDurationShape;
+//        p_Parameterfloat asymptomaticInfectionDurationScale;
 
         p_DiscreteDist symptomaticInfectionDurationDist;
         p_DiscreteDist asymptomaticInfectionDurationDist;
 
         // Observation Process
-        std::vector<p_ParameterDouble> expectedFalsePositives{};
-        p_ParameterDouble obsFPRPriorShape;
-        p_ParameterDouble obsFPRPriorScale;
+        std::vector<p_Parameterfloat> expectedFalsePositives{};
+        p_Parameterfloat obsFPRPriorShape;
+        p_Parameterfloat obsFPRPriorScale;
 
-        std::vector<p_ParameterDouble> expectedFalseNegatives{};
-        p_ParameterDouble obsFNRPriorShape;
-        p_ParameterDouble obsFNRPriorScale;
+        std::vector<p_Parameterfloat> expectedFalseNegatives{};
+        p_Parameterfloat obsFNRPriorShape;
+        p_Parameterfloat obsFNRPriorScale;
 
         // Node Transmission Process
-        p_ParameterDouble meanStrainsTransmitted;
-        p_ParameterDouble meanStrainsTransmittedPriorShape;
-        p_ParameterDouble meanStrainsTransmittedPriorScale;
-//        p_ParameterDouble geometricGenerationProb;
-//        p_ParameterDouble geometricGenerationProbPriorAlpha;
-//        p_ParameterDouble geometricGenerationProbPriorBeta;
+        p_Parameterfloat meanStrainsTransmitted;
+        p_Parameterfloat meanStrainsTransmittedPriorShape;
+        p_Parameterfloat meanStrainsTransmittedPriorScale;
+//        p_Parameterfloat geometricGenerationProb;
+//        p_Parameterfloat geometricGenerationProbPriorAlpha;
+//        p_Parameterfloat geometricGenerationProbPriorBeta;
 //
-//        p_ParameterDouble lossProb;
-//        p_ParameterDouble lossProbPriorAlpha;
-//        p_ParameterDouble lossProbPriorBeta;
+//        p_Parameterfloat lossProb;
+//        p_Parameterfloat lossProbPriorAlpha;
+//        p_Parameterfloat lossProbPriorBeta;
 
-//        p_ParameterDouble mutationProb;
-//        p_ParameterDouble mutationProbPriorAlpha;
-//        p_ParameterDouble mutationProbPriorBeta;
+//        p_Parameterfloat mutationProb;
+//        p_Parameterfloat mutationProbPriorAlpha;
+//        p_Parameterfloat mutationProbPriorBeta;
 
         // Source Transmission Process
-        p_ParameterDouble meanCOI;
-        p_ParameterDouble meanCOIPriorShape;
-        p_ParameterDouble meanCOIPriorScale;
+        p_Parameterfloat meanCOI;
+        p_Parameterfloat meanCOIPriorShape;
+        p_Parameterfloat meanCOIPriorScale;
     };
 }// namespace transmission_nets::impl::ModelNine
 

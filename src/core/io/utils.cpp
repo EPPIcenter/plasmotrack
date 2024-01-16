@@ -55,8 +55,8 @@ namespace transmission_nets::core::io {
         return lastLine;
     }
 
-    double hotloadDouble(const fs::path& filePath) {
-        double value;
+    float hotloadfloat(const fs::path& filePath) {
+        float value;
         std::ifstream input(filePath);
 
         if (input) {
@@ -70,9 +70,9 @@ namespace transmission_nets::core::io {
         return value;
     }
 
-    std::vector<double> hotloadVector(const fs::path& filePath) {
+    std::vector<float> hotloadVector(const fs::path& filePath) {
         std::vector<std::string> tokens;
-        std::vector<double> values;
+        std::vector<float> values;
         std::ifstream input(filePath);
 
         if (input) {

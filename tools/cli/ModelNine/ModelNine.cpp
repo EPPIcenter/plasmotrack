@@ -33,8 +33,7 @@ namespace {
     const size_t SUCCESS                   = 0;
     const size_t ERROR_IN_COMMAND_LINE     = 1;
     const size_t ERROR_UNHANDLED_EXCEPTION = 2;
-
-}// namespace
+}
 
 // Global interrupt tracker
 bool interrupted = false;
@@ -48,7 +47,13 @@ void finalize_output(int signal_num) {
         exit(SUCCESS);
     }
     interrupted = true;
-    fmt::print("Interrupt signal {} received. Finalizing output...", signal_num);
+    std::map <int, std::string> signals = {
+            {SIGINT, "SIGINT"},
+            {SIGQUIT, "SIGQUIT"},
+            {SIGABRT, "SIGABRT"},
+            {SIGTERM, "SIGTERM"}
+    };
+    fmt::print("Interrupt signal {} received. Finalizing output...", signals[signal_num]);
 }
 
 
@@ -57,11 +62,12 @@ int main(int argc, char** argv) {
     signal(SIGINT, finalize_output);
     signal(SIGQUIT, finalize_output);
     signal(SIGABRT, finalize_output);
+    signal(SIGTERM, finalize_output);
 
 //    try {
         int num_chains;
         unsigned int num_cores;
-        double gradient;
+        float gradient;
 
         int burnin;
         int sample;
@@ -82,7 +88,7 @@ int main(int argc, char** argv) {
         opts("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned");
         opts("numchains,n", po::value<int>(&num_chains)->default_value(1), "Number of chains to run in replica exchange algorithm.");
         opts("numcores,c", po::value<unsigned int>(&num_cores)->default_value(1), "Number of cores to use in replica exchange algorithm.");
-        opts("gradient,g", po::value<double>(&gradient)->default_value(0), "Lower temperature of gradient to use in replica exchange algorithm");
+        opts("gradient,g", po::value<float>(&gradient)->default_value(0), "Lower temperature of gradient to use in replica exchange algorithm");
         opts("seed", po::value<long>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.");
         opts("hotload,h", "Hotload parameters from the output directory");
         opts("symptomatic-idp", po::value<std::string>(&symptomatic_idp_path)->required(), "file path to Symptomatic IDP");
@@ -126,8 +132,8 @@ int main(int argc, char** argv) {
 
         const fs::path nodesFile{input};
         const fs::path outputDir{output_dir};
-        const std::vector<double> symptomatic_idp = loadVectorFromFile<double>(symptomatic_idp_path);
-        const std::vector<double> asymptomatic_idp = loadVectorFromFile<double>(asymptomatic_idp_path);
+        const std::vector<float> symptomatic_idp = loadVectorFromFile<float>(symptomatic_idp_path);
+        const std::vector<float> asymptomatic_idp = loadVectorFromFile<float>(asymptomatic_idp_path);
 
         if (!fs::exists(nodesFile)) {
             std::cerr << "Nodes input file does not exist." << std::endl;
@@ -157,9 +163,9 @@ int main(int argc, char** argv) {
         repex->logState();
         repex->finalize();
 
-        double samplesPerSecond = 0;
-        double totalSamples = 0;
-        double averageSamplesPerSecond = 0;
+        float samplesPerSecond = 0;
+        float totalSamples = 0;
+        float averageSamplesPerSecond = 0;
         timers::dsec totalDuration{0};
 
 

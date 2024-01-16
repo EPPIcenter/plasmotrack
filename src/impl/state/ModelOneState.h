@@ -40,16 +40,16 @@ namespace transmission_nets::impl {
         core::parameters::Ordering<InfectionEvent> infectionEventOrdering;
 
         // Observation Process
-        core::parameters::Parameter<double> observationFalsePositiveRate;
-        core::parameters::Parameter<double> observationFalseNegativeRate;
+        core::parameters::Parameter<float> observationFalsePositiveRate;
+        core::parameters::Parameter<float> observationFalseNegativeRate;
 
         // Node Transmission Process
-        core::parameters::Parameter<double> geometricGenerationProb;
-        core::parameters::Parameter<double> ztMultiplicativeBinomialProb;
-        core::parameters::Parameter<double> ztMultiplicativeBinomialAssoc;
+        core::parameters::Parameter<float> geometricGenerationProb;
+        core::parameters::Parameter<float> ztMultiplicativeBinomialProb;
+        core::parameters::Parameter<float> ztMultiplicativeBinomialAssoc;
 
         // Source Transmission Process
-        core::parameters::Parameter<double> geometricCOIProb;
+        core::parameters::Parameter<float> geometricCOIProb;
     };
 
 

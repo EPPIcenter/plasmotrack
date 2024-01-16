@@ -30,16 +30,16 @@ namespace transmission_nets::impl::ModelNine {
 
 
         for (const auto& infection : infections) {
-            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
-            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.01));
+            expectedFalsePositives.emplace_back(new core::parameters::Parameter<float>(.01));
+            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<float>(.01));
             latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
         }
 
-//        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.95);
-//        lossProb                = std::make_shared<core::parameters::Parameter<double>>(.5);
-//        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(.05);
-        meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(1.01);
-        meanStrainsTransmitted  = std::make_shared<core::parameters::Parameter<double>>(2.00);
+//        geometricGenerationProb = std::make_shared<core::parameters::Parameter<float>>(.95);
+//        lossProb                = std::make_shared<core::parameters::Parameter<float>>(.5);
+//        mutationProb            = std::make_shared<core::parameters::Parameter<float>>(.05);
+        meanCOI                 = std::make_shared<core::parameters::Parameter<float>>(1.01);
+        meanStrainsTransmitted  = std::make_shared<core::parameters::Parameter<float>>(2.00);
         symptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(symptomaticIDPDist);
         asymptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(asymptomaticIDPDist);
     }
@@ -72,14 +72,14 @@ namespace transmission_nets::impl::ModelNine {
         for (auto& infection : infections) {
             auto infDir        = genotypeDir / core::io::makePathValid(infection->id());
             auto inf_file_name = core::io::makePathValid(infection->id()) + ".csv";
-            infection->infectionDuration()->initializeValue(core::io::hotloadDouble(infDurFolder / inf_file_name));
+            infection->infectionDuration()->initializeValue(core::io::hotloadfloat(infDurFolder / inf_file_name));
             for (const auto& [label, locus] : loci) {
                 infection->latentGenotype(locus)->initializeValue(GeneticsImpl(core::io::hotloadString(infDir / (label + ".csv"))));
             }
 
             latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
-            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadDouble(epsPosFolder / inf_file_name)));
-            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadDouble(epsNegFolder / inf_file_name)));
+            expectedFalsePositives.emplace_back(new core::parameters::Parameter<float>(core::io::hotloadfloat(epsPosFolder / inf_file_name)));
+            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<float>(core::io::hotloadfloat(epsNegFolder / inf_file_name)));
         }
 
         for (auto& infection : latentParents) {
@@ -93,36 +93,36 @@ namespace transmission_nets::impl::ModelNine {
         infectionEventOrdering = std::make_shared<OrderingImpl>();
         infectionEventOrdering->addElements(this->infections);
 
-//        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "geo_gen_prob.csv"));
-//        lossProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "loss_prob.csv"));
-//        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mutation_prob.csv"));
-        meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_coi.csv"));
-        meanStrainsTransmitted                 = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_strains_tx.csv"));
+//        geometricGenerationProb = std::make_shared<core::parameters::Parameter<float>>(core::io::hotloadfloat(paramOutputDir / "geo_gen_prob.csv"));
+//        lossProb                = std::make_shared<core::parameters::Parameter<float>>(core::io::hotloadfloat(paramOutputDir / "loss_prob.csv"));
+//        mutationProb            = std::make_shared<core::parameters::Parameter<float>>(core::io::hotloadfloat(paramOutputDir / "mutation_prob.csv"));
+        meanCOI                 = std::make_shared<core::parameters::Parameter<float>>(core::io::hotloadfloat(paramOutputDir / "mean_coi.csv"));
+        meanStrainsTransmitted                 = std::make_shared<core::parameters::Parameter<float>>(core::io::hotloadfloat(paramOutputDir / "mean_strains_tx.csv"));
         symptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(symptomaticIDPDist);
         asymptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(asymptomaticIDPDist);
     }
 
     void State::initPriors() {
-        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.001);
+        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<float>>(10);
+        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<float>>(.001);
 
-        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.001);
+        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<float>>(10);
+        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<float>>(.001);
 
-        meanStrainsTransmittedPriorShape = std::make_shared<core::parameters::Parameter<double>>(20);
-        meanStrainsTransmittedPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
+        meanStrainsTransmittedPriorShape = std::make_shared<core::parameters::Parameter<float>>(20);
+        meanStrainsTransmittedPriorScale = std::make_shared<core::parameters::Parameter<float>>(.1);
 
-        meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(20);
-        meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
+        meanCOIPriorShape = std::make_shared<core::parameters::Parameter<float>>(20);
+        meanCOIPriorScale = std::make_shared<core::parameters::Parameter<float>>(.1);
 
         /*
          * Symptomatic vs Asymptomatic Infection Duration
          * Parameterizes the time between infection and clinical detection
          */
-//        symptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(10);
-//        symptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(10);
-//        asymptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(1);
-//        asymptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(100);
+//        symptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<float>>(10);
+//        symptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<float>>(10);
+//        asymptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<float>>(1);
+//        asymptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<float>>(100);
 
     }
 }// namespace transmission_nets::impl::ModelNine

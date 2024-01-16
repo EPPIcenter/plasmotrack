@@ -24,8 +24,8 @@ namespace transmission_nets::impl::ModelNine {
     SampleScheduler<T, Engine, Scheduler>::SampleScheduler(std::shared_ptr<State> state, std::shared_ptr<T> target, std::shared_ptr<Engine> r, int samplesPerStep) : state_(std::move(state)), target_(std::move(target)), r_(r), scheduler_(r_, samplesPerStep) {
         using namespace core::samplers;
 
-        [[maybe_unused]] double totalInfections = state_->infections.size();
-        [[maybe_unused]] double totalLoci       = state_->loci.size();
+        [[maybe_unused]] float totalInfections = state_->infections.size();
+        [[maybe_unused]] float totalLoci       = state_->loci.size();
 
         scheduler_.registerSampler({.sampler         = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->meanCOI, target_, 1.0, 20, r, 1, .1, 1),
                                     .id              = "Mean COI",
@@ -46,7 +46,7 @@ namespace transmission_nets::impl::ModelNine {
         for (auto& infection : state_->infections) {
 
             bool isSymptomatic = infection->isSymptomatic();
-            double upperBound = isSymptomatic ? state_->symptomaticInfectionDurationDist->value().size() : state_->asymptomaticInfectionDurationDist->value().size();
+            float upperBound = isSymptomatic ? state_->symptomaticInfectionDurationDist->value().size() : state_->asymptomaticInfectionDurationDist->value().size();
 
             scheduler_.registerSampler({
                     .sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target_, 1.0, upperBound, r, 1, .1, 2),

@@ -32,10 +32,10 @@ namespace transmission_nets::model::transmission_process {
                                      public core::abstract::Cacheable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>>,
                                      public core::abstract::Checkpointable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>, std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>>> {
 
-        using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
+        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
 
     public:
-        explicit NoSuperInfectionMutation(p_ParameterDouble mutProb, p_ParameterDouble lossProb, std::shared_ptr<InterTransmissionProbImpl> intp);
+        explicit NoSuperInfectionMutation(p_Parameterfloat mutProb, p_Parameterfloat lossProb, std::shared_ptr<InterTransmissionProbImpl> intp);
 
         std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>> value() noexcept override;
 
@@ -56,15 +56,15 @@ namespace transmission_nets::model::transmission_process {
         friend class core::abstract::Checkpointable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>, std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>>>;
         friend class core::abstract::Cacheable<NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>>;
 
-        p_ParameterDouble mutProb_;
-        p_ParameterDouble lossProb_;
+        p_Parameterfloat mutProb_;
+        p_Parameterfloat lossProb_;
         std::shared_ptr<InterTransmissionProbImpl> intp_;
     };
 
 
     template<int MaxTransmissions, typename InterTransmissionProbImpl>
     NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::NoSuperInfectionMutation(
-            p_ParameterDouble mutProb, p_ParameterDouble lossProb, std::shared_ptr<InterTransmissionProbImpl> intp) : mutProb_(std::move(mutProb)), lossProb_(std::move(lossProb)), intp_(std::move(intp)) {
+            p_Parameterfloat mutProb, p_Parameterfloat lossProb, std::shared_ptr<InterTransmissionProbImpl> intp) : mutProb_(std::move(mutProb)), lossProb_(std::move(lossProb)), intp_(std::move(intp)) {
         mutProb_->registerCacheableCheckpointTarget(this);
         mutProb_->add_post_change_listener([=, this]() { this->setDirty(); });
 
@@ -91,7 +91,7 @@ namespace transmission_nets::model::transmission_process {
     template<int MaxTransmissions, typename InterTransmissionProbImpl>
     std::vector<core::datatypes::LogProbabilityTransitionMatrix<2>> NoSuperInfectionMutation<MaxTransmissions, InterTransmissionProbImpl>::value() noexcept {
         if (this->isDirty()) {
-            core::datatypes::SquareMatrix<double, 2> t_mat;
+            core::datatypes::SquareMatrix<float, 2> t_mat;
             t_mat << 1 - mutProb_->value(), mutProb_->value(),
                     lossProb_->value(), 1 - lossProb_->value();
 

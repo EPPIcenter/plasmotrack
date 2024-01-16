@@ -27,14 +27,14 @@ namespace transmission_nets::core::samplers::specialized {
                 std::shared_ptr<InfectionEventImpl> infection,
                 std::shared_ptr<ParentSetImpl> ps,
                 std::shared_ptr<InfectionEventImpl> latent_parent,
-                std::shared_ptr<parameters::Parameter<double>> infection_time,
+                std::shared_ptr<parameters::Parameter<float>> infection_time,
                 std::shared_ptr<T> target,
                 std::shared_ptr<Engine> rng,
-                double lower_bound = 1.0,
-                double upper_bound = 1000.0,
-                double variance = 3.0,
-                double fn_rate = 0.05,
-                double fp_rate = 0.05
+                float lower_bound = 1.0,
+                float upper_bound = 1000.0,
+                float variance = 3.0,
+                float fn_rate = 0.05,
+                float fp_rate = 0.05
                 ) noexcept;
 
         void update() noexcept override;
@@ -43,7 +43,7 @@ namespace transmission_nets::core::samplers::specialized {
 
         [[nodiscard]] unsigned int rejections() noexcept;
 
-        [[nodiscard]] double acceptanceRate() noexcept;
+        [[nodiscard]] float acceptanceRate() noexcept;
 
         [[nodiscard]] Likelihood calculateSamplingProb() noexcept;
 
@@ -51,14 +51,14 @@ namespace transmission_nets::core::samplers::specialized {
         std::shared_ptr<InfectionEventImpl> infection_;
         std::shared_ptr<ParentSetImpl> ps_;
         std::shared_ptr<InfectionEventImpl> latent_parent_;
-        std::shared_ptr<parameters::Parameter<double>> infection_duration_;
+        std::shared_ptr<parameters::Parameter<float>> infection_duration_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
-        double lower_bound_;
-        double upper_bound_;
-        double variance_;
-        double fn_rate_;
-        double fp_rate_;
+        float lower_bound_;
+        float upper_bound_;
+        float variance_;
+        float fn_rate_;
+        float fp_rate_;
 
         boost::random::uniform_01<> uniform_dist_{};
         boost::random::normal_distribution<> normal_dist_{0, 1};
@@ -74,14 +74,14 @@ namespace transmission_nets::core::samplers::specialized {
             std::shared_ptr<InfectionEventImpl> infection,
             std::shared_ptr<ParentSetImpl> ps,
             std::shared_ptr<InfectionEventImpl> latent_parent,
-            std::shared_ptr<parameters::Parameter<double>> infection_time,
+            std::shared_ptr<parameters::Parameter<float>> infection_time,
             std::shared_ptr<T> target,
             std::shared_ptr<Engine> rng,
-            double lower_bound,
-            double upper_bound,
-            double variance,
-            double fn_rate,
-            double fp_rate) noexcept :
+            float lower_bound,
+            float upper_bound,
+            float variance,
+            float fn_rate,
+            float fp_rate) noexcept :
                                                     infection_(std::move(infection)),
                                                     ps_(std::move(ps)),
                                                     latent_parent_(std::move(latent_parent)),
@@ -111,13 +111,13 @@ namespace transmission_nets::core::samplers::specialized {
         Likelihood current_state_prob = calculateSamplingProb();
 
         // update infection time
-        double cur_infection_time = infection_duration_->value();
+        float cur_infection_time = infection_duration_->value();
         infection_duration_->saveState(stateId);
 
-        const double eps           = normal_dist_(*rng_) * variance_;
-        const double unconstrained = std::log(cur_infection_time - lower_bound_) - std::log(upper_bound_ - cur_infection_time);
-        const double exp_prop      = std::exp(eps + unconstrained);
-        const double proposed_infection_time = std::clamp((upper_bound_ * exp_prop + lower_bound_) / (exp_prop + 1), lower_bound_, upper_bound_);
+        const float eps           = normal_dist_(*rng_) * variance_;
+        const float unconstrained = std::log(cur_infection_time - lower_bound_) - std::log(upper_bound_ - cur_infection_time);
+        const float exp_prop      = std::exp(eps + unconstrained);
+        const float proposed_infection_time = std::clamp((upper_bound_ * exp_prop + lower_bound_) / (exp_prop + 1), lower_bound_, upper_bound_);
 
         auto adj = log(proposed_infection_time - lower_bound_) +
                    log(upper_bound_ - proposed_infection_time) -
@@ -128,7 +128,7 @@ namespace transmission_nets::core::samplers::specialized {
 
         // Calculate the total number of possible parent sets across possible parent set sizes
         for (size_t i = 1; i <= MaxParentSetSize and i <= tmp_ps.size(); ++i) {
-            total_possible_parent_sets += boost::math::binomial_coefficient<double>(tmp_ps.size(), i);
+            total_possible_parent_sets += boost::math::binomial_coefficient<float>(tmp_ps.size(), i);
             cumulative_possible_parent_set_sizes.push_back(total_possible_parent_sets);
         }
 
@@ -272,7 +272,7 @@ namespace transmission_nets::core::samplers::specialized {
         Likelihood proposed_state_prob = calculateSamplingProb();
 
         const auto acceptanceRatio = target_->value() - cur_lik + current_state_prob - proposed_state_prob + adj;
-        // if (acceptanceRatio >= std::numeric_limits<double>::infinity()) {
+        // if (acceptanceRatio >= std::numeric_limits<float>::infinity()) {
         //     fmt::print("Acceptance ratio is infinity\n");
         //     fmt::print("Current state prob: {}\n", current_state_prob);
         //     fmt::print("Proposed state prob: {}\n", proposed_state_prob);

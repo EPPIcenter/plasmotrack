@@ -8,7 +8,7 @@
 
 namespace transmission_nets::impl::ModelNine {
 
-    Model::Model(std::shared_ptr<State> state, double temperature) : state_(std::move(state)), temperature(temperature) {
+    Model::Model(std::shared_ptr<State> state, float temperature) : state_(std::move(state)), temperature(temperature) {
         likelihood.add_set_dirty_listener([=, this]() {
             this->setDirty();
         });
@@ -41,9 +41,9 @@ namespace transmission_nets::impl::ModelNine {
             // infection duration likelihood
 
             if (infection->isSymptomatic()) {
-                prior.addTarget(std::make_shared<core::distributions::DiscretePDF<double>>(infection->infectionDuration(), state_->symptomaticInfectionDurationDist, "symptomatic_infection_duration"));
+                prior.addTarget(std::make_shared<core::distributions::DiscretePDF<float>>(infection->infectionDuration(), state_->symptomaticInfectionDurationDist, "symptomatic_infection_duration"));
             } else {
-                prior.addTarget(std::make_shared<core::distributions::DiscretePDF<double>>(infection->infectionDuration(), state_->asymptomaticInfectionDurationDist, "asymptomatic_infection_duration"));
+                prior.addTarget(std::make_shared<core::distributions::DiscretePDF<float>>(infection->infectionDuration(), state_->asymptomaticInfectionDurationDist, "asymptomatic_infection_duration"));
             }
 
 
@@ -82,26 +82,26 @@ namespace transmission_nets::impl::ModelNine {
         this->setDirty();
     }
 
-    Model::Model(State& state, double temperature) : Model(std::make_shared<State>(state), temperature) {}
+    Model::Model(State& state, float temperature) : Model(std::make_shared<State>(state), temperature) {}
 
     std::string Model::identifier() {
         return "ModelNine";
     }
 
-    double Model::getTemperature() const {
+    float Model::getTemperature() const {
         return temperature;
     }
 
-    void Model::setTemperature(double t) {
+    void Model::setTemperature(float t) {
         this->temperature = t;
         this->setDirty();
     }
 
-    double Model::getPrior() {
+    float Model::getPrior() {
         return prior.value();
     }
 
-    double Model::getLikelihood() {
+    float Model::getLikelihood() {
         return likelihood.value();
     }
 

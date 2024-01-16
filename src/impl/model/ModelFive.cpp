@@ -44,9 +44,9 @@
 //        loggers_.push_back(new core::io::ValueLogger(state_.infectionDurationScale, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_duration_scale.csv", "infection_duration_scale")));
 //        loggers_.push_back(new core::io::ValueLogger(state_.infectionEventOrdering, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_order.csv", "infection_order")));
 //
-//        auto eps_pos_logger = new core::io::MultiValueLogger<core::parameters::Parameter<double>>(std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "eps_pos.csv", "id, eps_pos, iter"));
-//        auto eps_neg_logger = new core::io::MultiValueLogger<core::parameters::Parameter<double>>(std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "eps_neg.csv", "id, eps_neg, iter"));
-//        auto infection_duration_logger = new core::io::MultiValueLogger<core::parameters::Parameter<double>>(std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_duration.csv", "id, infection_duration, iter"));
+//        auto eps_pos_logger = new core::io::MultiValueLogger<core::parameters::Parameter<float>>(std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "eps_pos.csv", "id, eps_pos, iter"));
+//        auto eps_neg_logger = new core::io::MultiValueLogger<core::parameters::Parameter<float>>(std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "eps_neg.csv", "id, eps_neg, iter"));
+//        auto infection_duration_logger = new core::io::MultiValueLogger<core::parameters::Parameter<float>>(std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "infection_duration.csv", "id, infection_duration, iter"));
 //        int i = 0;
 //        for (auto &infection : state_.infections) {
 //            eps_pos_logger->addTarget(infection->id(), state_.observationFalsePositiveRates[i]);

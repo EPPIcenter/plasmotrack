@@ -27,7 +27,7 @@ namespace transmission_nets::core::samplers::genetics {
 
         [[nodiscard]] unsigned int rejections() noexcept;
 
-        [[nodiscard]] double acceptanceRate() noexcept;
+        [[nodiscard]] float acceptanceRate() noexcept;
 
         [[nodiscard]] Likelihood logMetropolisHastingsAdjustment(const AllelesBitSetImpl& curr, const AllelesBitSetImpl& prop) noexcept;
 
@@ -130,8 +130,8 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
-    double RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::acceptanceRate() noexcept {
-        return double(acceptances_) / (acceptances_ + rejections_);
+    float RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::acceptanceRate() noexcept {
+        return float(acceptances_) / (acceptances_ + rejections_);
     }
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>

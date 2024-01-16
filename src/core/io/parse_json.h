@@ -74,7 +74,7 @@ namespace transmission_nets::core::io {
     std::shared_ptr<AlleleFrequencyContainerImpl> parseAlleleFrequenciesFromJSON(
             const json& input,
             std::map<std::string, std::shared_ptr<LocusImpl>> loci,
-            const double minAlleleFreq = .01,
+            const float minAlleleFreq = .01,
             const char alleleFrequencyKey[] = "allele_freqs",
             const char lociKey[] = "loci",
             const char locusLabelKey[] = "locus") {
@@ -84,7 +84,7 @@ namespace transmission_nets::core::io {
             std::string locusLabel = afEntry.at(locusLabelKey);
             auto locus = loci.at(locusLabel);
             afContainer->addLocus(locus);
-            std::vector<double> afToLoad = afEntry.at(alleleFrequencyKey);
+            std::vector<float> afToLoad = afEntry.at(alleleFrequencyKey);
 
             for (auto& af : afToLoad) {
                 if (af < minAlleleFreq) {
@@ -92,7 +92,7 @@ namespace transmission_nets::core::io {
                 }
             }
 
-            auto af = core::datatypes::Simplex(std::vector<double>(afToLoad));
+            auto af = core::datatypes::Simplex(std::vector<float>(afToLoad));
             afContainer->alleleFrequencies(locus)->initializeValue(af);
         }
 
@@ -125,7 +125,7 @@ namespace transmission_nets::core::io {
                 symptomatic = inf.at(symptomaticKey);
             }
 
-            double obs_time = inf.at(observationDateKey);
+            float obs_time = inf.at(observationDateKey);
             if (obs_time < 0) {
                 std::cerr << "Observation time for node " << inf.at(idKey) << " is negative.\n";
                 exit(1);

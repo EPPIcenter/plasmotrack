@@ -16,7 +16,7 @@
 
 namespace transmission_nets::core::io {
 
-    inline std::string serialize(const double val) noexcept {
+    inline std::string serialize(const float val) noexcept {
         return fmt::format("{}", val);
     }
 

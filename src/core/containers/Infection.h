@@ -35,7 +35,7 @@ namespace transmission_nets::core::containers {
         using GenotypeDataMap      = GenotypeMap<std::shared_ptr<datatypes::Data<GeneticImpl>>>;
         using GenotypeParameterMap = GenotypeMap<std::shared_ptr<parameters::Parameter<GeneticImpl>>>;
 
-        explicit Infection(std::string id, double observationTime, bool symptomatic = true);
+        explicit Infection(std::string id, float observationTime, bool symptomatic = true);
 
         Infection(const Infection& other, const std::string& id = "", bool retain_alleles = true) {
             static int uid = 0;
@@ -128,7 +128,7 @@ namespace transmission_nets::core::containers {
          * @brief Returns the observation time of the infection.
          * @return The observation time of the infection.
          */
-        [[nodiscard]] std::shared_ptr<datatypes::Data<double>> observationTime() const {
+        [[nodiscard]] std::shared_ptr<datatypes::Data<float>> observationTime() const {
             return observationTime_;
         }
 
@@ -136,7 +136,7 @@ namespace transmission_nets::core::containers {
          * @brief Returns the duration of the infection.
          * @return The duration of the infection.
          */
-        [[nodiscard]] std::shared_ptr<parameters::Parameter<double>> infectionDuration() const {
+        [[nodiscard]] std::shared_ptr<parameters::Parameter<float>> infectionDuration() const {
             return infectionDuration_;
         }
 
@@ -144,8 +144,8 @@ namespace transmission_nets::core::containers {
          * @brief Returns the time of the infection.
          * @return The time of the infection.
          */
-        double infectionTime() {
-            double infectionTime = observationTime_->value() - infectionDuration_->value();
+        float infectionTime() {
+            float infectionTime = observationTime_->value() - infectionDuration_->value();
             return infectionTime;
         }
 
@@ -217,16 +217,16 @@ namespace transmission_nets::core::containers {
         GenotypeMap<std::shared_ptr<datatypes::Data<GeneticImpl>>> observedGenotype_{};
         GenotypeMap<std::shared_ptr<parameters::Parameter<GeneticImpl>>> latentGenotype_{};
         std::vector<std::shared_ptr<LocusImpl>> loci_{};
-        std::shared_ptr<datatypes::Data<double>> observationTime_;
-        std::shared_ptr<parameters::Parameter<double>> infectionDuration_;// default to 100 days? or maybe something else -- look in constructor
+        std::shared_ptr<datatypes::Data<float>> observationTime_;
+        std::shared_ptr<parameters::Parameter<float>> infectionDuration_;// default to 100 days? or maybe something else -- look in constructor
         std::shared_ptr<datatypes::Data<bool>> symptomatic_{};
     };
 
     template<typename GeneticImpl, typename LocusImpl>
-    Infection<GeneticImpl, LocusImpl>::Infection(std::string id, const double observationTime, const bool symptomatic) : id_(std::move(id)), observationTime_(std::make_shared<datatypes::Data<double>>(observationTime)), symptomatic_(std::make_shared<datatypes::Data<bool>>(symptomatic)) {
+    Infection<GeneticImpl, LocusImpl>::Infection(std::string id, const float observationTime, const bool symptomatic) : id_(std::move(id)), observationTime_(std::make_shared<datatypes::Data<float>>(observationTime)), symptomatic_(std::make_shared<datatypes::Data<bool>>(symptomatic)) {
         static int uid = 0;
         uid_ = uid++;
-        infectionDuration_ = std::make_shared<parameters::Parameter<double>>(10.0);
+        infectionDuration_ = std::make_shared<parameters::Parameter<float>>(10.0);
         infectionDuration_->initializeValue(10.0);
 
         //        infectionDuration_->add_pre_change_listener([=, this]() { this->notify_pre_change(); });

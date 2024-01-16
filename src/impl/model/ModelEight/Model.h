@@ -14,23 +14,23 @@
 namespace transmission_nets::impl::ModelEight {
     struct Model : core::computation::PartialLikelihood {
         using ModelLikelihood = core::computation::Accumulator<core::computation::PartialLikelihood, Likelihood>;
-        explicit Model(std::shared_ptr<State> state, double temperature = 1.0);
-        explicit Model(State& state, double temperature = 1.0);
+        explicit Model(std::shared_ptr<State> state, float temperature = 1.0);
+        explicit Model(State& state, float temperature = 1.0);
 
         Likelihood value() override;
         Likelihood valueThreadSafe();
         std::string identifier() override;
-        [[nodiscard]] double getTemperature() const;
-        void setTemperature(double t);
+        [[nodiscard]] float getTemperature() const;
+        void setTemperature(float t);
 
-        [[nodiscard]] double getPrior();
-        double getLikelihood();
+        [[nodiscard]] float getPrior();
+        float getLikelihood();
 
         std::shared_ptr<State> state_;
 
         ModelLikelihood likelihood;
         ModelLikelihood prior;
-        double temperature;
+        float temperature;
 
         // Observation Process
         std::vector<std::shared_ptr<model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>>> observationProcessLikelihoodList{};

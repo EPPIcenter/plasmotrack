@@ -7,11 +7,11 @@
 #include <cmath>
 
 namespace transmission_nets::core::utils {
-    LogPQ::LogPQ(const std::vector<double>& x) {
+    LogPQ::LogPQ(const std::vector<float>& x) {
         logP.reserve(x.size());
         logQ.reserve(x.size());
         for (const auto el : x) {
-            double ex = std::exp(el);
+            float ex = std::exp(el);
             if (el < 0) {
                 logQ.push_back(-std::log1p(ex));
                 logP.push_back(logQ.back() + el);

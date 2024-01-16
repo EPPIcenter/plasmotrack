@@ -19,31 +19,31 @@
 // Random Walk Metropolis Hastings using a gaussian proposal distribution centered at the current value
 
 namespace transmission_nets::core::samplers {
-    template<typename T, typename Engine = boost::random::mt19937, typename U = double>
+    template<typename T, typename Engine = boost::random::mt19937, typename U = float>
     class ContinuousRandomWalk : public AbstractSampler {
 
     public:
-        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept;
+        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept;
 
-        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance) noexcept;
+        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, float variance) noexcept;
 
-        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, double minVariance,
-                             double maxVariance) noexcept;
+        ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, float variance, float minVariance,
+                             float maxVariance) noexcept;
 
 
         [[nodiscard]] unsigned int acceptances() const noexcept;
 
         [[nodiscard]] unsigned int rejections() const noexcept;
 
-        [[nodiscard]] double variance() const noexcept;
+        [[nodiscard]] float variance() const noexcept;
 
-        [[nodiscard]] double acceptanceRate() const noexcept;
+        [[nodiscard]] float acceptanceRate() const noexcept;
 
-        void setTargetAcceptanceRate(double target) noexcept;
+        void setTargetAcceptanceRate(float target) noexcept;
 
-        void setAdaptationRate(double rate) noexcept;
+        void setAdaptationRate(float rate) noexcept;
 
-        virtual double sampleProposal() noexcept;
+        virtual float sampleProposal() noexcept;
 
         [[nodiscard]] virtual Likelihood
         logMetropolisHastingsAdjustment([[maybe_unused]] U curr, [[maybe_unused]] U proposed) const noexcept;
@@ -56,43 +56,43 @@ namespace transmission_nets::core::samplers {
 
 
     protected:
-        std::shared_ptr<parameters::Parameter<double>> parameter_;
+        std::shared_ptr<parameters::Parameter<float>> parameter_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
-        double variance_     = 1;
-        double min_variance_ = 1e-12;
-        double max_variance_ = 1e6;
+        float variance_     = 1;
+        float min_variance_ = 1e-12;
+        float max_variance_ = 1e6;
 
         boost::random::normal_distribution<> normal_dist_{0, 1};
         boost::random::uniform_01<> uniform_dist_{};
 
-        double adaptation_rate_        = .5;
-        double target_acceptance_rate_ = .23;
+        float adaptation_rate_        = .5;
+        float target_acceptance_rate_ = .23;
 
         unsigned int acceptances_   = 0;
         unsigned int rejections_    = 0;
         unsigned int total_updates_ = 0;
 
-        double timeSpentSampling_ = 0;
+        float timeSpentSampling_ = 0;
 
 
     };
 
     template<typename T, typename Engine, typename U>
-    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng) noexcept
         : parameter_(std::move(parameter)),
           target_(target), rng_(rng) {}
 
     template<typename T, typename Engine, typename U>
-    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
-                                                             double variance) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance) {
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
+                                                             float variance) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance) {
         assert(variance > 0);
     }
 
     template<typename T, typename Engine, typename U>
-    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
-                                                             double variance, double minVariance,
-                                                             double maxVariance) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance), min_variance_(minVariance),
+    ContinuousRandomWalk<T, Engine, U>::ContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng,
+                                                             float variance, float minVariance,
+                                                             float maxVariance) noexcept : parameter_(std::move(parameter)), target_(target), rng_(rng), variance_(variance), min_variance_(minVariance),
                                                                                                                     max_variance_(maxVariance) {}
 
     template<typename T, typename Engine, typename U>
@@ -101,8 +101,8 @@ namespace transmission_nets::core::samplers {
         Likelihood curLik         = target_->value();
         parameter_->saveState(stateId);
 
-        const double currentVal = parameter_->value();
-        const double proposal   = sampleProposal();
+        const float currentVal = parameter_->value();
+        const float proposal   = sampleProposal();
 
         assert(!target_->isDirty());
         parameter_->setValue(proposal);
@@ -175,12 +175,12 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine, typename U>
-    double ContinuousRandomWalk<T, Engine, U>::acceptanceRate() const noexcept {
-        return double(acceptances_) / double(rejections_ + acceptances_);
+    float ContinuousRandomWalk<T, Engine, U>::acceptanceRate() const noexcept {
+        return float(acceptances_) / float(rejections_ + acceptances_);
     }
 
     template<typename T, typename Engine, typename U>
-    double ContinuousRandomWalk<T, Engine, U>::sampleProposal() noexcept {
+    float ContinuousRandomWalk<T, Engine, U>::sampleProposal() noexcept {
         return parameter_->value() + normal_dist_(*rng_) * variance_;
     }
 
@@ -192,17 +192,17 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine, typename U>
-    double ContinuousRandomWalk<T, Engine, U>::variance() const noexcept {
+    float ContinuousRandomWalk<T, Engine, U>::variance() const noexcept {
         return variance_;
     }
 
     template<typename T, typename Engine, typename U>
-    void ContinuousRandomWalk<T, Engine, U>::setTargetAcceptanceRate(double target) noexcept {
+    void ContinuousRandomWalk<T, Engine, U>::setTargetAcceptanceRate(float target) noexcept {
         target_acceptance_rate_ = target;
     }
 
     template<typename T, typename Engine, typename U>
-    void ContinuousRandomWalk<T, Engine, U>::setAdaptationRate(double rate) noexcept {
+    void ContinuousRandomWalk<T, Engine, U>::setAdaptationRate(float rate) noexcept {
         adaptation_rate_ = rate;
     }
 }// namespace transmission_nets::core::samplers

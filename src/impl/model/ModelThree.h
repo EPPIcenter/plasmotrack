@@ -45,18 +45,18 @@
 //        using ParentSetImpl = core::containers::ParentSet<InfectionEvent>;
 //        using TransmissionProcess = model::transmission_process::NetworkBasedTransmissionProcess<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, InfectionEvent>;
 //
-////    using BetaPrior = Prior<boost::math::beta_distribution<>, Parameter<double>, int, int>;
-////    using GammaPrior = Prior<boost::math::gamma_distribution<>, Parameter<double>, double, double>;
+////    using BetaPrior = Prior<boost::math::beta_distribution<>, Parameter<float>, int, int>;
+////    using GammaPrior = Prior<boost::math::gamma_distribution<>, Parameter<float>, float, float>;
 //
 //    public:
 //        explicit ModelThree(State& state);
 //
-//        double value();
+//        float value();
 //
 //        bool isDirty();
 //
 //        State& state;
-//        core::computation::Accumulator<core::computation::PartialLikelihood, double> likelihood;
+//        core::computation::Accumulator<core::computation::PartialLikelihood, float> likelihood;
 //
 //        // Observation Process
 //        std::vector<AlleleCounterImpl *> alleleCounters{};

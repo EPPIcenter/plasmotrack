@@ -26,17 +26,17 @@ namespace transmission_nets::model::transmission_process {
     using Likelihood = core::computation::Likelihood;
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    class SimpleLoss : public core::computation::Computation<std::array<double, MAX_TRANSMISSIONS + 1>>,
+    class SimpleLoss : public core::computation::Computation<std::array<float, MAX_TRANSMISSIONS + 1>>,
                        public core::abstract::Observable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>,
                        public core::abstract::Cacheable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>,
-                       public core::abstract::Checkpointable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<double, MAX_TRANSMISSIONS + 1>> {
+                       public core::abstract::Checkpointable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<float, MAX_TRANSMISSIONS + 1>> {
 
-        using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
+        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
 
     public:
-        explicit SimpleLoss(p_ParameterDouble loss_prob, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb);
+        explicit SimpleLoss(p_Parameterfloat loss_prob, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb);
 
-        std::array<double, MAX_TRANSMISSIONS + 1> value() noexcept override;
+        std::array<float, MAX_TRANSMISSIONS + 1> value() noexcept override;
 
         template<typename GeneticsImpl>
         Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
@@ -73,17 +73,17 @@ namespace transmission_nets::model::transmission_process {
 
 
     private:
-        friend class core::abstract::Checkpointable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<double, MAX_TRANSMISSIONS + 1>>;
+        friend class core::abstract::Checkpointable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>, std::array<float, MAX_TRANSMISSIONS + 1>>;
         friend class core::abstract::Cacheable<SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>>;
 
 
         std::array<std::array<unsigned int, MAX_PARENTSET_SIZE + 1>, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> kVecs_ = core::utils::initKvecs<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE>();
 
-        p_ParameterDouble lossProb_;
+        p_Parameterfloat lossProb_;
         std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb_;
 
         // Private store for probabilities when calculating the likelihood.
-        std::array<double, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> probs_{};
+        std::array<float, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> probs_{};
 
         // tracks [x, y, z] where x, y, and z are the number of alleles that are lost in the transmission process.
         std::array<unsigned int, MAX_PARENTSET_SIZE + 1> allelesLostCounter_{0};
@@ -94,7 +94,7 @@ namespace transmission_nets::model::transmission_process {
 
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::SimpleLoss(p_ParameterDouble loss_prob, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb) : lossProb_(std::move(loss_prob)), interTransmissionProb_(std::move(interTransmissionProb)) {
+    SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::SimpleLoss(p_Parameterfloat loss_prob, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb) : lossProb_(std::move(loss_prob)), interTransmissionProb_(std::move(interTransmissionProb)) {
         lossProb_->template registerCacheableCheckpointTarget(this);
         lossProb_->add_post_change_listener([this]() {
             this->setDirty();
@@ -111,7 +111,7 @@ namespace transmission_nets::model::transmission_process {
     }
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
-    std::array<double, MAX_TRANSMISSIONS + 1> SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::value() noexcept {
+    std::array<float, MAX_TRANSMISSIONS + 1> SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::value() noexcept {
         /*
          * Value is probability vector of not losing an allele up to that number of transmissions. Probability of losing an allele is 1 - value().
          */
@@ -223,11 +223,11 @@ namespace transmission_nets::model::transmission_process {
         for (size_t ii = 0; ii < (unsigned long) std::pow(MAX_TRANSMISSIONS, numParents); ++ii) {
             auto kVec = kVecs_[ii];
 
-            double all_parents_lost_prob = 1.0;
+            float all_parents_lost_prob = 1.0;
             // Calculate the probability of losses in the transmission process
             for (size_t parentIdx = 0; parentIdx < numParents; ++parentIdx) {
                 // probability that an allele is lost after k generations
-                const double loss_prob = 1.0 - this->value()[kVec[parentIdx]];
+                const float loss_prob = 1.0 - this->value()[kVec[parentIdx]];
                 all_parents_lost_prob *= loss_prob;
                 probs_[ii] += allelesLostCounter_[parentIdx] * std::log(loss_prob);
 
@@ -245,7 +245,7 @@ namespace transmission_nets::model::transmission_process {
                 while (!psIdxGen.completed) {
                     // start with everything being multiplied out, i.e. all events happened
                     // for example (abc)
-                    double tmpProb = all_parents_lost_prob;
+                    float tmpProb = all_parents_lost_prob;
                     for (const auto& pIdx : psIdxGen.curr) {
                         // remove each parent inside the indexed subset
                         tmpProb /= (1.0 - this->value()[kVec[pIdx]]);
@@ -398,11 +398,11 @@ namespace transmission_nets::model::transmission_process {
             auto kVec        = kVecs_[ii];// vector of numbers of transmission events for each parent
             kVec[numParents] = 0;         // the latent parent must be a subset of the observed node
 
-            double all_parents_lost_prob = 1.0;
+            float all_parents_lost_prob = 1.0;
             // Calculate the probability of losses in the transmission process
             for (size_t parentIdx = 0; parentIdx < numParents; ++parentIdx) {
                 // probability that an allele is lost after k generations
-                const double loss_prob = 1.0 - this->value()[kVec[parentIdx]];
+                const float loss_prob = 1.0 - this->value()[kVec[parentIdx]];
                 all_parents_lost_prob *= loss_prob;
                 probs_[ii] += allelesLostCounter_[parentIdx] * std::log(loss_prob);
 
@@ -426,7 +426,7 @@ namespace transmission_nets::model::transmission_process {
                 while (!psIdxGen.completed) {
                     // start with everything being multiplied out, i.e. all events happened
                     // for example (abc)
-                    double tmpProb = all_parents_lost_prob;
+                    float tmpProb = all_parents_lost_prob;
                     for (const auto& pIdx : psIdxGen.curr) {
                         // remove each parent inside the indexed subset
                         tmpProb /= (1.0 - this->value()[kVec[pIdx]]);
@@ -598,11 +598,11 @@ namespace transmission_nets::model::transmission_process {
 //        for (size_t ii = 0; ii < (unsigned long) std::pow(MAX_TRANSMISSIONS, numParents); ++ii) {
 //            auto kVec = kVecs_[ii];
 //
-//            double all_parents_lost_prob = 1.0;
+//            float all_parents_lost_prob = 1.0;
 //            // Calculate the probability of losses in the transmission process
 //            for (size_t parentIdx = 0; parentIdx < numParents; ++parentIdx) {
 //                // probability that an allele is lost after k generations
-//                const double loss_prob = 1.0 - this->peek()[kVec[parentIdx]];
+//                const float loss_prob = 1.0 - this->peek()[kVec[parentIdx]];
 //                all_parents_lost_prob *= loss_prob;
 //                probs_[ii] += allelesLostCounter_[parentIdx] * std::log(loss_prob);
 //
@@ -620,7 +620,7 @@ namespace transmission_nets::model::transmission_process {
 //                while (!psIdxGen.completed) {
 //                    // start with everything being multiplied out, i.e. all events happened
 //                    // for example (abc)
-//                    double tmpProb = all_parents_lost_prob;
+//                    float tmpProb = all_parents_lost_prob;
 //                    for (const auto& pIdx : psIdxGen.curr) {
 //                        // remove each parent inside the indexed subset
 //                        tmpProb /= (1.0 - this->peek()[kVec[pIdx]]);
@@ -741,11 +741,11 @@ namespace transmission_nets::model::transmission_process {
 //            auto kVec        = kVecs_[ii];// vector of numbers of transmission events for each parent
 //            kVec[numParents] = 1;         // the latent parent always has one transmission event
 //
-//            double all_parents_lost_prob = 1.0;
+//            float all_parents_lost_prob = 1.0;
 //            // Calculate the probability of losses in the transmission process
 //            for (size_t parentIdx = 0; parentIdx < numParents; ++parentIdx) {
 //                // probability that an allele is lost after k generations
-//                const double loss_prob = 1.0 - this->peek()[kVec[parentIdx]];
+//                const float loss_prob = 1.0 - this->peek()[kVec[parentIdx]];
 //                all_parents_lost_prob *= loss_prob;
 //                probs_[ii] += allelesLostCounter_[parentIdx] * std::log(loss_prob);
 //
@@ -769,7 +769,7 @@ namespace transmission_nets::model::transmission_process {
 //                while (!psIdxGen.completed) {
 //                    // start with everything being multiplied out, i.e. all events happened
 //                    // for example (abc)
-//                    double tmpProb = all_parents_lost_prob;
+//                    float tmpProb = all_parents_lost_prob;
 //                    for (const auto& pIdx : psIdxGen.curr) {
 //                        // remove each parent inside the indexed subset
 //                        tmpProb /= (1.0 - this->peek()[kVec[pIdx]]);

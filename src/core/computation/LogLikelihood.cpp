@@ -7,7 +7,7 @@
 
 namespace transmission_nets::core::computation {
 
-    LogLikelihood::LogLikelihood(double value, std::string id) : value_(value), id_(std::move(id)) {}
+    LogLikelihood::LogLikelihood(float value, std::string id) : value_(value), id_(std::move(id)) {}
 
     LogLikelihood::LogLikelihood(std::string id) : value_(0), id_(std::move(id)) {}
 

@@ -29,7 +29,7 @@ namespace transmission_nets::core::samplers::topology {
 
         [[nodiscard]] unsigned int rejections() noexcept;
 
-        [[nodiscard]] double acceptanceRate() noexcept;
+        [[nodiscard]] float acceptanceRate() noexcept;
 
     private:
         parameters::Ordering<OrderingElement>& parameter_;
@@ -122,8 +122,8 @@ namespace transmission_nets::core::samplers::topology {
     }
 
     template<typename T, typename OrderingElement, typename Engine>
-    double OrderSampler<T, OrderingElement, Engine>::acceptanceRate() noexcept {
-        return double(acceptances_) / (acceptances_ + rejections_);
+    float OrderSampler<T, OrderingElement, Engine>::acceptanceRate() noexcept {
+        return float(acceptances_) / (acceptances_ + rejections_);
     }
 
 }// namespace transmission_nets::core::samplers::topology

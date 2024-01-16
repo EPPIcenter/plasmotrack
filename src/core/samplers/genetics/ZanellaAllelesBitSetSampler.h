@@ -29,13 +29,13 @@ namespace transmission_nets::core::samplers::genetics {
         AllelesBitSetImpl sampleProposal(const AllelesBitSetImpl& curr, const std::vector<Likelihood>& neighborhoodLik) noexcept;
         AllelesBitSetImpl sampleProposal(const AllelesBitSetImpl& curr, const std::vector<Likelihood>& neighborhoodLik, const std::vector<std::vector<unsigned int>>& indices) noexcept;
 
-        //        [[nodiscard]] double calcLogAcceptanceRatio(AllelesBitSetImpl& curr, AllelesBitSetImpl& prop) noexcept;
+        //        [[nodiscard]] float calcLogAcceptanceRatio(AllelesBitSetImpl& curr, AllelesBitSetImpl& prop) noexcept;
 
         [[nodiscard]] unsigned int acceptances() noexcept;
 
         [[nodiscard]] unsigned int rejections() noexcept;
 
-        [[nodiscard]] double acceptanceRate() noexcept;
+        [[nodiscard]] float acceptanceRate() noexcept;
 
     private:
         std::vector<Likelihood> calculateNeighborhoodLik() noexcept;
@@ -116,8 +116,8 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename AllelesBitSetImpl, unsigned int NeighborhoodSize>
-    double ZanellaAllelesBitSetSampler<T, Engine, AllelesBitSetImpl, NeighborhoodSize>::acceptanceRate() noexcept {
-        return double(acceptances_) / (acceptances_ + rejections_);
+    float ZanellaAllelesBitSetSampler<T, Engine, AllelesBitSetImpl, NeighborhoodSize>::acceptanceRate() noexcept {
+        return float(acceptances_) / (acceptances_ + rejections_);
     }
 
 
@@ -129,7 +129,7 @@ namespace transmission_nets::core::samplers::genetics {
         auto unifSample            = uniform_dist_(*rng_);
 
         int i         = 0;
-        double cumsum = 0;
+        float cumsum = 0;
         while (unifSample >= cumsum) {
 
 #ifdef DNDEBUG
@@ -165,7 +165,7 @@ namespace transmission_nets::core::samplers::genetics {
         auto unifSample            = uniform_dist_(*rng_);
 
         int i         = 0;
-        double cumsum = 0;
+        float cumsum = 0;
         while (unifSample >= cumsum) {
 
 #ifdef DNDEBUG

@@ -29,7 +29,7 @@ namespace transmission_nets::core::samplers {
             assert(parameter->value() < UPPER_BOUND);
         }
 
-        double sampleStride(int current) noexcept override;
+        float sampleStride(int current) noexcept override;
 
         Likelihood logMetropolisHastingsAdjustment(int current, int proposed) noexcept override;
 
@@ -41,12 +41,12 @@ namespace transmission_nets::core::samplers {
     };
 
     template<int LOWER_BOUND, int UPPER_BOUND, typename T, typename Engine>
-    double ConstrainedDiscreteRandomWalk<LOWER_BOUND, UPPER_BOUND, T, Engine>::sampleStride(int current) noexcept {
+    float ConstrainedDiscreteRandomWalk<LOWER_BOUND, UPPER_BOUND, T, Engine>::sampleStride(int current) noexcept {
         auto left_range  = std::min(current - LOWER_BOUND, int(max_distance_));
         auto right_range = std::min(UPPER_BOUND - current, int(max_distance_));
         int step;
 
-        if (uniform_dist_(*rng_) <= (double(left_range) / double(right_range))) {
+        if (uniform_dist_(*rng_) <= (float(left_range) / float(right_range))) {
             stride_sampling_dist_.param(boost::random::uniform_int_distribution<>::param_type(1, left_range));
             step = -stride_sampling_dist_(*rng_);
         } else {

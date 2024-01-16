@@ -44,7 +44,6 @@ include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
 set(SOURCE_FILES ModelNine.cpp)
 add_executable(transmission_networks_model_nine ${SOURCE_FILES})
 target_link_libraries(transmission_networks_model_nine
-
         PRIVATE
         transmission_networks
         nlohmann_json::nlohmann_json

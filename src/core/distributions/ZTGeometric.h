@@ -29,7 +29,7 @@ namespace transmission_nets::core::distributions {
                                                                                         MAX_COUNT + 1>> {
 
     public:
-        explicit ZTGeometric(std::shared_ptr<Parameter<double>> prob) noexcept;
+        explicit ZTGeometric(std::shared_ptr<Parameter<float>> prob) noexcept;
 
         datatypes::ProbabilityVector<MAX_COUNT + 1> value() noexcept;
 
@@ -39,11 +39,11 @@ namespace transmission_nets::core::distributions {
 
         friend class abstract::Cacheable<ZTGeometric<MAX_COUNT>>;
 
-        std::shared_ptr<Parameter<double>> prob_;
+        std::shared_ptr<Parameter<float>> prob_;
     };
 
     template<int MAX_COUNT>
-    ZTGeometric<MAX_COUNT>::ZTGeometric(std::shared_ptr<Parameter<double>> prob) noexcept : prob_(std::move(prob)) {
+    ZTGeometric<MAX_COUNT>::ZTGeometric(std::shared_ptr<Parameter<float>> prob) noexcept : prob_(std::move(prob)) {
         this->value_(0) = 0;
         prob_->registerCacheableCheckpointTarget(this);
         prob_->add_post_change_listener([=, this]() { this->setDirty(); });
@@ -55,7 +55,7 @@ namespace transmission_nets::core::distributions {
     template<int MAX_COUNT>
     datatypes::ProbabilityVector<MAX_COUNT + 1> ZTGeometric<MAX_COUNT>::value() noexcept {
         if (this->isDirty()) {
-            double denominator = 0.0;
+            float denominator = 0.0;
             for (int j = 1; j < MAX_COUNT + 1; ++j) {
                 this->value_(j) = pow(1 - prob_->value(), j) * (prob_->value());// geometric distribution pmf(j)
                 denominator += this->value_(j);

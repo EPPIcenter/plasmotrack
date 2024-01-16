@@ -10,9 +10,9 @@
 namespace transmission_nets::core::utils::timers {
 
     using Time = std::chrono::high_resolution_clock;
-    using dsec = std::chrono::duration<double>;
+    using dsec = std::chrono::duration<float>;
     using isec = std::chrono::duration<int>;
-    using fsec = std::chrono::duration<double>;
+    using fsec = std::chrono::duration<float>;
     using lsec = std::chrono::duration<long>;
 
     auto time() {

@@ -37,7 +37,7 @@ namespace transmission_nets::core::utils {
         // __m256 baseVec8{};
         // __m256 r8{};
         std::vector<Likelihood> baseVec{};
-        // std::vector<double> signVec{};
+        // std::vector<float> signVec{};
         generators::CombinationIndicesGenerator c;
     };
 
