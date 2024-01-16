@@ -63,7 +63,7 @@ namespace transmission_nets::core::utils {
         std::fill_n(probVec.begin(), totalEvents - 1, 1.0);
 
         //      Calculate via inclusion-exclusion principle
-        int sign = -1;
+        double sign = -1.0f;
         for (std::size_t i = 1; i <= totalEvents; ++i) {
             sign = -sign;
             c.reset(totalEvents, i);

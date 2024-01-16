@@ -5,11 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ALLELESAMPLER3_H
 #define TRANSMISSION_NETWORKS_APP_ALLELESAMPLER3_H
 
-#include <boost/math/distributions.hpp>
 #include <boost/random.hpp>
 
-#include "core/datatypes/Alleles.h"
-#include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
 #include "core/utils/generators/CombinationIndicesGenerator.h"
 #include "core/utils/numerics.h"
@@ -45,8 +42,8 @@ namespace transmission_nets::core::samplers::genetics {
         boost::random::uniform_01<> uniform_dist_{};
         boost::random::uniform_int_distribution<> parent_set_sampling_dist{};
 
-        unsigned int acceptances_   = 0;
-        unsigned int rejections_    = 0;
+        unsigned int acceptances_ = 0;
+        unsigned int rejections_ = 0;
         unsigned int total_updates_ = 0;
     };
 
@@ -56,18 +53,16 @@ namespace transmission_nets::core::samplers::genetics {
             std::shared_ptr<ParentSetImpl> ps,
             std::shared_ptr<InfectionEventImpl> latent_parent,
             std::shared_ptr<T> target,
-            std::shared_ptr<Engine> rng) noexcept :
-                                                    infection_(std::move(infection)),
-                                                    ps_(std::move(ps)),latent_parent_(std::move(latent_parent)),
+            std::shared_ptr<Engine> rng) noexcept : infection_(std::move(infection)),
+                                                    ps_(std::move(ps)), latent_parent_(std::move(latent_parent)),
                                                     target_(std::move(target)),
-                                                    rng_(rng)
-    {}
+                                                    rng_(rng) {}
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename ParentSetImpl, int MaxParentSetSize, int MaxCOI>
     void RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, GeneticsImpl, ParentSetImpl, MaxParentSetSize, MaxCOI>::update() noexcept {
-        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::RandomAlleleBitSet3ID;
+        SAMPLER_STATE_ID stateId = RandomAlleleBitSet3ID;
 
-        core::utils::generators::CombinationIndicesGenerator ps_idx_gen;
+        utils::generators::CombinationIndicesGenerator ps_idx_gen;
 
         int total_possible_parent_sets = 0;
         std::vector<int> cumulative_possible_parent_set_sizes{};
@@ -89,7 +84,7 @@ namespace transmission_nets::core::samplers::genetics {
 
         if (total_possible_parent_sets > 0) {
             parent_set_sampling_dist.param(boost::random::uniform_int_distribution<>::param_type(0, total_possible_parent_sets - 1));
-            int parent_set_idx = parent_set_sampling_dist(*rng_);
+            const int parent_set_idx = parent_set_sampling_dist(*rng_);
             include_latent_parent = uniform_dist_(*rng_) < 0.5;
 
             // after sampling the index, advance the generator to the correct parent set
@@ -128,12 +123,12 @@ namespace transmission_nets::core::samplers::genetics {
                 }
             }
 
-            const auto& rand_seq = core::utils::generators::randomSequence(0, proposal.totalAlleles(), rng_);
+            const auto& rand_seq = utils::generators::randomSequence(0, proposal.totalAlleles(), rng_);
 
             // flag to indicate if we have set at least 1 allele
             boost::container::flat_map<int, bool> one_set_flags{};
             for (const auto& idx : parent_set_idxs) {
-                one_set_flags[int(idx)] = false;
+                one_set_flags[static_cast<int>(idx)] = false;
             }
 
             // -1 is the latent parent
@@ -144,7 +139,7 @@ namespace transmission_nets::core::samplers::genetics {
 
             if (infection_->observedGenotype().contains(locus)) {
                 const auto& child_observed_genotype = infection_->observedGenotype(locus)->value();
-                int totalAlleles= child_observed_genotype.totalAlleles();
+                const int totalAlleles = child_observed_genotype.totalAlleles();
 
                 // for each allele, check if it's present in the parent set, then sample a new allele
                 // conditional on the observed data. Make sure at least one allele is present from each parent
@@ -152,8 +147,8 @@ namespace transmission_nets::core::samplers::genetics {
 
                     std::vector<int> possible_parent_idxs{};
                     for (const auto& parent_set_idx : parent_set_idxs) {
-                        if (tmp_ps.begin()[parent_set_idx]->latentGenotype(locus)->value().allele(i) and not one_set_flags[int(parent_set_idx)]) {
-                            possible_parent_idxs.push_back(int(parent_set_idx));
+                        if (tmp_ps.begin()[parent_set_idx]->latentGenotype(locus)->value().allele(i) and not one_set_flags[static_cast<int>(parent_set_idx)]) {
+                            possible_parent_idxs.push_back(static_cast<int>(parent_set_idx));
                         }
                     }
 
@@ -167,7 +162,7 @@ namespace transmission_nets::core::samplers::genetics {
                         const auto p = uniform_dist_(*rng_);
                         // the allele is observed, so set to 1 with probability 1 - fp_rate
                         if (child_observed_genotype.allele(i)) {
-                            if (p < 1 - (fp_rate_ / totalAlleles) or not possible_parent_idxs.empty()) {
+                            if (p < (1.0f - (fp_rate_ / totalAlleles)) or not possible_parent_idxs.empty()) {
                                 proposal.set(i, true);
                                 for (const auto parent_set_idx : possible_parent_idxs) {
                                     one_set_flags[parent_set_idx] = true;
@@ -226,22 +221,20 @@ namespace transmission_nets::core::samplers::genetics {
         Likelihood proposed_state_prob = calculateSamplingProb();
 
         const auto acceptanceRatio = target_->value() - cur_lik + current_state_prob - proposed_state_prob;
-        const auto logProbAccept   = log(uniform_dist_(*rng_));
-        const bool accept          = logProbAccept <= acceptanceRatio;
+        const auto logProbAccept = log(uniform_dist_(*rng_));
+        const bool accept = logProbAccept <= acceptanceRatio;
 
-        if (debug_) {
-            fmt::print("Acceptance ratio: {}\n", acceptanceRatio);
-            fmt::print("Llik change: {}\n", std::abs(acceptanceRatio) > 1e-10);
-            fmt::print("Log prob accept: {}\n", logProbAccept);
-            fmt::print("Accept: {}\n", accept);
-            fmt::print("Current likelihood: {}\n", cur_lik);
-            fmt::print("Proposed likelihood: {}\n", target_->value());
-            fmt::print("Adjustment: {}\n", current_state_prob - proposed_state_prob);
-            fmt::print("Current state prob: {}\n", current_state_prob);
-            fmt::print("Proposed state prob: {}\n", proposed_state_prob);
-            fmt::print("Acceptance Rate: {}\n", acceptanceRate());
-            fmt::print("------------------------\n");
-        }
+         if (debug_) {
+             fmt::print("Acceptance ratio: {}\n", acceptanceRatio);
+             fmt::print("Llik change: {}\n", std::abs(acceptanceRatio) > 0e-10);
+             fmt::print("Log prob accept: {}\n", logProbAccept);
+             fmt::print("Accept: {}\n", accept);
+             fmt::print("Current likelihood: {}\n", cur_lik);
+             fmt::print("Proposed likelihood: {}\n", target_->value());
+             fmt::print("Adjustment: {}\n", current_state_prob - proposed_state_prob);
+             fmt::print("Current state prob: {}\n", current_state_prob);
+             fmt::print("Proposed state prob: {}\n", proposed_state_prob);
+         }
 
         if (accept) {
             acceptances_++;
@@ -253,6 +246,11 @@ namespace transmission_nets::core::samplers::genetics {
             for (const auto& locus : infection_->loci()) {
                 infection_->latentGenotype(locus)->restoreState(stateId);
             }
+        }
+
+        if (debug_) {
+            fmt::print("Acceptance Rate: {}\n", acceptanceRate());
+            fmt::print("------------------------\n");
         }
 
         assert(!target_->isDirty());
@@ -270,7 +268,7 @@ namespace transmission_nets::core::samplers::genetics {
         // in the child with probability fn_rate, and 1 - fn_rate otherwise.
         std::vector<Likelihood> probs{};
         auto tmp_ps = ps_->value();
-//        tmp_ps.insert(latent_parent_);
+        //        tmp_ps.insert(latent_parent_);
         const size_t total_parents = tmp_ps.size();
         size_t total_parent_sets = 0;
         Likelihood max_llik = -std::numeric_limits<Likelihood>::infinity();
@@ -283,19 +281,19 @@ namespace transmission_nets::core::samplers::genetics {
 
             const auto& parent_set_idxs = psIdxGen.curr;
             // iterate over all possible parent sets of size num_parents
-            while(!psIdxGen.completed) {
+            while (!psIdxGen.completed) {
 
                 // iterate over the case with and without the latent parent
                 for (size_t ii = 0; ii < 2; ++ii) {
                     // under a particular parent set, how many alleles are tn, fn, fp, tp?
-                    int total_tn = 0;
-                    int total_fn = 0;
-                    int total_fp = 0;
-                    int total_tp = 0;
+                    double total_tn = 0;
+                    double total_fn = 0;
+                    double total_fp = 0;
+                    double total_tp = 0;
                     bool is_valid_parent_set = true;
                     for (const auto& locus : infection_->loci()) {
                         if (infection_->observedGenotype().contains(locus)) {
-                            const auto& child_latent_genotype   = infection_->latentGenotype(locus)->value();
+                            const auto& child_latent_genotype = infection_->latentGenotype(locus)->value();
                             const auto& child_observed_genotype = infection_->observedGenotype(locus)->value();
 
                             // accumulate the shared alleles across all parents
@@ -314,7 +312,7 @@ namespace transmission_nets::core::samplers::genetics {
                                 }
                             }
 
-                            int false_positives = GeneticsImpl::falsePositiveCount(all_shared, child_latent_genotype);
+                            const int false_positives = GeneticsImpl::falsePositiveCount(all_shared, child_latent_genotype);
 
                             // the latent genotype is incompatible with the parent set if there are alleles in the child
                             // that are not in the parent set
@@ -329,13 +327,13 @@ namespace transmission_nets::core::samplers::genetics {
                                 break;
                             }
 
-                            int illegal_fp_count = GeneticsImpl::falsePositiveCount(all_shared, child_observed_genotype);
-                            int illegal_tn_count = GeneticsImpl::trueNegativeCount(all_shared, child_observed_genotype);
-                            int fn_count         = GeneticsImpl::falseNegativeCount(child_latent_genotype, child_observed_genotype);
-                            int tp_count         = GeneticsImpl::truePositiveCount(child_latent_genotype, child_observed_genotype);
-                            int tn_count         = GeneticsImpl::trueNegativeCount(child_latent_genotype, child_observed_genotype) - illegal_tn_count;
-                            int fp_count         = GeneticsImpl::falsePositiveCount(child_latent_genotype, child_observed_genotype) - illegal_fp_count;
-                            assert((int) all_shared.totalPositiveCount() == tp_count + fn_count + tn_count + fp_count);
+                            const double illegal_fp_count = GeneticsImpl::falsePositiveCount(all_shared, child_observed_genotype);
+                            const double illegal_tn_count = GeneticsImpl::trueNegativeCount(all_shared, child_observed_genotype);
+                            const double fn_count = GeneticsImpl::falseNegativeCount(child_latent_genotype, child_observed_genotype);
+                            const double tp_count = GeneticsImpl::truePositiveCount(child_latent_genotype, child_observed_genotype);
+                            const double tn_count = GeneticsImpl::trueNegativeCount(child_latent_genotype, child_observed_genotype) - illegal_tn_count;
+                            const double fp_count = GeneticsImpl::falsePositiveCount(child_latent_genotype, child_observed_genotype) - illegal_fp_count;
+                            assert(all_shared.totalPositiveCount() == tp_count + fn_count + tn_count + fp_count);
 
                             total_tn += tn_count;
                             total_fn += fn_count;
@@ -344,7 +342,11 @@ namespace transmission_nets::core::samplers::genetics {
                         }
                     }
                     if (is_valid_parent_set) {
-                        probs.push_back(total_tn * std::log(1 - fn_rate_) + total_fn * std::log(fn_rate_) + total_fp * std::log(fp_rate_) + total_tp * std::log(1 - fp_rate_));
+                        probs.push_back(
+                                total_tn * std::log(1.0f - fn_rate_) +
+                                total_fn * std::log(fn_rate_) +
+                                total_fp * std::log(fp_rate_) +
+                                total_tp * std::log(1.0f - fp_rate_));
                         max_llik = std::max(max_llik, probs.back());
                         if (ii != 0) {
                             psIdxGen.next();
@@ -357,52 +359,51 @@ namespace transmission_nets::core::samplers::genetics {
 
 
         // Include the latent parent as a single parent set
-        int total_tn = 0;
-        int total_fn = 0;
-        int total_fp = 0;
-        int total_tp = 0;
+        double total_tn = 0;
+        double total_fn = 0;
+        double total_fp = 0;
+        double total_tp = 0;
         bool is_valid_parent_set = true;
         for (const auto& locus : infection_->loci()) {
             if (infection_->observedGenotype().contains(locus)) {
-                const auto& child_latent_genotype   = infection_->latentGenotype(locus)->value();
+                const auto& child_latent_genotype = infection_->latentGenotype(locus)->value();
                 const auto& child_observed_genotype = infection_->observedGenotype(locus)->value();
 
                 GeneticsImpl all_shared = latent_parent_->latentGenotype(locus)->value();
 
-                int false_positives = GeneticsImpl::falsePositiveCount(all_shared, child_latent_genotype);
-
                 // the latent genotype is incompatible with the parent set if there are alleles in the child
                 // that are not in the parent set
-                if (false_positives > 0) {
+                if (const int false_positives = GeneticsImpl::falsePositiveCount(all_shared, child_latent_genotype); false_positives > 0) {
                     probs.push_back(-std::numeric_limits<Likelihood>::infinity());
                     total_parent_sets++;
                     is_valid_parent_set = false;
                     break;
                 }
 
-                int illegal_fp_count = GeneticsImpl::falsePositiveCount(all_shared, child_observed_genotype);
-                int illegal_tn_count = GeneticsImpl::trueNegativeCount(all_shared, child_observed_genotype);
-                int fn_count         = GeneticsImpl::falseNegativeCount(child_latent_genotype, child_observed_genotype);
-                int tp_count         = GeneticsImpl::truePositiveCount(child_latent_genotype, child_observed_genotype);
-                int tn_count         = GeneticsImpl::trueNegativeCount(child_latent_genotype, child_observed_genotype) - illegal_tn_count;
-                int fp_count         = GeneticsImpl::falsePositiveCount(child_latent_genotype, child_observed_genotype) - illegal_fp_count;
-                assert((int) all_shared.totalPositiveCount() == tp_count + fn_count + tn_count + fp_count);
+                const double illegal_fp_count = GeneticsImpl::falsePositiveCount(all_shared, child_observed_genotype);
+                const double illegal_tn_count = GeneticsImpl::trueNegativeCount(all_shared, child_observed_genotype);
+                const double fn_count = GeneticsImpl::falseNegativeCount(child_latent_genotype, child_observed_genotype);
+                const double tp_count = GeneticsImpl::truePositiveCount(child_latent_genotype, child_observed_genotype);
+                const double tn_count = GeneticsImpl::trueNegativeCount(child_latent_genotype, child_observed_genotype) - illegal_tn_count;
+                const double fp_count = GeneticsImpl::falsePositiveCount(child_latent_genotype, child_observed_genotype) - illegal_fp_count;
 
                 total_tn += tn_count;
                 total_fn += fn_count;
                 total_fp += fp_count;
                 total_tp += tp_count;
-
             }
         }
         if (is_valid_parent_set) {
-            probs.push_back(total_tn * std::log(1 - fn_rate_) + total_fn * std::log(fn_rate_) + total_fp * std::log(fp_rate_) + total_tp * std::log(1 - fp_rate_));
+            probs.push_back(
+                    std::log(1.0f - fn_rate_) * total_tn +
+                    std::log(fn_rate_) * total_fn +
+                    std::log(fp_rate_) * total_fp +
+                    std::log(1.0f - fp_rate_) * total_tp);
             max_llik = std::max(max_llik, probs.back());
             total_parent_sets++;
         }
 
-
-        return core::utils::logSumExpKnownMax(probs.begin(), probs.end(), max_llik) - std::log(total_parent_sets * 2 + 1);
+        return utils::logSumExpKnownMax(probs.begin(), probs.end(), max_llik) - std::log(static_cast<double>(total_parent_sets) * 2.0f + 1.0f);
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename ParentSetImpl, int MaxParentSetSize, int MaxCOI>
@@ -417,7 +418,7 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename ParentSetImpl, int MaxParentSetSize, int MaxCOI>
     double RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, GeneticsImpl, ParentSetImpl, MaxParentSetSize, MaxCOI>::acceptanceRate() noexcept {
-        return double(acceptances_) / (acceptances_ + rejections_);
+        return static_cast<double>(acceptances_) / (acceptances_ + rejections_);
     }
 
 }// namespace transmission_nets::core::samplers::genetics

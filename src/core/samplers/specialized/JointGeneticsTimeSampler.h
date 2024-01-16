@@ -114,11 +114,10 @@ namespace transmission_nets::core::samplers::specialized {
         double cur_infection_time = infection_duration_->value();
         infection_duration_->saveState(stateId);
 
-        double eps           = normal_dist_(*rng_) * variance_;
-        double unconstrained = std::log(cur_infection_time - lower_bound_) - std::log(upper_bound_ - cur_infection_time);
-        double exp_prop      = std::exp(eps + unconstrained);
-        double proposed_infection_time          = (upper_bound_ * exp_prop + lower_bound_) / (exp_prop + 1);
-        proposed_infection_time                 = std::clamp(proposed_infection_time, lower_bound_, upper_bound_);
+        const double eps           = normal_dist_(*rng_) * variance_;
+        const double unconstrained = std::log(cur_infection_time - lower_bound_) - std::log(upper_bound_ - cur_infection_time);
+        const double exp_prop      = std::exp(eps + unconstrained);
+        const double proposed_infection_time = std::clamp((upper_bound_ * exp_prop + lower_bound_) / (exp_prop + 1), lower_bound_, upper_bound_);
 
         auto adj = log(proposed_infection_time - lower_bound_) +
                    log(upper_bound_ - proposed_infection_time) -
@@ -273,8 +272,16 @@ namespace transmission_nets::core::samplers::specialized {
         Likelihood proposed_state_prob = calculateSamplingProb();
 
         const auto acceptanceRatio = target_->value() - cur_lik + current_state_prob - proposed_state_prob + adj;
+        // if (acceptanceRatio >= std::numeric_limits<double>::infinity()) {
+        //     fmt::print("Acceptance ratio is infinity\n");
+        //     fmt::print("Current state prob: {}\n", current_state_prob);
+        //     fmt::print("Proposed state prob: {}\n", proposed_state_prob);
+        //     fmt::print("Current Likelihood: {}\n", target_->value());
+        //     fmt::print("Prev Likelihood: {}\n", cur_lik);
+        //     fmt::print("Adj: {}\n", adj);
+        // }
         const auto logProbAccept   = log(uniform_dist_(*rng_));
-        const bool accept          = logProbAccept <= acceptanceRatio;
+        const bool accept          = !std::isinf(acceptanceRatio) && logProbAccept <= acceptanceRatio;
 
         if (accept) {
             acceptances_++;

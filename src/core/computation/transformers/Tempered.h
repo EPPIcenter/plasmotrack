@@ -19,7 +19,7 @@ namespace transmission_nets::core::computation {
         std::shared_ptr<Input> target_;
         double temperature_;
 
-        explicit Tempered(std::shared_ptr<Input> target, float temperature) : target_(std::move(target)), temperature_(temperature) {
+        explicit Tempered(std::shared_ptr<Input> target, double temperature) : target_(std::move(target)), temperature_(temperature) {
             target_->add_set_dirty_listener([=, this]() {
                 this->setDirty();
             });

@@ -138,19 +138,19 @@ set(SOURCE_FILES
 #        impl/model/ModelSeven/SamplerLogger.cpp
 #        impl/model/ModelSeven/SamplerLogger.h
 
-        impl/model/ModelEight/State.cpp
-        impl/model/ModelEight/State.h
-        impl/model/ModelEight/Model.cpp
-        impl/model/ModelEight/Model.h
-        impl/model/ModelEight/config.h
-        impl/model/ModelEight/SampleScheduler.h
-        impl/model/ModelEight/StateLogger.cpp
-        impl/model/ModelEight/StateLogger.h
-        impl/model/ModelEight/ModelLogger.cpp
-        impl/model/ModelEight/ModelLogger.h
-        impl/model/ModelEight/SamplerLogger.cpp
-        impl/model/ModelEight/SamplerLogger.h
-        impl/model/ModelEight/SequentialScheduler.h
+#        impl/model/ModelEight/State.cpp
+#        impl/model/ModelEight/State.h
+#        impl/model/ModelEight/Model.cpp
+#        impl/model/ModelEight/Model.h
+#        impl/model/ModelEight/config.h
+#        impl/model/ModelEight/SampleScheduler.h
+#        impl/model/ModelEight/StateLogger.cpp
+#        impl/model/ModelEight/StateLogger.h
+#        impl/model/ModelEight/ModelLogger.cpp
+#        impl/model/ModelEight/ModelLogger.h
+#        impl/model/ModelEight/SamplerLogger.cpp
+#        impl/model/ModelEight/SamplerLogger.h
+#        impl/model/ModelEight/SequentialScheduler.h
 
         impl/model/ModelNine/State.cpp
         impl/model/ModelNine/State.h
@@ -182,6 +182,8 @@ set(SOURCE_FILES
         core/datatypes/AllelesBitVec.h
         ../lib/spline/spline.h
         model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h
+        core/samplers/genetics/RandomAllelesBitSetSampler4.h
+        core/containers/AllowedRelationships.h
 )
 
 

@@ -5,10 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ALLELESAMPLER_H
 #define TRANSMISSION_NETWORKS_APP_ALLELESAMPLER_H
 
-#include <boost/math/distributions.hpp>
 #include <boost/random.hpp>
 
-#include "core/datatypes/Alleles.h"
 #include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
 
@@ -42,8 +40,8 @@ namespace transmission_nets::core::samplers::genetics {
         boost::random::uniform_01<> uniform_dist_{};
         boost::random::uniform_int_distribution<> allele_index_sampling_dist_{};
 
-        unsigned int acceptances_   = 0;
-        unsigned int rejections_    = 0;
+        unsigned int acceptances_ = 0;
+        unsigned int rejections_ = 0;
         unsigned int total_updates_ = 0;
     };
 
@@ -56,19 +54,22 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
     void RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::update() noexcept {
-        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::RandomAlleleBitSetID;
-        Likelihood curLik         = target_->value();
+        SAMPLER_STATE_ID stateId = RandomAlleleBitSetID;
+        Likelihood curLik = target_->value();
         parameter_->saveState(stateId);
 
         const auto& currentVal = parameter_->value();
         const auto& proposal = sampleProposal(currentVal);
 
+        std::string currentValStr = currentVal.serialize();
+        std::string proposalStr = proposal.serialize();
+
         assert(!target_->isDirty());
         parameter_->setValue(proposal);
         const Likelihood adj = logMetropolisHastingsAdjustment(currentVal, proposal);
         const Likelihood acceptanceRatio = target_->value() - curLik + adj;
-        const Likelihood logProbAccept   = log(uniform_dist_(*rng_));
-        const bool accept          = (logProbAccept <= acceptanceRatio) and std::abs(acceptanceRatio) > 1e-10;
+        const Likelihood logProbAccept = log(uniform_dist_(*rng_));
+        const bool accept = (logProbAccept <= acceptanceRatio) and std::abs(acceptanceRatio) > 1e-10;
 
 
         if (debug_) {
@@ -79,14 +80,10 @@ namespace transmission_nets::core::samplers::genetics {
             fmt::print("Current likelihood: {}\n", curLik);
             fmt::print("Proposed likelihood: {}\n", target_->value());
             fmt::print("Adjustment: {}\n", adj);
-            fmt::print("Current value: {}\n", currentVal.serialize());
-            fmt::print("Proposal: {}\n", proposal.serialize());
-            fmt::print("------------------------\n");
+            fmt::print("Current value: {}\n", currentValStr);
+            fmt::print("Proposal: {}\n", proposalStr);
         }
 
-
-//        fmt::print("Current Likelihood: {}\n", curLik);
-//        fmt::print("New Llik: {} -- (AccR: {}, accepted: {})\n\n", target_->value(), acceptanceRatio, accept);
 
         if (accept) {
             if (target_->value() < curLik and debug_) {
@@ -111,7 +108,13 @@ namespace transmission_nets::core::samplers::genetics {
             assert(parameter_->value() == currentVal);
         }
 
-//        assert(!target_->isDirty());
+        if (debug_) {
+            fmt::print("Acceptances: {}\n", acceptances_);
+            fmt::print("Rejections: {}\n", rejections_);
+            fmt::print("------------------------\n");
+        }
+
+        //        assert(!target_->isDirty());
 
         total_updates_++;
     }
@@ -156,7 +159,7 @@ namespace transmission_nets::core::samplers::genetics {
         Likelihood denominator = curr_total_alleles == 1 ? std::log(1) - std::log(prop.totalAlleles() - 1) : std::log(1) - std::log(prop.totalAlleles());
 
         return numerator - denominator;
-//        return 0;
+        //        return 0;
     }
 }// namespace transmission_nets::core::samplers::genetics
 

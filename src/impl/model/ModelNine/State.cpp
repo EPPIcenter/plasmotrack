@@ -14,7 +14,7 @@ namespace transmission_nets::impl::ModelNine {
             const bool null_model) {
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
         infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng, null_model);
-        allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
+        allowedRelationships = core::io::parseAllowedParentsFromJSON(input, infections);
 
         initPriors();
 
@@ -62,7 +62,7 @@ namespace transmission_nets::impl::ModelNine {
 
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
         infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng, null_model);
-        allowedParents = core::io::parseAllowedParentsFromJSON(input, infections);
+        allowedRelationships = core::io::parseAllowedParentsFromJSON(input, infections);
 
         initPriors();
 

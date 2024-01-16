@@ -16,6 +16,7 @@ namespace transmission_nets::core::samplers {
         RandomAlleleBitSetID,
         RandomAlleleBitSet2ID,
         RandomAlleleBitSet3ID,
+        RandomAlleleBitSet4ID,
         SequentialAllelesBitSetID,
         ZanellaAllelesBitSetID,
         ZanellaAllelesBitSetFlipID,

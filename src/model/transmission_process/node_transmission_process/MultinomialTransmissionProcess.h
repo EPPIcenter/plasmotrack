@@ -57,12 +57,12 @@ namespace transmission_nets::model::transmission_process {
 
 
     private:
-        friend class core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<double, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>>;
-        friend class core::abstract::Cacheable<MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>;
+        friend class core::abstract::Checkpointable<MultinomialTransmissionProcess, std::array<double, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>>;
+        friend class core::abstract::Cacheable<MultinomialTransmissionProcess>;
 
         p_ParameterDouble mean_strains_transmitted_;
         core::utils::probAnyMissingFunctor probAnyMissing_;
-        double mutationRate_ = 0.001;
+        // double mutationRate_ = 0.001;
     };
 
     template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
@@ -137,7 +137,7 @@ namespace transmission_nets::model::transmission_process {
                 const int totalAllelesPresent = parentGenotype.totalPositiveCount();
                 for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
                     if (parentGenotype.allele(j)) {
-                        parent_pop_freqs[j] += (static_cast<double>(parentGenotype.allele(j)) / totalAllelesPresent / numParents);
+                        parent_pop_freqs[j] += (static_cast<double>(parentGenotype.allele(j)) / (totalAllelesPresent * numParents));
                     }
                 }
             }
@@ -163,15 +163,15 @@ namespace transmission_nets::model::transmission_process {
                 af /= constrainedSetProb;
             }
 
-            const Likelihood logConstrainedSetProb = std::log(static_cast<float>(constrainedSetProb));
-            std::vector<Likelihood> pamVec = probAnyMissing_.vectorized(prVec, MAX_STRAINS);
+            const Likelihood logConstrainedSetProb = std::log(constrainedSetProb);
+            const std::vector<Likelihood>& pamVec = probAnyMissing_.vectorized(prVec, MAX_STRAINS);
             for (unsigned int numStrains = 1; numStrains <= MAX_STRAINS; ++numStrains) {
                 unsigned int idx = numStrains - 1;
 
                 if (logLikelihoods[idx] == -std::numeric_limits<Likelihood>::infinity()) {
                     continue;
                 }
-                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0f - static_cast<float>(pamVec[idx])) + logConstrainedSetProb * numStrains;
+                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0f - pamVec[idx]) + logConstrainedSetProb * numStrains;
             }
         }
 
@@ -253,15 +253,15 @@ namespace transmission_nets::model::transmission_process {
                 af /= constrainedSetProb;
             }
 
-            const Likelihood logConstrainedSetProb = std::log(static_cast<float>(constrainedSetProb));
-            std::vector<Likelihood> pamVec = probAnyMissing_.vectorized(prVec, MAX_STRAINS);
+            const Likelihood logConstrainedSetProb = std::log(constrainedSetProb);
+            const std::vector<Likelihood>& pamVec = probAnyMissing_.vectorized(prVec, MAX_STRAINS);
             for (unsigned int numStrains = 1; numStrains <= MAX_STRAINS; ++numStrains) {
                 const unsigned int idx = numStrains - 1;
 
                 if (logLikelihoods[idx] == -std::numeric_limits<Likelihood>::infinity()) {
                     continue;
                 }
-                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0f - static_cast<float>(pamVec[idx])) + logConstrainedSetProb * numStrains;
+                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0f - pamVec[idx]) + logConstrainedSetProb * numStrains;
             }
         }
 
@@ -328,14 +328,14 @@ namespace transmission_nets::model::transmission_process {
                 af /= constrainedSetProb;
             }
 
-            const Likelihood logConstrainedSetProb = std::log(static_cast<float>(constrainedSetProb));
-            std::vector<Likelihood> pamVec = probAnyMissing_.vectorized(prVec, MAX_STRAINS);
+            const Likelihood logConstrainedSetProb = std::log(constrainedSetProb);
+            const std::vector<Likelihood>& pamVec = probAnyMissing_.vectorized(prVec, MAX_STRAINS);
             for (unsigned int numStrains = 1; numStrains <= MAX_STRAINS; ++numStrains) {
                 const unsigned int idx = numStrains - 1;
                 if (logLikelihoods[idx] == -std::numeric_limits<Likelihood>::infinity()) {
                     continue;
                 }
-                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0f - static_cast<float>(pamVec[idx])) + logConstrainedSetProb * numStrains;
+                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0f - pamVec[idx]) + logConstrainedSetProb * numStrains;
             }
         }
 

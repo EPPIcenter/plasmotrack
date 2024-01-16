@@ -26,8 +26,8 @@ namespace transmission_nets::core::distributions {
                                      public abstract::Cacheable<ZTMultiplicativeBinomial<MAX_COUNT>>,
                                      public abstract::Checkpointable<ZTMultiplicativeBinomial<MAX_COUNT>, datatypes::TransitionMatrix<MAX_COUNT + 1>> {
     public:
-        ZTMultiplicativeBinomial(std::shared_ptr<parameters::Parameter<double>> prob,
-                                 std::shared_ptr<parameters::Parameter<double>> assoc);
+        ZTMultiplicativeBinomial(std::shared_ptr<Parameter<double>> prob,
+                                 std::shared_ptr<Parameter<double>> assoc);
 
         datatypes::TransitionMatrix<MAX_COUNT + 1> value() noexcept override;
 
@@ -41,8 +41,8 @@ namespace transmission_nets::core::distributions {
         static const datatypes::SquareMatrix<double, MAX_COUNT + 1> mat3;
         static const datatypes::SquareMatrix<double, MAX_COUNT + 1> combo_matrix;
 
-        std::shared_ptr<parameters::Parameter<double>> prob_;
-        std::shared_ptr<parameters::Parameter<double>> assoc_;
+        std::shared_ptr<Parameter<double>> prob_;
+        std::shared_ptr<Parameter<double>> assoc_;
     };
 
 

@@ -9,6 +9,7 @@
 #include "core/utils/generators/CombinationIndicesGenerator.h"
 
 #include <vector>
+#include <cmath>
 #include <execution>
 
 //#include <emmintrin.h>  // For SSE2 instructions

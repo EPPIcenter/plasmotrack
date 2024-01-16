@@ -34,6 +34,7 @@
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler2.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
+#include "core/samplers/genetics/RandomAllelesBitSetSampler4.h"
 #include "core/samplers/genetics/SequentialAllelesBitSetSampler.h"
 #include "core/samplers/genetics/ZanellaAllelesBitSetSampler.h"
 #include "core/samplers/specialized/JointGeneticsTimeSampler.h"
@@ -44,9 +45,9 @@
 #include "model/observation_process/ObservationProcessLikelihoodv2.h"
 
 #include "model/transmission_process/OrderBasedTransmissionProcessV3.h"
-#include "model/transmission_process/node_transmission_process/SimpleLossMutation.h"
-//#include "model/transmission_process/node_transmission_process/SimpleLoss.h"
-#include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h"
+// #include "model/transmission_process/node_transmission_process/SimpleLossMutation.h"
+// #include "model/transmission_process/node_transmission_process/SimpleLoss.h"
+#include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess2.h"
 
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
@@ -57,7 +58,7 @@
 namespace transmission_nets::impl::ModelNine {
 
     static constexpr int MAX_ALLELES       = 64;
-    static constexpr int MAX_COI           = 15;
+    static constexpr int MAX_COI           = 30;
     static constexpr int MAX_PARENTS       = 2;
     static constexpr int MAX_TRANSMISSIONS = 8;
     static constexpr int MAX_STRAINS = 12;

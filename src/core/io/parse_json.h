@@ -5,16 +5,17 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PARSE_JSON_H
 #define TRANSMISSION_NETWORKS_APP_PARSE_JSON_H
 
+#include "core/containers/AllowedRelationships.h"
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
 
 #include "core/datatypes/Simplex.h"
 #include "core/distributions/DiscreteDistribution.h"
 
-
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
 
+#include <boost/type.hpp>
 #include <iostream>
 #include <memory>
 
@@ -29,7 +30,7 @@ namespace transmission_nets::core::io {
     }
 
     inline bool missingGenotype(const std::string& alleleStr) {
-        bool isEmpty   = alleleStr.empty();
+        bool isEmpty = alleleStr.empty();
         bool isMissing = std::all_of(alleleStr.begin(), alleleStr.end(), [](const char s) { return s == '0'; });
         return isEmpty or isMissing;
     }
@@ -54,7 +55,7 @@ namespace transmission_nets::core::io {
     template<typename LocusImpl>
     std::map<std::string, std::shared_ptr<LocusImpl>> parseLociFromJSON(
             const json& input,
-            const char lociKey[]       = "loci",
+            const char lociKey[] = "loci",
             const char locusLabelKey[] = "locus",
             const char numAllelesKey[] = "num_alleles") {
 
@@ -62,7 +63,7 @@ namespace transmission_nets::core::io {
 
         for (const auto& loc : input.at(lociKey)) {
             const std::string locus_label = loc.at(locusLabelKey);
-            int num_alleles               = loc.at(numAllelesKey);
+            int num_alleles = loc.at(numAllelesKey);
             locusMap.emplace(locus_label, std::make_shared<containers::Locus>(locus_label, num_alleles));
         }
 
@@ -76,8 +77,7 @@ namespace transmission_nets::core::io {
             const double minAlleleFreq = .01,
             const char alleleFrequencyKey[] = "allele_freqs",
             const char lociKey[] = "loci",
-            const char locusLabelKey[] = "locus"
-            ) {
+            const char locusLabelKey[] = "locus") {
         auto afContainer = std::make_shared<AlleleFrequencyContainerImpl>();
 
         for (const auto& afEntry : input.at(lociKey)) {
@@ -105,14 +105,14 @@ namespace transmission_nets::core::io {
             const int max_coi,
             std::map<std::string, std::shared_ptr<LocusImpl>> loci,
             std::shared_ptr<Engine> rng,
-            const bool null_model           = false,
-            const char infectionsKey[]      = "nodes",
-            const char obsGenotypesKey[]    = "observed_genotype",
-            const char idKey[]              = "id",
+            const bool null_model = false,
+            const char infectionsKey[] = "nodes",
+            const char obsGenotypesKey[] = "observed_genotype",
+            const char idKey[] = "id",
             const char observationDateKey[] = "observation_time",
-            const char symptomaticKey[]    = "symptomatic",
-            const char genotypeKey[]        = "genotype",
-            const char locusKey[]           = "locus") {
+            const char symptomaticKey[] = "symptomatic",
+            const char genotypeKey[] = "genotype",
+            const char locusKey[] = "locus") {
 
         if (null_model) {
             std::cout << "WARNING: Null model is enabled. All observed genotypes and infection times will be ignored.\n";
@@ -138,7 +138,7 @@ namespace transmission_nets::core::io {
             infections.push_back(std::make_shared<InfectionEvent>(inf.at(idKey), obs_time, symptomatic));
             for (const auto& genetics : inf.at(obsGenotypesKey)) {
                 auto locusLabel = genetics.at(locusKey);
-                auto locusItr   = loci.find(locusLabel);
+                auto locusItr = loci.find(locusLabel);
                 if (locusItr == loci.end()) {
                     std::cerr << "Locus " << locusLabel << " for node " << infections.back()->id() << " does not exist.\n";
                     exit(1);
@@ -159,30 +159,40 @@ namespace transmission_nets::core::io {
         return infections;
     }
 
+
     template<typename InfectionEvent>
-    std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> parseAllowedParentsFromJSON(
+    containers::AllowedRelationships<InfectionEvent> parseAllowedParentsFromJSON(
             const json& input,
             std::vector<std::shared_ptr<InfectionEvent>> infections,
-            const char infectionsKey[]     = "nodes",
-            const char idKey[]             = "id",
+            const char infectionsKey[] = "nodes",
+            const char idKey[] = "id",
             const char allowedParentsKey[] = "allowed_parents") {
 
-        std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> allowedParents{};
+        // std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> allowedParents{};
+        // std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> allowedChildren{};
+
+        containers::AllowedRelationships<InfectionEvent> allowedRelationships{};
 
         for (const auto& targetInfection : infections) {
             for (const auto& inf : input.at(infectionsKey)) {
                 auto infectionId = inf.at(idKey);
                 if (infectionId == targetInfection->id()) {
                     for (const auto& parentId : inf.at(allowedParentsKey)) {
-                        auto parentInf = std::find_if(infections.begin(), infections.end(), [&parentId](const std::shared_ptr<InfectionEvent> candidateInf) { return candidateInf->id() == parentId; });
-                        allowedParents[targetInfection].push_back(*parentInf);
+                        auto parentInf = std::ranges::find_if(
+                                infections,
+                                [&parentId](const std::shared_ptr<InfectionEvent> candidateInf) {
+                                    return candidateInf->id() == parentId;
+                                });
+
+                        allowedRelationships.allowedParents[targetInfection].push_back(*parentInf);
+                        allowedRelationships.allowedChildren[*parentInf].push_back(targetInfection);
                     }
                     break;
                 }
             }
         }
 
-        return allowedParents;
+        return allowedRelationships;
     }
 }// namespace transmission_nets::core::io
 

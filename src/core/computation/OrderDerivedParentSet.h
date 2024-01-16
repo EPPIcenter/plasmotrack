@@ -5,7 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ORDERDERIVEDPARENTSET_H
 #define TRANSMISSION_NETWORKS_APP_ORDERDERIVEDPARENTSET_H
 
-
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
 #include "core/abstract/observables/Observable.h"
@@ -13,13 +12,8 @@
 #include "core/containers/ParentSet.h"
 #include "core/parameters/Ordering.h"
 
-
-#include <fmt/core.h>
-
-#include <iostream>
 #include <memory>
 #include <set>
-
 
 namespace transmission_nets::core::computation {
 
@@ -51,8 +45,8 @@ namespace transmission_nets::core::computation {
         std::set<std::shared_ptr<ElementType>> allowedParents_{};
 
     protected:
-        friend class abstract::Checkpointable<OrderDerivedParentSet<ElementType, OrderingImpl>, containers::ParentSet<ElementType>>;
-        friend class abstract::Cacheable<OrderDerivedParentSet<ElementType, OrderingImpl>>;
+        friend class abstract::Checkpointable<OrderDerivedParentSet, containers::ParentSet<ElementType>>;
+        friend class abstract::Cacheable<OrderDerivedParentSet>;
 
     };
 
@@ -102,14 +96,14 @@ namespace transmission_nets::core::computation {
     }
 
     template<typename ElementType, typename OrderingImpl>
-    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParent(std::shared_ptr<ElementType> p) {
+    void OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParent(std::shared_ptr<ElementType> p) {
         if (p != child_) {
             allowedParents_.insert(p);
         }
     }
 
     template<typename ElementType, typename OrderingImpl>
-    void computation::OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParents(const std::vector<std::shared_ptr<ElementType>>& p) {
+    void OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParents(const std::vector<std::shared_ptr<ElementType>>& p) {
         for (auto el : p) {
             addAllowedParent(std::move(el));
         }
@@ -117,11 +111,10 @@ namespace transmission_nets::core::computation {
 
 
     template<typename ElementType, typename OrderingImpl>
-    containers::ParentSet<ElementType> computation::OrderDerivedParentSet<ElementType, OrderingImpl>::value() noexcept {
+    containers::ParentSet<ElementType> OrderDerivedParentSet<ElementType, OrderingImpl>::value() noexcept {
         this->setClean();
         return this->value_;
     }
-
 
 }// namespace transmission_nets::core::computation
 

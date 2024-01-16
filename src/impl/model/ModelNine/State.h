@@ -6,12 +6,11 @@
 #define TRANSMISSION_NETWORKS_APP_STATE_H
 
 #include "config.h"
-#include "core/datatypes/Simplex.h"
-#include "core/io/parse_json.h"
 #include "core/io/utils.h"
+#include "core/io/parse_json.h"
+#include "core/containers/AllowedRelationships.h"
 
 #include <nlohmann/json.hpp>
-#include <random>
 
 
 namespace transmission_nets::impl::ModelNine {
@@ -35,7 +34,7 @@ namespace transmission_nets::impl::ModelNine {
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
         std::vector<std::shared_ptr<InfectionEvent>> latentParents{};
-        std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> allowedParents{};
+        core::containers::AllowedRelationships<InfectionEvent> allowedRelationships{};
         std::map<std::string, std::shared_ptr<ParentSetImpl>> parentSetList{};
 
         std::shared_ptr<AlleleFrequencyContainerImpl> alleleFrequencies;

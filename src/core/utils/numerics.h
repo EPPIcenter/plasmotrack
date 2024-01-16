@@ -32,24 +32,24 @@ namespace transmission_nets::core::utils {
         return x;
     }
 
-    inline float _int_as_float(int32_t a) {
-        float r;
+    inline double _int_as_double(int32_t a) {
+        double r;
         memcpy(&r, &a, sizeof r);
         return r;
     }
-    inline int32_t _float_as_int(float a) {
+    inline int32_t _double_as_int(double a) {
         int32_t r;
         memcpy(&r, &a, sizeof r);
         return r;
     }
     // https://stackoverflow.com/a/39822314/2755374
-    inline float fast_log(float a) {
-        float m, r, s, t, i, f;
+    inline double fast_log(double a) {
+        double m, r, s, t, i, f;
         int32_t e;
 
-        e = (_float_as_int(a) - 0x3f2aaaab) & 0xff800000;
-        m = _int_as_float(_float_as_int(a) - e);
-        i = (float) e * 1.19209290e-7f;// 0x1.0p-23
+        e = (_double_as_int(a) - 0x3f2aaaab) & 0xff800000;
+        m = _int_as_double(_double_as_int(a) - e);
+        i = (double) e * 1.19209290e-7f;// 0x1.0p-23
         /* m in [2/3, 4/3] */
         f = m - 1.0f;
         s = f * f;
@@ -203,8 +203,17 @@ namespace transmission_nets::core::utils {
             return -std::numeric_limits<ValueType>::infinity();
         }
 
-        auto sum = std::accumulate(
-                begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
+        auto sum = std::transform_reduce(
+            std::execution::unseq,
+            begin,
+            end,
+            ValueType{},
+            std::plus<ValueType>{},
+            [max_el](ValueType a) { return std::exp(a - max_el); }
+            );
+
+        // auto sum = std::accumulate(
+        //         begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
         return max_el + std::log(sum);
     }
 

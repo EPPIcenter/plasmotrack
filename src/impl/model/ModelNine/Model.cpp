@@ -56,7 +56,7 @@ namespace transmission_nets::impl::ModelNine {
                 likelihood.addTarget(observationProcessLikelihoodList.back());
             }
 
-            state_->parentSetList[infection->id()] = std::make_shared<ParentSetImpl>(state_->infectionEventOrdering, infection, state_->allowedParents[infection]);
+            state_->parentSetList[infection->id()] = std::make_shared<ParentSetImpl>(state_->infectionEventOrdering, infection, state_->allowedRelationships.allowedParents[infection]);
             i++;
         }
 
