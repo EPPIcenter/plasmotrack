@@ -8,8 +8,6 @@ find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(OpenMP)
 find_package(fmt REQUIRED)
-find_package(mpfr REQUIRED)
-#find_package(TBB REQUIRED)
 
 
 if (OPENMP_FOUND)
@@ -187,7 +185,7 @@ set(SOURCE_FILES
 )
 
 
-add_library(transmission_networks SHARED STATIC ${SOURCE_FILES})
+add_library(transmission_networks SHARED ${SOURCE_FILES})
 target_link_libraries(
         transmission_networks
         PUBLIC
@@ -197,8 +195,7 @@ target_link_libraries(
         OpenMP::OpenMP_CXX
         Eigen3::Eigen
         fmt::fmt
-        mpfr::mpfr
-#        onetbb::onetbb
+        ${Boost_LIBRARIES}
 )
 
 

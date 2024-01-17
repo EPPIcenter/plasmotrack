@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -fno-omit-frame-pointer -Werror -Wno-unused-function -Wno-unused-parameter")
 if (CMAKE_COMPILER_IS_GNUCC)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -g -march=native -frename-registers -funroll-loops -funsafe-math-optimizations -fno-math-errno -fno-signed-zeros -fno-trapping-math") # -Ofast is throwing nan errors
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -g -frename-registers -funroll-loops -funsafe-math-optimizations -fno-math-errno -fno-signed-zeros -fno-trapping-math") # -Ofast is throwing nan errors
 #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -g -march=native -frename-registers -funroll-loops") # -Ofast is throwing nan errors
 #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -march=native -funroll-loops") # -Ofast is throwing nan errors
 #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -funroll-loops") # -Ofast is throwing nan errors
@@ -55,6 +55,6 @@ add_subdirectory(test)
 #add_subdirectory(tools/cli/ModelFive)
 #add_subdirectory(tools/cli/ModelSix)
 #add_subdirectory(tools/cli/ModelSeven)
-add_subdirectory(tools/cli/ModelEight)
+#add_subdirectory(tools/cli/ModelEight)
 #add_subdirectory(tools/gui/ModelEight)
 add_subdirectory(tools/cli/ModelNine)

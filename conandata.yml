@@ -2,9 +2,6 @@
 # To keep your changes, remove these comment lines, but the plugin won't be able to modify your requirements
 
 requirements:
-  - "llvm-openmp/17.0.4"
-  - "onetbb/2021.10.0"
-  - "mpfr/4.2.1"
   - "boost/1.83.0"
   - "eigen/3.4.0"
   - "fmt/9.1.0"

@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.17)
-include(FetchContent)
 
 project(transmission_networks_model_nine)
 
@@ -22,11 +21,10 @@ project(transmission_networks_model_nine)
 #FetchContent_MakeAvailable(Eigen)
 
 
-find_package(Boost)
+find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(fmt REQUIRED)
-find_package(mpfr REQUIRED)
 find_package(OpenMP)
 
 if (OPENMP_FOUND)
@@ -51,7 +49,6 @@ target_link_libraries(transmission_networks_model_nine
         OpenMP::OpenMP_CXX
         ${Boost_LIBRARIES}
         fmt::fmt
-        mpfr::mpfr
         )
 
 message(STATUS ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
