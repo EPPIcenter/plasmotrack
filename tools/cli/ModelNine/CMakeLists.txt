@@ -34,7 +34,6 @@ if (OPENMP_FOUND)
 endif ()
 
 
-
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
