@@ -24,7 +24,7 @@ namespace transmission_nets::core::samplers::genetics {
                 std::shared_ptr<InfectionEventImpl> infection,
                 std::shared_ptr<InfectionEventImpl> latentParent,
                 std::shared_ptr<LocusImpl> locus,
-                const containers::AllowedRelationships<InfectionEventImpl>& allowedRelationships,
+                std::shared_ptr<containers::AllowedRelationships<InfectionEventImpl>> allowedRelationships,
                 std::shared_ptr<T> target,
                 std::shared_ptr<Engine> rng,
                 unsigned int max_coi) noexcept;
@@ -38,7 +38,7 @@ namespace transmission_nets::core::samplers::genetics {
         std::shared_ptr<InfectionEventImpl> infection_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
         std::shared_ptr<LocusImpl> locus_;
-        containers::AllowedRelationships<InfectionEventImpl> allowedRelationships_;
+        std::shared_ptr<containers::AllowedRelationships<InfectionEventImpl>> allowedRelationships_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
         unsigned int max_coi_;
@@ -63,7 +63,7 @@ namespace transmission_nets::core::samplers::genetics {
             std::shared_ptr<InfectionEventImpl> infection,
             std::shared_ptr<InfectionEventImpl> latentParent,
             std::shared_ptr<LocusImpl> locus,
-            const containers::AllowedRelationships<InfectionEventImpl>& allowedRelationships,
+            std::shared_ptr<containers::AllowedRelationships<InfectionEventImpl>> allowedRelationships,
             std::shared_ptr<T> target,
             std::shared_ptr<Engine> rng,
             unsigned int max_coi) noexcept
@@ -100,7 +100,7 @@ namespace transmission_nets::core::samplers::genetics {
         while (distance > 0) {
 
             std::vector<std::shared_ptr<InfectionEventImpl>> potential_children{};
-            for (const auto& inf : allowedRelationships_.allowedChildren[curr_inf]) {
+            for (const auto& inf : allowedRelationships_->allowedChildren(curr_inf)) {
                 if (inf->infectionTime() > curr_inf->infectionTime()) {
                     potential_children.push_back(inf);
                 }
@@ -108,11 +108,9 @@ namespace transmission_nets::core::samplers::genetics {
 
             std::shared_ptr<Parameter> curr_param = curr_inf->latentGenotype(locus_);
             auto curr_val = curr_param->value();
-            std::shared_ptr<Data> curr_data;
+            std::shared_ptr<Data> curr_data = nullptr;
             if (curr_inf->observedGenotype().contains(locus_)) {
                 curr_data = curr_inf->observedGenotype(locus_);
-            } else {
-                curr_data = nullptr;
             }
 
 
@@ -126,17 +124,17 @@ namespace transmission_nets::core::samplers::genetics {
             }
 
             // check if observed in curr infection
-            bool has_data = curr_inf->observedGenotype().contains(locus_);
-            bool in_curr = has_data && curr_inf->observedGenotype(locus_)->value().allele(allele_idx) == 1;
+            const bool has_data = curr_data != nullptr;
+            const bool in_curr = has_data && curr_inf->observedGenotype(locus_)->value().allele(allele_idx) == 1;
 
             // Check if set in parent infection
-            bool in_parent = curr_latent_parent->latentGenotype(locus_)->value().allele(allele_idx) == 1;
+            const bool in_parent = curr_latent_parent->latentGenotype(locus_)->value().allele(allele_idx) == 1;
 
             // Check if observed in child infection
-            bool child_has_data = child != nullptr && child->observedGenotype().contains(locus_);
-            bool in_child = child_has_data && child->observedGenotype(locus_)->value().allele(allele_idx) == 1;
+            const bool child_has_data = child != nullptr && child->observedGenotype().contains(locus_);
+            const bool in_child = child_has_data && child->observedGenotype(locus_)->value().allele(allele_idx) == 1;
 
-            bool curr_state = curr_param->value().allele(allele_idx) == 1;
+            const bool curr_state = curr_param->value().allele(allele_idx) == 1;
 
             const float parent_prob_component = in_parent ? (tx_from_parent) : (tx_from_other);
             const float obs_data_component = has_data ? (in_curr ? (1 - fp_rate) : (fn_rate)) : 1.0f;

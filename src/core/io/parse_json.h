@@ -161,7 +161,7 @@ namespace transmission_nets::core::io {
 
 
     template<typename InfectionEvent>
-    containers::AllowedRelationships<InfectionEvent> parseAllowedParentsFromJSON(
+    std::shared_ptr<containers::AllowedRelationships<InfectionEvent>> parseAllowedParentsFromJSON(
             const json& input,
             std::vector<std::shared_ptr<InfectionEvent>> infections,
             const char infectionsKey[] = "nodes",
@@ -171,9 +171,10 @@ namespace transmission_nets::core::io {
         // std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> allowedParents{};
         // std::map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>> allowedChildren{};
 
-        containers::AllowedRelationships<InfectionEvent> allowedRelationships{};
+        std::shared_ptr<containers::AllowedRelationships<InfectionEvent>> allowedRelationships = std::make_shared<containers::AllowedRelationships<InfectionEvent>>();
 
         for (const auto& targetInfection : infections) {
+            allowedRelationships->addInfectionEvent(targetInfection);
             for (const auto& inf : input.at(infectionsKey)) {
                 auto infectionId = inf.at(idKey);
                 if (infectionId == targetInfection->id()) {
@@ -183,9 +184,11 @@ namespace transmission_nets::core::io {
                                 [&parentId](const std::shared_ptr<InfectionEvent> candidateInf) {
                                     return candidateInf->id() == parentId;
                                 });
+                        allowedRelationships->addParent(targetInfection, *parentInf);
+                        allowedRelationships->addChild(*parentInf, targetInfection);
 
-                        allowedRelationships.allowedParents[targetInfection].push_back(*parentInf);
-                        allowedRelationships.allowedChildren[*parentInf].push_back(targetInfection);
+                        // allowedRelationships.allowedParents[targetInfection].push_back(*parentInf);
+                        // allowedRelationships.allowedChildren[*parentInf].push_back(targetInfection);
                     }
                     break;
                 }

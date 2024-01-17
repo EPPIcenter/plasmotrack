@@ -34,7 +34,7 @@ namespace transmission_nets::impl::ModelNine {
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
         std::vector<std::shared_ptr<InfectionEvent>> latentParents{};
-        core::containers::AllowedRelationships<InfectionEvent> allowedRelationships{};
+        std::shared_ptr<core::containers::AllowedRelationships<InfectionEvent>> allowedRelationships;
         std::map<std::string, std::shared_ptr<ParentSetImpl>> parentSetList{};
 
         std::shared_ptr<AlleleFrequencyContainerImpl> alleleFrequencies;

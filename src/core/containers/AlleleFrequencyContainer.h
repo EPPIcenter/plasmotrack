@@ -13,6 +13,8 @@
 
 #include "core/parameters/Parameter.h"
 
+#include <boost/container/flat_map.hpp>
+
 #include <memory>
 #include <unordered_map>
 
@@ -24,7 +26,8 @@ namespace transmission_nets::core::containers {
                                      public abstract::UncacheablePassthrough<AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>>,
                                      public abstract::CheckpointablePassthrough<AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>> {
 
-        using AlleleFrequencyMap = std::unordered_map<std::shared_ptr<LocusImpl>, std::shared_ptr<parameters::Parameter<AlleleFrequencyImpl>>>;
+        using AlleleFrequencyMap = boost::container::flat_map<std::shared_ptr<LocusImpl>, std::shared_ptr<parameters::Parameter<AlleleFrequencyImpl>>>;
+        // using AlleleFrequencyMap = std::unordered_map<std::shared_ptr<LocusImpl>, std::shared_ptr<parameters::Parameter<AlleleFrequencyImpl>>>;
 
     public:
         using LocusAlleleFrequencyAssignment = std::pair<std::shared_ptr<LocusImpl>, std::shared_ptr<AlleleFrequencyImpl>>;

@@ -38,7 +38,7 @@ namespace transmission_nets::core::containers {
         explicit Infection(std::string id, float observationTime, bool symptomatic = true);
 
         Infection(const Infection& other, const std::string& id = "", bool retain_alleles = true) {
-            static int uid = 0;
+            static unsigned short uid = 0;
             uid_ = uid++;
             // Copy constructor -- create a new infection from an existing one using the latent genetics.
             if (id.empty()) {
@@ -165,7 +165,7 @@ namespace transmission_nets::core::containers {
             return id_;
         }
 
-        [[nodiscard]] int uid() const {
+        [[nodiscard]] unsigned short uid() const {
             return uid_;
         }
 
