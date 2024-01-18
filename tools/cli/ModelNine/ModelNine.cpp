@@ -180,7 +180,7 @@ int main(int argc, char** argv) {
             auto t0 = timers::time();
             repex->burnin();
 
-            if (kk % 25 == 0 and num_chains > 1) {
+            if (kk % 5 == 0 and kk > 10 and num_chains > 1) {
                 repex->adaptTemp();
             }
 

@@ -92,7 +92,7 @@ namespace transmission_nets::core::io {
                 }
             }
 
-            auto af = core::datatypes::Simplex(std::vector<float>(afToLoad));
+            auto af = datatypes::Simplex(afToLoad);
             afContainer->alleleFrequencies(locus)->initializeValue(af);
         }
 

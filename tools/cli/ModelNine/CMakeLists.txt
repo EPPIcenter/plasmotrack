@@ -2,25 +2,6 @@ cmake_minimum_required(VERSION 3.17)
 
 project(transmission_networks_model_nine)
 
-#FetchContent_Declare(json
-#        GIT_REPOSITORY https://github.com/nlohmann/json.git
-#        GIT_TAG master
-#        GIT_SHALLOW TRUE
-#        GIT_PROGRESS TRUE)
-#FetchContent_MakeAvailable(json)
-#
-#FetchContent_Declare(
-#        Eigen
-#        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-#        GIT_TAG master
-#        GIT_SHALLOW TRUE
-#        GIT_PROGRESS TRUE)
-#set(EIGEN_BUILD_DOC OFF)
-#set(BUILD_TESTING OFF)
-#set(EIGEN_BUILD_PKGCONFIG OFF)
-#FetchContent_MakeAvailable(Eigen)
-
-
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)

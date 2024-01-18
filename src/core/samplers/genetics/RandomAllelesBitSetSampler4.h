@@ -80,6 +80,7 @@ namespace transmission_nets::core::samplers::genetics {
         using Parameter = parameters::Parameter<AlleleImpl>;
         using Data = datatypes::Data<AlleleImpl>;
         namespace views = std::ranges::views;
+
         SAMPLER_STATE_ID stateId = RandomAlleleBitSet4ID;
         const Likelihood curLik = target_->value();
 

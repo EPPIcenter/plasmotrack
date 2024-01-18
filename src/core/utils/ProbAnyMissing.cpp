@@ -84,6 +84,7 @@ namespace transmission_nets::core::utils {
                 for (std::size_t j = 0; j < totalEvents - 1; ++j) {
                     r *= base;
                 }
+
                 for (std::size_t j = totalEvents - 1; j < numEvents; ++j) {
                     r *= base;
                     probVec[j] += r;

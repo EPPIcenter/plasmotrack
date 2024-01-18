@@ -221,7 +221,6 @@ namespace transmission_nets::model::transmission_process {
         const auto& alleleFreqs   = alleleFrequenciesContainer_->alleleFrequencies(locus)->value();
         const auto& genotype      = genetics_.at(locus)->value();
         float constrainedSetProb = 0.0;
-        bool zeroProbEvent        = false;
 
         prVec_.clear();
         prVec_.reserve(alleleFreqs.totalElements());
@@ -229,7 +228,6 @@ namespace transmission_nets::model::transmission_process {
             if (genotype.allele(j)) {
                 prVec_.push_back(alleleFreqs.frequencies(j));
                 constrainedSetProb += alleleFreqs.frequencies(j);
-//                zeroProbEvent = zeroProbEvent || std::abs(alleleFreqs.frequencies(j)) < 1e-10;
             }
         }
 
@@ -240,6 +238,8 @@ namespace transmission_nets::model::transmission_process {
                 k = k / constrainedSetProb;
             }
 
+            const float logConstrainedSetProb = std::log(constrainedSetProb);
+
             for (unsigned int coi = 0; coi <= MAX_COI; coi++) {
                 // Prob that after `coi` draws 1 or more alleles are not drawn
                 float pam = probAnyMissing_(prVec_, coi);
@@ -247,21 +247,21 @@ namespace transmission_nets::model::transmission_process {
                 // prob that after `coi` draws all alleles are drawn at least once conditional on all draws come from the constrained set.
                 if (pam >= 1 and coi >= prVec_.size()) {
                     locusLlikBuffer_[coi] = -std::numeric_limits<Likelihood>::infinity();
-                    fmt::print("PAM > 1 in MultinomialSourceTransmissionProcess::calculateLocusLogLikelihood()\n");
-                    fmt::print("\tprVec_ = {}\n", core::io::serialize(prVec_));
-                    fmt::print("\tcoi = {}\n", coi);
-                    fmt::print("\talleleFreqs = {}\n", core::io::serialize(alleleFreqs));
-                    fmt::print("\tgenotype = {}\n", core::io::serialize(genotype));
-                    fmt::print("\tconstrainedSetProb = {}\n", constrainedSetProb);
-                    fmt::print("\tpam = {}\n", pam);
-                    fmt::print("\tzeroProbEvent = {}\n", zeroProbEvent);
+                    // fmt::print("PAM > 1 in MultinomialSourceTransmissionProcess::calculateLocusLogLikelihood()\n");
+                    // fmt::print("\tprVec_ = {}\n", core::io::serialize(prVec_));
+                    // fmt::print("\tcoi = {}\n", coi);
+                    // fmt::print("\talleleFreqs = {}\n", core::io::serialize(alleleFreqs));
+                    // fmt::print("\tgenotype = {}\n", core::io::serialize(genotype));
+                    // fmt::print("\tconstrainedSetProb = {}\n", constrainedSetProb);
+                    // fmt::print("\tpam = {}\n", pam);
+                    // fmt::print("\tzeroProbEvent = {}\n", zeroProbEvent);
                 } else {
-                    locusLlikBuffer_[coi] = std::log(1 - pam) + std::log(constrainedSetProb) * coi;
+                    locusLlikBuffer_[coi] = std::log(1 - pam) + logConstrainedSetProb * static_cast<float>(coi);
                 }
             }
 
         } else {
-            std::fill(locusLlikBuffer_.begin(), locusLlikBuffer_.end(), -std::numeric_limits<Likelihood>::infinity());
+            std::ranges::fill(locusLlikBuffer_, -std::numeric_limits<Likelihood>::infinity());
         }
     }
 
