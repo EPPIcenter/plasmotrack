@@ -156,7 +156,7 @@ namespace transmission_nets::model::transmission_process {
 
         this->value_ = -std::numeric_limits<Likelihood>::infinity();
         this->setDirty();
-        this->value();
+        this->OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::value();
 
         //#ifndef NDEBUG
         //        if (this->value_ <= -std::numeric_limits<Likelihood>::infinity()) {
@@ -235,8 +235,7 @@ namespace transmission_nets::model::transmission_process {
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::clearParentLikelihood(const std::shared_ptr<InfectionEventImpl> parent) {
         for (auto it = parentSetLliks_[parentSetLLiksIndex_].begin(); it != parentSetLliks_[parentSetLLiksIndex_].end();) {
-            bool found = std::find(it->first.begin(), it->first.end(), parent->uid()) != it->first.end();
-            if (found) {
+            if (std::find(it->first.begin(), it->first.end(), parent->uid()) != it->first.end()) {
                 it = parentSetLliks_[parentSetLLiksIndex_].erase(it);
             } else {
                 ++it;

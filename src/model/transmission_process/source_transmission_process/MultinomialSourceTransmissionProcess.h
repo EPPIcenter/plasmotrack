@@ -32,7 +32,7 @@ namespace transmission_nets::model::transmission_process {
     public:
         MultinomialSourceTransmissionProcess(std::shared_ptr<COIProbabilityImpl> coiProb,
                                              std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer,
-                                             std::vector<std::shared_ptr<core::containers::Locus>>  loci,
+                                             std::vector<std::shared_ptr<core::containers::Locus>> loci,
                                              const GenotypeParameterMap& genetics);
 
         Likelihood value() override;
@@ -81,9 +81,9 @@ namespace transmission_nets::model::transmission_process {
 
 
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename GenotypeParameterMap, int MAX_COI>
-    MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>::MultinomialSourceTransmissionProcess(std::shared_ptr<COIProbabilityImpl> coiProb, std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer, std::vector<std::shared_ptr<core::containers::Locus>>  loci, const GenotypeParameterMap& genetics)
+    MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>::MultinomialSourceTransmissionProcess(std::shared_ptr<COIProbabilityImpl> coiProb, std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer, std::vector<std::shared_ptr<core::containers::Locus>> loci, const GenotypeParameterMap& genetics)
         : coiProb_(std::move(coiProb)), alleleFrequenciesContainer_(std::move(alleleFrequenciesContainer)), loci_(std::move(loci)), genetics_(genetics) {
-        value_     = 0;
+        value_ = 0;
         totalLoci_ = alleleFrequenciesContainer_->totalLoci();
 
         llikMatrix_.resize((MAX_COI + 1) * totalLoci_);
@@ -128,9 +128,8 @@ namespace transmission_nets::model::transmission_process {
         if (this->isDirty()) {
             for (const auto& locus : dirtyLoci_) {
                 this->calculateLocusLogLikelihood(locus);
-                std::copy(locusLlikBuffer_.begin(), locusLlikBuffer_.end(), llikMatrix_.begin() + locusIdxMap_[locus] * (MAX_COI + 1));
+                std::ranges::copy(locusLlikBuffer_, llikMatrix_.begin() + locusIdxMap_[locus] * (MAX_COI + 1));
             }
-
             dirtyLoci_.clear();
             tmpCalculationVec_.clear();
 

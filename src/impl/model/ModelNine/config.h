@@ -48,7 +48,6 @@
 // #include "model/transmission_process/node_transmission_process/SimpleLossMutation.h"
 // #include "model/transmission_process/node_transmission_process/SimpleLoss.h"
 #include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess2.h"
-
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
 #include <filesystem>
@@ -58,7 +57,7 @@
 namespace transmission_nets::impl::ModelNine {
 
     static constexpr int MAX_ALLELES       = 64;
-    static constexpr int MAX_COI           = 30;
+    static constexpr int MAX_COI           = 20;
     static constexpr int MAX_PARENTS       = 2;
     static constexpr int MAX_TRANSMISSIONS = 8;
     static constexpr int MAX_STRAINS = 12;
@@ -78,7 +77,7 @@ namespace transmission_nets::impl::ModelNine {
     using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent::GenotypeParameterMap , MAX_COI>;
 //    using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
 //    using NodeTransmissionImpl      = model::transmission_process::SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTS, InterTransmissionProbImpl, SourceTransmissionImpl>;
-    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionImpl>;
+    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess2<MAX_PARENTS, MAX_STRAINS, SourceTransmissionImpl>;
 
 
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;

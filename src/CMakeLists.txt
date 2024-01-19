@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.17)
-#include(FetchContent)
 
 project(transmission_networks)
 
@@ -8,7 +7,6 @@ find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(OpenMP)
 find_package(fmt REQUIRED)
-
 
 if (OPENMP_FOUND)
     set(CMAKE_C_FLAGS " ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")

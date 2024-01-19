@@ -66,8 +66,13 @@ namespace transmission_nets::impl::ModelNine {
 
         initPriors();
 
-        alleleFrequencies = core::io::parseAlleleFrequenciesFromJSON<AlleleFrequencyContainerImpl>(input, loci);
-
+        // alleleFrequencies = core::io::parseAlleleFrequenciesFromJSON<AlleleFrequencyContainerImpl>(input, loci);
+        alleleFrequencies = std::make_shared<AlleleFrequencyContainerImpl>();
+        for (const auto& [locus_label, locus] : this->loci) {
+            alleleFrequencies->addLocus(locus);
+            auto hotloadFreq = core::datatypes::Simplex(core::io::hotloadVector(freqDir / (locus->label + ".csv")));
+            alleleFrequencies->alleleFrequencies(locus)->initializeValue(hotloadFreq);
+        }
 
         for (auto& infection : infections) {
             auto infDir        = genotypeDir / core::io::makePathValid(infection->id());
