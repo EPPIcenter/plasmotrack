@@ -36,14 +36,14 @@ namespace transmission_nets::core::samplers {
         };
 
         template<typename... Args>
-        ReplicaExchange(const int numChains, const int samplesPerStep, const float gradient, std::shared_ptr<Engine> r, fs::path outputDir, const bool hotload, const bool null_model, const unsigned int num_cores, Args... args) : r_(r), num_cores_(num_cores) {
+        ReplicaExchange(const int numChains, const int samplesPerStep, const double gradient, std::shared_ptr<Engine> r, fs::path outputDir, const bool hotload, const bool null_model, const unsigned int num_cores, Args... args) : r_(r), num_cores_(num_cores) {
             swap_acceptance_rates.resize(numChains - 1, 0);
-            swap_barriers.resize(numChains - 1, 0.0f);
-            const float temp_step = (1.0f - gradient) / static_cast<float>(numChains);
+            swap_barriers.resize(numChains - 1, 0.0);
+            const double temp_step = (1.0 - gradient) / static_cast<double>(numChains);
             for (int ii = 0; ii < numChains; ++ii) {
                 swap_indices.push_back(ii);
                 auto chain_r = std::make_shared<Engine>(seed_dist_(*r_));
-                float temp = 1.0f - temp_step * static_cast<float>(ii);
+                double temp = 1.0 - temp_step * static_cast<double>(ii);
                 temp_gradient.push_back(temp);
 
                 std::shared_ptr<State> state;
@@ -103,18 +103,18 @@ namespace transmission_nets::core::samplers {
                 auto& chain_b = chains[swap_indices[ii + 1]];
 
                 const Likelihood V_a = -chain_a.target->getLikelihood();
-                const float temp_a = chain_a.target->getTemperature();
+                const double temp_a = chain_a.target->getTemperature();
                 const Likelihood V_b = -chain_b.target->getLikelihood();
-                const float temp_b = chain_b.target->getTemperature();
+                const double temp_b = chain_b.target->getTemperature();
 
-                const float acceptance_ratio = (temp_b - temp_a) * (V_b - V_a);
-                const float acceptance_rate = std::min(1.0f, std::exp(acceptance_ratio));
+                const double acceptance_ratio = (temp_b - temp_a) * (V_b - V_a);
+                const double acceptance_rate = std::min(1.0, std::exp(acceptance_ratio));
 
                 if (burnin and !pre_adapt_temperature) {
                     swap_barriers[ii] += 1.0 - acceptance_rate;
                 }
 
-                const float u = std::log(uniform_dist_(*r_));
+                const double u = std::log(uniform_dist_(*r_));
 
                 if ((acceptance_ratio > 0 || u < acceptance_ratio) and !std::isnan(acceptance_ratio)) {
                     std::swap(swap_indices[ii], swap_indices[ii + 1]);
@@ -139,33 +139,33 @@ namespace transmission_nets::core::samplers {
             fmt::print("Adapting temperature\n");
 
             // swap rate starts at t = 1 so need to reverse
-            const std::vector reversed_swap_barriers(swap_barriers.rbegin(), swap_barriers.rend());
+            const std::vector<double> reversed_swap_barriers(swap_barriers.rbegin(), swap_barriers.rend());
 
-            std::vector cumulative_swap_rate(chains.size(), 0.0f);
+            std::vector<double> cumulative_swap_rate(chains.size(), 0.0);
 
-            cumulative_swap_rate.front() = 0.0f;
+            cumulative_swap_rate.front() = 0.0;
             for (size_t ii = 1; ii < cumulative_swap_rate.size(); ii++) {
-                cumulative_swap_rate[ii] = cumulative_swap_rate[ii - 1] + reversed_swap_barriers[ii - 1] / (num_swaps / 2.0f);
+                cumulative_swap_rate[ii] = cumulative_swap_rate[ii - 1] + reversed_swap_barriers[ii - 1] / (num_swaps / 2.0);
             }
 
-            const std::vector<float> reversed_gradient{temp_gradient.rbegin(), temp_gradient.rend()};
+            const std::vector<double> reversed_gradient{temp_gradient.rbegin(), temp_gradient.rend()};
 
             // monotonic cubic spline
             const tk::spline spl(reversed_gradient, cumulative_swap_rate, tk::spline::cspline, true);
 
             // target swap rates
-            std::vector<float> cumulative_swap_grid(cumulative_swap_rate.size());
+            std::vector<double> cumulative_swap_grid(cumulative_swap_rate.size());
             cumulative_swap_grid.front() = cumulative_swap_rate.front();
             cumulative_swap_grid.back() = cumulative_swap_rate.back();
-            const float step = (cumulative_swap_grid.back() - cumulative_swap_grid.front()) / (static_cast<float>(cumulative_swap_grid.size()) - 1.0f);
+            const double step = (cumulative_swap_grid.back() - cumulative_swap_grid.front()) / (static_cast<double>(cumulative_swap_grid.size()) - 1.0);
 
             for (size_t ii = 1; ii < cumulative_swap_grid.size() - 1; ii++) {
-                cumulative_swap_grid[ii] = cumulative_swap_grid[0] + static_cast<float>(ii) * step;
+                cumulative_swap_grid[ii] = cumulative_swap_grid[0] + static_cast<double>(ii) * step;
             }
 
-            std::vector<float> new_temp_gradient(temp_gradient.size());
+            std::vector<double> new_temp_gradient(temp_gradient.size());
             new_temp_gradient.front() = temp_gradient.back();
-            new_temp_gradient.back() = 1.0f;
+            new_temp_gradient.back() = 1.0;
             for (size_t ii = 1; ii < temp_gradient.size() - 1; ii++) {
                 new_temp_gradient[ii] = spl.solve_one(cumulative_swap_grid[ii]);
             }
@@ -213,8 +213,8 @@ namespace transmission_nets::core::samplers {
         std::vector<int> swap_acceptance_rates{};
         std::vector<size_t> swap_indices{};
 
-        std::vector<float> swap_barriers{};
-        std::vector<float> temp_gradient{};
+        std::vector<double> swap_barriers{};
+        std::vector<double> temp_gradient{};
         std::vector<int> swap_store{};
 
         int num_swaps = 0;

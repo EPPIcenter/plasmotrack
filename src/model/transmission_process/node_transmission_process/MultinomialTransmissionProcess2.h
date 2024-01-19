@@ -29,10 +29,10 @@ namespace transmission_nets::model::transmission_process {
                                            public core::abstract::Cacheable<MultinomialTransmissionProcess2<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>>,
                                            public core::abstract::Checkpointable<MultinomialTransmissionProcess2<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>, std::array<Likelihood, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>> {
 
-        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
+        using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
 
     public:
-        explicit MultinomialTransmissionProcess(p_Parameterfloat mean_strains_transmitted);
+        explicit MultinomialTransmissionProcess2(p_Parameterdouble mean_strains_transmitted);
 
         std::array<Likelihood, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)> value() override;
 
@@ -61,7 +61,7 @@ namespace transmission_nets::model::transmission_process {
         friend class core::abstract::Checkpointable<MultinomialTransmissionProcess2, std::array<Likelihood, MAX_STRAINS*(MAX_PARENTSET_SIZE + 1)>>;
         friend class core::abstract::Cacheable<MultinomialTransmissionProcess2>;
 
-        p_Parameterfloat mean_strains_transmitted_;
+        p_Parameterdouble mean_strains_transmitted_;
         core::utils::probAnyMissingFunctor probAnyMissing_;
         Probability mutationRate_ = 0.001;
     };
@@ -89,18 +89,18 @@ namespace transmission_nets::model::transmission_process {
          * todo: mean_strains_transmitted isn't actually the mean of the distribution
          */
         if (this->isDirty()) {
-            const float lambda = mean_strains_transmitted_->value();
+            const double lambda = mean_strains_transmitted_->value();
             for (unsigned int kk = 0; kk < MAX_PARENTSET_SIZE + 1; ++kk) {
                 const int num_parents = static_cast<int>(kk) + 1;
                 Probability denominator = 0.0;
                 for (unsigned int jj = kk; jj < MAX_STRAINS; ++jj) {
                     const int num_strains = static_cast<int>(jj) + 1;
 
-                    float correction = 0;
+                    double correction = 0;
                     for (int ii = 0; ii < num_parents; ++ii) {
-                        correction += std::pow(-1, ii) * std::pow(num_parents - ii, num_strains) * boost::math::binomial_coefficient<float>(num_parents, ii);
+                        correction += std::pow(-1, ii) * std::pow(num_parents - ii, num_strains) * boost::math::binomial_coefficient<double>(num_parents, ii);
                     }
-                    this->value_[kk * MAX_STRAINS + jj] = num_strains * std::log(lambda) - (num_parents * std::log(std::exp(lambda) - 1)) - std::log(boost::math::factorial<float>(num_strains)) + std::log(correction);
+                    this->value_[kk * MAX_STRAINS + jj] = num_strains * std::log(lambda) - (num_parents * std::log(std::exp(lambda) - 1)) - std::log(boost::math::factorial<double>(num_strains)) + std::log(correction);
                     denominator += exp(this->value_[kk * MAX_STRAINS + jj]);
                 }
 
@@ -143,11 +143,11 @@ namespace transmission_nets::model::transmission_process {
                 }
             }
 
-            float total_positive = 0.0f;
+            long double total_positive = 0.0;
             for (size_t j = 0; j < childGenotype.totalAlleles(); ++j) {
-                total_positive += parent_pop_freqs[j] > 0 ? 1.0f : 0.0f;
+                total_positive += parent_pop_freqs[j] > 0 ? 1.0 : 0.0;
             }
-            const float total_negative = childGenotype.totalAlleles() - total_positive;
+            const long double total_negative = childGenotype.totalAlleles() - total_positive;
 
             for (size_t j = 0; j < childGenotype.totalAlleles(); ++j) {
                 if (parent_pop_freqs[j] == 0) {
@@ -186,7 +186,7 @@ namespace transmission_nets::model::transmission_process {
                 if (logLikelihoods[idx] == -std::numeric_limits<Likelihood>::infinity()) {
                     continue;
                 }
-                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0f - pamVec[idx]) + logConstrainedSetProb * numStrains;
+                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0 - pamVec[idx]) + logConstrainedSetProb * numStrains;
             }
         }
 
@@ -243,12 +243,12 @@ namespace transmission_nets::model::transmission_process {
                 return -std::numeric_limits<Likelihood>::infinity();
             }
 
-            float total_positive = 0.0f;
+            long double total_positive = 0.0;
             for (size_t j = 0; j < latentParentGenotype.totalAlleles(); ++j) {
                 parent_pop_freqs[j] += (static_cast<Probability>(latentParentGenotype.allele(j)) / totalAllelesPresent / (numParents + 1.0));
-                total_positive += parent_pop_freqs[j] > 0 ? 1.0f : 0.0f;
+                total_positive += parent_pop_freqs[j] > 0 ? 1.0 : 0.0;
             }
-            const float total_negative = latentParentGenotype.totalAlleles() - total_positive;
+            const long double total_negative = latentParentGenotype.totalAlleles() - total_positive;
 
             for (size_t j = 0; j < latentParentGenotype.totalAlleles(); ++j) {
                 if (parent_pop_freqs[j] == 0) {
@@ -287,7 +287,7 @@ namespace transmission_nets::model::transmission_process {
                 if (logLikelihoods[idx] == -std::numeric_limits<Likelihood>::infinity()) {
                     continue;
                 }
-                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0f - pamVec[idx]) + logConstrainedSetProb * numStrains;
+                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0 - pamVec[idx]) + logConstrainedSetProb * numStrains;
             }
         }
 
@@ -307,7 +307,7 @@ namespace transmission_nets::model::transmission_process {
 
     template<unsigned int MAX_PARENTSET_SIZE, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl>
     template<typename GeneticsImpl>
-    Likelihood MultinomialTransmissionProcess<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
+    Likelihood MultinomialTransmissionProcess2<MAX_PARENTSET_SIZE, MAX_STRAINS, SourceTransmissionProcessImpl>::calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> infection,
                                                                                                                                       std::shared_ptr<core::containers::Infection<GeneticsImpl>> latentParent,
                                                                                                                                       std::shared_ptr<SourceTransmissionProcessImpl> stp) {
         constexpr size_t numParents = 1;
@@ -326,15 +326,15 @@ namespace transmission_nets::model::transmission_process {
             }
 
             const int totalAllelesPresent = parentGenotype.totalPositiveCount();
-            float total_positive = 0.0f;
+            long double total_positive = 0.0;
             for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
                 if (parentGenotype.allele(j)) {
                     parent_pop_freqs[j] += (static_cast<Probability>(parentGenotype.allele(j)) / totalAllelesPresent);
-                    total_positive += parent_pop_freqs[j] > 0 ? 1.0f : 0.0f;
+                    total_positive += parent_pop_freqs[j] > 0 ? 1.0 : 0.0;
                 }
             }
 
-            const float total_negative = parentGenotype.totalAlleles() - total_positive;
+            const long double total_negative = parentGenotype.totalAlleles() - total_positive;
 
             for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
                 if (parent_pop_freqs[j] == 0) {
@@ -372,7 +372,7 @@ namespace transmission_nets::model::transmission_process {
                 if (logLikelihoods[idx] == -std::numeric_limits<Likelihood>::infinity()) {
                     continue;
                 }
-                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0f - pamVec[idx]) + logConstrainedSetProb * numStrains;
+                logLikelihoods[idx] += pamVec[idx] >= 1.0 ? -std::numeric_limits<Likelihood>::infinity() : std::log(1.0 - pamVec[idx]) + logConstrainedSetProb * numStrains;
             }
         }
 

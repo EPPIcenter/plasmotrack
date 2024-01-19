@@ -15,7 +15,7 @@ namespace transmission_nets::impl::ModelNine {
             scheduler_.step();
         }
 
-        std::shared_ptr<State> state_;
+        std::shared_ptr<State> state_{};
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> r_;
         Scheduler scheduler_;
@@ -25,8 +25,8 @@ namespace transmission_nets::impl::ModelNine {
     SequentialSampleScheduler<T, Engine, Scheduler>::SequentialSampleScheduler(std::shared_ptr<State> state, std::shared_ptr<T> target, std::shared_ptr<Engine> r, int samplesPerStep) : state_(std::move(state)), target_(std::move(target)), r_(r), scheduler_(samplesPerStep) {
         using namespace core::samplers;
 
-        [[maybe_unused]] float totalInfections = state_->infections.size();
-        [[maybe_unused]] float totalLoci = state_->loci.size();
+        [[maybe_unused]] double totalInfections = state_->infections.size();
+        [[maybe_unused]] double totalLoci = state_->loci.size();
 
         scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->meanCOI, target_, 1.0, 20, r, 1, .1, 1),
                                     .id = "Mean COI",
@@ -43,10 +43,10 @@ namespace transmission_nets::impl::ModelNine {
                                     .debug = false});
 
         int infection_idx_ = 0;
-        for (auto& infection : state_->infections) {
+        for (const auto& infection : state_->infections) {
 
             bool isSymptomatic = infection->isSymptomatic();
-            float upperBound = isSymptomatic ? state_->symptomaticInfectionDurationDist->value().size() : state_->asymptomaticInfectionDurationDist->value().size();
+            double upperBound = isSymptomatic ? state_->symptomaticInfectionDurationDist->value().size() : state_->asymptomaticInfectionDurationDist->value().size();
 
             scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target_, 1.0, upperBound, r, 1, .1, 2),
                                         .id = fmt::format("Infection Duration {}", infection->id()),

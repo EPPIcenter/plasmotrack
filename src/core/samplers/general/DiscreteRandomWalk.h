@@ -31,9 +31,9 @@ namespace transmission_nets::core::samplers {
 
         [[nodiscard]] unsigned int rejections() const noexcept;
 
-        [[nodiscard]] float acceptanceRate() const noexcept;
+        [[nodiscard]] double acceptanceRate() const noexcept;
 
-        virtual float sampleStride([[maybe_unused]] int current) noexcept;
+        virtual double sampleStride([[maybe_unused]] int current) noexcept;
 
         virtual Likelihood logMetropolisHastingsAdjustment([[maybe_unused]] int curr, [[maybe_unused]] int proposed) noexcept;
 
@@ -76,12 +76,12 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    float DiscreteRandomWalk<T, Engine>::acceptanceRate() const noexcept {
-        return float(acceptances_) / float(rejections_ + acceptances_);
+    double DiscreteRandomWalk<T, Engine>::acceptanceRate() const noexcept {
+        return double(acceptances_) / double(rejections_ + acceptances_);
     }
 
     template<typename T, typename Engine>
-    float DiscreteRandomWalk<T, Engine>::sampleStride([[maybe_unused]] int current) noexcept {
+    double DiscreteRandomWalk<T, Engine>::sampleStride([[maybe_unused]] int current) noexcept {
         auto stride = stride_sampling_dist_(*rng_);
         return uniform_dist_(*rng_) > .5 ? stride : -stride;
     }

@@ -23,16 +23,16 @@ namespace transmission_nets::core::io {
     fs::path getPathFromEnvVar(const char* envVar);
 
     std::string getLastLine(std::ifstream& in);
-    float hotloadfloat(const fs::path& input);
-    std::vector<float> hotloadVector(const fs::path& input);
+    double hotloaddouble(const fs::path& input);
+    std::vector<double> hotloadVector(const fs::path& input);
     std::string hotloadString(const fs::path& input);
     std::string makePathValid(const std::string& input);
 
     /*
-     * Load a vector of floats from a file.
+     * Load a vector of doubles from a file.
      * Will concatenate all lines in the file into a single vector.
      * @param filePath The path to the file.
-     * @return A vector of floats.
+     * @return A vector of doubles.
      */
     template<typename T>
     std::vector<T> loadVectorFromFile(const fs::path& filePath) {

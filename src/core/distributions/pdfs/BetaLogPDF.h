@@ -15,16 +15,16 @@ namespace transmission_nets::core::distributions {
 
     class BetaLogPDF : public computation::PartialLikelihood {
     public:
-        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
-        BetaLogPDF(p_Parameterfloat target, p_Parameterfloat alpha, p_Parameterfloat beta);
+        using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
+        BetaLogPDF(p_Parameterdouble target, p_Parameterdouble alpha, p_Parameterdouble beta);
         computation::Likelihood value() override;
         std::string identifier() override;
 
     private:
-        p_Parameterfloat target_;
-        p_Parameterfloat alpha_;
-        p_Parameterfloat beta_;
-        float logDenominator_ = 0;
+        p_Parameterdouble target_;
+        p_Parameterdouble alpha_;
+        p_Parameterdouble beta_;
+        double logDenominator_ = 0;
     };
 
 }// namespace transmission_nets::core::distributions

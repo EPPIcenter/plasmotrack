@@ -32,7 +32,7 @@ namespace transmission_nets::core::samplers::genetics {
         void update() noexcept override;
         [[nodiscard]] unsigned int acceptances() noexcept;
         [[nodiscard]] unsigned int rejections() noexcept;
-        [[nodiscard]] float acceptanceRate() noexcept;
+        [[nodiscard]] double acceptanceRate() noexcept;
 
     private:
         std::shared_ptr<InfectionEventImpl> infection_;
@@ -51,10 +51,10 @@ namespace transmission_nets::core::samplers::genetics {
         unsigned int total_updates_ = 0;
 
         // todo: make this tunable
-        const float fp_rate = 0.05f;
-        const float fn_rate = 0.20f;
-        const float tx_from_parent = 0.90f;
-        const float tx_from_other = 0.20f;
+        const double fp_rate = 0.05;
+        const double fn_rate = 0.20;
+        const double tx_from_parent = 0.90;
+        const double tx_from_other = 0.20;
     };
 
 
@@ -89,8 +89,8 @@ namespace transmission_nets::core::samplers::genetics {
         categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, locus_->totalAlleles() - 1));
         const int allele_idx = categorical_dist_(*rng_);
 
-        float curr_state_log_prob = 0.0f;
-        float proposed_state_log_prob = 0.0f;
+        double curr_state_log_prob = 0.0;
+        double proposed_state_log_prob = 0.0;
         std::shared_ptr<InfectionEventImpl> curr_inf = infection_;
         std::shared_ptr<InfectionEventImpl> curr_latent_parent = latentParent_;
         int distance = 4;
@@ -137,17 +137,17 @@ namespace transmission_nets::core::samplers::genetics {
 
             const bool curr_state = curr_param->value().allele(allele_idx) == 1;
 
-            const float parent_prob_component = in_parent ? (tx_from_parent) : (tx_from_other);
-            const float obs_data_component = has_data ? (in_curr ? (1 - fp_rate) : (fn_rate)) : 1.0f;
-            const float child_data_component =
+            const double parent_prob_component = in_parent ? (tx_from_parent) : (tx_from_other);
+            const double obs_data_component = has_data ? (in_curr ? (1 - fp_rate) : (fn_rate)) : 1.0;
+            const double child_data_component =
                     child_has_data ? in_child ? tx_from_parent * (1 - fn_rate) + (1 - tx_from_parent) * fp_rate : tx_from_parent * fn_rate + (1 - tx_from_parent) * (1 - fp_rate)
-                                   : 1.0f;
+                                   : 1.0;
 
-            const float prob_obs = parent_prob_component * obs_data_component * child_data_component;
+            const double prob_obs = parent_prob_component * obs_data_component * child_data_component;
 
             const int proposed_state = uniform_dist_(*rng_) < prob_obs ? 1 : 0;
 
-            const float prob_curr = curr_state == proposed_state ? prob_obs : 1 - prob_obs;
+            const double prob_curr = curr_state == proposed_state ? prob_obs : 1 - prob_obs;
 
             path.push_back(proposed_state);
             curr_path.push_back(curr_state);
@@ -226,8 +226,8 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename AlleleImpl, typename LocusImpl>
-    float RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, AlleleImpl, LocusImpl>::acceptanceRate() noexcept {
-        return static_cast<float>(acceptances_) / static_cast<float>(total_updates_);
+    double RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, AlleleImpl, LocusImpl>::acceptanceRate() noexcept {
+        return static_cast<double>(acceptances_) / static_cast<double>(total_updates_);
     }
 
 

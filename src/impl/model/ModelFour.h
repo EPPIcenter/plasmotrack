@@ -71,32 +71,32 @@ namespace transmission_nets::impl::ModelFour {
         core::parameters::Ordering<InfectionEvent> infectionEventOrdering;
 
         // Observation Process
-        std::vector<core::parameters::Parameter<float>> observationFalsePositiveRates{};
-        core::parameters::Parameter<float> obsFPRPriorAlpha;
-        core::parameters::Parameter<float> obsFPRPriorBeta;
+        std::vector<core::parameters::Parameter<double>> observationFalsePositiveRates{};
+        core::parameters::Parameter<double> obsFPRPriorAlpha;
+        core::parameters::Parameter<double> obsFPRPriorBeta;
 
-        std::vector<core::parameters::Parameter<float>> observationFalseNegativeRates{};
-        core::parameters::Parameter<float> obsFNRPriorAlpha;
-        core::parameters::Parameter<float> obsFNRPriorBeta;
+        std::vector<core::parameters::Parameter<double>> observationFalseNegativeRates{};
+        core::parameters::Parameter<double> obsFNRPriorAlpha;
+        core::parameters::Parameter<double> obsFNRPriorBeta;
 
         // Node Transmission Process
-        core::parameters::Parameter<float> geometricGenerationProb;
-        core::parameters::Parameter<float> geometricGenerationProbPriorAlpha;
-        core::parameters::Parameter<float> geometricGenerationProbPriorBeta;
+        core::parameters::Parameter<double> geometricGenerationProb;
+        core::parameters::Parameter<double> geometricGenerationProbPriorAlpha;
+        core::parameters::Parameter<double> geometricGenerationProbPriorBeta;
 
-        core::parameters::Parameter<float> lossProb;
-        core::parameters::Parameter<float> lossProbPriorAlpha;
-        core::parameters::Parameter<float> lossProbPriorBeta;
+        core::parameters::Parameter<double> lossProb;
+        core::parameters::Parameter<double> lossProbPriorAlpha;
+        core::parameters::Parameter<double> lossProbPriorBeta;
 
 
-        core::parameters::Parameter<float> mutationProb;
-        core::parameters::Parameter<float> mutationProbPriorAlpha;
-        core::parameters::Parameter<float> mutationProbPriorBeta;
+        core::parameters::Parameter<double> mutationProb;
+        core::parameters::Parameter<double> mutationProbPriorAlpha;
+        core::parameters::Parameter<double> mutationProbPriorBeta;
 
         // Source Transmission Process
-        core::parameters::Parameter<float> meanCOI;
-        core::parameters::Parameter<float> meanCOIPriorShape;
-        core::parameters::Parameter<float> meanCOIPriorScale;
+        core::parameters::Parameter<double> meanCOI;
+        core::parameters::Parameter<double> meanCOIPriorShape;
+        core::parameters::Parameter<double> meanCOIPriorScale;
     };
 
     struct Model {

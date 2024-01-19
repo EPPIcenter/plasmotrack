@@ -30,7 +30,7 @@ namespace transmission_nets::core::samplers::topology {
 
         [[nodiscard]] unsigned int rejections() noexcept;
 
-        [[nodiscard]] float acceptanceRate() noexcept;
+        [[nodiscard]] double acceptanceRate() noexcept;
 
     private:
         parameters::TransmissionNetwork<NodeValueImpl>& network_;
@@ -98,8 +98,8 @@ namespace transmission_nets::core::samplers::topology {
     }
 
     template<typename T, typename Engine, typename NodeValueImpl>
-    float RandomRemoveEdgeSampler<T, Engine, NodeValueImpl>::acceptanceRate() noexcept {
-        return float(acceptances_) / (acceptances_ + rejections_);
+    double RandomRemoveEdgeSampler<T, Engine, NodeValueImpl>::acceptanceRate() noexcept {
+        return double(acceptances_) / (acceptances_ + rejections_);
     }
 
 }// namespace transmission_nets::core::samplers::topology

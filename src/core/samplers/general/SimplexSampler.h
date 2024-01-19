@@ -18,15 +18,15 @@ namespace transmission_nets::core::samplers {
 
     public:
         SimplexSampler(parameters::Parameter<datatypes::Simplex>& parameter, T& target, Engine* rng);
-        SimplexSampler(parameters::Parameter<datatypes::Simplex>& parameter, T& target, Engine* rng, float variance);
+        SimplexSampler(parameters::Parameter<datatypes::Simplex>& parameter, T& target, Engine* rng, double variance);
 
-        void setAdaptationRate(float adaptationRate);
+        void setAdaptationRate(double adaptationRate);
 
-        void setTargetAcceptanceRate(float targetAcceptanceRate);
+        void setTargetAcceptanceRate(double targetAcceptanceRate);
 
-        void setMinVariance(float minVariance);
+        void setMinVariance(double minVariance);
 
-        void setMaxVariance(float maxVariance);
+        void setMaxVariance(double maxVariance);
 
         void update() noexcept override;
 
@@ -34,7 +34,7 @@ namespace transmission_nets::core::samplers {
 
         void adapt(unsigned int idx) noexcept override;
 
-        float acceptanceRate(int idx) noexcept;
+        double acceptanceRate(int idx) noexcept;
 
     private:
         parameters::Parameter<datatypes::Simplex>& parameter_;
@@ -43,15 +43,15 @@ namespace transmission_nets::core::samplers {
         boost::random::normal_distribution<> normal_dist_{0, 1};
         boost::random::uniform_01<> uniform_dist_{};
 
-        float variance_    = 1;
-        float acceptances_ = 0;
-        float rejections_  = 0;
+        double variance_    = 1;
+        double acceptances_ = 0;
+        double rejections_  = 0;
 
-        float minVariance_ = 1e-12;
-        float maxVariance_ = 1e6;
+        double minVariance_ = 1e-12;
+        double maxVariance_ = 1e6;
 
-        float adaptation_rate_        = 1;
-        float target_acceptance_rate_ = .23;
+        double adaptation_rate_        = 1;
+        double target_acceptance_rate_ = .23;
 
         int total_updates_ = 0;
     };
@@ -60,10 +60,10 @@ namespace transmission_nets::core::samplers {
     SimplexSampler<T, Engine>::SimplexSampler(parameters::Parameter<datatypes::Simplex>& parameter, T& target, Engine* rng) : parameter_(parameter), target_(target), rng_(rng) {}
 
     template<typename T, typename Engine>
-    SimplexSampler<T, Engine>::SimplexSampler(parameters::Parameter<datatypes::Simplex>& parameter, T& target, Engine* rng, float variance) : parameter_(parameter), target_(target), rng_(rng), variance_(variance) {}
+    SimplexSampler<T, Engine>::SimplexSampler(parameters::Parameter<datatypes::Simplex>& parameter, T& target, Engine* rng, double variance) : parameter_(parameter), target_(target), rng_(rng), variance_(variance) {}
 
     template<typename T, typename Engine>
-    void SimplexSampler<T, Engine>::setAdaptationRate(float adaptationRate) {
+    void SimplexSampler<T, Engine>::setAdaptationRate(double adaptationRate) {
         adaptation_rate_ = adaptationRate;
     }
 

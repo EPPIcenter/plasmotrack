@@ -40,8 +40,8 @@ namespace transmission_nets::model::transmission_process {
         std::string identifier() override;
 
     private:
-        friend class core::abstract::Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>>;
-        friend class core::abstract::Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>, float>;
+        friend class Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>>;
+        friend class Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>, double>;
 
         void calculateLocusLogLikelihood(std::shared_ptr<core::containers::Locus> locus);
         void postSaveState(int savedStateId);
@@ -131,6 +131,12 @@ namespace transmission_nets::model::transmission_process {
                 std::ranges::copy(locusLlikBuffer_, llikMatrix_.begin() + locusIdxMap_[locus] * (MAX_COI + 1));
             }
             dirtyLoci_.clear();
+
+            // for (const auto& [locus, idx] : locusIdxMap_) {
+            //     this->calculateLocusLogLikelihood(locus);
+            //     std::copy(locusLlikBuffer_.begin(), locusLlikBuffer_.end(), llikMatrix_.begin() + (idx * (MAX_COI + 1)));
+            // }
+
             tmpCalculationVec_.clear();
 
             std::fill(coiPartialLlik_.begin(), coiPartialLlik_.end(), 0.0);
@@ -151,7 +157,7 @@ namespace transmission_nets::model::transmission_process {
 
             this->value_ = core::utils::logSumExp(tmpCalculationVec_);
 
-            if (std::isnan(this->value_) or this->value_ <= -std::numeric_limits<float>::infinity()) {
+            if (std::isnan(this->value_) or this->value_ <= -std::numeric_limits<double>::infinity()) {
                 fmt::print("NAN in MultinomialSourceTransmissionProcess::value()\n");
                 fmt::print("\ttmpCalculationVec_ = {}\n", core::io::serialize(tmpCalculationVec_));
                 fmt::print("\tcoiPartialLlik_ = {}\n", core::io::serialize(coiPartialLlik_));
@@ -161,16 +167,16 @@ namespace transmission_nets::model::transmission_process {
                     fmt::print("\tgenotype = {}\n", genetics_.at(locus)->value().allelesStr());
                 }
                 fmt::print("{}\n", core::io::serialize_matrix(llikMatrix_, totalLoci_, MAX_COI + 1));
-                this->value_ = -std::numeric_limits<float>::infinity();
+                this->value_ = -std::numeric_limits<double>::infinity();
                 exit(1);
             }
 
-#ifdef DEBUG_LIKELIHOOD
-            auto tmp = validate();
-            if (std::abs(tmp - this->value_) > 1) {
-                fmt::print(stderr, "Likelihood mismatch MSTP: {}, {}\n", tmp, this->value_);
-            }
-#endif
+// #ifdef DEBUG_LIKELIHOOD
+//             auto tmp = validate();
+//             if (std::abs(tmp - this->value_) > 1) {
+//                 fmt::print(stderr, "Likelihood mismatch MSTP: {}, {}\n", tmp, this->value_);
+//             }
+// #endif
 
             this->setClean();
         }
@@ -217,9 +223,9 @@ namespace transmission_nets::model::transmission_process {
 
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename InfectionEventImpl, int MAX_COI>
     __attribute__((flatten)) void MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::calculateLocusLogLikelihood(const std::shared_ptr<core::containers::Locus> locus) {
-        const auto& alleleFreqs   = alleleFrequenciesContainer_->alleleFrequencies(locus)->value();
-        const auto& genotype      = genetics_.at(locus)->value();
-        float constrainedSetProb = 0.0;
+        const auto& alleleFreqs = alleleFrequenciesContainer_->alleleFrequencies(locus)->value();
+        const auto& genotype = genetics_.at(locus)->value();
+        double constrainedSetProb = 0.0;
 
         prVec_.clear();
         prVec_.reserve(alleleFreqs.totalElements());
@@ -237,11 +243,11 @@ namespace transmission_nets::model::transmission_process {
                 k = k / constrainedSetProb;
             }
 
-            const float logConstrainedSetProb = std::log(constrainedSetProb);
+            const double logConstrainedSetProb = std::log(constrainedSetProb);
 
             for (unsigned int coi = 0; coi <= MAX_COI; coi++) {
                 // Prob that after `coi` draws 1 or more alleles are not drawn
-                float pam = probAnyMissing_(prVec_, coi);
+                double pam = probAnyMissing_(prVec_, coi);
 
                 // prob that after `coi` draws all alleles are drawn at least once conditional on all draws come from the constrained set.
                 if (pam >= 1 and coi >= prVec_.size()) {
@@ -255,7 +261,7 @@ namespace transmission_nets::model::transmission_process {
                     // fmt::print("\tpam = {}\n", pam);
                     // fmt::print("\tzeroProbEvent = {}\n", zeroProbEvent);
                 } else {
-                    locusLlikBuffer_[coi] = std::log(1 - pam) + logConstrainedSetProb * static_cast<float>(coi);
+                    locusLlikBuffer_[coi] = std::log(1 - pam) + logConstrainedSetProb * static_cast<double>(coi);
                 }
             }
 

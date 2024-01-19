@@ -16,7 +16,7 @@
 
 namespace transmission_nets::impl::ModelEight {
     struct State {
-        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
+        using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
         using p_DiscreteDist = std::shared_ptr<core::distributions::DiscreteDistribution>;
 
         explicit State(const nlohmann::json& input,
@@ -44,40 +44,40 @@ namespace transmission_nets::impl::ModelEight {
         std::shared_ptr<OrderingImpl> infectionEventOrdering;
 
         // Symptomatic vs Asymptomatic infection duration -- time between infection and detection
-//        p_Parameterfloat symptomaticInfectionDurationShape;
-//        p_Parameterfloat symptomaticInfectionDurationScale;
-//        p_Parameterfloat asymptomaticInfectionDurationShape;
-//        p_Parameterfloat asymptomaticInfectionDurationScale;
+//        p_Parameterdouble symptomaticInfectionDurationShape;
+//        p_Parameterdouble symptomaticInfectionDurationScale;
+//        p_Parameterdouble asymptomaticInfectionDurationShape;
+//        p_Parameterdouble asymptomaticInfectionDurationScale;
 
         p_DiscreteDist symptomaticInfectionDurationDist;
         p_DiscreteDist asymptomaticInfectionDurationDist;
 
         // Observation Process
-        std::vector<p_Parameterfloat> expectedFalsePositives{};
-        p_Parameterfloat obsFPRPriorShape;
-        p_Parameterfloat obsFPRPriorScale;
+        std::vector<p_Parameterdouble> expectedFalsePositives{};
+        p_Parameterdouble obsFPRPriorShape;
+        p_Parameterdouble obsFPRPriorScale;
 
-        std::vector<p_Parameterfloat> expectedFalseNegatives{};
-        p_Parameterfloat obsFNRPriorShape;
-        p_Parameterfloat obsFNRPriorScale;
+        std::vector<p_Parameterdouble> expectedFalseNegatives{};
+        p_Parameterdouble obsFNRPriorShape;
+        p_Parameterdouble obsFNRPriorScale;
 
         // Node Transmission Process
-        p_Parameterfloat geometricGenerationProb;
-        p_Parameterfloat geometricGenerationProbPriorAlpha;
-        p_Parameterfloat geometricGenerationProbPriorBeta;
+        p_Parameterdouble geometricGenerationProb;
+        p_Parameterdouble geometricGenerationProbPriorAlpha;
+        p_Parameterdouble geometricGenerationProbPriorBeta;
 
-        p_Parameterfloat lossProb;
-        p_Parameterfloat lossProbPriorAlpha;
-        p_Parameterfloat lossProbPriorBeta;
+        p_Parameterdouble lossProb;
+        p_Parameterdouble lossProbPriorAlpha;
+        p_Parameterdouble lossProbPriorBeta;
 
-        p_Parameterfloat mutationProb;
-        p_Parameterfloat mutationProbPriorAlpha;
-        p_Parameterfloat mutationProbPriorBeta;
+        p_Parameterdouble mutationProb;
+        p_Parameterdouble mutationProbPriorAlpha;
+        p_Parameterdouble mutationProbPriorBeta;
 
         // Source Transmission Process
-        p_Parameterfloat meanCOI;
-        p_Parameterfloat meanCOIPriorShape;
-        p_Parameterfloat meanCOIPriorScale;
+        p_Parameterdouble meanCOI;
+        p_Parameterdouble meanCOIPriorShape;
+        p_Parameterdouble meanCOIPriorScale;
     };
 }// namespace transmission_nets::impl::ModelEight
 

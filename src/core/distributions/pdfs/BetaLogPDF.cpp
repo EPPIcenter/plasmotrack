@@ -9,7 +9,7 @@
 
 namespace transmission_nets::core::distributions {
 
-    BetaLogPDF::BetaLogPDF(p_Parameterfloat target, p_Parameterfloat alpha, p_Parameterfloat beta) : target_(std::move(target)), alpha_(std::move(alpha)), beta_(std::move(beta)) {
+    BetaLogPDF::BetaLogPDF(p_Parameterdouble target, p_Parameterdouble alpha, p_Parameterdouble beta) : target_(std::move(target)), alpha_(std::move(alpha)), beta_(std::move(beta)) {
         target_->registerCacheableCheckpointTarget(this);
         target_->add_post_change_listener([=, this]() { this->setDirty(); });
 

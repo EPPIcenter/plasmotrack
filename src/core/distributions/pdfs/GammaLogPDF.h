@@ -15,16 +15,16 @@ namespace transmission_nets::core::distributions {
 
     class GammaLogPDF : public computation::PartialLikelihood {
     public:
-        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
-        GammaLogPDF(p_Parameterfloat target, p_Parameterfloat shape, p_Parameterfloat scale);
+        using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
+        GammaLogPDF(p_Parameterdouble target, p_Parameterdouble shape, p_Parameterdouble scale);
         computation::Likelihood value() override;
         std::string identifier() override;
 
     private:
-        p_Parameterfloat target_;
-        p_Parameterfloat shape_;
-        p_Parameterfloat scale_;
-        float logDenominator_ = 0;
+        p_Parameterdouble target_;
+        p_Parameterdouble shape_;
+        p_Parameterdouble scale_;
+        double logDenominator_ = 0;
     };
 
 }// namespace transmission_nets::core::distributions

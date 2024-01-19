@@ -40,22 +40,22 @@ namespace transmission_nets::core::samplers {
     class SALTSampler : public AbstractSampler {
     public:
         SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng);
-        SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, float variance);
-        SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, float variance, float minVariance, float maxVariance);
+        SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance);
+        SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, double minVariance, double maxVariance);
 
-        void setAdaptationRate(float adaptationRate);
+        void setAdaptationRate(double adaptationRate);
 
-        void setTargetAcceptanceRate(float targetAcceptanceRate);
+        void setTargetAcceptanceRate(double targetAcceptanceRate);
 
-        void setMinVariance(float minVariance);
+        void setMinVariance(double minVariance);
 
-        void setMaxVariance(float maxVariance);
+        void setMaxVariance(double maxVariance);
 
-        [[nodiscard]] float getVariance(int idx) const noexcept;
+        [[nodiscard]] double getVariance(int idx) const noexcept;
 
-        void setVariance(int idx, float var) noexcept;
+        void setVariance(int idx, double var) noexcept;
 
-        void setLowerLimit_(float lim) noexcept;
+        void setLowerLimit_(double lim) noexcept;
 
         void update() noexcept override;
 
@@ -63,12 +63,12 @@ namespace transmission_nets::core::samplers {
 
         void adapt(unsigned int idx) noexcept override;
 
-        float acceptanceRate(int idx) noexcept;
+        double acceptanceRate(int idx) noexcept;
 
 
     private:
-        float sampleProposal(float logitCurr, float variance) noexcept;
-        float logMetropolisHastingsAdjustment(LogPQ currLogPQ, LogPQ propLogPQ, int k) noexcept;
+        double sampleProposal(double logitCurr, double variance) noexcept;
+        double logMetropolisHastingsAdjustment(LogPQ currLogPQ, LogPQ propLogPQ, int k) noexcept;
 
         std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter_;
         std::shared_ptr<T> target_;
@@ -76,17 +76,17 @@ namespace transmission_nets::core::samplers {
         boost::random::normal_distribution<> normalDist_{0, 1};
         boost::random::uniform_01<> uniformDist_{};
 
-        std::vector<float> variances_{};
-        std::vector<float> acceptances_{};
-        std::vector<float> rejections_{};
+        std::vector<double> variances_{};
+        std::vector<double> acceptances_{};
+        std::vector<double> rejections_{};
 
-        float minVariance_ = .01;
-        float maxVariance_ = 1;
+        double minVariance_ = .01;
+        double maxVariance_ = 1;
 
-        float adaptationRate_       = 1;
-        float targetAcceptanceRate_ = .23;
+        double adaptationRate_       = 1;
+        double targetAcceptanceRate_ = .23;
 
-        float lowerLimit_ = .01;
+        double lowerLimit_ = .01;
 
         int totalUpdates_ = 0;
     };
@@ -101,7 +101,7 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, float variance) : parameter_(std::move(parameter)), target_(target), rng_(rng) {
+    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance) : parameter_(std::move(parameter)), target_(target), rng_(rng) {
         for (size_t j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.push_back(variance);
             acceptances_.push_back(0);
@@ -110,7 +110,7 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, float variance, float minVariance, float maxVariance) : parameter_(std::move(parameter)), target_(target), rng_(rng), minVariance_(minVariance), maxVariance_(maxVariance) {
+    SALTSampler<T, Engine>::SALTSampler(std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double variance, double minVariance, double maxVariance) : parameter_(std::move(parameter)), target_(target), rng_(rng), minVariance_(minVariance), maxVariance_(maxVariance) {
         for (size_t j = 0; j < parameter_->value().totalElements(); ++j) {
             variances_.push_back(variance);
             acceptances_.push_back(0);
@@ -126,16 +126,16 @@ namespace transmission_nets::core::samplers {
             Likelihood curLik = target_->value();
 
             datatypes::Simplex currentVal(parameter_->value());
-            std::vector<float> logitCurrVec = utils::logit(currentVal.frequencies());
-            float logitCurrVal              = logitCurrVec[idx];
-            float logitPropVal              = sampleProposal(logitCurrVal, variances_[idx]);
+            std::vector<double> logitCurrVec = utils::logit(currentVal.frequencies());
+            double logitCurrVal              = logitCurrVec[idx];
+            double logitPropVal              = sampleProposal(logitCurrVal, variances_[idx]);
 
             auto currLogPQ = LogPQ({logitCurrVal});
             auto propLogPQ = LogPQ({logitPropVal});
 
-            std::vector<float> logitPropVec(logitCurrVec);
+            std::vector<double> logitPropVec(logitCurrVec);
             logitPropVec.erase(logitPropVec.begin() + idx);
-            float ls    = propLogPQ.logQ[0] - utils::logitSum(logitPropVec);
+            double ls    = propLogPQ.logQ[0] - utils::logitSum(logitPropVec);
             logitPropVec = utils::logitScale(logitPropVec, ls);
             logitPropVec.insert(logitPropVec.begin() + idx, logitPropVal);
             auto propVec = utils::expit(logitPropVec);
@@ -158,7 +158,7 @@ namespace transmission_nets::core::samplers {
             assert(target_->isDirty());
             const Likelihood newLik = target_->value();
 
-            const float adjRatio = logMetropolisHastingsAdjustment(currLogPQ, propLogPQ, currentVal.totalElements());
+            const double adjRatio = logMetropolisHastingsAdjustment(currLogPQ, propLogPQ, currentVal.totalElements());
 
             const Likelihood acceptanceRatio = newLik - curLik + adjRatio;
 
@@ -180,13 +180,13 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    float SALTSampler<T, Engine>::sampleProposal(float logitCurr, float variance) noexcept {
-        float eps = normalDist_(*rng_) * variance;
+    double SALTSampler<T, Engine>::sampleProposal(double logitCurr, double variance) noexcept {
+        double eps = normalDist_(*rng_) * variance;
         return logitCurr + eps;
     }
 
     template<typename T, typename Engine>
-    float SALTSampler<T, Engine>::logMetropolisHastingsAdjustment(utils::LogPQ currLogPQ, utils::LogPQ propLogPQ, int k) noexcept {
+    double SALTSampler<T, Engine>::logMetropolisHastingsAdjustment(utils::LogPQ currLogPQ, utils::LogPQ propLogPQ, int k) noexcept {
         return (currLogPQ.logP[0] - propLogPQ.logP[0]) + (k - 1) * (currLogPQ.logQ[0] - propLogPQ.logQ[0]);
     }
 
@@ -207,7 +207,7 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    float SALTSampler<T, Engine>::acceptanceRate(int idx) noexcept {
+    double SALTSampler<T, Engine>::acceptanceRate(int idx) noexcept {
         if (acceptances_.at(idx) + rejections_.at(idx) == 0) {
             return 0;
         } else {
@@ -216,37 +216,37 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    void SALTSampler<T, Engine>::setAdaptationRate(float adaptationRate) {
+    void SALTSampler<T, Engine>::setAdaptationRate(double adaptationRate) {
         adaptationRate_ = adaptationRate;
     }
 
     template<typename T, typename Engine>
-    void SALTSampler<T, Engine>::setTargetAcceptanceRate(float targetAcceptanceRate) {
+    void SALTSampler<T, Engine>::setTargetAcceptanceRate(double targetAcceptanceRate) {
         targetAcceptanceRate_ = targetAcceptanceRate;
     }
 
     template<typename T, typename Engine>
-    void SALTSampler<T, Engine>::setMinVariance(float minVariance) {
+    void SALTSampler<T, Engine>::setMinVariance(double minVariance) {
         minVariance_ = minVariance;
     }
 
     template<typename T, typename Engine>
-    void SALTSampler<T, Engine>::setMaxVariance(float maxVariance) {
+    void SALTSampler<T, Engine>::setMaxVariance(double maxVariance) {
         maxVariance_ = maxVariance;
     }
 
     template<typename T, typename Engine>
-    float SALTSampler<T, Engine>::getVariance(int idx) const noexcept {
+    double SALTSampler<T, Engine>::getVariance(int idx) const noexcept {
         return variances_.at(idx);
     }
 
     template<typename T, typename Engine>
-    void SALTSampler<T, Engine>::setVariance(int idx, float var) noexcept {
+    void SALTSampler<T, Engine>::setVariance(int idx, double var) noexcept {
         variances_.at(idx) = var;
     }
 
     template<typename T, typename Engine>
-    void SALTSampler<T, Engine>::setLowerLimit_(float lim) noexcept {
+    void SALTSampler<T, Engine>::setLowerLimit_(double lim) noexcept {
         lowerLimit_ = lim;
     }
 

@@ -23,13 +23,13 @@ be used like this:
 #include <vector>
 #include "spline.h"
 ...
-    std::vector<float> X, Y;
+    std::vector<double> X, Y;
     ...
     // default cubic spline (C^2) with natural boundary conditions (f''=0)
     tk::spline s(X,Y);			// X needs to be strictly increasing
-    float value=s(1.3);		// interpolated value at 1.3
-    float deriv=s.deriv(1,1.3);	// 1st order derivative at 1.3
-    std::vector<float> solutions = s.solve(0.0);	// solves s(x)=0.0
+    double value=s(1.3);		// interpolated value at 1.3
+    double deriv=s.deriv(1,1.3);	// 1st order derivative at 1.3
+    std::vector<double> solutions = s.solve(0.0);	// solves s(x)=0.0
     ...
 ```
 

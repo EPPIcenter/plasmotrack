@@ -16,23 +16,23 @@ namespace transmission_nets::core::datatypes {
         max_ = coefficients_[0];
     }
 
-    Simplex::Simplex(const std::initializer_list<float>& freqs) : total_elements_(freqs.size()), min_(std::numeric_limits<float>::max()), max_(std::numeric_limits<float>::min()) {
+    Simplex::Simplex(const std::initializer_list<double>& freqs) : total_elements_(freqs.size()), min_(std::numeric_limits<double>::max()), max_(std::numeric_limits<double>::min()) {
         coefficients_.resize(total_elements_);
         assert(total_elements_ > 0);
         set(freqs);
     }
 
-    Simplex::Simplex(const std::vector<float>& freqs) : total_elements_(freqs.size()), min_(std::numeric_limits<float>::max()), max_(std::numeric_limits<float>::min()) {
+    Simplex::Simplex(const std::vector<double>& freqs) : total_elements_(freqs.size()), min_(std::numeric_limits<double>::max()), max_(std::numeric_limits<double>::min()) {
         coefficients_.resize(total_elements_);
         assert(total_elements_ > 0);
         set(freqs);
     }
 
-    void Simplex::set(const std::vector<float>& valueArray) {
+    void Simplex::set(const std::vector<double>& valueArray) {
         assert(valueArray.size() == total_elements_);
-        min_       = std::numeric_limits<float>::max();
-        max_       = std::numeric_limits<float>::min();
-        float sum = 0;
+        min_       = std::numeric_limits<double>::max();
+        max_       = std::numeric_limits<double>::min();
+        double sum = 0;
         for (unsigned int ii = 0; ii < total_elements_; ++ii) {
             coefficients_[ii] = valueArray[ii];
             sum += valueArray[ii];
@@ -41,8 +41,8 @@ namespace transmission_nets::core::datatypes {
         }
 
         if (sum != 1.0) {
-            min_ = std::numeric_limits<float>::max();
-            max_ = std::numeric_limits<float>::min();
+            min_ = std::numeric_limits<double>::max();
+            max_ = std::numeric_limits<double>::min();
             for (unsigned int ii = 0; ii < total_elements_; ++ii) {
                 coefficients_[ii] = coefficients_[ii] / sum;
                 min_              = std::min(min_, coefficients_[ii]);
@@ -51,11 +51,11 @@ namespace transmission_nets::core::datatypes {
         }
     }
 
-    void Simplex::set(const unsigned int idx, const float value) {
+    void Simplex::set(const unsigned int idx, const double value) {
         assert(idx < total_elements_);
-        min_               = std::numeric_limits<float>::max();
-        max_               = std::numeric_limits<float>::min();
-        float prev_value  = coefficients_[idx];
+        min_               = std::numeric_limits<double>::max();
+        max_               = std::numeric_limits<double>::min();
+        double prev_value  = coefficients_[idx];
         coefficients_[idx] = 0;
         for (unsigned int ii = 0; ii < total_elements_; ++ii) {
             coefficients_[ii] = (coefficients_[ii] / (1 - prev_value)) * (1 - value);
@@ -67,11 +67,11 @@ namespace transmission_nets::core::datatypes {
         max_               = std::max(max_, coefficients_[idx]);
     }
 
-    float Simplex::frequencies(const unsigned int idx) const noexcept {
+    double Simplex::frequencies(const unsigned int idx) const noexcept {
         return coefficients_[idx];
     }
 
-    const std::vector<float>& Simplex::frequencies() const noexcept {
+    const std::vector<double>& Simplex::frequencies() const noexcept {
         return coefficients_;
     }
 
@@ -84,11 +84,11 @@ namespace transmission_nets::core::datatypes {
         return os;
     }
 
-    float Simplex::min() const noexcept {
+    double Simplex::min() const noexcept {
         return min_;
     }
 
-    float Simplex::max() const noexcept {
+    double Simplex::max() const noexcept {
         return max_;
     }
 

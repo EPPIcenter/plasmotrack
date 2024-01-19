@@ -14,14 +14,14 @@ namespace transmission_nets::core::samplers {
 
     // Continuous Random Walk constrained to a range (lower, upper)
 
-    template<typename T, typename Engine = boost::random::mt19937, typename U = float>
+    template<typename T, typename Engine = boost::random::mt19937, typename U = double>
     class ConstrainedContinuousRandomWalk : public ContinuousRandomWalk<T, Engine> {
     public:
-        ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng);
+        ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng);
 
-        ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng, float variance);
+        ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng, double variance);
 
-        ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng, float variance, float minVariance, float maxVariance);
+        ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng, double variance, double minVariance, double maxVariance);
 
     private:
         using ContinuousRandomWalk<T, Engine>::rng_;
@@ -31,7 +31,7 @@ namespace transmission_nets::core::samplers {
         U lower_bound_;
         U upper_bound_;
         [[nodiscard]] Likelihood logMetropolisHastingsAdjustment(U curr, U proposed) const noexcept override;
-        float sampleProposal() noexcept override;
+        double sampleProposal() noexcept override;
     };
 
 
@@ -45,12 +45,12 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine, typename U>
-    float ConstrainedContinuousRandomWalk<T, Engine, U>::sampleProposal() noexcept {
-        float prop;
+    double ConstrainedContinuousRandomWalk<T, Engine, U>::sampleProposal() noexcept {
+        double prop;
         while(true) {
-            float eps           = normal_dist_(*rng_) * variance_;
-            float unconstrained = std::log(parameter_->value() - lower_bound_) - std::log(upper_bound_ - parameter_->value());
-            float exp_prop      = std::exp(eps + unconstrained);
+            double eps           = normal_dist_(*rng_) * variance_;
+            double unconstrained = std::log(parameter_->value() - lower_bound_) - std::log(upper_bound_ - parameter_->value());
+            double exp_prop      = std::exp(eps + unconstrained);
             prop          = (upper_bound_ * exp_prop + lower_bound_) / (exp_prop + 1);
             if (std::isnan(prop)) {
                 fmt::print("prop is nan\n");
@@ -79,23 +79,23 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine, typename U>
-    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng)
+    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter, std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng)
         : ContinuousRandomWalk<T, Engine>(parameter, target, rng), lower_bound_(lower_bound), upper_bound_(upper_bound) {}
 
 
     template<typename T, typename Engine, typename U>
-    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter,
+    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter,
                                                                                    std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng,
-                                                                                   float variance)
+                                                                                   double variance)
         : ContinuousRandomWalk<T, Engine>(parameter, target, rng, variance), lower_bound_(lower_bound), upper_bound_(upper_bound) {}
 
 
     template<typename T, typename Engine, typename U>
-    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<float>> parameter,
+    ConstrainedContinuousRandomWalk<T, Engine, U>::ConstrainedContinuousRandomWalk(std::shared_ptr<parameters::Parameter<double>> parameter,
                                                                                    std::shared_ptr<T> target, U lower_bound, U upper_bound, std::shared_ptr<Engine> rng,
-                                                                                   float variance,
-                                                                                   float minVariance,
-                                                                                   float maxVariance)
+                                                                                   double variance,
+                                                                                   double minVariance,
+                                                                                   double maxVariance)
         : ContinuousRandomWalk<T, Engine>(parameter, target, rng, variance, minVariance, maxVariance), lower_bound_(lower_bound), upper_bound_(upper_bound) {}
 
 }// namespace transmission_nets::core::samplers

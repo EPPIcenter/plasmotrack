@@ -19,17 +19,17 @@
 namespace transmission_nets::model::transmission_process {
 
     template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
-    class SuperInfectionNoMutation : public core::computation::Computation<float>,
+    class SuperInfectionNoMutation : public core::computation::Computation<double>,
                                      public core::abstract::Observable<SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>>,
                                      public core::abstract::Cacheable<SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>>,
-                                     public core::abstract::Checkpointable<SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>, core::computation::Computation<float>> {
+                                     public core::abstract::Checkpointable<SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>, core::computation::Computation<double>> {
 
 
     public:
-        explicit SuperInfectionNoMutation(std::shared_ptr<InterTransmissionProbImpl> intp, std::shared_ptr<core::parameters::Parameter<float>> lossProb);
+        explicit SuperInfectionNoMutation(std::shared_ptr<InterTransmissionProbImpl> intp, std::shared_ptr<core::parameters::Parameter<double>> lossProb);
 
         // logp(y = 0 | y' = 1)
-        float value() noexcept override;
+        double value() noexcept override;
 
         template<typename GeneticsImpl>
         core::computation::Likelihood calculateLogLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& ps);
@@ -44,15 +44,15 @@ namespace transmission_nets::model::transmission_process {
         core::computation::Likelihood peekCalculateLikelihood(std::shared_ptr<core::containers::Infection<GeneticsImpl>> child, const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& ps);
 
     private:
-        friend class core::abstract::Checkpointable<SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>, core::computation::Computation<float>>;
+        friend class core::abstract::Checkpointable<SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>, core::computation::Computation<double>>;
         friend class core::abstract::Cacheable<SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>>;
 
-        std::shared_ptr<core::parameters::Parameter<float>> lossProb_;
+        std::shared_ptr<core::parameters::Parameter<double>> lossProb_;
         std::shared_ptr<InterTransmissionProbImpl> intp_;
     };
 
     template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
-    SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::SuperInfectionNoMutation(std::shared_ptr<InterTransmissionProbImpl> intp, std::shared_ptr<core::parameters::Parameter<float>> lossProb) : intp_(std::move(intp)), lossProb_(std::move(lossProb)) {
+    SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::SuperInfectionNoMutation(std::shared_ptr<InterTransmissionProbImpl> intp, std::shared_ptr<core::parameters::Parameter<double>> lossProb) : intp_(std::move(intp)), lossProb_(std::move(lossProb)) {
         lossProb_->registerCacheableCheckpointTarget(this);
         lossProb_->add_post_change_listener([=, this]() { this->setDirty(); });
 
@@ -62,7 +62,7 @@ namespace transmission_nets::model::transmission_process {
     }
 
     template<int MAX_TRANSMISSIONS, typename InterTransmissionProbImpl>
-    float SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::value() noexcept {
+    double SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::value() noexcept {
         if (this->isDirty()) {
             this->value_ = 0;
             for (int ii = 1; ii <= MAX_TRANSMISSIONS; ++ii) {
@@ -79,10 +79,10 @@ namespace transmission_nets::model::transmission_process {
     core::computation::Likelihood SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::calculateLogLikelihood(
             std::shared_ptr<core::containers::Infection<GeneticsImpl>> child,
             const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& ps) {
-        float llik = 0.0;
+        double llik = 0.0;
 
         // logp(y = 0 | y' = 1)
-        float logProbLost            = this->value();
+        double logProbLost            = this->value();
 
         auto const& childGenotypes    = child->latentGenotype();
         auto const childGenotypesIter = childGenotypes.begin();
@@ -109,9 +109,9 @@ namespace transmission_nets::model::transmission_process {
     core::computation::Likelihood SuperInfectionNoMutation<MAX_TRANSMISSIONS, InterTransmissionProbImpl>::peekCalculateLogLikelihood(
             std::shared_ptr<core::containers::Infection<GeneticsImpl>> child,
             const core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>& ps) {
-        float llik = 0.0;
+        double llik = 0.0;
         // logp(y = 0 | y' = 1)
-        float logProbLost            = this->peek();
+        double logProbLost            = this->peek();
         auto const& childGenotypes    = child->latentGenotype();
         auto const childGenotypesIter = childGenotypes.begin();
         for (size_t ii = 0; ii < childGenotypes.size(); ++ii) {

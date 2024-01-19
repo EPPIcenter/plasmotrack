@@ -20,24 +20,24 @@ namespace transmission_nets::model::observation_process {
     class ObservationProcessLikelihoodv1 : public core::computation::PartialLikelihood {
 
     public:
-        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
+        using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
         ObservationProcessLikelihoodv1(std::shared_ptr<AlleleCounter> totalAlleles,
-                                       p_Parameterfloat falsePositiveRate,
-                                       p_Parameterfloat falseNegativeRate);
+                                       p_Parameterdouble falsePositiveRate,
+                                       p_Parameterdouble falseNegativeRate);
 
         core::computation::Likelihood value() override;
         std::string identifier() override;
 
     private:
         std::shared_ptr<AlleleCounter> total_alleles_;
-        p_Parameterfloat false_positive_rate_;
-        p_Parameterfloat false_negative_rate_;
+        p_Parameterdouble false_positive_rate_;
+        p_Parameterdouble false_negative_rate_;
     };
 
     template<typename AlleleCounter>
     ObservationProcessLikelihoodv1<AlleleCounter>::ObservationProcessLikelihoodv1(std::shared_ptr<AlleleCounter> totalAlleles,
-                                                                                  p_Parameterfloat falsePositiveRate,
-                                                                                  p_Parameterfloat falseNegativeRate) : total_alleles_(std::move(totalAlleles)),
+                                                                                  p_Parameterdouble falsePositiveRate,
+                                                                                  p_Parameterdouble falseNegativeRate) : total_alleles_(std::move(totalAlleles)),
                                                                                                                          false_positive_rate_(std::move(falsePositiveRate)),
                                                                                                                          false_negative_rate_(std::move(falseNegativeRate)) {
 

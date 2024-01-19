@@ -23,14 +23,14 @@ namespace transmission_nets::core::computation {
 
         explicit LogLikelihood(std::string id);
 
-        LogLikelihood(float value, std::string id);
+        LogLikelihood(double value, std::string id);
 
-        virtual float value() = 0;
+        virtual double value() = 0;
 
     private:
-        float value_;
+        double value_;
         std::string id_;
-        std::optional<float> saved_state_{};
+        std::optional<double> saved_state_{};
 
         Map_<uint_fast64_t, Callback> pre_change_callbacks_{};
         Map_<uint_fast64_t, Callback> post_change_callbacks_{};

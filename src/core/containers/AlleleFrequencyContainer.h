@@ -45,7 +45,7 @@ namespace transmission_nets::core::containers {
 
         void addLocus(std::shared_ptr<LocusImpl> locus);
 
-        float totalLoci() {
+        double totalLoci() {
             return alleleFrequencies_.size();
         }
 

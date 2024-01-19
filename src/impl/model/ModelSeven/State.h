@@ -18,7 +18,7 @@ namespace transmission_nets::impl::ModelSeven {
     struct State {
         //        State(std::map<std::string, LocusImpl *> loci, const std::vector<InfectionEvent *> &infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>> allowedParents);
 
-        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
+        using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
         explicit State(const nlohmann::json& input);
         State(const nlohmann::json& input, const fs::path& outputDir);
         void initPriors();
@@ -33,31 +33,31 @@ namespace transmission_nets::impl::ModelSeven {
         // Network Structure
         std::shared_ptr<OrderingImpl> infectionEventOrdering;
 
-        p_Parameterfloat infectionDurationShape;
-        p_Parameterfloat infectionDurationScale;
+        p_Parameterdouble infectionDurationShape;
+        p_Parameterdouble infectionDurationScale;
 
         // Observation Process
-        std::vector<p_Parameterfloat> expectedFalsePositives{};
-        p_Parameterfloat obsFPRPriorShape;
-        p_Parameterfloat obsFPRPriorScale;
+        std::vector<p_Parameterdouble> expectedFalsePositives{};
+        p_Parameterdouble obsFPRPriorShape;
+        p_Parameterdouble obsFPRPriorScale;
 
-        std::vector<p_Parameterfloat> expectedFalseNegatives{};
-        p_Parameterfloat obsFNRPriorShape;
-        p_Parameterfloat obsFNRPriorScale;
+        std::vector<p_Parameterdouble> expectedFalseNegatives{};
+        p_Parameterdouble obsFNRPriorShape;
+        p_Parameterdouble obsFNRPriorScale;
 
         // Node Transmission Process
-        p_Parameterfloat geometricGenerationProb;
-        p_Parameterfloat geometricGenerationProbPriorAlpha;
-        p_Parameterfloat geometricGenerationProbPriorBeta;
+        p_Parameterdouble geometricGenerationProb;
+        p_Parameterdouble geometricGenerationProbPriorAlpha;
+        p_Parameterdouble geometricGenerationProbPriorBeta;
 
-        p_Parameterfloat lossProb;
-        p_Parameterfloat lossProbPriorAlpha;
-        p_Parameterfloat lossProbPriorBeta;
+        p_Parameterdouble lossProb;
+        p_Parameterdouble lossProbPriorAlpha;
+        p_Parameterdouble lossProbPriorBeta;
 
         // Source Transmission Process
-        p_Parameterfloat meanCOI;
-        p_Parameterfloat meanCOIPriorShape;
-        p_Parameterfloat meanCOIPriorScale;
+        p_Parameterdouble meanCOI;
+        p_Parameterdouble meanCOIPriorShape;
+        p_Parameterdouble meanCOIPriorScale;
     };
 }// namespace transmission_nets::impl::ModelSeven
 

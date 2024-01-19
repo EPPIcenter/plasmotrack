@@ -71,16 +71,16 @@
 //            core::parameters::Ordering<InfectionEvent> infectionEventOrdering;
 //
 //            // Observation Process
-//            core::parameters::Parameter<float> observationFalsePositiveRate;
-//            core::parameters::Parameter<float> observationFalseNegativeRate;
+//            core::parameters::Parameter<double> observationFalsePositiveRate;
+//            core::parameters::Parameter<double> observationFalseNegativeRate;
 //
 //            // Node Transmission Process
-//            core::parameters::Parameter<float> geometricGenerationProb;
-//            core::parameters::Parameter<float> lossProb;
-//            core::parameters::Parameter<float> mutationProb;
+//            core::parameters::Parameter<double> geometricGenerationProb;
+//            core::parameters::Parameter<double> lossProb;
+//            core::parameters::Parameter<double> mutationProb;
 //
 //            // Source Transmission Process
-//            core::parameters::Parameter<float> meanCOI;
+//            core::parameters::Parameter<double> meanCOI;
 //        };
 //
 //        ModelTwo(std::map<std::string, LocusImpl *>& loci, std::vector<InfectionEvent *>& infections, std::map<InfectionEvent *, std::vector<InfectionEvent *>>& disallowedParents);

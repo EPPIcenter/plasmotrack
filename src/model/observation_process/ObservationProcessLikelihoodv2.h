@@ -22,12 +22,12 @@ namespace transmission_nets::model::observation_process {
         static constexpr auto falseNegativeCount = &GeneticsImpl::falseNegativeCount;
 
     public:
-        using p_Parameterfloat = std::shared_ptr<core::parameters::Parameter<float>>;
+        using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
         ObservationProcessLikelihoodv2(
                 std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics,
                 std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics,
-                p_Parameterfloat expectedFalsePositives,
-                p_Parameterfloat expectedFalseNegatives);
+                p_Parameterdouble expectedFalsePositives,
+                p_Parameterdouble expectedFalseNegatives);
 
         core::computation::Likelihood value() override;
         std::string identifier() override;
@@ -35,8 +35,8 @@ namespace transmission_nets::model::observation_process {
     private:
         std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observed_genetics_;
         std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latent_genetics_;
-        p_Parameterfloat expected_false_positives_;
-        p_Parameterfloat expected_false_negatives_;
+        p_Parameterdouble expected_false_positives_;
+        p_Parameterdouble expected_false_negatives_;
         unsigned int total_alleles_;
     };
 
@@ -44,8 +44,8 @@ namespace transmission_nets::model::observation_process {
     ObservationProcessLikelihoodv2<GeneticsImpl>::ObservationProcessLikelihoodv2(
             std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics,
             std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics,
-            p_Parameterfloat expectedFalsePositives,
-            p_Parameterfloat expectedFalseNegatives) : observed_genetics_(std::move(observedGenetics)),
+            p_Parameterdouble expectedFalsePositives,
+            p_Parameterdouble expectedFalseNegatives) : observed_genetics_(std::move(observedGenetics)),
                                                         latent_genetics_(std::move(latentGenetics)),
                                                         expected_false_positives_(std::move(expectedFalsePositives)),
                                                         expected_false_negatives_(std::move(expectedFalseNegatives)) {
@@ -78,8 +78,8 @@ namespace transmission_nets::model::observation_process {
             const int true_negative_count  = trueNegativeCount(latent_genetics, observed_genetics);
             const int false_negative_count = falseNegativeCount(latent_genetics, observed_genetics);
 
-            const float expected_false_positives = expected_false_positives_->value();
-            const float expected_false_negatives = expected_false_negatives_->value();
+            const double expected_false_positives = expected_false_positives_->value();
+            const double expected_false_negatives = expected_false_negatives_->value();
 
             value_ = true_positive_count * log(1 - (expected_false_positives / total_alleles_)) +
                      true_negative_count * log(1 - (expected_false_negatives / total_alleles_)) +

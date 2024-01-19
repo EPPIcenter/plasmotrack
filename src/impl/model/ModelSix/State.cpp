@@ -22,13 +22,13 @@ namespace transmission_nets::impl::ModelSix {
         infectionEventOrdering->addElements(this->infections);
 
         for (size_t ii = 0; ii < infections.size(); ++ii) {
-            expectedFalsePositives.emplace_back(new core::parameters::Parameter<float>(.1));
-            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<float>(.1));
+            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.1));
+            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.1));
         }
 
-        geometricGenerationProb = std::make_shared<core::parameters::Parameter<float>>(.9);
-        lossProb                = std::make_shared<core::parameters::Parameter<float>>(.1);
-        meanCOI                 = std::make_shared<core::parameters::Parameter<float>>(5);
+        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.9);
+        lossProb                = std::make_shared<core::parameters::Parameter<double>>(.1);
+        meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(5);
     }
 
     State::State(const nlohmann::json& input, const fs::path& outputDir) {
@@ -56,39 +56,39 @@ namespace transmission_nets::impl::ModelSix {
         for (auto& infection : infections) {
             auto infDir        = genotypeDir / core::io::makePathValid(infection->id());
             auto inf_file_name = core::io::makePathValid(infection->id()) + ".csv";
-            infection->infectionDuration()->initializeValue(core::io::hotloadfloat(infDurFolder / inf_file_name));
+            infection->infectionDuration()->initializeValue(core::io::hotloaddouble(infDurFolder / inf_file_name));
             for (const auto& [label, locus] : loci) {
                 infection->latentGenotype(locus)->initializeValue(GeneticsImpl(core::io::hotloadString(infDir / (label + ".csv"))));
             }
-            expectedFalsePositives.emplace_back(new core::parameters::Parameter<float>(core::io::hotloadfloat(epsPosFolder / inf_file_name)));
-            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<float>(core::io::hotloadfloat(epsNegFolder / inf_file_name)));
+            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloaddouble(epsPosFolder / inf_file_name)));
+            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloaddouble(epsNegFolder / inf_file_name)));
         }
 
         infectionEventOrdering = std::make_shared<OrderingImpl>();
         infectionEventOrdering->addElements(this->infections);
 
-        geometricGenerationProb = std::make_shared<core::parameters::Parameter<float>>(core::io::hotloadfloat(paramOutputDir / "geo_gen_prob.csv"));
-        lossProb                = std::make_shared<core::parameters::Parameter<float>>(core::io::hotloadfloat(paramOutputDir / "loss_prob.csv"));
-        meanCOI                 = std::make_shared<core::parameters::Parameter<float>>(core::io::hotloadfloat(paramOutputDir / "mean_coi.csv"));
+        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloaddouble(paramOutputDir / "geo_gen_prob.csv"));
+        lossProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloaddouble(paramOutputDir / "loss_prob.csv"));
+        meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloaddouble(paramOutputDir / "mean_coi.csv"));
     }
 
     void State::initPriors() {
-        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<float>>(1);
-        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<float>>(.01);
+        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.01);
 
-        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<float>>(1);
-        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<float>>(.01);
+        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.01);
 
-        geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<float>>(1);
-        geometricGenerationProbPriorBeta  = std::make_shared<core::parameters::Parameter<float>>(1);
+        geometricGenerationProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(1);
+        geometricGenerationProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(1);
 
-        lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<float>>(10);
-        lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<float>>(90);
+        lossProbPriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
+        lossProbPriorBeta  = std::make_shared<core::parameters::Parameter<double>>(90);
 
-        meanCOIPriorShape = std::make_shared<core::parameters::Parameter<float>>(1);
-        meanCOIPriorScale = std::make_shared<core::parameters::Parameter<float>>(5);
+        meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(1);
+        meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(5);
 
-        infectionDurationShape = std::make_shared<core::parameters::Parameter<float>>(100);
-        infectionDurationScale = std::make_shared<core::parameters::Parameter<float>>(1);
+        infectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(100);
+        infectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(1);
     }
 }// namespace transmission_nets::impl::ModelSix

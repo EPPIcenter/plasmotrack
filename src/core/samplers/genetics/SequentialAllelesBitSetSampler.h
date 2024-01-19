@@ -30,7 +30,7 @@ namespace transmission_nets::core::samplers::genetics {
 
         [[nodiscard]] unsigned int rejections() noexcept;
 
-        [[nodiscard]] float acceptanceRate() noexcept;
+        [[nodiscard]] double acceptanceRate() noexcept;
 
     private:
         std::shared_ptr<parameters::Parameter<AllelesBitSetImpl>> parameter_;
@@ -106,8 +106,8 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
-    float SequentialAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::acceptanceRate() noexcept {
-        return float(acceptances_) / (acceptances_ + rejections_);
+    double SequentialAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::acceptanceRate() noexcept {
+        return double(acceptances_) / (acceptances_ + rejections_);
     }
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>

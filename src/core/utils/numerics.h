@@ -17,7 +17,7 @@
 
 namespace transmission_nets::core::utils {
     template<typename T>
-    inline float fast_exp(T x) {
+    inline double fast_exp(T x) {
         x = 1.0 + x / 1024;
         x *= x;
         x *= x;
@@ -32,29 +32,29 @@ namespace transmission_nets::core::utils {
         return x;
     }
 
-    inline float _int_as_float(int32_t a) {
-        float r;
+    inline double _int_as_double(int32_t a) {
+        double r;
         memcpy(&r, &a, sizeof r);
         return r;
     }
-    inline int32_t _float_as_int(float a) {
+    inline int32_t _double_as_int(double a) {
         int32_t r;
         memcpy(&r, &a, sizeof r);
         return r;
     }
     // https://stackoverflow.com/a/39822314/2755374
-    inline float fast_log(float a) {
-        float m, r, s, t, i, f;
+    inline double fast_log(double a) {
+        double m, r, s, t, i, f;
         int32_t e;
 
-        e = (_float_as_int(a) - 0x3f2aaaab) & 0xff800000;
-        m = _int_as_float(_float_as_int(a) - e);
-        i = (float) e * 1.19209290e-7f;// 0x1.0p-23
+        e = (_double_as_int(a) - 0x3f2aaaab) & 0xff800000;
+        m = _int_as_double(_double_as_int(a) - e);
+        i = (double) e * 1.19209290e-7f;// 0x1.0p-23
         /* m in [2/3, 4/3] */
-        f = m - 1.0f;
+        f = m - 1.0;
         s = f * f;
         /* Compute log1p(f) for f in [-1/3, 1/3] */
-        r = fmaf(0.230836749f, f, -0.279208571f);// 0x1.d8c0f0p-3, -0x1.1de8dap-2
+        r = fmaf(0.230836749f, f, -0.279208571f);// 0x1.d8c00p-3, -0x1.1de8dap-2
         t = fmaf(0.331826031f, f, -0.498910338f);// 0x1.53ca34p-2, -0x1.fee25ap-2
         r = fmaf(r, s, t);
         r = fmaf(r, s, f);
@@ -62,7 +62,7 @@ namespace transmission_nets::core::utils {
         return r;
     }
 
-    inline float logit(float x) {
+    inline double logit(double x) {
         if (x < .5) {
             return std::log(x) - std::log1p(-x);
         } else {
@@ -71,19 +71,19 @@ namespace transmission_nets::core::utils {
     }
 
     template<typename Iter>
-    typename std::vector<float> logit(const Iter& begin, const Iter& end) {
-        std::vector<float> out{};
-        std::transform(begin, end, std::back_inserter(out), [](float c) -> float { return logit(c); });
+    typename std::vector<double> logit(const Iter& begin, const Iter& end) {
+        std::vector<double> out{};
+        std::transform(begin, end, std::back_inserter(out), [](double c) -> double { return logit(c); });
         return out;
     }
 
     template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
-    std::vector<float> logit(const It& x) {
+    std::vector<double> logit(const It& x) {
         return logit(x.begin(), x.end());
     }
 
     template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
-    float logitSum(const It& logx) {
+    double logitSum(const It& logx) {
         auto logx_sorted = logx;
         std::sort(logx_sorted.rbegin(), logx_sorted.rend());
         auto lpq = LogPQ(logx_sorted);
@@ -91,17 +91,17 @@ namespace transmission_nets::core::utils {
     }
 
     template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
-    float logitSum(const It& logx_sorted, const LogPQ& lpq) {
-        float out;
-        float cumsum = 0.0;
+    double logitSum(const It& logx_sorted, const LogPQ& lpq) {
+        double out;
+        double cumsum = 0.0;
         if (logx_sorted[0] < 0) {
-            float lp1 = lpq.logP[0];
+            double lp1 = lpq.logP[0];
             for (unsigned int ii = 1; ii < lpq.logP.size(); ++ii) {
                 cumsum += std::exp(lpq.logP[ii] - lp1);
             }
             out = lp1 + std::log1p(cumsum);
         } else {
-            float lq1 = lpq.logQ[0];
+            double lq1 = lpq.logQ[0];
             for (unsigned int ii = 1; ii < lpq.logQ.size(); ++ii) {
                 cumsum += std::exp(lpq.logP[ii]);
             }
@@ -110,19 +110,19 @@ namespace transmission_nets::core::utils {
         return out;
     }
 
-    inline float expit(float x) {
+    inline double expit(double x) {
         return 1 / (1 + std::exp(-x));
     }
 
     template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
-    std::vector<float> logitScale(const It& x, float scale) {
-        std::vector<float> out{};
+    std::vector<double> logitScale(const It& x, double scale) {
+        std::vector<double> out{};
         out.reserve(x.size());
-        float l2;
-        float u;
-        float v;
-        float ev;
-        float eumo;
+        double l2;
+        double u;
+        double v;
+        double ev;
+        double eumo;
         bool ok;
         for (auto const& el : x) {
             ok = (scale < std::log(2)) and (std::abs(scale) < std::abs(el + scale));
@@ -147,18 +147,18 @@ namespace transmission_nets::core::utils {
     }
 
     template<typename Iter>
-    typename std::vector<float> expit(const Iter& begin, const Iter& end) {
-        std::vector<float> out{};
-        std::transform(begin, end, std::back_inserter(out), [](float c) -> float { return expit(c); });
+    typename std::vector<double> expit(const Iter& begin, const Iter& end) {
+        std::vector<double> out{};
+        std::transform(begin, end, std::back_inserter(out), [](double c) -> double { return expit(c); });
         return out;
     }
 
     template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
-    std::vector<float> expit(const It& x) {
+    std::vector<double> expit(const It& x) {
         return expit(x.begin(), x.end());
     }
 
-    inline float logLogit(float x) {
+    inline double logLogit(double x) {
         if (x < std::log(.5)) {
             return x - std::log1p(-std::exp(x));
         } else {
@@ -172,12 +172,12 @@ namespace transmission_nets::core::utils {
      * @param b Second argument
      * @return The log of the sum of exp(a) and exp(b)
      */
-    inline float logSumExp(const float a, const float b) {
-        float max_el = std::max(a, b);
-        if (max_el == -std::numeric_limits<float>::infinity()) {
-            return -std::numeric_limits<float>::infinity();
+    inline double logSumExp(const double a, const double b) {
+        double max_el = std::max(a, b);
+        if (max_el == -std::numeric_limits<double>::infinity()) {
+            return -std::numeric_limits<double>::infinity();
         }
-        float sum = std::exp(a - max_el) + std::exp(b - max_el);
+        double sum = std::exp(a - max_el) + std::exp(b - max_el);
         return max_el + std::log(sum);
     }
 
@@ -218,12 +218,12 @@ namespace transmission_nets::core::utils {
     }
 
     template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
-    float logSumExp(const It& x) {
+    double logSumExp(const It& x) {
         return logSumExp(x.begin(), x.end());
     }
 
     template<typename T>
-    float logDiffExp(const T a, const T b, const bool verbose = false) {
+    double logDiffExp(const T a, const T b, const bool verbose = false) {
         /**
          * return the numerically stable log(exp(a) - exp(b))
          * if b > a, returns -inf
@@ -246,7 +246,7 @@ namespace transmission_nets::core::utils {
         //        mpfr_inits2(256, a_, b_, out_, tmp1_, one_, (mpfr_ptr) 0);
         //        mpfr_set_ld(a_, a, mpfr_get_default_rounding_mode());
         //        mpfr_set_ld(b_, b, mpfr_get_default_rounding_mode());
-        //        mpfr_set_ld(one_, (float) 1.0, mpfr_get_default_rounding_mode());
+        //        mpfr_set_ld(one_, (double) 1.0, mpfr_get_default_rounding_mode());
         //
         //        mpfr_sub(out_, b_, a_, mpfr_get_default_rounding_mode());
         //        mpfr_exp(out_, out_, mpfr_get_default_rounding_mode());
@@ -341,11 +341,11 @@ namespace transmission_nets::core::utils {
      * @return
      */
     template<typename T>
-    std::vector<float> expNormalize(const T& x) {
-        std::vector<float> out{};
+    std::vector<double> expNormalize(const T& x) {
+        std::vector<double> out{};
         out.reserve(x.size());
 
-        float sum = 0.0;
+        double sum = 0.0;
         auto max_el = *std::max_element(x.begin(), x.end());
 
         for (auto& el : x) {

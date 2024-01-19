@@ -10,7 +10,6 @@
 
 #include <vector>
 #include <cmath>
-#include <execution>
 
 //#include <emmintrin.h>  // For SSE2 instructions
 #include <immintrin.h>// For AVX instructions (if available)
@@ -37,7 +36,7 @@ namespace transmission_nets::core::utils {
         // __m256 baseVec8{};
         // __m256 r8{};
         std::vector<Likelihood> baseVec{};
-        // std::vector<float> signVec{};
+        // std::vector<double> signVec{};
         generators::CombinationIndicesGenerator c;
     };
 

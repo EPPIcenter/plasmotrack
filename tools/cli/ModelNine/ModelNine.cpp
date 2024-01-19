@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
 //    try {
         int num_chains;
         unsigned int num_cores;
-        float gradient;
+        Probability gradient;
 
         int burnin;
         int sample;
@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
         opts("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned");
         opts("numchains,n", po::value<int>(&num_chains)->default_value(1), "Number of chains to run in replica exchange algorithm.");
         opts("numcores,c", po::value<unsigned int>(&num_cores)->default_value(1), "Number of cores to use in replica exchange algorithm.");
-        opts("gradient,g", po::value<float>(&gradient)->default_value(0), "Lower temperature of gradient to use in replica exchange algorithm");
+        opts("gradient,g", po::value<Probability>(&gradient)->default_value(0), "Lower temperature of gradient to use in replica exchange algorithm");
         opts("seed", po::value<long>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.");
         opts("hotload,h", "Hotload parameters from the output directory");
         opts("symptomatic-idp", po::value<std::string>(&symptomatic_idp_path)->required(), "file path to Symptomatic IDP");
@@ -132,8 +132,8 @@ int main(int argc, char** argv) {
 
         const fs::path nodesFile{input};
         const fs::path outputDir{output_dir};
-        const std::vector<float> symptomatic_idp = loadVectorFromFile<float>(symptomatic_idp_path);
-        const std::vector<float> asymptomatic_idp = loadVectorFromFile<float>(asymptomatic_idp_path);
+        const std::vector<Probability> symptomatic_idp = loadVectorFromFile<Probability>(symptomatic_idp_path);
+        const std::vector<Probability> asymptomatic_idp = loadVectorFromFile<Probability>(asymptomatic_idp_path);
 
         if (!fs::exists(nodesFile)) {
             std::cerr << "Nodes input file does not exist." << std::endl;

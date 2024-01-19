@@ -26,8 +26,8 @@ namespace transmission_nets::core::distributions {
                                      public abstract::Cacheable<ZTMultiplicativeBinomial<MAX_COUNT>>,
                                      public abstract::Checkpointable<ZTMultiplicativeBinomial<MAX_COUNT>, datatypes::TransitionMatrix<MAX_COUNT + 1>> {
     public:
-        ZTMultiplicativeBinomial(std::shared_ptr<Parameter<float>> prob,
-                                 std::shared_ptr<Parameter<float>> assoc);
+        ZTMultiplicativeBinomial(std::shared_ptr<Parameter<double>> prob,
+                                 std::shared_ptr<Parameter<double>> assoc);
 
         datatypes::TransitionMatrix<MAX_COUNT + 1> value() noexcept override;
 
@@ -36,19 +36,19 @@ namespace transmission_nets::core::distributions {
         friend class abstract::Checkpointable<ZTMultiplicativeBinomial<MAX_COUNT>, datatypes::TransitionMatrix<MAX_COUNT + 1>>;
         friend class abstract::Cacheable<ZTMultiplicativeBinomial<MAX_COUNT>>;
 
-        static const datatypes::SquareMatrix<float, MAX_COUNT + 1> mat1;
-        static const datatypes::SquareMatrix<float, MAX_COUNT + 1> mat2;
-        static const datatypes::SquareMatrix<float, MAX_COUNT + 1> mat3;
-        static const datatypes::SquareMatrix<float, MAX_COUNT + 1> combo_matrix;
+        static const datatypes::SquareMatrix<double, MAX_COUNT + 1> mat1;
+        static const datatypes::SquareMatrix<double, MAX_COUNT + 1> mat2;
+        static const datatypes::SquareMatrix<double, MAX_COUNT + 1> mat3;
+        static const datatypes::SquareMatrix<double, MAX_COUNT + 1> combo_matrix;
 
-        std::shared_ptr<Parameter<float>> prob_;
-        std::shared_ptr<Parameter<float>> assoc_;
+        std::shared_ptr<Parameter<double>> prob_;
+        std::shared_ptr<Parameter<double>> assoc_;
     };
 
 
     template<int MAX_COUNT>
-    datatypes::SquareMatrix<float, MAX_COUNT + 1> initMat1() {
-        datatypes::SquareMatrix<float, MAX_COUNT + 1> a;
+    datatypes::SquareMatrix<double, MAX_COUNT + 1> initMat1() {
+        datatypes::SquareMatrix<double, MAX_COUNT + 1> a;
         for (int j = 0; j <= MAX_COUNT; ++j) {
             for (int k = 0; k <= j; ++k) {
                 a(j, k) = k;
@@ -58,8 +58,8 @@ namespace transmission_nets::core::distributions {
     }
 
     template<int MAX_COUNT>
-    datatypes::SquareMatrix<float, MAX_COUNT + 1> initMat2() {
-        datatypes::SquareMatrix<float, MAX_COUNT + 1> a;
+    datatypes::SquareMatrix<double, MAX_COUNT + 1> initMat2() {
+        datatypes::SquareMatrix<double, MAX_COUNT + 1> a;
         for (int j = 0; j <= MAX_COUNT; ++j) {
             for (int k = 0; k <= j; ++k) {
                 a(j, k) = j - k;
@@ -69,8 +69,8 @@ namespace transmission_nets::core::distributions {
     }
 
     template<int MAX_COUNT>
-    datatypes::SquareMatrix<float, MAX_COUNT + 1> initMat3() {
-        datatypes::SquareMatrix<float, MAX_COUNT + 1> a;
+    datatypes::SquareMatrix<double, MAX_COUNT + 1> initMat3() {
+        datatypes::SquareMatrix<double, MAX_COUNT + 1> a;
         for (int j = 0; j <= MAX_COUNT; ++j) {
             for (int k = 0; k <= j; ++k) {
                 a(j, k) = (k) * (j - k);
@@ -80,15 +80,15 @@ namespace transmission_nets::core::distributions {
     }
 
     template<int MAX_COUNT>
-    datatypes::SquareMatrix<float, MAX_COUNT + 1> initCombosMat() {
-        datatypes::SquareMatrix<float, MAX_COUNT + 1> a;
+    datatypes::SquareMatrix<double, MAX_COUNT + 1> initCombosMat() {
+        datatypes::SquareMatrix<double, MAX_COUNT + 1> a;
         for (int j = 0; j <= MAX_COUNT; ++j) {
             for (int k = 0; k <= j; ++k) {
                 if (!j or !k) {
                     a(j, k) = 0;
                     continue;
                 }
-                a(j, k) = boost::math::binomial_coefficient<float>(j, k);
+                a(j, k) = boost::math::binomial_coefficient<double>(j, k);
             }
         }
         return a;
@@ -96,23 +96,23 @@ namespace transmission_nets::core::distributions {
 
 
     template<int MAX_COUNT>
-    const datatypes::SquareMatrix<float, MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::mat1 = initMat1<MAX_COUNT>();
+    const datatypes::SquareMatrix<double, MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::mat1 = initMat1<MAX_COUNT>();
 
 
     template<int MAX_COUNT>
-    const datatypes::SquareMatrix<float, MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::mat2 = initMat2<MAX_COUNT>();
+    const datatypes::SquareMatrix<double, MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::mat2 = initMat2<MAX_COUNT>();
 
 
     template<int MAX_COUNT>
-    const datatypes::SquareMatrix<float, MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::mat3 = initMat3<MAX_COUNT>();
+    const datatypes::SquareMatrix<double, MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::mat3 = initMat3<MAX_COUNT>();
 
 
     template<int MAX_COUNT>
-    const datatypes::SquareMatrix<float, MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::combo_matrix = initCombosMat<MAX_COUNT>();
+    const datatypes::SquareMatrix<double, MAX_COUNT + 1> ZTMultiplicativeBinomial<MAX_COUNT>::combo_matrix = initCombosMat<MAX_COUNT>();
 
 
     template<int MAX_COUNT>
-    ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(std::shared_ptr<parameters::Parameter<float>> prob, std::shared_ptr<parameters::Parameter<float>> assoc) : prob_(std::move(prob)), assoc_(std::move(assoc)) {
+    ZTMultiplicativeBinomial<MAX_COUNT>::ZTMultiplicativeBinomial(std::shared_ptr<parameters::Parameter<double>> prob, std::shared_ptr<parameters::Parameter<double>> assoc) : prob_(std::move(prob)), assoc_(std::move(assoc)) {
         prob_->registerCacheableCheckpointTarget(this);
         prob_->add_post_change_listener([=, this]() { this->setDirty(); });
 

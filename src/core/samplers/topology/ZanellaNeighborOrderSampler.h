@@ -34,7 +34,7 @@ namespace transmission_nets::core::samplers {
 
         [[nodiscard]] unsigned int rejections() noexcept;
 
-        [[nodiscard]] float acceptanceRate() noexcept;
+        [[nodiscard]] double acceptanceRate() noexcept;
 
     private:
         parameters::Ordering<OrderingElement>& parameter_;
@@ -144,8 +144,8 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename OrderingElement, typename Engine>
-    float ZanellaNeighborOrderSampler<T, OrderingElement, Engine>::acceptanceRate() noexcept {
-        return float(acceptances_) / (acceptances_ + rejections_);
+    double ZanellaNeighborOrderSampler<T, OrderingElement, Engine>::acceptanceRate() noexcept {
+        return double(acceptances_) / (acceptances_ + rejections_);
     }
 
     template<typename T, typename OrderingElement, typename Engine>

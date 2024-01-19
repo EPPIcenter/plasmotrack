@@ -87,7 +87,7 @@ namespace transmission_nets::core::computation {
 
     template<typename InfectionEventImpl>
     void ObservationTimeDerivedOrdering<InfectionEventImpl>::infectionDurationChanged(std::shared_ptr<InfectionEventImpl> ref) {
-        float refInfectionTime = ref->infectionTime();
+        double refInfectionTime = ref->infectionTime();
 
         // Find the index of the reference in the vector.
         size_t refIdx = 0;
@@ -96,14 +96,14 @@ namespace transmission_nets::core::computation {
 
         // Find the infection time of the infection just after the reference.
         // If the reference is the last element, then the infection time is a high number.
-        float rightTime = std::numeric_limits<float>::max();
+        double rightTime = std::numeric_limits<double>::max();
         if (refIdx < this->value_.size() - 1) {
             rightTime = this->value_[refIdx + 1]->infectionTime();
         }
 
         // Find the infection time of the infection just before the reference.
         // If the reference is the first element, then the infection time is a low number.
-        float leftTime = std::numeric_limits<float>::min();
+        double leftTime = std::numeric_limits<double>::min();
         if (refIdx > 0) {
             leftTime = (this->value_[refIdx - 1])->infectionTime();
         }

@@ -17,9 +17,9 @@ namespace transmission_nets::core::computation {
     struct Tempered : public PartialLikelihood {
 
         std::shared_ptr<Input> target_;
-        float temperature_;
+        double temperature_;
 
-        explicit Tempered(std::shared_ptr<Input> target, float temperature) : target_(std::move(target)), temperature_(temperature) {
+        explicit Tempered(std::shared_ptr<Input> target, double temperature) : target_(std::move(target)), temperature_(temperature) {
             target_->add_set_dirty_listener([=, this]() {
                 this->setDirty();
             });
@@ -34,12 +34,12 @@ namespace transmission_nets::core::computation {
             return this->value_;
         }
 
-        void setTemperature(float temperature) {
+        void setTemperature(double temperature) {
             temperature_ = temperature;
             this->setDirty();
         }
 
-        [[nodiscard]] float getTemperature() const {
+        [[nodiscard]] double getTemperature() const {
             return temperature_;
         }
 
