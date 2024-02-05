@@ -22,22 +22,22 @@ namespace transmission_nets::core::containers {
             if (allowedParents_.find(infectionEvent) == allowedParents_.end()) {
                 return {};
             }
-            const auto r = allowedParents_.at(infectionEvent) |
-                   std::ranges::views::transform(
-                           [this](short uid) { return infectionEvents_[uid]; }
-                   );
-            return std::vector<std::shared_ptr<InfectionEvent>>(r.begin(), r.end());
+            std::vector<std::shared_ptr<InfectionEvent>> out;
+            for (const auto& parent : allowedParents_.at(infectionEvent)) {
+                out.push_back(infectionEvents_[parent]);
+            }
+            return out;
         }
 
         std::vector<std::shared_ptr<InfectionEvent>> allowedChildren(const std::shared_ptr<InfectionEvent> infectionEvent) {
             if (allowedChildren_.find(infectionEvent) == allowedChildren_.end()) {
                 return {};
             }
-            const auto r = allowedChildren_.at(infectionEvent) |
-                   std::ranges::views::transform(
-                           [this](short uid) { return infectionEvents_[uid]; }
-                   );
-            return std::vector<std::shared_ptr<InfectionEvent>>(r.begin(), r.end());
+            std::vector<std::shared_ptr<InfectionEvent>> out;
+            for (const auto& child : allowedChildren_.at(infectionEvent)) {
+                out.push_back(infectionEvents_[child]);
+            }
+            return out;
         }
 
         void addParent(const std::shared_ptr<InfectionEvent> infectionEvent, const std::shared_ptr<InfectionEvent> parent) {
