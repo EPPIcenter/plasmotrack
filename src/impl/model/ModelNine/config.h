@@ -47,7 +47,7 @@
 #include "model/transmission_process/OrderBasedTransmissionProcessV3.h"
 // #include "model/transmission_process/node_transmission_process/SimpleLossMutation.h"
 // #include "model/transmission_process/node_transmission_process/SimpleLoss.h"
-#include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess2.h"
+#include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h"
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
 #include <filesystem>
