@@ -10,10 +10,10 @@
 #include <boost/algorithm/string.hpp>
 
 #include <fmt/core.h>
+#include <zlib.h>
 
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <regex>
 #include <vector>
 
@@ -22,10 +22,11 @@ namespace transmission_nets::core::io {
     namespace fs = std::filesystem;
     fs::path getPathFromEnvVar(const char* envVar);
 
-    std::string getLastLine(std::ifstream& in);
-    double hotloaddouble(const fs::path& input);
-    std::vector<double> hotloadVector(const fs::path& input);
-    std::string hotloadString(const fs::path& input);
+    std::string getLastLine(std::istream& in);
+    std::string getCompressedLastLine(gzFile in);
+    double hotloadDouble(const fs::path& filePath);
+    std::vector<double> hotloadVector(const fs::path& filePath);
+    std::string hotloadString(const fs::path& filePath);
     std::string makePathValid(const std::string& input);
 
     /*

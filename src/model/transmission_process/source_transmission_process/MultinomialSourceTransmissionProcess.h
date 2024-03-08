@@ -5,7 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_MULTINOMIALSOURCETRANSMISSIONPROCESS_H
 #define TRANSMISSION_NETWORKS_APP_MULTINOMIALSOURCETRANSMISSIONPROCESS_H
 
-
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
 #include "core/abstract/observables/Observable.h"
@@ -40,8 +39,8 @@ namespace transmission_nets::model::transmission_process {
         std::string identifier() override;
 
     private:
-        friend class Cacheable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>>;
-        friend class Checkpointable<MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>, double>;
+        friend class Cacheable<MultinomialSourceTransmissionProcess>;
+        friend class Checkpointable<MultinomialSourceTransmissionProcess, double>;
 
         void calculateLocusLogLikelihood(std::shared_ptr<core::containers::Locus> locus);
         void postSaveState(int savedStateId);
@@ -81,8 +80,12 @@ namespace transmission_nets::model::transmission_process {
 
 
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename GenotypeParameterMap, int MAX_COI>
-    MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>::MultinomialSourceTransmissionProcess(std::shared_ptr<COIProbabilityImpl> coiProb, std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer, std::vector<std::shared_ptr<core::containers::Locus>> loci, const GenotypeParameterMap& genetics)
-        : coiProb_(std::move(coiProb)), alleleFrequenciesContainer_(std::move(alleleFrequenciesContainer)), loci_(std::move(loci)), genetics_(genetics) {
+    MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>::MultinomialSourceTransmissionProcess(
+            std::shared_ptr<COIProbabilityImpl> coiProb,
+            std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer,
+            std::vector<std::shared_ptr<core::containers::Locus>> loci,
+            const GenotypeParameterMap& genetics
+        ) : coiProb_(std::move(coiProb)), alleleFrequenciesContainer_(std::move(alleleFrequenciesContainer)), loci_(std::move(loci)), genetics_(genetics) {
         value_ = 0;
         totalLoci_ = alleleFrequenciesContainer_->totalLoci();
 
@@ -132,14 +135,9 @@ namespace transmission_nets::model::transmission_process {
             }
             dirtyLoci_.clear();
 
-            // for (const auto& [locus, idx] : locusIdxMap_) {
-            //     this->calculateLocusLogLikelihood(locus);
-            //     std::copy(locusLlikBuffer_.begin(), locusLlikBuffer_.end(), llikMatrix_.begin() + (idx * (MAX_COI + 1)));
-            // }
-
             tmpCalculationVec_.clear();
 
-            std::fill(coiPartialLlik_.begin(), coiPartialLlik_.end(), 0.0);
+            std::ranges::fill(coiPartialLlik_, 0.0);
             for (int k = 0; k < MAX_COI + 1; ++k) {
                 coiPartialLlik_[k] += coiProb_->value()[k];
             }
@@ -189,13 +187,13 @@ namespace transmission_nets::model::transmission_process {
     Likelihood MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, InfectionEventImpl, MAX_COI>::validate() {
         for (const auto& [locus, idx] : locusIdxMap_) {
             this->calculateLocusLogLikelihood(locus);
-            std::copy(locusLlikBuffer_.begin(), locusLlikBuffer_.end(), llikMatrix_.begin() + (idx * (MAX_COI + 1)));
+            std::ranges::copy(locusLlikBuffer_, llikMatrix_.begin() + (idx * (MAX_COI + 1)));
         }
 
         //        dirtyLoci_.clear();
         tmpCalculationVec_.clear();
 
-        std::fill(coiPartialLlik_.begin(), coiPartialLlik_.end(), 0.0);
+        std::ranges::fill(coiPartialLlik_, 0.0);
         for (int k = 0; k < MAX_COI + 1; ++k) {
             coiPartialLlik_[k] += coiProb_->value()[k];
         }
@@ -210,8 +208,7 @@ namespace transmission_nets::model::transmission_process {
             tmpCalculationVec_.push_back(coiPartialLlik_[l]);
         }
 
-        auto value = core::utils::logSumExp(tmpCalculationVec_);
-        return value;
+        return core::utils::logSumExp(tmpCalculationVec_);
     }
 
 
@@ -290,6 +287,5 @@ namespace transmission_nets::model::transmission_process {
         llikMatrixCache_.pop_back();
     }
 }// namespace transmission_nets::model::transmission_process
-
 
 #endif//TRANSMISSION_NETWORKS_APP_MULTINOMIALSOURCETRANSMISSIONPROCESS_H

@@ -61,49 +61,48 @@ namespace transmission_nets::impl::ModelNine {
         auto latentParentsDir = paramOutputDir / "latent_parents";
 
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
-        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng, null_model);
+        infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, std::move(rng), null_model);
         allowedRelationships = core::io::parseAllowedParentsFromJSON(input, infections);
 
         initPriors();
 
         // alleleFrequencies = core::io::parseAlleleFrequenciesFromJSON<AlleleFrequencyContainerImpl>(input, loci);
         alleleFrequencies = std::make_shared<AlleleFrequencyContainerImpl>();
-        for (const auto& [locus_label, locus] : this->loci) {
+        for (const auto& locus : this->loci | std::views::values) {
             alleleFrequencies->addLocus(locus);
-            auto hotloadFreq = core::datatypes::Simplex(core::io::hotloadVector(freqDir / (locus->label + ".csv")));
+            auto hotloadFreq = core::datatypes::Simplex(core::io::hotloadVector(freqDir / (locus->label + ".csv.gz")));
             alleleFrequencies->alleleFrequencies(locus)->initializeValue(hotloadFreq);
         }
 
         for (auto& infection : infections) {
             auto infDir        = genotypeDir / core::io::makePathValid(infection->id());
-            auto inf_file_name = core::io::makePathValid(infection->id()) + ".csv";
-            infection->infectionDuration()->initializeValue(core::io::hotloaddouble(infDurFolder / inf_file_name));
+            auto inf_file_name = core::io::makePathValid(infection->id()) + ".csv.gz";
+            infection->infectionDuration()->initializeValue(core::io::hotloadDouble(infDurFolder / inf_file_name));
             for (const auto& [label, locus] : loci) {
-                infection->latentGenotype(locus)->initializeValue(GeneticsImpl(core::io::hotloadString(infDir / (label + ".csv"))));
+                infection->latentGenotype(locus)->initializeValue(GeneticsImpl(core::io::hotloadString(infDir / (label + ".csv.gz"))));
             }
 
             latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
-            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloaddouble(epsPosFolder / inf_file_name)));
-            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloaddouble(epsNegFolder / inf_file_name)));
+            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadDouble(epsPosFolder / inf_file_name)));
+            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(core::io::hotloadDouble(epsNegFolder / inf_file_name)));
         }
 
         for (auto& infection : latentParents) {
             auto infDir        = latentParentsDir / core::io::makePathValid(infection->id());
-            auto inf_file_name = core::io::makePathValid(infection->id()) + ".csv";
             for (const auto& [label, locus] : loci) {
-                infection->latentGenotype(locus)->initializeValue(GeneticsImpl(core::io::hotloadString(infDir / (label + ".csv"))));
+                infection->latentGenotype(locus)->initializeValue(GeneticsImpl(core::io::hotloadString(infDir / (label + ".csv.gz"))));
             }
         }
 
         infectionEventOrdering = std::make_shared<OrderingImpl>();
         infectionEventOrdering->addElements(this->infections);
 
-//        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloaddouble(paramOutputDir / "geo_gen_prob.csv"));
-//        lossProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloaddouble(paramOutputDir / "loss_prob.csv"));
-//        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloaddouble(paramOutputDir / "mutation_prob.csv"));
+//        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "geo_gen_prob.csv"));
+//        lossProb                = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "loss_prob.csv"));
+//        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mutation_prob.csv"));
 
-        meanCOI = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloaddouble(paramOutputDir / "mean_coi.csv"));
-        meanStrainsTransmitted = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloaddouble(paramOutputDir / "mean_strains_tx.csv"));
+        meanCOI = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_coi.csv.gz"));
+        meanStrainsTransmitted = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_strains_tx.csv.gz"));
         symptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(symptomaticIDPDist);
         asymptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(asymptomaticIDPDist);
     }

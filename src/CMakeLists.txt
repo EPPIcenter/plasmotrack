@@ -7,6 +7,7 @@ find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(OpenMP)
 find_package(fmt REQUIRED)
+find_package(ZLIB REQUIRED)
 
 if (OPENMP_FOUND)
     set(CMAKE_C_FLAGS " ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -180,6 +181,8 @@ set(SOURCE_FILES
         model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h
         core/samplers/genetics/RandomAllelesBitSetSampler4.h
         core/containers/AllowedRelationships.h
+        core/io/loggers/CompressedFileOutput.cpp
+        core/io/loggers/CompressedFileOutput.h
 )
 
 
@@ -194,6 +197,7 @@ target_link_libraries(
         Eigen3::Eigen
         fmt::fmt
         ${Boost_LIBRARIES}
+        ZLIB::ZLIB
 )
 
 

@@ -25,6 +25,7 @@
 
 #include "core/io/loggers/AbstractLogger.h"
 #include "core/io/loggers/FileOutput.h"
+#include "core/io/loggers/CompressedFileOutput.h"
 #include "core/io/loggers/MultiValueLogger.h"
 #include "core/io/loggers/ValueLogger.h"
 
@@ -56,7 +57,7 @@
 
 namespace transmission_nets::impl::ModelNine {
 
-    static constexpr int MAX_ALLELES       = 64;
+    static constexpr int MAX_ALLELES       = 96;
     static constexpr int MAX_COI           = 20;
     static constexpr int MAX_PARENTS       = 2;
     static constexpr int MAX_TRANSMISSIONS = 8;
@@ -77,7 +78,7 @@ namespace transmission_nets::impl::ModelNine {
     using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent::GenotypeParameterMap , MAX_COI>;
 //    using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
 //    using NodeTransmissionImpl      = model::transmission_process::SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTS, InterTransmissionProbImpl, SourceTransmissionImpl>;
-    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess2<MAX_PARENTS, MAX_STRAINS, SourceTransmissionImpl>;
+    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionImpl>;
 
 
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;

@@ -7,6 +7,7 @@ find_package(Eigen3 REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(fmt REQUIRED)
 find_package(OpenMP)
+find_package(ZLIB REQUIRED)
 
 if (OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -29,6 +30,7 @@ target_link_libraries(transmission_networks_model_nine
         OpenMP::OpenMP_CXX
         ${Boost_LIBRARIES}
         fmt::fmt
+        ZLIB::ZLIB
         )
 
 message(STATUS ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})

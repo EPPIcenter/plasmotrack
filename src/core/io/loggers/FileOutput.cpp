@@ -6,12 +6,6 @@
 #include "FileOutput.h"
 
 
-#include <fmt/core.h>
-
-#include <fstream>
-#include <iostream>
-#include <utility>
-
 namespace transmission_nets::core::io {
 
     /*
@@ -50,8 +44,8 @@ namespace transmission_nets::core::io {
         auto& outputFiles   = getOutputFiles();
         auto& outputBuffers = getOutputBuffers();
 
-        if (!fs::exists(outputPath_.parent_path())) {
-            fs::create_directory(outputPath_.parent_path());
+        if (!exists(outputPath_.parent_path())) {
+            create_directory(outputPath_.parent_path());
         }
 
         outputFile_ = std::make_shared<std::ofstream>();

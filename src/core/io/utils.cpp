@@ -38,7 +38,7 @@ namespace transmission_nets::core::io {
         return std::regex_replace(input, getInvalidPathChars(), "_");
     }
 
-    std::string getLastLine(std::ifstream& in) {
+    std::string getLastLine(std::istream& in) {
         in.seekg(-1, std::ios_base::end);
         if (in.peek() == '\n') {
             in.seekg(-1, std::ios_base::cur);
@@ -52,51 +52,73 @@ namespace transmission_nets::core::io {
         }
         std::string lastLine;
         getline(in, lastLine);
+        in.seekg(0, std::ios_base::beg);
+        in.clear();
         return lastLine;
     }
 
-    double hotloaddouble(const fs::path& filePath) {
-        double value;
-        std::ifstream input(filePath);
-
-        if (input) {
-            std::string lastLine = getLastLine(input);
-            value                = std::stod(lastLine);
-        } else {
-            fmt::print(stderr, "Problem opening file {}\n", filePath.c_str());
-            exit(1);
-        }
-
-        return value;
+    std::string getCompressedLastLine(gzFile in) {
+        std::stringstream output;
+        std::string lastLine;
+        do {
+            char buffer[1024 * 1024];
+            const int numRead = gzread(in, buffer, 1024 * 1024);
+            if (gzeof(in)) {
+                output.write(buffer, numRead);
+                lastLine = getLastLine(output);
+            }
+        } while (!gzeof(in));
+        return lastLine;
     }
+
+    double hotloadDouble(const fs::path& filePath) {
+        std::string lastLine;
+        if (filePath.extension() == ".gz") {
+            lastLine = getCompressedLastLine(gzopen(filePath.c_str(), "rb"));
+        } else {
+            if (std::ifstream input(filePath); input) {
+                lastLine = getLastLine(input);
+            } else {
+                fmt::print(stderr, "Problem opening file {}\n", filePath.c_str());
+                exit(1);
+            }
+        }
+        return std::stod(lastLine);
+   }
 
     std::vector<double> hotloadVector(const fs::path& filePath) {
         std::vector<std::string> tokens;
         std::vector<double> values;
-        std::ifstream input(filePath);
 
-        if (input) {
-            std::string lastLine = getLastLine(input);
-            boost::split(tokens, lastLine, boost::is_any_of(","));
-            values.reserve(tokens.size());
-            std::transform(tokens.begin(), tokens.end(), std::back_inserter(values), [](const std::string& val) { return std::stod(val); });
+        std::string lastLine;
+        if (filePath.extension() == ".gz") {
+            lastLine = getCompressedLastLine(gzopen(filePath.c_str(), "rb"));
         } else {
-            fmt::print(stderr, "Problem opening file {}\n", filePath.c_str());
-            exit(1);
+            if (std::ifstream input(filePath); input) {
+                lastLine = getLastLine(input);
+            } else {
+                fmt::print(stderr, "Problem opening file {}\n", filePath.c_str());
+                exit(1);
+            }
         }
-
+        split(tokens, lastLine, boost::is_any_of(","));
+        values.reserve(tokens.size());
+        std::ranges::transform(tokens, std::back_inserter(values), [](const std::string& val) { return std::stod(val); });
         return values;
     }
 
     std::string hotloadString(const fs::path& filePath) {
         std::string value;
-        std::ifstream input(filePath);
 
-        if (input) {
-            value = getLastLine(input);
+        if (filePath.extension() == ".gz") {
+            value = getCompressedLastLine(gzopen(filePath.c_str(), "rb"));
         } else {
-            fmt::print(stderr, "Problem opening file {}\n", filePath.c_str());
-            exit(1);
+            if (std::ifstream input(filePath); input) {
+                value = getLastLine(input);
+            } else {
+                fmt::print(stderr, "Problem opening file {}\n", filePath.c_str());
+                exit(1);
+            }
         }
 
         return value;

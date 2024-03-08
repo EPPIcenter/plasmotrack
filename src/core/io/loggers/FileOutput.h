@@ -6,11 +6,13 @@
 #define TRANSMISSION_NETWORKS_APP_FILEOUTPUT_H
 
 #include "AbstractOutput.h"
-#include "LambdaLogger.h"
+
 #include <filesystem>
 #include <map>
-#include <ostream>
 #include <sstream>
+#include <fmt/core.h>
+
+#include <fstream>
 
 namespace transmission_nets::core::io {
     namespace fs = std::filesystem;

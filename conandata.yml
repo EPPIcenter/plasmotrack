@@ -6,3 +6,4 @@ requirements:
   - "fmt/9.1.0"
   - "nlohmann_json/3.11.3"
   - "boost/1.83.0"
+  - "zlib/1.3.1"
