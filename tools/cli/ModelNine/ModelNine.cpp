@@ -12,6 +12,7 @@
 #include "impl/model/ModelNine/SequentialScheduler.h"
 #include "impl/model/ModelNine/State.h"
 #include "impl/model/ModelNine/StateLogger.h"
+#include "core/io/utils.h"
 
 #include <boost/program_options.hpp>
 
@@ -149,8 +150,14 @@ int main(int argc, char** argv) {
             fmt::print("Running the null model (no genetics)\n");
         }
 
-        std::ifstream inputFile{nodesFile};
-        auto j = loadJSON(inputFile);
+        json j;
+        if (nodesFile.extension() == ".gz") {
+            std::vector<char> decompressed = decompressGzipFile(nodesFile);
+            j = loadJSON(decompressed);
+        } else {
+            std::ifstream inputFile{nodesFile};
+            j = loadJSON<std::ifstream&>(inputFile);
+        }
 
         if (seed == -1) {
             seed = timers::time().time_since_epoch().count();
