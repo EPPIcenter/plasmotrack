@@ -20,6 +20,7 @@
 
 
 namespace transmission_nets::core::distributions {
+    using namespace transmission_nets::core::parameters;
     template<int MAX_COUNT>
     class ZTMultiplicativeBinomial : public computation::Computation<datatypes::TransitionMatrix<MAX_COUNT + 1>>,
                                      public abstract::Observable<ZTMultiplicativeBinomial<MAX_COUNT>>,

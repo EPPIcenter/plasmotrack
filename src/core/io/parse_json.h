@@ -8,6 +8,7 @@
 #include "core/containers/AllowedRelationships.h"
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
+#include "utils.h"
 
 #include "core/datatypes/Simplex.h"
 #include "core/distributions/DiscreteDistribution.h"
@@ -22,7 +23,8 @@
 namespace transmission_nets::core::io {
     using nlohmann::json;
 
-    inline json loadJSON(std::istream& input) {
+    template<typename T>
+    json loadJSON(T input) {
         fmt::print("Loading JSON");
         auto j = json::parse(input);
         fmt::print("...done\n");

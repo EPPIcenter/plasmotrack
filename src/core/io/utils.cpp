@@ -124,4 +124,47 @@ namespace transmission_nets::core::io {
         return value;
     }
 
+    std::vector<char> decompressGzipFile(const fs::path& filePath) {
+        std::ifstream file(filePath, std::ios::binary);
+        std::vector<char> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+
+        std::string decompressed;
+        z_stream zs;
+        zs.zalloc = Z_NULL;
+        zs.zfree = Z_NULL;
+        zs.opaque = Z_NULL;
+        zs.avail_in = 0;
+        zs.next_in = Z_NULL;
+        if (inflateInit2(&zs, MAX_WBITS + 16) != Z_OK) {
+            fmt::print(stderr, "inflateInit2 failed while reading file {}\n", filePath.c_str());
+            exit(1);
+        }
+
+        zs.avail_in = buffer.size();
+        zs.next_in = reinterpret_cast<Bytef*>(buffer.data());
+
+        // create a temporary file to write the decompressed string to
+        // std::string tempPath = filePath.string() + ".decompressed";
+        std::vector<char> decompressedData;
+        do {
+            std::vector<char> buffer(4096);
+            zs.avail_out = buffer.size();
+            zs.next_out = reinterpret_cast<Bytef*>(buffer.data());
+
+            int ret = inflate(&zs, Z_NO_FLUSH);
+            if (ret == Z_NEED_DICT || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {
+                std::cerr << "Failed to decompress gzip file" << std::endl;
+                inflateEnd(&zs);
+                exit(1);
+            }
+
+            decompressedData.insert(decompressedData.end(), buffer.begin(), buffer.begin() + buffer.size() - zs.avail_out);
+        } while (zs.avail_out == 0);
+
+        inflateEnd(&zs);
+
+        return decompressedData;
+    }
+
 }// namespace transmission_nets::core::io

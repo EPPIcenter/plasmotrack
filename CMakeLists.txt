@@ -11,9 +11,9 @@ set(CMAKE_CXX_STANDARD 20)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -fno-omit-frame-pointer -Wall -Wextra ")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -fno-omit-frame-pointer -Werror -Wno-unused-function -Wno-unused-parameter")
 if (CMAKE_COMPILER_IS_GNUCC)
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -g -frename-registers -funroll-loops -funsafe-math-optimizations -fno-math-errno -fno-signed-zeros -fno-trapping-math") # -Ofast is throwing nan errors
-#    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -g -march=native -frename-registers -funroll-loops") # -Ofast is throwing nan errors
+#    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0")
+#    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -g -frename-registers -funroll-loops -funsafe-math-optimizations -fno-math-errno -fno-signed-zeros -fno-trapping-math") # -Ofast is throwing nan errors
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -g -frename-registers -funroll-loops") # -Ofast is throwing nan errors
 #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -march=native -funroll-loops") # -Ofast is throwing nan errors
 #    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -funroll-loops") # -Ofast is throwing nan errors
 endif ()
@@ -43,6 +43,8 @@ set(TRANSMISSION_NETWORKS_INSTALL_BIN_DIR ${PROJECT_SOURCE_DIR}/bin)
 set(TRANSMISSION_NETWORKS_LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 
 set(TRANSMISSION_NETWORK_HEADERS_DIR ${PROJECT_SOURCE_DIR}/src)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 
 include_directories(${TRANSMISSION_NETWORKS_INSTALL_INCLUDE_DIR})
 include_directories(${TRANSMISSION_NETWORK_MODEL_HEADERS_DIR})

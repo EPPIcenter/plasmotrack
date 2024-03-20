@@ -28,6 +28,7 @@ namespace transmission_nets::core::io {
     std::vector<double> hotloadVector(const fs::path& filePath);
     std::string hotloadString(const fs::path& filePath);
     std::string makePathValid(const std::string& input);
+    std::vector<char> decompressGzipFile(const fs::path& filePath);
 
     /*
      * Load a vector of doubles from a file.
