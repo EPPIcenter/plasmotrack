@@ -128,6 +128,5 @@ namespace transmission_nets::impl::ModelNine {
 //        symptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(10);
 //        asymptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(1);
 //        asymptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(100);
-
     }
 }// namespace transmission_nets::impl::ModelNine

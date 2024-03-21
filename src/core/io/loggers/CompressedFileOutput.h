@@ -24,7 +24,6 @@ namespace transmission_nets::core::io {
         explicit CompressedFileOutput(fs::path outputPath, std::string header = "", bool resetOutput = true);
 
         ~CompressedFileOutput() override;
-
         CompressedFileOutput(const CompressedFileOutput&) = delete;
         CompressedFileOutput& operator=(CompressedFileOutput&) = delete;
 
@@ -36,17 +35,14 @@ namespace transmission_nets::core::io {
 
         void write(const std::string&) final;
 
-        void write_buffer();
+        void write_buffer() const;
 
     protected:
-        static std::map<std::string, std::shared_ptr<std::ofstream>>& getOutputFiles();
         static std::map<std::string, std::shared_ptr<std::stringstream>>& getOutputBuffers();
-        const long COMPRESSED_CHUNK_SIZE = 1024 * 8;
+        const long COMPRESSED_CHUNK_SIZE = 1024 * 8; // 8KB
         fs::path outputPath_;
         std::string header_;
         std::shared_ptr<std::stringstream> buffer_;
-        std::shared_ptr<std::ofstream> outputFile_;
-        int compressionLevel_ = Z_DEFAULT_COMPRESSION;
     };
 };
 

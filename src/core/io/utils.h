@@ -23,7 +23,7 @@ namespace transmission_nets::core::io {
     fs::path getPathFromEnvVar(const char* envVar);
 
     std::string getLastLine(std::istream& in);
-    std::string getCompressedLastLine(gzFile in);
+    std::string getCompressedLastLine(const fs::path& in);
     double hotloadDouble(const fs::path& filePath);
     std::vector<double> hotloadVector(const fs::path& filePath);
     std::string hotloadString(const fs::path& filePath);

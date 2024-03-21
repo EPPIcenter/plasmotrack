@@ -57,24 +57,30 @@ namespace transmission_nets::core::io {
         return lastLine;
     }
 
-    std::string getCompressedLastLine(gzFile in) {
+    std::string getCompressedLastLine(const fs::path& in) {
+        const gzFile file = gzopen(in.c_str(), "rb");
         std::stringstream output;
         std::string lastLine;
         do {
-            char buffer[1024 * 1024];
-            const int numRead = gzread(in, buffer, 1024 * 1024);
-            if (gzeof(in)) {
+            char buffer[1024 * 1024]; // 1MB buffer
+            const int numRead = gzread(file, buffer, 1024 * 1024);
+
+            // only write the last chunk of the file to the output to search through.
+            // Implicitly assumes that the last line is less than 1MB.
+            if (gzeof(file) || numRead < 1024 * 1024) {
                 output.write(buffer, numRead);
                 lastLine = getLastLine(output);
+                break;
             }
-        } while (!gzeof(in));
+        } while (!gzeof(file));
+        gzclose(file);
         return lastLine;
     }
 
     double hotloadDouble(const fs::path& filePath) {
         std::string lastLine;
         if (filePath.extension() == ".gz") {
-            lastLine = getCompressedLastLine(gzopen(filePath.c_str(), "rb"));
+            lastLine = getCompressedLastLine(filePath);
         } else {
             if (std::ifstream input(filePath); input) {
                 lastLine = getLastLine(input);
@@ -92,7 +98,7 @@ namespace transmission_nets::core::io {
 
         std::string lastLine;
         if (filePath.extension() == ".gz") {
-            lastLine = getCompressedLastLine(gzopen(filePath.c_str(), "rb"));
+            lastLine = getCompressedLastLine(filePath);
         } else {
             if (std::ifstream input(filePath); input) {
                 lastLine = getLastLine(input);
@@ -111,7 +117,7 @@ namespace transmission_nets::core::io {
         std::string value;
 
         if (filePath.extension() == ".gz") {
-            value = getCompressedLastLine(gzopen(filePath.c_str(), "rb"));
+            value = getCompressedLastLine(filePath);
         } else {
             if (std::ifstream input(filePath); input) {
                 value = getLastLine(input);
@@ -120,51 +126,24 @@ namespace transmission_nets::core::io {
                 exit(1);
             }
         }
-
         return value;
     }
 
     std::vector<char> decompressGzipFile(const fs::path& filePath) {
-        std::ifstream file(filePath, std::ios::binary);
-        std::vector<char> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        file.close();
-
-        std::string decompressed;
-        z_stream zs;
-        zs.zalloc = Z_NULL;
-        zs.zfree = Z_NULL;
-        zs.opaque = Z_NULL;
-        zs.avail_in = 0;
-        zs.next_in = Z_NULL;
-        if (inflateInit2(&zs, MAX_WBITS + 16) != Z_OK) {
-            fmt::print(stderr, "inflateInit2 failed while reading file {}\n", filePath.c_str());
+        auto file = gzopen(filePath.c_str(), "rb");
+        if (file == nullptr) {
+            fmt::print(stderr, "Failed to open file\n");
             exit(1);
         }
 
-        zs.avail_in = buffer.size();
-        zs.next_in = reinterpret_cast<Bytef*>(buffer.data());
-
-        // create a temporary file to write the decompressed string to
-        // std::string tempPath = filePath.string() + ".decompressed";
-        std::vector<char> decompressedData;
+        auto output = std::vector<char>();
         do {
-            std::vector<char> buffer(4096);
-            zs.avail_out = buffer.size();
-            zs.next_out = reinterpret_cast<Bytef*>(buffer.data());
+            char buffer[1024 * 1024]; // 1MB buffer
+            const int numRead = gzread(file, buffer, 1024 * 1024);
+            output.insert(output.end(), buffer, buffer + numRead);
+        } while (!gzeof(file));
 
-            int ret = inflate(&zs, Z_NO_FLUSH);
-            if (ret == Z_NEED_DICT || ret == Z_DATA_ERROR || ret == Z_MEM_ERROR) {
-                std::cerr << "Failed to decompress gzip file" << std::endl;
-                inflateEnd(&zs);
-                exit(1);
-            }
-
-            decompressedData.insert(decompressedData.end(), buffer.begin(), buffer.begin() + buffer.size() - zs.avail_out);
-        } while (zs.avail_out == 0);
-
-        inflateEnd(&zs);
-
-        return decompressedData;
+        return output;
     }
 
 }// namespace transmission_nets::core::io
