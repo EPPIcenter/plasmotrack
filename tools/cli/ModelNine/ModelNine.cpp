@@ -43,7 +43,7 @@ bool interrupted = false;
 std::unique_ptr<ReplicaExchange<ModelNine::State, ModelNine::Model, ModelNine::SequentialSampleScheduler, ModelNine::ModelLogger, ModelNine::StateLogger>> repex;
 
 void finalize_output(int signal_num) {
-    if (interrupted) {
+    if (interrupted and signal_num != SIGUSR2 and signal_num != SIGUSR1) {
         fmt::print("Killing process, output inconsistent...\n");
         exit(SUCCESS);
     }
@@ -52,7 +52,9 @@ void finalize_output(int signal_num) {
             {SIGINT, "SIGINT"},
             {SIGQUIT, "SIGQUIT"},
             {SIGABRT, "SIGABRT"},
-            {SIGTERM, "SIGTERM"}
+            {SIGTERM, "SIGTERM"},
+            {SIGUSR2, "SIGUSR2"},
+            {SIGUSR1, "SIGUSR1"},
     };
     fmt::print("Interrupt signal {} received. Finalizing output...", signals[signal_num]);
 }
@@ -64,6 +66,9 @@ int main(int argc, char** argv) {
     signal(SIGQUIT, finalize_output);
     signal(SIGABRT, finalize_output);
     signal(SIGTERM, finalize_output);
+    signal(SIGUSR2, finalize_output);
+    signal(SIGUSR1, finalize_output);
+
 
 //    try {
         int num_chains;
@@ -167,6 +172,7 @@ int main(int argc, char** argv) {
         auto r = std::make_shared<boost::random::mt19937>(seed);
         repex  = std::make_unique<ReplicaExchange<ModelNine::State, ModelNine::Model, ModelNine::SequentialSampleScheduler, ModelNine::ModelLogger, ModelNine::StateLogger>>(num_chains, thin, gradient, r, outputDir, hotload, null_model, num_cores, j, symptomatic_idp, asymptomatic_idp);
 
+        fmt::print("Starting Replica Exchange...\n");
         repex->logState();
         repex->finalize();
 
