@@ -15,7 +15,6 @@ if (OPENMP_FOUND)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif ()
 
-
 include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 
 include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})

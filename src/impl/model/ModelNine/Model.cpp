@@ -30,10 +30,10 @@ namespace transmission_nets::impl::ModelNine {
         prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanStrainsTransmitted, state_->meanStrainsTransmittedPriorShape, state_->meanStrainsTransmittedPriorScale));
 //        prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
         for (auto& obs : state_->expectedFalsePositives) {
-            likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
+            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
         }
         for (auto& obs : state_->expectedFalseNegatives) {
-            likelihood.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFNRPriorShape, state_->obsFNRPriorScale));
+            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFNRPriorShape, state_->obsFNRPriorScale));
         }
 
         int i = 0;
@@ -47,38 +47,42 @@ namespace transmission_nets::impl::ModelNine {
             }
 
 
-            for (auto& [locus, obsGenotype] : infection->observedGenotype()) {
-                observationProcessLikelihoodList.push_back(std::make_shared<ObservationProcessImpl>(
-                        obsGenotype,
-                        infection->latentGenotype(locus),
-                        state_->expectedFalsePositives[i],
-                        state_->expectedFalseNegatives[i]));
-                likelihood.addTarget(observationProcessLikelihoodList.back());
-            }
+                for (auto& [locus, obsGenotype] : infection->observedGenotype()) {
+                    observationProcessLikelihoodList.push_back(std::make_shared<ObservationProcessImpl>(
+                            obsGenotype,
+                            infection->latentGenotype(locus),
+                            state_->expectedFalsePositives[i],
+                            state_->expectedFalseNegatives[i],
+                            state_->null_model_));
+                    likelihood.addTarget(observationProcessLikelihoodList.back());
+                }
 
             state_->parentSetList[infection->id()] = std::make_shared<ParentSetImpl>(state_->infectionEventOrdering, infection, state_->allowedRelationships->allowedParents(infection));
             i++;
         }
 
-        for (unsigned int j = 0; j < state_->infections.size(); ++j) {
-            auto infection = state_->infections[j];
-            auto parentSet = state_->parentSetList[infection->id()];
-            auto latentParent = state_->latentParents[j];
+            for (unsigned int j = 0; j < state_->infections.size(); ++j) {
+                auto infection = state_->infections[j];
+                auto parentSet = state_->parentSetList[infection->id()];
+                auto latentParent = state_->latentParents[j];
 
-            sourceTransmissionProcessList.push_back(std::make_shared<SourceTransmissionImpl>(
-                    coiProb,
-                    state_->alleleFrequencies,
-                    latentParent->loci(),
-                    latentParent->latentGenotype()));
+                sourceTransmissionProcessList.push_back(std::make_shared<SourceTransmissionImpl>(
+                        coiProb,
+                        state_->alleleFrequencies,
+                        latentParent->loci(),
+                        latentParent->latentGenotype(),
+                        state_->null_model_));
 
-            transmissionProcessList.push_back(std::make_shared<TransmissionProcess>(
-                    nodeTransmissionProcess,
-                    sourceTransmissionProcessList.back(),
-                    infection,
-                    parentSet,
-                    latentParent));
-            likelihood.addTarget(transmissionProcessList.back());
-        }
+                transmissionProcessList.push_back(std::make_shared<TransmissionProcess>(
+                        nodeTransmissionProcess,
+                        sourceTransmissionProcessList.back(),
+                        infection,
+                        parentSet,
+                        latentParent,
+                        state_->null_model_));
+                likelihood.addTarget(transmissionProcessList.back());
+            }
+
         this->setDirty();
     }
 

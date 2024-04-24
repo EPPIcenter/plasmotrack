@@ -27,9 +27,11 @@ namespace transmission_nets::model::observation_process {
                 std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics,
                 std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics,
                 p_Parameterdouble expectedFalsePositives,
-                p_Parameterdouble expectedFalseNegatives);
+                p_Parameterdouble expectedFalseNegatives,
+                bool null_model = false);
 
         core::computation::Likelihood value() override;
+        core::computation::Likelihood peek() noexcept override;
         std::string identifier() override;
 
     private:
@@ -38,6 +40,7 @@ namespace transmission_nets::model::observation_process {
         p_Parameterdouble expected_false_positives_;
         p_Parameterdouble expected_false_negatives_;
         unsigned int total_alleles_;
+        bool null_model_;
     };
 
     template<typename GeneticsImpl>
@@ -45,10 +48,12 @@ namespace transmission_nets::model::observation_process {
             std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics,
             std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics,
             p_Parameterdouble expectedFalsePositives,
-            p_Parameterdouble expectedFalseNegatives) : observed_genetics_(std::move(observedGenetics)),
+            p_Parameterdouble expectedFalseNegatives,
+            bool null_model
+            ) : observed_genetics_(std::move(observedGenetics)),
                                                         latent_genetics_(std::move(latentGenetics)),
                                                         expected_false_positives_(std::move(expectedFalsePositives)),
-                                                        expected_false_negatives_(std::move(expectedFalseNegatives)) {
+                                                        expected_false_negatives_(std::move(expectedFalseNegatives)), null_model_(null_model) {
         total_alleles_ = latent_genetics_->value().totalAlleles();
         latent_genetics_->add_post_change_listener([=, this]() { this->setDirty(); });
         latent_genetics_->registerCacheableCheckpointTarget(this);
@@ -70,6 +75,12 @@ namespace transmission_nets::model::observation_process {
 
     template<typename GeneticsImpl>
     core::computation::Likelihood ObservationProcessLikelihoodv2<GeneticsImpl>::value() {
+        if (null_model_) {
+            value_ = 0;
+            this->setClean();
+            return value_;
+        }
+
         if (this->isDirty()) {
             const auto& latent_genetics = latent_genetics_->value();
             const auto& observed_genetics = observed_genetics_->value();
@@ -91,6 +102,14 @@ namespace transmission_nets::model::observation_process {
 
         assert(value_ < std::numeric_limits<core::computation::Likelihood>::infinity());
 
+        return value_;
+    }
+
+    template<typename GeneticsImpl>
+    core::computation::Likelihood ObservationProcessLikelihoodv2<GeneticsImpl>::peek() noexcept {
+        if (null_model_) {
+            return 0;
+        }
         return value_;
     }
 

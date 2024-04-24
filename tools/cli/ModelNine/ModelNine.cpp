@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
         repex->finalize();
 
         float samplesPerSecond = 0;
-        float totalSamples = 0;
+        int totalSamples = 0;
         float averageSamplesPerSecond = 0;
         timers::dsec totalDuration{0};
 

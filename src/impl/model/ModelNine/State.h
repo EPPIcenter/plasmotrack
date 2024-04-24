@@ -31,6 +31,7 @@ namespace transmission_nets::impl::ModelNine {
 
         void initPriors();
 
+        bool null_model_{};
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
         std::vector<std::shared_ptr<InfectionEvent>> latentParents{};

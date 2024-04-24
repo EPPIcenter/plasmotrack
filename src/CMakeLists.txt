@@ -186,7 +186,7 @@ set(SOURCE_FILES
 )
 
 
-add_library(transmission_networks SHARED ${SOURCE_FILES})
+add_library(transmission_networks STATIC ${SOURCE_FILES})
 target_link_libraries(
         transmission_networks
         PUBLIC

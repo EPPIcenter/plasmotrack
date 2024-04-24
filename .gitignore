@@ -91,3 +91,5 @@ googletest-src/
 python/simtools/.coverage
 
 build/
+
+.cache/

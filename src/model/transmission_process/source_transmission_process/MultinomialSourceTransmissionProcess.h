@@ -32,9 +32,11 @@ namespace transmission_nets::model::transmission_process {
         MultinomialSourceTransmissionProcess(std::shared_ptr<COIProbabilityImpl> coiProb,
                                              std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer,
                                              std::vector<std::shared_ptr<core::containers::Locus>> loci,
-                                             const GenotypeParameterMap& genetics);
+                                             const GenotypeParameterMap& genetics,
+                                             bool null_model = false);
 
         Likelihood value() override;
+        Likelihood peek() noexcept override;
         Likelihood validate();
         std::string identifier() override;
 
@@ -76,6 +78,8 @@ namespace transmission_nets::model::transmission_process {
         std::vector<Likelihood> tmpCalculationVec_{};
 
         core::utils::probAnyMissingFunctor probAnyMissing_;
+
+        bool null_model_;
     };
 
 
@@ -84,8 +88,8 @@ namespace transmission_nets::model::transmission_process {
             std::shared_ptr<COIProbabilityImpl> coiProb,
             std::shared_ptr<AlleleFrequencyContainer> alleleFrequenciesContainer,
             std::vector<std::shared_ptr<core::containers::Locus>> loci,
-            const GenotypeParameterMap& genetics
-        ) : coiProb_(std::move(coiProb)), alleleFrequenciesContainer_(std::move(alleleFrequenciesContainer)), loci_(std::move(loci)), genetics_(genetics) {
+            const GenotypeParameterMap& genetics,
+            const bool null_model) : coiProb_(std::move(coiProb)), alleleFrequenciesContainer_(std::move(alleleFrequenciesContainer)), loci_(std::move(loci)), genetics_(genetics), null_model_(null_model) {
         value_ = 0;
         totalLoci_ = alleleFrequenciesContainer_->totalLoci();
 
@@ -128,6 +132,11 @@ namespace transmission_nets::model::transmission_process {
 
     template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename GenotypeParameterMap, int MAX_COI>
     Likelihood MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>::value() {
+        if (null_model_) {
+            this->value_ = 0;
+            this->setClean();
+            return this->value_;
+        }
         if (this->isDirty()) {
             for (const auto& locus : dirtyLoci_) {
                 this->calculateLocusLogLikelihood(locus);
@@ -180,6 +189,14 @@ namespace transmission_nets::model::transmission_process {
         }
 
 
+        return this->value_;
+    }
+
+    template<typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename GenotypeParameterMap, int MAX_COI>
+    Likelihood MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainer, GenotypeParameterMap, MAX_COI>::peek() noexcept {
+        if (null_model_) {
+            return 0;
+        }
         return this->value_;
     }
 

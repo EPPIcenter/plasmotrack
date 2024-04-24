@@ -48,7 +48,8 @@ namespace transmission_nets::model::transmission_process {
                                         std::shared_ptr<SourceTransmissionProcessImpl> stp,
                                         std::shared_ptr<InfectionEventImpl> child,
                                         std::shared_ptr<ParentSetImpl> parent_set,
-                                        std::shared_ptr<InfectionEventImpl> latent_parent);
+                                        std::shared_ptr<InfectionEventImpl> latent_parent,
+                                        bool null_model = false);
 
         Likelihood value() override;
 
@@ -65,6 +66,8 @@ namespace transmission_nets::model::transmission_process {
         std::shared_ptr<InfectionEventImpl> child_;
         std::shared_ptr<ParentSetImpl> parentSet_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
+
+        bool null_model_ = false;
 
     private:
         void postSaveState(int savedStateId);
@@ -97,11 +100,14 @@ namespace transmission_nets::model::transmission_process {
             std::shared_ptr<SourceTransmissionProcessImpl> stp,
             std::shared_ptr<InfectionEventImpl> child,
             std::shared_ptr<ParentSetImpl> parent_set,
-            std::shared_ptr<InfectionEventImpl> latent_parent) : ntp_(std::move(ntp)),
+            std::shared_ptr<InfectionEventImpl> latent_parent,
+            const bool null_model) : ntp_(std::move(ntp)),
                                                                  stp_(std::move(stp)),
                                                                  child_(std::move(child)),
                                                                  parentSet_(std::move(parent_set)),
-                                                                 latentParent_(std::move(latent_parent)) {
+                                                                 latentParent_(std::move(latent_parent)),
+                                                                    null_model_(null_model)
+    {
 
         ntp_->add_set_dirty_listener([=, this]() {
             lastUpdated_ = "ntp updated";
@@ -274,7 +280,11 @@ namespace transmission_nets::model::transmission_process {
             if (likelihoodCalculated(tmpPs_)) {
                 ps_llik = getLikelihood(tmpPs_);
             } else {
-                ps_llik = ntp_->calculateLogLikelihood(child_, latentParent_, stp_);
+                if (null_model_) {
+                    ps_llik = 0;
+                } else {
+                    ps_llik = ntp_->calculateLogLikelihood(child_, latentParent_, stp_);
+                }
                 setLikelihood(tmpPs_, ps_llik);
             }
             lliks.push_back(ps_llik);
@@ -294,7 +304,11 @@ namespace transmission_nets::model::transmission_process {
                     if (likelihoodCalculated(tmpPs_)) {
                         ps_llik = getLikelihood(tmpPs_);
                     } else {
-                        ps_llik = ntp_->calculateLogLikelihood(child_, tmpPs_);
+                        if (null_model_) {
+                            ps_llik = 0;
+                        } else {
+                            ps_llik = ntp_->calculateLogLikelihood(child_, tmpPs_);
+                        }
                         setLikelihood(tmpPs_, ps_llik);
                     }
                     lliks.push_back(ps_llik);
@@ -306,7 +320,11 @@ namespace transmission_nets::model::transmission_process {
                         ps_llik = getLikelihood(tmpPs_);
                     } else {
                         tmpPs_.erase(latentParent_);
-                        ps_llik = ntp_->calculateLogLikelihood(child_, latentParent_, tmpPs_, stp_);
+                        if (null_model_) {
+                            ps_llik = 0;
+                        } else {
+                            ps_llik = ntp_->calculateLogLikelihood(child_, latentParent_, tmpPs_, stp_);
+                        }
                         tmpPs_.insert(latentParent_);
                         setLikelihood(tmpPs_, ps_llik);
                     }
@@ -321,6 +339,9 @@ namespace transmission_nets::model::transmission_process {
             assert(this->value_ < std::numeric_limits<Likelihood>::infinity());
 
             this->setClean();
+        }
+        if (null_model_) {
+            return 0;
         }
         return this->value_;
     }
@@ -349,7 +370,9 @@ namespace transmission_nets::model::transmission_process {
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     Likelihood OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::peek() noexcept {
-
+        if (null_model_) {
+            return 0;
+        }
 #ifndef NDEBUG
         if (this->value_ <= -std::numeric_limits<Likelihood>::infinity()) {
             std::cerr << "Saved States: " << this->saved_states_stack_.size() << std::endl;
@@ -388,6 +411,14 @@ namespace transmission_nets::model::transmission_process {
                 dist.parentSetLliks.push_back(std::make_pair(getLikelihood(ps), ps));
                 comboGen.next();
             }
+        }
+
+        if (null_model_) {
+            Likelihood totalLlik = 0;
+            for (const auto& [llik, ps] : dist.parentSetLliks) {
+                totalLlik += std::exp(llik);
+            }
+            dist.totalLlik = std::log(totalLlik);
         }
 
         return dist;

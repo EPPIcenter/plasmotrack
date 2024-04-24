@@ -12,6 +12,7 @@ namespace transmission_nets::impl::ModelNine {
             const std::vector<core::computation::Probability>& asymptomaticIDPDist,
             std::shared_ptr<boost::random::mt19937> rng,
             const bool null_model) {
+        null_model_ = null_model;
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
         infections     = core::io::parseInfectionsFromJSON<InfectionEvent, LocusImpl>(input, MAX_COI, loci, rng, null_model);
         allowedRelationships = core::io::parseAllowedParentsFromJSON(input, infections);
@@ -52,6 +53,7 @@ namespace transmission_nets::impl::ModelNine {
             const fs::path& outputDir,
             const bool null_model) {
         // hotstart constructor
+        null_model_ = null_model;
         auto paramOutputDir = outputDir / "parameters";
         auto epsPosFolder   = paramOutputDir / "eps_pos";
         auto epsNegFolder   = paramOutputDir / "eps_neg";
