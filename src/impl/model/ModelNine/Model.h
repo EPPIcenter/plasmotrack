@@ -8,7 +8,6 @@
 #include "State.h"
 #include "config.h"
 #include "core/computation/Accumulator.h"
-#include "model/NullLikelihood.h"
 
 #include <memory>
 #include <shared_mutex>
