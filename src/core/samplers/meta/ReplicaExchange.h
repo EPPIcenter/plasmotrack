@@ -172,6 +172,16 @@ namespace transmission_nets::core::samplers {
 
             std::ranges::reverse(new_temp_gradient);
 
+
+            // check if any values are nan
+            if (std::ranges::any_of(new_temp_gradient, [](const double x) { return std::isnan(x); })) {
+                fmt::print("Temperature gradient contains NaNs\n");
+                fmt::print("Old gradient: {}\n", io::serialize(temp_gradient));
+                fmt::print("Cumulative swap rate: {}\n", io::serialize(cumulative_swap_rate));
+                fmt::print("Swap barriers: {}\n", io::serialize(swap_barriers));
+                return;
+            }
+
             for (size_t ii = 1; ii < temp_gradient.size() - 1; ii++) {
                 chains[swap_indices[ii]].target->setTemperature(new_temp_gradient[ii]);
             }

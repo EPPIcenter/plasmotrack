@@ -34,7 +34,6 @@ namespace transmission_nets::impl::ModelNine {
                                     .weight = 5,
                                     .debug = false});
 
-
         scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->meanStrainsTransmitted, target_, 1.0, 20, r, 1, .1, 1),
                                     .id = "Mean Strains Tx",
                                     .adaptationStart = 20,
@@ -44,7 +43,6 @@ namespace transmission_nets::impl::ModelNine {
 
         int infection_idx_ = 0;
         for (auto& infection : state_->infections) {
-
             bool isSymptomatic = infection->isSymptomatic();
             double upperBound = isSymptomatic ? state_->symptomaticInfectionDurationDist->value().size() : state_->asymptomaticInfectionDurationDist->value().size();
 
@@ -85,24 +83,26 @@ namespace transmission_nets::impl::ModelNine {
                 }
                 infection_idx_++;
             }
+        }
 
-            for (auto& infection : state_->latentParents) {
-                for (const auto& [locus_label, locus] : state_->loci) {
-                    if (infection->latentGenotype().contains(locus)) {
-                        auto latentGenotype = infection->latentGenotype(locus);
-                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r, MAX_COI),
-                                                    .id = fmt::format("Latent Genotype {} {}", infection->id(), locus->label),
-                                                    .weight = 5,
-                                                    .debug = false});
 
-                        // scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl, 2>>(latentGenotype, target_, r),
-                        //                             .weight  = 1});
-                        // scheduler_.registerSampler({.sampler = std::make_unique<genetics::SequentialAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
-                        //                             .weight  = 1, .debug = false});
-                    }
+        for (auto& infection : state_->latentParents) {
+            for (const auto& [locus_label, locus] : state_->loci) {
+                if (infection->latentGenotype().contains(locus)) {
+                    auto latentGenotype = infection->latentGenotype(locus);
+                    scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r, MAX_COI),
+                                                .id = fmt::format("Latent Genotype {} {}", infection->id(), locus_label),
+                                                .weight = 5,
+                                                .debug = false});
+
+                    // scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl, 2>>(latentGenotype, target_, r),
+                    //                             .weight  = 1});
+                    // scheduler_.registerSampler({.sampler = std::make_unique<genetics::SequentialAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
+                    //                             .weight  = 1, .debug = false});
                 }
             }
         }
+
 
 
         for ([[maybe_unused]] auto& infFNR : state_->expectedFalseNegatives) {

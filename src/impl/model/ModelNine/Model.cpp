@@ -40,22 +40,24 @@ namespace transmission_nets::impl::ModelNine {
         for (auto& infection : state_->infections) {
             // infection duration likelihood
 
-            if (infection->isSymptomatic()) {
-                prior.addTarget(std::make_shared<core::distributions::DiscretePDF<double>>(infection->infectionDuration(), state_->symptomaticInfectionDurationDist, "symptomatic_infection_duration"));
-            } else {
-                prior.addTarget(std::make_shared<core::distributions::DiscretePDF<double>>(infection->infectionDuration(), state_->asymptomaticInfectionDurationDist, "asymptomatic_infection_duration"));
+            if (!state_->null_model_) {
+                if (infection->isSymptomatic()) {
+                    prior.addTarget(std::make_shared<core::distributions::DiscretePDF<double>>(infection->infectionDuration(), state_->symptomaticInfectionDurationDist, "symptomatic_infection_duration"));
+                } else {
+                    prior.addTarget(std::make_shared<core::distributions::DiscretePDF<double>>(infection->infectionDuration(), state_->asymptomaticInfectionDurationDist, "asymptomatic_infection_duration"));
+                }
             }
 
-
-                for (auto& [locus, obsGenotype] : infection->observedGenotype()) {
-                    observationProcessLikelihoodList.push_back(std::make_shared<ObservationProcessImpl>(
-                            obsGenotype,
-                            infection->latentGenotype(locus),
-                            state_->expectedFalsePositives[i],
-                            state_->expectedFalseNegatives[i],
-                            state_->null_model_));
-                    likelihood.addTarget(observationProcessLikelihoodList.back());
-                }
+            for (auto& [locus, obsGenotype] : infection->observedGenotype()) {
+                observationProcessLikelihoodList.push_back(std::make_shared<ObservationProcessImpl>(
+                        obsGenotype,
+                        infection->latentGenotype(locus),
+                        state_->expectedFalsePositives[i],
+                        state_->expectedFalseNegatives[i],
+                        state_->null_model_
+                        ));
+                likelihood.addTarget(observationProcessLikelihoodList.back());
+            }
 
             state_->parentSetList[infection->id()] = std::make_shared<ParentSetImpl>(state_->infectionEventOrdering, infection, state_->allowedRelationships->allowedParents(infection));
             i++;
@@ -71,7 +73,8 @@ namespace transmission_nets::impl::ModelNine {
                         state_->alleleFrequencies,
                         latentParent->loci(),
                         latentParent->latentGenotype(),
-                        state_->null_model_));
+                        state_->null_model_
+                        ));
 
                 transmissionProcessList.push_back(std::make_shared<TransmissionProcess>(
                         nodeTransmissionProcess,
@@ -79,7 +82,8 @@ namespace transmission_nets::impl::ModelNine {
                         infection,
                         parentSet,
                         latentParent,
-                        state_->null_model_));
+                        state_->null_model_
+                        ));
                 likelihood.addTarget(transmissionProcessList.back());
             }
 

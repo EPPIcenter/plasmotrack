@@ -24,6 +24,7 @@ find_package(Boost)
 find_package(Eigen3)
 find_package(nlohmann_json)
 find_package(OpenMP)
+find_package(fmt)
 
 
 if (OPENMP_FOUND)
@@ -83,7 +84,8 @@ set(SOURCE_FILES
         src/core/utils/NumericsTest.cpp
         src/impl/ModelFourTest.cpp
         src/core/computation/ObservationTimeDerivedOrderingTest.cpp
-        src/impl/ModelFiveTest.cpp src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp src/core/distributions/DiscreteTest.cpp)
+        src/impl/ModelFiveTest.cpp src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp src/core/distributions/DiscreteTest.cpp
+        src/core/datatypes/MasksTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests
@@ -94,6 +96,7 @@ target_link_libraries(transmission_networks_tests
         Eigen3::Eigen
         transmission_networks
         OpenMP::OpenMP_CXX
+        fmt::fmt
         gtest)
 #target_link_libraries(transmission_networks_tests PRIVATE nlohmann_json::nlohmann_json)
 

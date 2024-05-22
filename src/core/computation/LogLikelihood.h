@@ -28,7 +28,7 @@ namespace transmission_nets::core::computation {
         virtual double value() = 0;
 
     private:
-        double value_;
+        [[maybe_unused]] double value_;
         std::string id_;
         std::optional<double> saved_state_{};
 

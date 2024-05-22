@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 #include <string>
-#include <source_location>
+// #include <source_location>
 #include <functional>
 
 // #include <boost/container/flat_set.hpp>
@@ -19,38 +19,38 @@
 
 namespace transmission_nets::core::abstract {
 
-    template <typename T>
-    consteval auto func_name() {
-        const auto& loc = std::source_location::current();
-        return loc.function_name();
-    }
-
-    template <typename T>
-    consteval std::string_view type_of_impl_() {
-        constexpr std::string_view functionName = func_name<T>();
-//        std::string_view sub_type;
+//     template <typename T>
+//     consteval auto func_name() {
+//         const auto& loc = std::source_location::current();
+//         return loc.function_name();
+//     }
 //
-//        for (unsigned int ii = 72; ii < functionName.size(); ++ii) {
-//            if (functionName[ii] == '<') {
-//                sub_type = functionName.substr(72, ii);
-//                break;
-//            }
-//        }
-
-//        return sub_type;
-        return functionName;
-    }
-
-    template <typename T>
-    constexpr auto type_of(T&& arg) {
-        return type_of_impl_<decltype(arg)>();
-    }
-
-    template <typename T>
-    constexpr auto type_of() {
-        return type_of_impl_<T>();
-    }
-
+//     template <typename T>
+//     consteval std::string_view type_of_impl_() {
+//         constexpr std::string_view functionName = func_name<T>();
+// //        std::string_view sub_type;
+// //
+// //        for (unsigned int ii = 72; ii < functionName.size(); ++ii) {
+// //            if (functionName[ii] == '<') {
+// //                sub_type = functionName.substr(72, ii);
+// //                break;
+// //            }
+// //        }
+//
+// //        return sub_type;
+//         return functionName;
+//     }
+//
+//     template <typename T>
+//     constexpr auto type_of(T&& arg) {
+//         return type_of_impl_<decltype(arg)>();
+//     }
+//
+//     template <typename T>
+//     constexpr auto type_of() {
+//         return type_of_impl_<T>();
+//     }
+//
     /*
      * CRTP mixin to enable checkpointing of a value. Allows for the underlying class with field value_ to be saved and restored.
      */
@@ -70,7 +70,7 @@ namespace transmission_nets::core::abstract {
             int saved_state_id;
         };
 
-        static constexpr std::string_view checkpointable_type = type_of<T>();
+        // static constexpr std::string_view checkpointable_type = type_of<T>();
 
     public:
         template<typename T0>

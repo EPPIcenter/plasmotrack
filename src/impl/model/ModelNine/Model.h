@@ -8,6 +8,7 @@
 #include "State.h"
 #include "config.h"
 #include "core/computation/Accumulator.h"
+#include "model/NullLikelihood.h"
 
 #include <memory>
 #include <shared_mutex>
@@ -48,6 +49,7 @@ namespace transmission_nets::impl::ModelNine {
 //        std::map<std::shared_ptr<InfectionEvent>, std::shared_ptr<ParentSetImpl>> parentSetList{};
         std::vector<std::shared_ptr<TransmissionProcess>> transmissionProcessList{};
         std::shared_mutex valueMutex;
+
     };
 }// namespace transmission_nets::impl::ModelNine
 
