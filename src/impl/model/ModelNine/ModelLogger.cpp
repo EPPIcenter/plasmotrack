@@ -6,7 +6,7 @@
 
 
 namespace transmission_nets::impl::ModelNine {
-    ModelLogger::ModelLogger(std::shared_ptr<Model> model, fs::path rootPath) : model_(std::move(model)), rootPath_(std::move(rootPath)) {
+    ModelLogger::ModelLogger(std::shared_ptr<Model> model, fs::path rootPath, bool resetOutput) : model_(std::move(model)), rootPath_(std::move(rootPath)) {
         const auto statOutputFolder_ = rootPath_ / "stats";
         const auto parentSetFolder_  = rootPath_ / "parent_sets";
         if (!exists(statOutputFolder_)) {
@@ -17,11 +17,11 @@ namespace transmission_nets::impl::ModelNine {
             create_directories(parentSetFolder_);
         }
 
-        loggers_.push_back(new core::io::ValueLogger(model_, std::make_unique<core::io::CompressedFileOutput>(statOutputFolder_ / "likelihood.csv.gz", "llik")));
+        loggers_.push_back(new core::io::ValueLogger(model_, std::make_unique<core::io::CompressedFileOutput>(statOutputFolder_ / "likelihood.csv.gz", "llik", resetOutput)));
 
         for (const auto& tp : model_->transmissionProcessList) {
             auto path = parentSetFolder_ / (core::io::makePathValid(tp->child_->id() + "_ps.csv.gz"));
-            loggers_.push_back(new core::io::ParentSetDistLogger(tp, std::make_unique<core::io::CompressedFileOutput>(path, "parent_set,prob,iter"), path, false));
+            loggers_.push_back(new core::io::ParentSetDistLogger(tp, std::make_unique<core::io::CompressedFileOutput>(path, "parent_set,prob,iter", resetOutput), path, false));
         }
     }
 

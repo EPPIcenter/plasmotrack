@@ -57,7 +57,7 @@
 
 namespace transmission_nets::impl::ModelNine {
 
-    static constexpr int MAX_ALLELES       = 64;
+    static constexpr int MAX_ALLELES       = 128;
     static constexpr int MAX_COI           = 20;
     static constexpr int MAX_PARENTS       = 2;
     static constexpr int MAX_TRANSMISSIONS = 8;

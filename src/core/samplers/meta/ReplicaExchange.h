@@ -56,14 +56,11 @@ namespace transmission_nets::core::samplers {
                 auto model = std::make_shared<Model>(state, temp);
                 auto target = model;
                 auto sampler = std::make_shared<Scheduler<Model>>(state, target, chain_r, samplesPerStep);
-                auto modelLogger = std::make_shared<ModelLogger>(model, outputDir);
 
-                std::shared_ptr<StateLogger> stateLogger;
-                if (ii == (numChains - 1)) {
-                    stateLogger = std::make_shared<StateLogger>(state, outputDir, true);
-                } else {
-                    stateLogger = std::make_shared<StateLogger>(state, outputDir, false);
-                }
+                // reset the loggers on the last chain
+                bool reset = (ii == (numChains - 1));
+                auto stateLogger = std::make_shared<StateLogger>(state, outputDir, reset);
+                auto modelLogger = std::make_shared<ModelLogger>(model, outputDir, reset);
 
                 Chain chain{target, model, state, sampler, modelLogger, stateLogger, chain_r};
                 chains.push_back(chain);

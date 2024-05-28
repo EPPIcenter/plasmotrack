@@ -21,7 +21,7 @@ namespace transmission_nets::impl::ModelNine {
         std::vector<core::io::AbstractLogger*> loggers_{};
 
     public:
-        ModelLogger(std::shared_ptr<Model> model, fs::path rootPath);
+        ModelLogger(std::shared_ptr<Model> model, fs::path rootPath, bool resetOutput = false);
         void log() const;
         void finalize() const;
     };
