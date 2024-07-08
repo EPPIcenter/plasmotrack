@@ -55,12 +55,15 @@ namespace transmission_nets::model::transmission_process {
         void initializeValue();
 
         Likelihood calculateParentLogLikelihoodContribution(std::shared_ptr<InfectionEventImpl> parent, const core::containers::ParentSet<InfectionEventImpl>& others);
+
         Likelihood peekParentLogLikelihoodContribution(std::shared_ptr<InfectionEventImpl> parent, const core::containers::ParentSet<InfectionEventImpl>& others);
 
         Likelihood calculateLatentParentLogLikelihoodContribution(const core::containers::ParentSet<InfectionEventImpl>& others);
+
         Likelihood peekLatentParentLogLikelihoodContribution(const core::containers::ParentSet<InfectionEventImpl>& others);
 
         Likelihood calculateParentSetLogLikelihood(const core::containers::ParentSet<InfectionEventImpl>& ps);
+
         Likelihood peekParentSetLogLikelihood(const core::containers::ParentSet<InfectionEventImpl>& ps);
 
         ParentSetDist<InfectionEventImpl> calcParentSetDist();

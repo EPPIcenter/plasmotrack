@@ -36,6 +36,9 @@ namespace transmission_nets::impl::ModelNine {
         // Observation Process
         std::vector<std::shared_ptr<model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>>> observationProcessLikelihoodList{};
 
+        // Parent Set Size Likelihood
+        std::shared_ptr<ParentSetSizeLikelihoodImpl> parentSetSizeLikelihood;
+
         // Node Transmission Process
 //        std::shared_ptr<InterTransmissionProbImpl> intp;
         std::shared_ptr<NodeTransmissionImpl> nodeTransmissionProcess;

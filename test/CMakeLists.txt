@@ -85,7 +85,8 @@ set(SOURCE_FILES
         src/impl/ModelFourTest.cpp
         src/core/computation/ObservationTimeDerivedOrderingTest.cpp
         src/impl/ModelFiveTest.cpp src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp src/core/distributions/DiscreteTest.cpp
-        src/core/datatypes/MasksTest.cpp)
+        src/core/datatypes/MasksTest.cpp
+        src/core/distributions/ZTGeometricTest.cpp)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
 target_link_libraries(transmission_networks_tests

@@ -5,6 +5,16 @@
 #define TRANSMISSION_NETWORKS_APP_SAMPLESCHEDULER_H
 
 #include "config.h"
+
+#include "core/samplers/scheduler/RandomizedScheduler.h"
+#include "core/samplers/specialized/JointGeneticsTimeSampler.h"
+#include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
+#include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
+#include "core/samplers/genetics/RandomAllelesBitSetSampler4.h"
+#include "core/samplers/general/SALTSampler.h"
+
+
+#include <core/samplers/general/ConstrainedContinuousRandomWalk.h>
 namespace transmission_nets::impl::ModelNine {
 
     template<typename T, typename Engine = boost::random::mt19937, typename Scheduler = core::samplers::RandomizedScheduler<Engine>>
@@ -36,6 +46,13 @@ namespace transmission_nets::impl::ModelNine {
 
         scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->meanStrainsTransmitted, target_, 1.0, 20, r, 1, .1, 1),
                                     .id = "Mean Strains Tx",
+                                    .adaptationStart = 20,
+                                    .adaptationEnd = 200,
+                                    .weight = 5,
+                                    .debug = false});
+
+        scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->parentSetSizeProb, target_, 0, 1, r, 1, .1, 1),
+                                    .id = "Parent Set Size",
                                     .adaptationStart = 20,
                                     .adaptationEnd = 200,
                                     .weight = 5,

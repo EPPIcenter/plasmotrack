@@ -5,8 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_UTILS_H
 #define TRANSMISSION_NETWORKS_APP_UTILS_H
 
-#include "core/io/serialize.h"
-
 #include <boost/algorithm/string.hpp>
 
 #include <fmt/core.h>
@@ -38,11 +36,10 @@ namespace transmission_nets::core::io {
      */
     template<typename T>
     std::vector<T> loadVectorFromFile(const fs::path& filePath) {
-        std::vector<std::string> tokens;
         std::vector<T> values;
-        std::ifstream input(filePath);
 
-        if (input) {
+        if (std::ifstream input(filePath); input) {
+            std::vector<std::string> tokens;
             std::string line;
             while (std::getline(input, line)) {
                 boost::split(tokens, line, boost::is_any_of(","));

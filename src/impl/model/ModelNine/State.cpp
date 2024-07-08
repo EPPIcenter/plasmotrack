@@ -10,7 +10,7 @@ namespace transmission_nets::impl::ModelNine {
             const nlohmann::json& input,
             const std::vector<core::computation::Probability>& symptomaticIDPDist,
             const std::vector<core::computation::Probability>& asymptomaticIDPDist,
-            std::shared_ptr<boost::random::mt19937> rng,
+            const std::shared_ptr<boost::random::mt19937>& rng,
             const bool null_model) {
         null_model_ = null_model;
         loci           = core::io::parseLociFromJSON<LocusImpl>(input);
@@ -29,7 +29,6 @@ namespace transmission_nets::impl::ModelNine {
         infectionEventOrdering = std::make_shared<OrderingImpl>();
         infectionEventOrdering->addElements(this->infections);
 
-
         for (const auto& infection : infections) {
             expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
             expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.01));
@@ -41,6 +40,7 @@ namespace transmission_nets::impl::ModelNine {
 //        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(.05);
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(1.01);
         meanStrainsTransmitted  = std::make_shared<core::parameters::Parameter<double>>(2.00);
+        parentSetSizeProb = std::make_shared<core::parameters::Parameter<double>>(.9);
         symptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(symptomaticIDPDist);
         asymptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(asymptomaticIDPDist);
     }
@@ -105,6 +105,7 @@ namespace transmission_nets::impl::ModelNine {
 
         meanCOI = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_coi.csv.gz"));
         meanStrainsTransmitted = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "mean_strains_tx.csv.gz"));
+        parentSetSizeProb = std::make_shared<core::parameters::Parameter<double>>(core::io::hotloadDouble(paramOutputDir / "parent_set_size_prob.csv.gz"));
         symptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(symptomaticIDPDist);
         asymptomaticInfectionDurationDist = std::make_shared<core::distributions::DiscreteDistribution>(asymptomaticIDPDist);
     }
@@ -121,6 +122,9 @@ namespace transmission_nets::impl::ModelNine {
 
         meanCOIPriorShape = std::make_shared<core::parameters::Parameter<double>>(20);
         meanCOIPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);
+
+        parentSetSizePriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
+        parentSetSizePriorBeta = std::make_shared<core::parameters::Parameter<double>>(1);
 
         /*
          * Symptomatic vs Asymptomatic Infection Duration

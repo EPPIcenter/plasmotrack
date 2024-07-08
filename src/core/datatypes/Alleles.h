@@ -59,53 +59,53 @@ namespace transmission_nets::core::datatypes {
 
         [[nodiscard]] std::string serialize() const noexcept;
 
-        [[nodiscard]] constexpr inline unsigned int
+        [[nodiscard]] constexpr unsigned int
         totalPositiveCount() const noexcept;
 
-        [[nodiscard]] constexpr inline unsigned int
+        [[nodiscard]] constexpr unsigned int
         totalNegativeCount() const noexcept;
 
-        [[nodiscard]] constexpr inline static unsigned int
+        [[nodiscard]] constexpr static unsigned int
         truePositiveCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
 
-        [[nodiscard]] constexpr inline static unsigned int
+        [[nodiscard]] constexpr static unsigned int
         trueNegativeCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
 
-        [[nodiscard]] constexpr inline static unsigned int
+        [[nodiscard]] constexpr static unsigned int
         falsePositiveCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
 
-        [[nodiscard]] constexpr inline static unsigned int
+        [[nodiscard]] constexpr static unsigned int
         falseNegativeCount(const AllelesBitSet<MaxAlleles>& parent, const AllelesBitSet<MaxAlleles>& child) noexcept;
 
-        [[nodiscard]] constexpr inline static AllelesBitSet<MaxAlleles>
+        [[nodiscard]] constexpr static AllelesBitSet<MaxAlleles>
                 shared(const AllelesBitSet<MaxAlleles>& lhs, const AllelesBitSet<MaxAlleles>& rhs) noexcept;
 
-        [[nodiscard]] constexpr inline static AllelesBitSet<MaxAlleles>
+        [[nodiscard]] constexpr static AllelesBitSet<MaxAlleles>
                 any(const AllelesBitSet<MaxAlleles>& lhs, const AllelesBitSet<MaxAlleles>& rhs) noexcept;
 
-        [[nodiscard]] constexpr inline static AllelesBitSet<MaxAlleles>
+        [[nodiscard]] constexpr static AllelesBitSet<MaxAlleles>
                 diff(const AllelesBitSet<MaxAlleles>& lhs, const AllelesBitSet<MaxAlleles>& rhs) noexcept;
 
-        [[nodiscard]] constexpr inline static AllelesBitSet<MaxAlleles>
+        [[nodiscard]] constexpr static AllelesBitSet<MaxAlleles>
                 invert(const AllelesBitSet<MaxAlleles>& alleles) noexcept;
 
-        [[nodiscard]] inline std::string allelesStr() const noexcept;
-        [[nodiscard]] inline std::string compactAllelesStr() const noexcept;
+        [[nodiscard]] std::string allelesStr() const noexcept;
+        [[nodiscard]] std::string compactAllelesStr() const noexcept;
 
         [[nodiscard]] constexpr unsigned int totalAlleles() const noexcept;
 
-        inline constexpr void flip(size_t pos) noexcept;
+        constexpr void flip(size_t pos) noexcept;
         void flip(std::vector<unsigned int> pos) noexcept;
 
-        inline constexpr void set(size_t pos, bool val = true) noexcept;
-        inline constexpr void set() noexcept;
+        constexpr void set(size_t pos, bool val = true) noexcept;
+        constexpr void set() noexcept;
 
-        inline constexpr void reset(size_t pos) noexcept;
-        inline constexpr void reset() noexcept;
+        constexpr void reset(size_t pos) noexcept;
+        constexpr void reset() noexcept;
 
-        inline constexpr AllelesBitSet<MaxAlleles> mutationMask(const AllelesBitSet<MaxAlleles>& parent) const noexcept;
+        constexpr AllelesBitSet<MaxAlleles> mutationMask(const AllelesBitSet<MaxAlleles>& parent) const noexcept;
 
-        [[nodiscard]] inline constexpr bool allele(size_t pos) const noexcept;
+        [[nodiscard]] constexpr bool allele(size_t pos) const noexcept;
 
     private:
         unsigned int total_alleles_ = 0;

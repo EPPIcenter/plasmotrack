@@ -24,7 +24,7 @@
 
 namespace transmission_nets::model::transmission_process {
 
-    using Likelihood = transmission_nets::core::computation::Likelihood;
+    using Likelihood = core::computation::Likelihood;
 
     template<typename InfectionEventImpl>
     struct ParentSetDist {
@@ -33,7 +33,7 @@ namespace transmission_nets::model::transmission_process {
         Likelihood totalLlik = 0;
     };
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
     class OrderBasedTransmissionProcessV3 : public core::computation::PartialLikelihood {
 
         /*
@@ -46,6 +46,7 @@ namespace transmission_nets::model::transmission_process {
     public:
         OrderBasedTransmissionProcessV3(std::shared_ptr<NodeTransmissionProcessImpl> ntp,
                                         std::shared_ptr<SourceTransmissionProcessImpl> stp,
+                                        std::shared_ptr<ParentSetSizeLikelihoodImpl> psp,
                                         std::shared_ptr<InfectionEventImpl> child,
                                         std::shared_ptr<ParentSetImpl> parent_set,
                                         std::shared_ptr<InfectionEventImpl> latent_parent,
@@ -63,6 +64,7 @@ namespace transmission_nets::model::transmission_process {
         // Input parameters
         std::shared_ptr<NodeTransmissionProcessImpl> ntp_;
         std::shared_ptr<SourceTransmissionProcessImpl> stp_;
+        std::shared_ptr<ParentSetSizeLikelihoodImpl> psp_;
         std::shared_ptr<InfectionEventImpl> child_;
         std::shared_ptr<ParentSetImpl> parentSet_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
@@ -91,23 +93,24 @@ namespace transmission_nets::model::transmission_process {
         size_t parentSetLLiksIndex_ = 0;
 
         std::string lastUpdated_ = "None";
-
     };
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::OrderBasedTransmissionProcessV3(
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::OrderBasedTransmissionProcessV3(
             std::shared_ptr<NodeTransmissionProcessImpl> ntp,
             std::shared_ptr<SourceTransmissionProcessImpl> stp,
+            std::shared_ptr<ParentSetSizeLikelihoodImpl> psp,
             std::shared_ptr<InfectionEventImpl> child,
             std::shared_ptr<ParentSetImpl> parent_set,
             std::shared_ptr<InfectionEventImpl> latent_parent,
-            const bool null_model) : ntp_(std::move(ntp)),
-                                                                 stp_(std::move(stp)),
-                                                                 child_(std::move(child)),
-                                                                 parentSet_(std::move(parent_set)),
-                                                                 latentParent_(std::move(latent_parent)),
-                                                                    null_model_(null_model)
-    {
+            const bool null_model)
+        : ntp_(std::move(ntp)),
+          stp_(std::move(stp)),
+          psp_(std::move(psp)),
+          child_(std::move(child)),
+          parentSet_(std::move(parent_set)),
+          latentParent_(std::move(latent_parent)),
+          null_model_(null_model) {
 
         ntp_->add_set_dirty_listener([=, this]() {
             lastUpdated_ = "ntp updated";
@@ -162,28 +165,11 @@ namespace transmission_nets::model::transmission_process {
 
         this->value_ = -std::numeric_limits<Likelihood>::infinity();
         this->setDirty();
-        this->OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::value();
-
-        //#ifndef NDEBUG
-        //        if (this->value_ <= -std::numeric_limits<Likelihood>::infinity()) {
-        //            fmt::print("Child: {}\n", this->child_->id());
-        //            fmt::print("Parents: ");
-        //            for (const auto& parent : this->parentSet_->value()) {
-        //                fmt::print("{}, ", parent->id());
-        //            }
-        //            fmt::print("\n");
-        //            fmt::print("LLiks: \n");
-        //            for (const auto& [ps, llik]: parentSetLliks_) {
-        //                fmt::print("\t{}, {}\n", core::io::serialize(ps), llik);
-        //            }
-        //            fmt::print("\n");
-        //            exit(1);
-        //        }
-        //#endif
+        this->OrderBasedTransmissionProcessV3::value();
     }
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    Likelihood OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::getLikelihood(const core::containers::ParentSet<InfectionEventImpl>& ps) {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    Likelihood OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::getLikelihood(const core::containers::ParentSet<InfectionEventImpl>& ps) {
         std::array<int, ParentSetMaxCardinality + 1> key{};
         int i = 0;
         for (const auto& parent : ps) {
@@ -215,8 +201,8 @@ namespace transmission_nets::model::transmission_process {
 
 
     //likelihood calculated
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    bool OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::likelihoodCalculated(const core::containers::ParentSet<InfectionEventImpl>& ps) {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    bool OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::likelihoodCalculated(const core::containers::ParentSet<InfectionEventImpl>& ps) {
         std::array<int, ParentSetMaxCardinality + 1> key{};
         int i = 0;
         for (const auto& parent : ps) {
@@ -227,8 +213,8 @@ namespace transmission_nets::model::transmission_process {
         return parentSetLliks_[parentSetLLiksIndex_].contains(key);
     }
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::setLikelihood(const core::containers::ParentSet<InfectionEventImpl>& ps, Likelihood llik) {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::setLikelihood(const core::containers::ParentSet<InfectionEventImpl>& ps, Likelihood llik) {
         std::array<int, ParentSetMaxCardinality + 1> key{};
         int i = 0;
         for (const auto& parent : ps) {
@@ -238,8 +224,8 @@ namespace transmission_nets::model::transmission_process {
         parentSetLliks_[parentSetLLiksIndex_][key] = llik;
     }
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::clearParentLikelihood(const std::shared_ptr<InfectionEventImpl> parent) {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::clearParentLikelihood(const std::shared_ptr<InfectionEventImpl> parent) {
         for (auto it = parentSetLliks_[parentSetLLiksIndex_].begin(); it != parentSetLliks_[parentSetLLiksIndex_].end();) {
             if (std::find(it->first.begin(), it->first.end(), parent->uid()) != it->first.end()) {
                 it = parentSetLliks_[parentSetLLiksIndex_].erase(it);
@@ -249,21 +235,21 @@ namespace transmission_nets::model::transmission_process {
         }
     }
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::clearLikelihood() {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::clearLikelihood() {
         parentSetLliks_[parentSetLLiksIndex_].clear();
     }
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    std::string OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::identifier() {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    std::string OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::identifier() {
         auto out = fmt::format("OrderBasedTransmissionProcessV3<{}>", child_->id());
         return out;
     }
 
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
     Likelihood
-    OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::value() {
+    OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::value() {
         if (this->isDirty()) {
 
             core::utils::generators::CombinationIndicesGenerator comboGen;
@@ -283,7 +269,7 @@ namespace transmission_nets::model::transmission_process {
                 if (null_model_) {
                     ps_llik = 0;
                 } else {
-                    ps_llik = ntp_->calculateLogLikelihood(child_, latentParent_, stp_);
+                    ps_llik = ntp_->calculateLogLikelihood(child_, latentParent_, stp_, psp_);
                 }
                 setLikelihood(tmpPs_, ps_llik);
             }
@@ -307,7 +293,7 @@ namespace transmission_nets::model::transmission_process {
                         if (null_model_) {
                             ps_llik = 0;
                         } else {
-                            ps_llik = ntp_->calculateLogLikelihood(child_, tmpPs_);
+                            ps_llik = ntp_->calculateLogLikelihood(child_, tmpPs_, psp_);
                         }
                         setLikelihood(tmpPs_, ps_llik);
                     }
@@ -323,7 +309,7 @@ namespace transmission_nets::model::transmission_process {
                         if (null_model_) {
                             ps_llik = 0;
                         } else {
-                            ps_llik = ntp_->calculateLogLikelihood(child_, latentParent_, tmpPs_, stp_);
+                            ps_llik = ntp_->calculateLogLikelihood(child_, latentParent_, tmpPs_, stp_, psp_);
                         }
                         tmpPs_.insert(latentParent_);
                         setLikelihood(tmpPs_, ps_llik);
@@ -347,29 +333,27 @@ namespace transmission_nets::model::transmission_process {
     }
 
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postSaveState([[maybe_unused]] int savedStateId) {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::postSaveState([[maybe_unused]] int savedStateId) {
         parentSetLliks_[parentSetLLiksIndex_ + 1] = parentSetLliks_[parentSetLLiksIndex_];
         parentSetLLiksIndex_++;
-//        assert(parentSetLLiksIndex_ >= 0);
     }
 
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postRestoreState([[maybe_unused]] int savedStateId) {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::postRestoreState([[maybe_unused]] int savedStateId) {
         parentSetLLiksIndex_--;
-//        assert(parentSetLLiksIndex_ >= 0);
     }
 
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postAcceptState() {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    void OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::postAcceptState() {
         parentSetLliks_[0]   = parentSetLliks_[parentSetLLiksIndex_];
         parentSetLLiksIndex_ = 0;
     }
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    Likelihood OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::peek() noexcept {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    Likelihood OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::peek() noexcept {
         if (null_model_) {
             return 0;
         }
@@ -384,8 +368,8 @@ namespace transmission_nets::model::transmission_process {
         return Computation::peek();
     }
 
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    ParentSetDist<InfectionEventImpl> OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::calcParentSetDist() {
+    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    ParentSetDist<InfectionEventImpl> OrderBasedTransmissionProcessV3<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::calcParentSetDist() {
         ParentSetDist<InfectionEventImpl> dist{};
         dist.totalLlik       = this->value();
         const auto tmpPs     = parentSet_->value();

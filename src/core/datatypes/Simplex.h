@@ -18,7 +18,7 @@ namespace transmission_nets::core::datatypes {
 
     class Simplex {
     public:
-        explicit Simplex(unsigned int totalElements);
+        explicit Simplex(unsigned char totalElements);
         Simplex();
 
         explicit Simplex(const std::vector<double>& freqs);
@@ -29,13 +29,13 @@ namespace transmission_nets::core::datatypes {
 
         void set(const std::vector<double>& valueArray);
 
-        void set(unsigned int idx, double value);
+        void set(unsigned char idx, double value);
 
-        [[nodiscard]] double frequencies(unsigned int idx) const noexcept;
+        [[nodiscard]] double frequencies(unsigned char idx) const noexcept;
 
-        [[nodiscard]] const std::vector<double>& frequencies() const noexcept;
+        [[nodiscard]] std::vector<double> frequencies() const noexcept;
 
-        [[nodiscard]] unsigned int totalElements() const noexcept;
+        [[nodiscard]] unsigned char totalElements() const noexcept;
 
         [[nodiscard]] double min() const noexcept;
 
@@ -44,8 +44,9 @@ namespace transmission_nets::core::datatypes {
         [[nodiscard]] std::string serialize() const noexcept;
 
     private:
-        std::vector<double> coefficients_{};
-        unsigned int total_elements_;
+        // std::vector<float> coefficients_{};
+        std::array<double, 64> coefficients_{};
+        unsigned char total_elements_;
         double min_;
         double max_;
     };

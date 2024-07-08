@@ -7,6 +7,7 @@
 
 #include "State.h"
 #include "config.h"
+#include "core/io/loggers/AbstractLogger.h"
 #include "core/io/utils.h"
 
 #include <memory>

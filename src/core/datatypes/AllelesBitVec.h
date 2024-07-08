@@ -128,8 +128,7 @@ namespace transmission_nets::core::datatypes {
 
     constexpr unsigned int AllelesBitVec::trueNegativeCount(const AllelesBitVec& parent,
                                                                         const AllelesBitVec& child) noexcept {
-        return (~child.alleles_ & ~parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
-        //        return ~(child.alleles_ | parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
+        // return (~child.alleles_ & ~parent.alleles_).count() - (MaxAlleles - child.totalAlleles());
     }
 
 

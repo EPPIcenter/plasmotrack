@@ -21,7 +21,7 @@ namespace transmission_nets::impl::ModelNine {
         explicit State(const nlohmann::json& input,
                        const std::vector<core::computation::Probability>& symptomaticIDPDist,
                        const std::vector<core::computation::Probability>& asymptomaticIDPDist,
-                       std::shared_ptr<boost::random::mt19937> rng,
+                       const std::shared_ptr<boost::random::mt19937>& rng,
                        bool null_model = false);
         State(const nlohmann::json& input,
               const std::vector<core::computation::Probability>& symptomaticIDPDist,
@@ -60,6 +60,11 @@ namespace transmission_nets::impl::ModelNine {
         std::vector<p_Parameterdouble> expectedFalseNegatives{};
         p_Parameterdouble obsFNRPriorShape;
         p_Parameterdouble obsFNRPriorScale;
+
+        // Parent Set Size Likelihood
+        p_Parameterdouble parentSetSizeProb;
+        p_Parameterdouble parentSetSizePriorAlpha;
+        p_Parameterdouble parentSetSizePriorBeta;
 
         // Node Transmission Process
         p_Parameterdouble meanStrainsTransmitted;

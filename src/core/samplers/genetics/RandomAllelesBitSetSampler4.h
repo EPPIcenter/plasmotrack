@@ -86,6 +86,7 @@ namespace transmission_nets::core::samplers::genetics {
 
         std::vector<std::shared_ptr<Parameter>> updatedParameters{};
 
+        // randomly select an allele state to be propagated through the transmission tree
         categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, locus_->totalAlleles() - 1));
         const int allele_idx = categorical_dist_(*rng_);
 
@@ -100,6 +101,7 @@ namespace transmission_nets::core::samplers::genetics {
         bool path_differs = false;
         while (distance > 0) {
 
+            // collect potential children where infection time is greater than current infection
             std::vector<std::shared_ptr<InfectionEventImpl>> potential_children{};
             for (const auto& inf : allowedRelationships_->allowedChildren(curr_inf)) {
                 if (inf->infectionTime() > curr_inf->infectionTime()) {
@@ -110,18 +112,19 @@ namespace transmission_nets::core::samplers::genetics {
             std::shared_ptr<Parameter> curr_param = curr_inf->latentGenotype(locus_);
             auto curr_val = curr_param->value();
             std::shared_ptr<Data> curr_data = nullptr;
+            // if the locus is observed, then set curr data
             if (curr_inf->observedGenotype().contains(locus_)) {
                 curr_data = curr_inf->observedGenotype(locus_);
             }
 
-
+            // randomly select a child infection
             categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, potential_children.size() - 1));
             int child_idx = categorical_dist_(*rng_);
             std::shared_ptr<InfectionEventImpl> child;
             if (potential_children.empty()) {
                 child = nullptr;
             } else {
-                child = potential_children[child_idx];
+                child = potential_children.at(child_idx);
             }
 
             // check if observed in curr infection

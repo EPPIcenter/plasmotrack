@@ -4,6 +4,9 @@
 
 #include "StateLogger.h"
 
+#include "core/io/loggers/CompressedFileOutput.h"
+#include "core/io/loggers/ValueLogger.h"
+
 
 namespace transmission_nets::impl::ModelNine {
     StateLogger::StateLogger(std::shared_ptr<State> state, fs::path rootPath, bool resetOutput) : state_(std::move(state)), rootPath_(std::move(rootPath)) {
@@ -39,6 +42,7 @@ namespace transmission_nets::impl::ModelNine {
 //        loggers_.push_back(new core::io::ValueLogger(state_->mutationProb, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "mutation_prob.csv", "mutation_prob", resetOutput)));
         loggers_.push_back(new core::io::ValueLogger(state_->meanCOI, std::make_unique<core::io::CompressedFileOutput>(paramOutputFolder_ / "mean_coi.csv.gz", "mean_coi", resetOutput)));
         loggers_.push_back(new core::io::ValueLogger(state_->meanStrainsTransmitted, std::make_unique<core::io::CompressedFileOutput>(paramOutputFolder_ / "mean_strains_tx.csv.gz", "mean_strains_tx", resetOutput)));
+        loggers_.push_back(new core::io::ValueLogger(state_->parentSetSizeProb, std::make_unique<core::io::CompressedFileOutput>(paramOutputFolder_ / "parent_set_size_prob.csv.gz", "parent_set_size_prob", resetOutput)));
 //        loggers_.push_back(new core::io::ValueLogger(state_->symptomaticInfectionDurationShape, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "symptomatic_infection_duration_shape.csv", "infection_duration_shape", resetOutput)));
 //        loggers_.push_back(new core::io::ValueLogger(state_->symptomaticInfectionDurationScale, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "symptomatic_infection_duration_scale.csv", "infection_duration_scale", resetOutput)));
 //        loggers_.push_back(new core::io::ValueLogger(state_->asymptomaticInfectionDurationShape, std::make_unique<core::io::FileOutput>(paramOutputFolder_ / "asymptomatic_infection_duration_shape.csv", "infection_duration_shape", resetOutput)));

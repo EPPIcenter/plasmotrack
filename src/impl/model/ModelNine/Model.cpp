@@ -4,6 +4,10 @@
 
 #include "Model.h"
 
+#include "core/distributions/pdfs/DiscretePDF.h"
+#include "core/distributions/pdfs/GammaLogPDF.h"
+#include "core/distributions/pdfs/BetaLogPDF.h"
+
 #include <utility>
 
 namespace transmission_nets::impl::ModelNine {
@@ -22,12 +26,14 @@ namespace transmission_nets::impl::ModelNine {
 //        intp                    = std::make_shared<InterTransmissionProbImpl>(state_->geometricGenerationProb);
 //        nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->lossProb, intp);
         nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->meanStrainsTransmitted);
+        parentSetSizeLikelihood = std::make_shared<ParentSetSizeLikelihoodImpl>(state_->parentSetSizeProb);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
 
         // Register Priors
 //        prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->lossProb, state_->lossProbPriorAlpha, state_->lossProbPriorBeta));
         prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanCOI, state_->meanCOIPriorShape, state_->meanCOIPriorScale));
         prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanStrainsTransmitted, state_->meanStrainsTransmittedPriorShape, state_->meanStrainsTransmittedPriorScale));
+        prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->parentSetSizeProb, state_->parentSetSizePriorAlpha, state_->parentSetSizePriorBeta));
 //        prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
         for (auto& obs : state_->expectedFalsePositives) {
             prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
@@ -79,6 +85,7 @@ namespace transmission_nets::impl::ModelNine {
                 transmissionProcessList.push_back(std::make_shared<TransmissionProcess>(
                         nodeTransmissionProcess,
                         sourceTransmissionProcessList.back(),
+                        parentSetSizeLikelihood,
                         infection,
                         parentSet,
                         latentParent,

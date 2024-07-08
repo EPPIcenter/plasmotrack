@@ -21,7 +21,7 @@ namespace transmission_nets::core::samplers::genetics {
 
         void update() noexcept override;
 
-        AllelesBitSetImpl sampleProposal(AllelesBitSetImpl curr) noexcept;
+        AllelesBitSetImpl sampleProposal(const AllelesBitSetImpl& curr) noexcept;
 
         [[nodiscard]] unsigned int acceptances() noexcept;
 
@@ -136,7 +136,7 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
     AllelesBitSetImpl
-    RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::sampleProposal(const AllelesBitSetImpl curr) noexcept {
+    RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::sampleProposal(const AllelesBitSetImpl& curr) noexcept {
         auto tmp = curr;
         tmp.flip(allele_index_sampling_dist_(*rng_));
 

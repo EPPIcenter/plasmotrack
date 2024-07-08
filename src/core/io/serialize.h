@@ -9,6 +9,7 @@
 
 #include "core/containers/Infection.h"
 #include "core/datatypes/Alleles.h"
+#include "core/datatypes/SparseAlleleSet.h"
 #include "core/datatypes/Simplex.h"
 #include "core/parameters/TransmissionNetwork.h"
 #include "core/computation/OrderDerivedParentSet.h"
@@ -55,6 +56,10 @@ namespace transmission_nets::core::io {
     }
 
     inline std::string serialize(const datatypes::Simplex& val) noexcept {
+        return val.serialize();
+    }
+
+    inline std::string serialize(const datatypes::SparseAlleleSet& val) noexcept {
         return val.serialize();
     }
 

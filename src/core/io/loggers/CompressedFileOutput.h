@@ -6,7 +6,6 @@
 #define COMPRESSEDFILEOUTPUT_H
 
 #include "AbstractOutput.h"
-#include "LambdaLogger.h"
 
 #include <zlib.h>
 #include <fmt/core.h>

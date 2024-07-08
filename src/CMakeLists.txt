@@ -8,6 +8,8 @@ find_package(nlohmann_json REQUIRED)
 find_package(OpenMP)
 find_package(fmt REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(SQLiteCpp REQUIRED)
+find_package(TBB REQUIRED)
 
 if (OPENMP_FOUND)
     set(CMAKE_C_FLAGS " ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -183,6 +185,12 @@ set(SOURCE_FILES
         core/containers/AllowedRelationships.h
         core/io/loggers/CompressedFileOutput.cpp
         core/io/loggers/CompressedFileOutput.h
+        core/io/loggers/SQLiteOutput.cpp
+        core/io/loggers/SQLiteOutput.h
+        core/datatypes/Masks.h
+        core/datatypes/SparseAlleleSet.cpp
+        core/datatypes/SparseAlleleSet.h
+        model/transmission_process/node_transmission_process/MultinomialTransmissionProcess2.h
 )
 
 
@@ -198,6 +206,8 @@ target_link_libraries(
         fmt::fmt
         ${Boost_LIBRARIES}
         ZLIB::ZLIB
+        SQLiteCpp
+        TBB::tbb
 )
 
 

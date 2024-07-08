@@ -12,6 +12,7 @@
 namespace transmission_nets::core::io {
     class AbstractLogger {
     public:
+        virtual ~AbstractLogger() = default;
         template<typename Output>
         explicit AbstractLogger(std::unique_ptr<Output> output) : output_(std::move(output)) {}
 

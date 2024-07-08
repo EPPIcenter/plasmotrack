@@ -5,6 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV2_H
 #define TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV2_H
 
+#include <core/datatypes/Data.h>
+
 namespace transmission_nets::model::observation_process {
 
     /*

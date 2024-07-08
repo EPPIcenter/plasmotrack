@@ -4,6 +4,8 @@
 
 #include "ModelLogger.h"
 
+#include "core/io/loggers/CompressedFileOutput.h"
+
 
 namespace transmission_nets::impl::ModelNine {
     ModelLogger::ModelLogger(std::shared_ptr<Model> model, fs::path rootPath, bool resetOutput) : model_(std::move(model)), rootPath_(std::move(rootPath)) {

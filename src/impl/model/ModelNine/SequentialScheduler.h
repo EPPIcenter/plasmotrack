@@ -42,6 +42,13 @@ namespace transmission_nets::impl::ModelNine {
                                     .weight = 100,
                                     .debug = false});
 
+        scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state_->parentSetSizeProb, target_, 0, 1, r, 1, .1, 1),
+                                    .id = "Parent Set Size Prob",
+                                    .adaptationStart = 20,
+                                    .adaptationEnd = 200,
+                                    .weight = 100,
+                                    .debug = true});
+
         int infection_idx_ = 0;
         for (const auto& infection : state_->infections) {
 
