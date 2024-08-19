@@ -45,7 +45,8 @@ namespace transmission_nets::core::datatypes {
 
     private:
         // std::vector<float> coefficients_{};
-        std::array<double, 64> coefficients_{};
+        // todo: this needs to match up with the max number of alleles
+        std::array<double, 128> coefficients_{};
         unsigned char total_elements_;
         double min_;
         double max_;

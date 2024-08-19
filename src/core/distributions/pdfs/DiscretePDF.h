@@ -18,7 +18,7 @@ namespace transmission_nets::core::distributions {
     template<typename T>
     class DiscretePDF : public computation::PartialLikelihood {
     public:
-        using p_Parameter = std::shared_ptr<core::parameters::Parameter<T>>;
+        using p_Parameter = std::shared_ptr<parameters::Parameter<T>>;
         DiscretePDF(p_Parameter target, std::shared_ptr<DiscreteDistribution> probabilities, std::string label = "");
         computation::Likelihood value() override;
         std::string identifier() override;
@@ -31,7 +31,7 @@ namespace transmission_nets::core::distributions {
 
     template<typename T>
     DiscretePDF<T>::DiscretePDF(
-            DiscretePDF<T>::p_Parameter target,
+            p_Parameter target,
             std::shared_ptr<DiscreteDistribution> probabilities,
             std::string label
             ) : target_(std::move(target)), probabilities_(std::move(probabilities)), label_(std::move(label))

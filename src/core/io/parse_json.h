@@ -8,6 +8,7 @@
 #include "core/containers/AllowedRelationships.h"
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
+#include "serialize.h"
 #include "utils.h"
 
 #include "core/datatypes/Simplex.h"
@@ -76,7 +77,7 @@ namespace transmission_nets::core::io {
     std::shared_ptr<AlleleFrequencyContainerImpl> parseAlleleFrequenciesFromJSON(
             const json& input,
             std::map<std::string, std::shared_ptr<LocusImpl>> loci,
-            const double minAlleleFreq = .01,
+            const double minAlleleFreq = .001,
             const char alleleFrequencyKey[] = "allele_freqs",
             const char lociKey[] = "loci",
             const char locusLabelKey[] = "locus") {
@@ -84,6 +85,7 @@ namespace transmission_nets::core::io {
 
         for (const auto& afEntry : input.at(lociKey)) {
             std::string locusLabel = afEntry.at(locusLabelKey);
+
             auto locus = loci.at(locusLabel);
             afContainer->addLocus(locus);
             std::vector<double> afToLoad = afEntry.at(alleleFrequencyKey);
@@ -93,7 +95,6 @@ namespace transmission_nets::core::io {
                     af = minAlleleFreq;
                 }
             }
-
             auto af = datatypes::Simplex(afToLoad);
             afContainer->alleleFrequencies(locus)->initializeValue(af);
         }

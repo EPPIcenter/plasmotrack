@@ -47,7 +47,7 @@ namespace transmission_nets::impl::ModelNine {
                                     .adaptationStart = 20,
                                     .adaptationEnd = 200,
                                     .weight = 100,
-                                    .debug = true});
+                                    .debug = false});
 
         int infection_idx_ = 0;
         for (const auto& infection : state_->infections) {

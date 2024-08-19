@@ -60,7 +60,7 @@ namespace transmission_nets::impl::ModelNine {
 
         int infection_idx_ = 0;
         for (auto& infection : state_->infections) {
-            bool isSymptomatic = infection->isSymptomatic();
+            const bool isSymptomatic = infection->isSymptomatic();
             double upperBound = isSymptomatic ? state_->symptomaticInfectionDurationDist->value().size() : state_->asymptomaticInfectionDurationDist->value().size();
 
             scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target_, 1.0, upperBound, r, 1, .1, 2),
@@ -90,7 +90,7 @@ namespace transmission_nets::impl::ModelNine {
                         scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler4<T, Engine, InfectionEvent, GeneticsImpl, LocusImpl>>(infection, state_->latentParents[infection_idx_], locus, state_->allowedRelationships, target_, r, MAX_COI),
                                                     .id = fmt::format("Genotype4 {} {}", infection->id(), locus->label),
                                                     .weight = 5,
-                                                    .debug = true});
+                                                    .debug = false});
 
                         //                                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl, 1>>(latentGenotype, target_, r),
                         //                                                                    .weight  = 1});
@@ -103,7 +103,7 @@ namespace transmission_nets::impl::ModelNine {
         }
 
 
-        for (auto& infection : state_->latentParents) {
+        for (const auto& infection : state_->latentParents) {
             for (const auto& [locus_label, locus] : state_->loci) {
                 if (infection->latentGenotype().contains(locus)) {
                     auto latentGenotype = infection->latentGenotype(locus);
