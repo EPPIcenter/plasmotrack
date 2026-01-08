@@ -96,7 +96,7 @@ namespace transmission_nets::core::io {
                 }
             }
             auto af = datatypes::Simplex(afToLoad);
-            afContainer->alleleFrequencies(locus)->initializeValue(af);
+            afContainer->alleleFrequencies(locus)->initializeValue(std::move(af));
         }
 
         return afContainer;

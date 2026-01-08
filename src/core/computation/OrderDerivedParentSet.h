@@ -105,7 +105,7 @@ namespace transmission_nets::core::computation {
     template<typename ElementType, typename OrderingImpl>
     void OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParents(const std::vector<std::shared_ptr<ElementType>>& p) {
         for (auto el : p) {
-            addAllowedParent(std::move(el));
+            addAllowedParent(el);
         }
     }
 
@@ -113,7 +113,11 @@ namespace transmission_nets::core::computation {
     template<typename ElementType, typename OrderingImpl>
     containers::ParentSet<ElementType> OrderDerivedParentSet<ElementType, OrderingImpl>::value() noexcept {
         this->setClean();
-        return this->value_;
+        containers::ParentSet<ElementType> out{};
+        for (auto el : this->value_) {
+            out.insert(el);
+        }
+        return out;
     }
 
 }// namespace transmission_nets::core::computation

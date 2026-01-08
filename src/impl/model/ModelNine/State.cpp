@@ -73,7 +73,7 @@ namespace transmission_nets::impl::ModelNine {
         for (const auto& locus : this->loci | std::views::values) {
             alleleFrequencies->addLocus(locus);
             auto hotloadFreq = core::datatypes::Simplex(core::io::hotloadVector(freqDir / (locus->label + ".csv.gz")));
-            alleleFrequencies->alleleFrequencies(locus)->initializeValue(hotloadFreq);
+            alleleFrequencies->alleleFrequencies(locus)->initializeValue(std::move(hotloadFreq));
         }
 
         for (auto& infection : infections) {

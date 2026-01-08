@@ -6,7 +6,6 @@
 #define TRANSMISSION_NETWORKS_APP_CONTINUOUSRANDOMWALK_H
 
 
-#include <boost/math/distributions.hpp>
 #include <boost/random.hpp>
 #include <cmath>
 #include <utility>
@@ -56,9 +55,9 @@ namespace transmission_nets::core::samplers {
 
 
     protected:
-        std::shared_ptr<parameters::Parameter<double>> parameter_;
-        std::shared_ptr<T> target_;
-        std::shared_ptr<Engine> rng_;
+        std::shared_ptr<parameters::Parameter<double>> parameter_{};
+        std::shared_ptr<T> target_{};
+        std::shared_ptr<Engine> rng_{};
         double variance_     = 1;
         double min_variance_ = 1e-12;
         double max_variance_ = 1e6;
@@ -115,24 +114,14 @@ namespace transmission_nets::core::samplers {
             std::cout << "Var: " << variance() << std::endl;
             std::cout << "Acceptance Rate: " << acceptanceRate() << std::endl;
             std::cout << "Total Samples: " << acceptances_ + rejections_ << std::endl;
-//            std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << " " << acceptanceRatio << std::endl;
             std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << std::endl;
             std::cout << "----------------------------------------------------" << std::endl;
         }
 
         const Likelihood acceptanceRatio = target_->value() - curLik + adj;
         assert(!target_->isDirty());
-//        if (debug_) {
-//            std::cout << "ID:" << identifier_ << std::endl;
-//            std::cout << "Curr: " << currentVal << std::endl;
-//            std::cout << "Prop: " << proposal << std::endl;
-//            std::cout << "Var: " << variance() << std::endl;
-//            std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << " " << acceptanceRatio << std::endl;
-//            std::cout << "----------------------------------------------------" << std::endl;
-//        }
-        const bool accept = log(uniform_dist_(*rng_)) <= acceptanceRatio;
 
-        if (accept) {
+        if (log(uniform_dist_(*rng_)) <= acceptanceRatio) {
             acceptances_ += 1;
             parameter_->acceptState();
         } else {
@@ -176,7 +165,7 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine, typename U>
     double ContinuousRandomWalk<T, Engine, U>::acceptanceRate() const noexcept {
-        return double(acceptances_) / double(rejections_ + acceptances_);
+        return static_cast<double>(acceptances_) / static_cast<double>(rejections_ + acceptances_);
     }
 
     template<typename T, typename Engine, typename U>

@@ -25,6 +25,14 @@ namespace transmission_nets::core::datatypes {
 
         Simplex(const std::initializer_list<double>& freqs);
 
+        Simplex(const Simplex& other);
+
+        Simplex(Simplex&& other) noexcept;
+
+        Simplex& operator=(Simplex&& other) noexcept;
+
+        Simplex& operator=(const Simplex& other) noexcept;
+
         friend std::ostream& operator<<(std::ostream& os, const Simplex& simplex);
 
         void set(const std::vector<double>& valueArray);

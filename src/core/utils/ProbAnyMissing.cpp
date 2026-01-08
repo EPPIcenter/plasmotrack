@@ -60,6 +60,12 @@ namespace transmission_nets::core::utils {
         const std::size_t totalEvents = eventProbs.size();
 
         std::vector<Likelihood> probVec(numEvents, 0.0);
+
+        if (numEvents < totalEvents) {
+            std::fill_n(probVec.begin(), numEvents, 1.0);
+            return probVec;
+        }
+
         std::fill_n(probVec.begin(), totalEvents - 1, 1.0);
 
         //      Calculate via inclusion-exclusion principle

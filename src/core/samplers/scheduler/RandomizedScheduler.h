@@ -89,16 +89,14 @@ namespace transmission_nets::core::samplers {
 
     template<typename Engine>
     void RandomizedScheduler<Engine>::step() {
-//        if (__builtin_expect(!cumulative_weights_calculated_, false)) {
         if (!cumulative_weights_calculated_) {
             calculateCumulativeWeights();
         }
 
-        long int v;
         for (int i = 0; i < num_samples_; ++i) {
-            v       = dist_(*rng_);
-            auto it = std::lower_bound(cumulative_weight_.begin(), cumulative_weight_.end(), v);
-            int idx = it - cumulative_weight_.begin();
+            long int v = dist_(*rng_);
+            auto it = std::ranges::lower_bound(cumulative_weight_, v);
+            const int idx = it - cumulative_weight_.begin();
             update(samplers_[idx]);
             adapt(samplers_[idx]);
         }
@@ -126,7 +124,7 @@ namespace transmission_nets::core::samplers {
 
     template<typename Engine>
     void RandomizedScheduler<Engine>::calculateCumulativeWeights() {
-        std::sort(samplers_.begin(), samplers_.end(), std::greater<>());
+        std::ranges::sort(samplers_, std::greater<>());
         double total = 0;
         cumulative_weight_.clear();
         cumulative_weight_.reserve(samplers_.size());

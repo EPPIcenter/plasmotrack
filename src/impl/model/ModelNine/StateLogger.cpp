@@ -69,7 +69,7 @@ namespace transmission_nets::impl::ModelNine {
                 create_directories(full_inf_dir);
             }
             for (const auto& [locus_label, locus] : state_->loci) {
-                if (std::find(infection->loci().begin(), infection->loci().end(), locus) != infection->loci().end()) {
+                if (std::ranges::find(infection->loci(), locus) != infection->loci().end()) {
                     loggers_.push_back(new core::io::ValueLogger(infection->latentGenotype(locus), std::make_unique<core::io::CompressedFileOutput>(full_inf_dir / (locus_label + ".csv.gz"), "", resetOutput)));
                 }
             }

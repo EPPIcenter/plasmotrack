@@ -91,10 +91,9 @@ namespace transmission_nets::model::transmission_process {
         /*
          * Value is a matrix that gives the probability of transmitting some number of strains from some number of parents. The
          * rows are the number of parents, and the columns are the number of strains. We assume the number of strains transmitted
-         * from a single parent is zt-poisson with rate equal to `mean_strains_transmitted_`. In the case of multiple parents, the number
-         * of strains transmitted is the sum of the number of strains transmitted from each parent, which is also poisson with mean
-         * `mean_strains_transmitted_` * k where k is the number of parents.
-         * todo: mean_strains_transmitted isn't actually the mean of the distribution
+         * from a single parent is zt-poisson with rate equal to `meanStrainsTransmitted_`. In the case of multiple parents, the number
+         * of strains transmitted is the sum of the number of strains transmitted from each parent
+         * todo: meanStrainsTransmitted_ isn't actually the mean of the distribution
          */
         if (this->isDirty()) {
             const double lambda = meanStrainsTransmitted_->value();
@@ -138,12 +137,13 @@ namespace transmission_nets::model::transmission_process {
             const auto& childGenotype = infection->latentGenotype(locus)->value();
             std::vector<Probability> parent_pop_freqs(childGenotype.totalAlleles(), 0);
 
+
             for (const auto& parent : parentSet) {
                 const auto& parentGenotype = parent->latentGenotype(locus)->value();
                 // Every parent must have at least one allele in common with the child at each locus
-                if (GeneticsImpl::truePositiveCount(parentGenotype, childGenotype) == 0) {
-                    return -std::numeric_limits<Likelihood>::infinity();
-                }
+                // if (GeneticsImpl::truePositiveCount(parentGenotype, childGenotype) == 0) {
+                //     return -std::numeric_limits<Likelihood>::infinity();
+                // }
 
                 const int totalAllelesPresent = parentGenotype.totalPositiveCount();
                 for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
@@ -166,7 +166,7 @@ namespace transmission_nets::model::transmission_process {
                 }
             }
 
-            if (zeroProbEvent) {
+            if (prVec.empty() || zeroProbEvent) {
                 return -std::numeric_limits<Likelihood>::infinity();
             }
 
@@ -206,7 +206,12 @@ namespace transmission_nets::model::transmission_process {
 
     template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl>
     template<typename GeneticsImpl>
-    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl>::calculateLogLikelihood(p_Infection<GeneticsImpl> infection, p_Infection<GeneticsImpl> latentParent, const ParentSet<GeneticsImpl>& parentSet, p_SourceTransmissionProcess stp, p_ParentSetSizePrior psp) {
+    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl>::calculateLogLikelihood(
+        p_Infection<GeneticsImpl> infection,
+        p_Infection<GeneticsImpl> latentParent,
+        const ParentSet<GeneticsImpl>& parentSet,
+        p_SourceTransmissionProcess stp,
+        p_ParentSetSizePrior psp) {
         const size_t numParents = parentSet.size() + 1;// Add one for the latent parent
         const auto& loci = infection->loci();
 
@@ -219,9 +224,10 @@ namespace transmission_nets::model::transmission_process {
             for (const auto& parent : parentSet) {
                 const auto& parentGenotype = parent->latentGenotype(locus)->value();
                 // Every parent must have at least one allele in common with the child at each locus
-                if (GeneticsImpl::truePositiveCount(parentGenotype, childGenotype) == 0) {
-                    return -std::numeric_limits<Likelihood>::infinity();
-                }
+                // if (GeneticsImpl::truePositiveCount(parentGenotype, childGenotype) == 0) {
+                //     return -std::numeric_limits<Likelihood>::infinity();
+                // }
+
 
                 const int totalAllelesPresent = parentGenotype.totalPositiveCount();
                 for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
@@ -256,7 +262,8 @@ namespace transmission_nets::model::transmission_process {
                 }
             }
 
-            if (zeroProbEvent) {
+            if (prVec.empty() || zeroProbEvent) {
+                // print an error message
                 return -std::numeric_limits<Likelihood>::infinity();
             }
 
@@ -315,9 +322,9 @@ namespace transmission_nets::model::transmission_process {
             const auto& parent = latentParent;
             const auto& parentGenotype = parent->latentGenotype(locus)->value();
             // Every parent must have at least one allele in common with the child at each locus
-            if (GeneticsImpl::truePositiveCount(parentGenotype, childGenotype) == 0) {
-                return -std::numeric_limits<Likelihood>::infinity();
-            }
+            // if (GeneticsImpl::truePositiveCount(parentGenotype, childGenotype) == 0) {
+            //     return -std::numeric_limits<Likelihood>::infinity();
+            // }
 
             const int totalAllelesPresent = parentGenotype.totalPositiveCount();
             for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
@@ -332,14 +339,14 @@ namespace transmission_nets::model::transmission_process {
             bool zeroProbEvent = false;
 
             for (size_t i = 0; i < childGenotype.totalAlleles(); ++i) {
-                if (childGenotype.allele(i) > 0) {
+                if (childGenotype.allele(i)) {
                     prVec.push_back(parent_pop_freqs[i]);
                     constrainedSetProb += parent_pop_freqs[i];
                     zeroProbEvent = zeroProbEvent || std::abs(parent_pop_freqs[i]) < 1e-6;
                 }
             }
 
-            if (zeroProbEvent) {
+            if (prVec.empty() || zeroProbEvent) {
                 return -std::numeric_limits<Likelihood>::infinity();
             }
 

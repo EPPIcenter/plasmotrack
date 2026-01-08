@@ -21,7 +21,8 @@ namespace transmission_nets::core::abstract {
     public:
         void setValue(ValueType value) noexcept;
 
-        void initializeValue(ValueType value) noexcept;
+        void initializeValue(const ValueType& value) noexcept;
+        void initializeValue(ValueType&& value) noexcept;
 
         const ValueType& value() const noexcept;
     };
@@ -35,8 +36,13 @@ namespace transmission_nets::core::abstract {
     }
 
     template<typename T, typename ValueType>
-    void Uncacheable<T, ValueType>::initializeValue(ValueType const value) noexcept {
+    void Uncacheable<T, ValueType>::initializeValue(const ValueType& value) noexcept {
         this->underlying().value_ = value;
+    }
+
+    template<typename T, typename ValueType>
+    void Uncacheable<T, ValueType>::initializeValue(ValueType&& value) noexcept {
+        this->underlying().value_ = std::move(value);
     }
 
     template<typename T, typename ValueType>

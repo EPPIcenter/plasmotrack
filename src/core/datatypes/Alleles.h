@@ -230,6 +230,7 @@ namespace transmission_nets::core::datatypes {
     constexpr bool AllelesBitSet<MaxAlleles>::allele(size_t pos) const noexcept {
         // Bitsets are accessed right to left so we're converting to left to right accession
         assert(pos < total_alleles_);
+        assert((total_alleles_ - 1 - pos) >= 0);
         return alleles_[total_alleles_ - 1 - pos];
     }
 

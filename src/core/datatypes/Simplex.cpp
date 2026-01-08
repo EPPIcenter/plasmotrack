@@ -28,6 +28,38 @@ namespace transmission_nets::core::datatypes {
         set(freqs);
     }
 
+    Simplex::Simplex(const Simplex& other) : coefficients_(other.coefficients_), total_elements_(other.total_elements_), min_(other.min_), max_(other.max_) {}
+
+    Simplex::Simplex(Simplex&& other) noexcept : coefficients_(other.coefficients_), total_elements_(other.total_elements_), min_(other.min_), max_(other.max_) {
+        other.coefficients_ = {};
+        other.total_elements_ = 0;
+        other.min_ = std::numeric_limits<double>::min();
+        other.max_ = std::numeric_limits<double>::max();
+    }
+
+    Simplex& Simplex::operator=(Simplex&& other) noexcept {
+        coefficients_ = other.coefficients_;
+        total_elements_ = other.total_elements_;
+        min_ = other.min_;
+        max_ = other.max_;
+
+        other.coefficients_ = {};
+        other.total_elements_ = 0;
+        other.min_ = std::numeric_limits<double>::min();
+        other.max_ = std::numeric_limits<double>::max();
+
+        return *this;
+    }
+
+    Simplex& Simplex::operator=(const Simplex& other) noexcept {
+        coefficients_ = other.coefficients_;
+        total_elements_ = other.total_elements_;
+        min_ = other.min_;
+        max_ = other.max_;
+
+        return *this;
+    }
+
     void Simplex::set(const std::vector<double>& valueArray) {
         assert(valueArray.size() == total_elements_);
         min_       = std::numeric_limits<double>::max();

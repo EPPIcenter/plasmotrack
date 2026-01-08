@@ -54,7 +54,6 @@ namespace transmission_nets::core::abstract {
     /*
      * CRTP mixin to enable checkpointing of a value. Allows for the underlying class with field value_ to be saved and restored.
      */
-
     template<typename T, typename ValueType>
     class Checkpointable : public crtp<T, Checkpointable, ValueType> {
         using CallbackType            = std::function<void()>;
@@ -65,7 +64,7 @@ namespace transmission_nets::core::abstract {
         CRTP_CREATE_EVENT(restore_state, SaveRestoreCallbackType)
 
         struct StateCheckpoint {
-            StateCheckpoint(const ValueType& savedState, int savedStateId) : saved_state(savedState), saved_state_id(savedStateId) {};
+            StateCheckpoint(ValueType savedState, const int savedStateId) : saved_state(savedState), saved_state_id(savedStateId) {};
             ValueType saved_state;
             int saved_state_id;
         };
@@ -174,7 +173,10 @@ namespace transmission_nets::core::abstract {
             this->underlying().notify_save_state(savedStateId);
 
             // fmt::print("Saving state for {} with id {}\n", checkpointable_type, savedStateId);
-            saved_states_stack_.emplace_back(std::move(this->underlying().value()), savedStateId);
+            // saved_states_stack_.emplace_back(std::move(this->underlying().value()), savedStateId);
+            auto val = this->underlying().value();
+            auto tmp = StateCheckpoint(val, savedStateId);
+            saved_states_stack_.push_back(tmp);
             // fmt::print("Saved state for {} with id {}\n", checkpointable_type, savedStateId);
 
             for (auto& cb : post_save_hooks_) {

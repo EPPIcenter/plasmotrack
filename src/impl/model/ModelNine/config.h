@@ -31,7 +31,7 @@ namespace transmission_nets::impl::ModelNine {
     static constexpr int MAX_COI           = 20;
     static constexpr int MAX_PARENTS       = 2;
     static constexpr int MAX_PARENT_SET_SIZE = MAX_PARENTS + 1;
-    static constexpr int MAX_TRANSMISSIONS = 8;
+    // static constexpr int MAX_TRANSMISSIONS = 8;
     static constexpr int MAX_STRAINS = 12;
 
     namespace fs                           = std::filesystem;
