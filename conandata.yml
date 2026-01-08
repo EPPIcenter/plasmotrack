@@ -1,9 +1,2 @@
-# This file is managed by Conan, contents will be overwritten.
-# To keep your changes, remove these comment lines, but the plugin won't be able to modify your requirements
-
-requirements:
-  - "eigen/3.4.0"
-  - "fmt/9.1.0"
-  - "nlohmann_json/3.11.3"
-  - "boost/1.83.0"
-  - "zlib/1.3.1"
+# This file is no longer used for requirements.
+# All dependencies are now defined directly in conanfile.py

@@ -1,0 +1,17 @@
+@PACKAGE_INIT@
+
+# Include the exported targets
+include("${CMAKE_CURRENT_LIST_DIR}/transmission_networksTargets.cmake")
+
+# Check required components
+check_required_components("transmission_networks")
+
+# Set package variables
+set(transmission_networks_VERSION @PROJECT_VERSION@)
+set(transmission_networks_VERSION_MAJOR @PROJECT_VERSION_MAJOR@)
+set(transmission_networks_VERSION_MINOR @PROJECT_VERSION_MINOR@)
+set(transmission_networks_VERSION_PATCH @PROJECT_VERSION_PATCH@)
+
+# Provide legacy variables for compatibility
+set(TRANSMISSION_NETWORKS_VERSION ${transmission_networks_VERSION})
+set(TRANSMISSION_NETWORKS_FOUND TRUE)

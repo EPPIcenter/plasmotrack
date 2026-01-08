@@ -1,62 +1,90 @@
-cmake_minimum_required(VERSION 3.17)
-project(transmission_networks_app)
+cmake_minimum_required(VERSION 4.2.1)
 
-# App Compile Settings
-set(transmission_networks_VERSION_MAJOR 1)
-set(transmission_networks_VERSION_MINOR 0)
+list(APPEND CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/conan_provider.cmake")
+
+project(transmission_networks_app VERSION 1.0 LANGUAGES CXX)
+
+set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_EXPORT_PACKAGE_DEPENDENCIES ON)
+
+option(CMAKE_COLOR_DIAGNOSTICS "Always produce colored output" ON)
+option(CMAKE_VERBOSE_MAKEFILE "Enable verbose makefile output" OFF)
+
+if(NOT CMAKE_INSTALL_DEFAULT_COMPONENT_NAME)
+    set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "Unspecified")
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-#set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fsanitize=undefined,address -Wall -Wextra -Werror")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -fno-omit-frame-pointer -Wall -Wextra ")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -fno-omit-frame-pointer -Werror -Wno-unused-function -Wno-unused-parameter")
-if (CMAKE_COMPILER_IS_GNUCC)
-#    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0")
-#    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -g -frename-registers -funroll-loops -funsafe-math-optimizations -fno-math-errno -fno-signed-zeros -fno-trapping-math") # -Ofast is throwing nan errors
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -g -frename-registers -funroll-loops") # -Ofast is throwing nan errors
-#    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -march=native -funroll-loops") # -Ofast is throwing nan errors
-#    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -funroll-loops") # -Ofast is throwing nan errors
-endif ()
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+    message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
+endif()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    message("Compiling Clang")
-    #    set(Clang_DIR "/usr/local/opt/llvm/lib/cmake/clang")
-    #    set(Clang_DIR "/usr/lib/llvm-14/lib/cmake/clang")
-    #    find_package(Clang)
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g -fno-omit-frame-pointer")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -pg -g -march=native -fopenmp")
-endif ()
+option(TRANSMISSION_NETWORKS_WERROR "Treat compiler warnings as errors" OFF)
+option(TRANSMISSION_NETWORKS_AGGRESSIVE_OPTIMIZATION "Use -O3 instead of -O2 for Release builds" OFF)
+option(TRANSMISSION_NETWORKS_NATIVE_OPTIMIZATION "Use -march=native for Release builds (non-portable)" OFF)
 
-#if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-#    message("Compiling Intel")
-#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++ -std=c++2a -gcc-name=gcc-10 -gxx-name=g++-10 -no-use-clang-env")
-#    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -g")
-#    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -Ofast -g -march=native -ffast-math")
-##    set(CMAKE_CXX)
-#endif()
+add_compile_options(
+    -Wall
+    -Wextra
+    -Wno-unused-function
+    -Wno-unused-parameter
+    -Wno-maybe-uninitialized
+)
 
-#add_compile_definitions(DEBUG_LIKELIHOOD)
-set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
+if(TRANSMISSION_NETWORKS_WERROR)
+    add_compile_options(-Werror)
+    message(STATUS "Warnings as errors enabled")
+endif()
 
-set(TRANSMISSION_NETWORKS_INSTALL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
-set(TRANSMISSION_NETWORKS_INSTALL_BIN_DIR ${PROJECT_SOURCE_DIR}/bin)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:Debug>>:-Og>
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:Debug>>:-fno-omit-frame-pointer>
+    )
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    if(TRANSMISSION_NETWORKS_AGGRESSIVE_OPTIMIZATION)
+        message(STATUS "Aggressive optimization (-O3) enabled for Release builds")
+    else()
+        string(REGEX REPLACE "-O[0-9s]" "-O2" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+        if(NOT CMAKE_CXX_FLAGS_RELEASE MATCHES "-O[0-9s]")
+            set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
+        endif()
+        message(STATUS "Using -O2 optimization for Release builds")
+    endif()
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options($<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:RelWithDebInfo>>:-fno-omit-frame-pointer>)
+endif()
+
+if(TRANSMISSION_NETWORKS_NATIVE_OPTIMIZATION)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
+        message(STATUS "Native CPU optimization enabled")
+    endif()
+endif()
+
+include(cmake/Dependencies.cmake)
+find_transmission_networks_dependencies()
+
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR} CACHE PATH "Install path prefix" FORCE)
+endif()
+
+set(TRANSMISSION_NETWORKS_INSTALL_INCLUDE_DIR ${CMAKE_INSTALL_PREFIX}/include)
+set(TRANSMISSION_NETWORKS_INSTALL_BIN_DIR ${CMAKE_INSTALL_PREFIX}/bin)
 set(TRANSMISSION_NETWORKS_LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
-
 set(TRANSMISSION_NETWORK_HEADERS_DIR ${PROJECT_SOURCE_DIR}/src)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-
-include_directories(${TRANSMISSION_NETWORKS_INSTALL_INCLUDE_DIR})
-include_directories(${TRANSMISSION_NETWORK_MODEL_HEADERS_DIR})
-include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
-include_directories(${PROJECT_BINARY_DIR})
-
 
 add_subdirectory(src)
 add_subdirectory(test)
-#add_subdirectory(tools/cli/ModelFive)
-#add_subdirectory(tools/cli/ModelSix)
-#add_subdirectory(tools/cli/ModelSeven)
-#add_subdirectory(tools/cli/ModelEight)
-#add_subdirectory(tools/gui/ModelEight)
-add_subdirectory(tools/cli/ModelNine)
+add_subdirectory(tools/cli/Model)

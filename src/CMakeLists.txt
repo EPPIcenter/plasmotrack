@@ -1,215 +1,243 @@
-cmake_minimum_required(VERSION 3.17)
-
-project(transmission_networks)
-
-find_package(Boost REQUIRED)
-find_package(Eigen3 REQUIRED)
-find_package(nlohmann_json REQUIRED)
-find_package(OpenMP)
-find_package(fmt REQUIRED)
-find_package(ZLIB REQUIRED)
-find_package(SQLiteCpp REQUIRED)
-find_package(TBB REQUIRED)
-
-if (OPENMP_FOUND)
-    set(CMAKE_C_FLAGS " ${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS} ")
-endif ()
-
 set(SPLINE_PATH ${TRANSMISSION_NETWORKS_LIB_DIR}/spline)
-message(STATUS ${SPLINE_PATH})
-file(GLOB SPLINE_HEADERS ${SPLINE_PATH}/*.h)
-add_library("spline" INTERFACE ${SPLINE_HEADERS})
-target_include_directories("spline" INTERFACE ${SPLINE_PATH})
+message(STATUS "Spline path: ${SPLINE_PATH}")
 
-include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+set(SPLINE_HEADERS
+    ${SPLINE_PATH}/spline.h
+)
+
+add_library("spline" INTERFACE ${SPLINE_HEADERS})
+target_include_directories("spline" INTERFACE
+    $<BUILD_INTERFACE:${SPLINE_PATH}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include/spline>
+)
+
+set_target_properties("spline" PROPERTIES
+    EXPORT_NAME spline
+)
+
+set(CORE_COMPUTATION_SOURCES
+    core/computation/PartialLikelihood.cpp
+    core/computation/LogLikelihood.cpp
+    core/computation/ConstrainedOrderDerivedParentSet.h
+    core/computation/ObservationTimeDerivedOrdering.h
+    core/computation/transformers/Transformer.h
+    core/computation/transformers/LogTransformer.h
+    core/computation/transformers/Tempered.h
+)
+
+set(CORE_CONTAINERS_SOURCES
+    core/containers/Locus.cpp
+)
+
+set(CORE_DATATYPES_SOURCES
+    core/datatypes/Simplex.cpp
+    core/datatypes/AllelesBitVec.h
+    core/datatypes/Masks.h
+    core/datatypes/SparseAlleleSet.cpp
+    core/datatypes/SparseAlleleSet.h
+)
+
+set(CORE_DISTRIBUTIONS_SOURCES
+    core/distributions/ZTPoisson.h
+    core/distributions/DiscreteDistribution.h
+    core/distributions/DiscreteDistribution.cpp
+    core/distributions/pdfs/DiscretePDF.h
+    core/distributions/pdfs/DiscretePDF.cpp
+    core/distributions/pdfs/BetaLogPDF.h
+    core/distributions/pdfs/BetaLogPDF.cpp
+    core/distributions/pdfs/GammaLogPDF.cpp
+    core/distributions/pdfs/GammaLogPDF.h
+)
+
+set(CORE_IO_SOURCES
+    core/io/parse_json.h
+    core/io/serialize.h
+    core/io/utils.cpp
+    core/io/utils.h
+    core/io/loggers/FileOutput.h
+    core/io/loggers/FileOutput.cpp
+    core/io/loggers/ValueLogger.h
+    core/io/loggers/MultiValueLogger.h
+    core/io/loggers/LambdaLogger.h
+    core/io/loggers/ParentSetDistLogger.h
+    core/io/loggers/AbstractLogger.h
+    core/io/loggers/AbstractOutput.h
+    core/io/loggers/CompressedFileOutput.cpp
+    core/io/loggers/CompressedFileOutput.h
+)
+
+set(CORE_MCMC_SOURCES
+    core/mcmc/Chain.h
+)
+
+set(CORE_PRIORS_SOURCES
+    core/priors/Prior.h
+)
+
+set(CORE_SAMPLERS_SOURCES
+    core/samplers/SamplerEnum.h
+    core/samplers/general/ConstrainedDiscreteRandomWalk.h
+    core/samplers/general/SimplexSampler.h
+    core/samplers/genetics/RandomAllelesBitSetSampler.h
+    core/samplers/genetics/RandomAllelesBitSetSampler4.h
+    core/samplers/genetics/ZanellaAllelesBitSetSampler.h
+    core/samplers/scheduler/Scheduler.cpp
+    core/samplers/scheduler/Scheduler.h
+    core/samplers/scheduler/RandomizedScheduler.h
+    core/samplers/specialized/ZanellaJointGeneticsGraphSampler.h
+    core/samplers/specialized/JointGeneticsTimeSampler.h
+    core/samplers/topology/RandomAddEdgeSampler.h
+    core/samplers/topology/RandomRemoveEdgeSampler.h
+    core/samplers/topology/RandomSwapEdgeSampler.h
+    core/samplers/topology/RandomReverseEdgeSampler.h
+    core/samplers/topology/ZanellaNeighborOrderSampler.h
+    core/samplers/topology/ZanellaOrderSampler.h
+    core/samplers/meta/ReplicaExchange.h
+)
+
+set(CORE_UTILS_SOURCES
+    core/utils/generators/CombinationIndicesGenerator.cpp
+    core/utils/generators/CombinationsWithRepetitionsGenerator.cpp
+    core/utils/generators/CombinationsWithRepetitionsGenerator.h
+    core/utils/generators/RandomSequence.h
+    core/utils/ProbAnyMissing.h
+    core/utils/ProbAnyMissing.cpp
+    core/utils/LogPQ.cpp
+    core/utils/LogPQ.h
+    core/utils/timers.h
+)
+
+set(MODEL_SOURCES
+    model/OrderingLikelihood.h
+    model/observation_process/AlleleCounts.cpp
+    model/observation_process/ObservationProcessLikelihoodv2.h
+    model/transmission_process/NetworkBasedTransmissionProcess.h
+    model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h
+    model/transmission_process/node_transmission_process/SuperInfectionNoMutation.h
+    model/transmission_process/node_transmission_process/SimpleLossMutation.h
+    model/transmission_process/node_transmission_process/SimpleLoss.h
+    model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h
+    model/transmission_process/node_transmission_process/MultinomialTransmissionProcess2.h
+    model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h
+)
+
+set(IMPL_SOURCES
+    impl/model/Model/State.cpp
+    impl/model/Model/State.h
+    impl/model/Model/Model.cpp
+    impl/model/Model/Model.h
+    impl/model/Model/config.h
+    impl/model/Model/ModelLogger.cpp
+    impl/model/Model/ModelLogger.h
+    impl/model/Model/SampleScheduler.h
+    impl/model/Model/SequentialScheduler.h
+    impl/model/Model/StateLogger.cpp
+    impl/model/Model/StateLogger.h
+)
+
+set(OTHER_SOURCES
+    core/config.h
+    core/containers/AllowedRelationships.h
+    ../lib/spline/spline.h
+)
 
 set(SOURCE_FILES
-        core/computation/PartialLikelihood.cpp
-        core/computation/LogLikelihood.cpp
-        core/containers/Locus.cpp
-        core/utils/generators/CombinationIndicesGenerator.cpp
-        model/observation_process/AlleleCounts.cpp
-        core/samplers/general/ConstrainedDiscreteRandomWalk.h
-        core/samplers/genetics/RandomAllelesBitSetSampler.h
-        core/utils/generators/RandomSequence.h
-        core/datatypes/Simplex.cpp
-        core/samplers/scheduler/Scheduler.cpp
-        core/samplers/scheduler/Scheduler.h
-        impl/state/ModelOneState.cpp
-        impl/state/ModelOneState.h
-        impl/model/ModelOne.cpp
-        impl/model/ModelOne.h
-        core/computation/transformers/Transformer.h
-        core/computation/transformers/LogTransformer.h
-        core/utils/generators/CombinationsWithRepetitionsGenerator.cpp
-        core/utils/generators/CombinationsWithRepetitionsGenerator.h
-        core/priors/Prior.h
-        core/io/parse_json.h
-        core/io/loggers/FileOutput.h
-        core/io/loggers/ValueLogger.h
-        core/io/serialize.h
-        core/io/loggers/FileOutput.cpp
-        core/samplers/scheduler/RandomizedScheduler.h
-        core/io/utils.cpp
-        core/io/utils.h
-        model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h
-        model/transmission_process/NetworkBasedTransmissionProcess.h
-        impl/model/ModelTwo.cpp
-        impl/model/ModelTwo.h
-        core/distributions/ZTPoisson.h
-        core/samplers/topology/RandomAddEdgeSampler.h
-        core/samplers/topology/RandomRemoveEdgeSampler.h
-        core/samplers/topology/RandomSwapEdgeSampler.h
-        impl/model/ModelThree.cpp
-        impl/model/ModelThree.h
-        impl/state/ModelThreeState.cpp
-        impl/state/ModelThreeState.h
-        core/io/loggers/LambdaLogger.h
-        core/samplers/topology/RandomReverseEdgeSampler.h
-        core/utils/ProbAnyMissing.h
-        model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h
-        core/distributions/pdfs/BetaLogPDF.h
-        core/distributions/pdfs/BetaLogPDF.cpp
-        core/distributions/pdfs/GammaLogPDF.cpp
-        core/distributions/pdfs/GammaLogPDF.h
-        core/mcmc/Chain.h
-        core/utils/ProbAnyMissing.cpp
-        core/samplers/genetics/ZanellaAllelesBitSetSampler.h
-        core/samplers/topology/ZanellaNeighborOrderSampler.h
-        core/samplers/specialized/ZanellaJointGeneticsGraphSampler.h
-        core/samplers/topology/ZanellaOrderSampler.h
-        core/samplers/general/SimplexSampler.h
-        core/computation/ConstrainedOrderDerivedParentSet.h
-        core/io/loggers/ParentSetDistLogger.h
-        impl/model/ModelFour.cpp
-        impl/model/ModelFour.h
-        core/io/loggers/AbstractLogger.h
-        core/io/loggers/AbstractOutput.h
-        model/OrderingLikelihood.h
-        core/computation/ObservationTimeDerivedOrdering.h
-        impl/model/ModelFive.cpp
-        impl/model/ModelFive.h
-        core/utils/LogPQ.cpp
-        core/utils/LogPQ.h
-        core/io/loggers/MultiValueLogger.h
-        core/computation/transformers/Tempered.h
-        core/samplers/meta/ReplicaExchange.h
-        core/config.h
-
-#        impl/model/ModelFive/State.cpp
-#        impl/model/ModelFive/State.h
-#        impl/model/ModelFive/Model.cpp
-#        impl/model/ModelFive/Model.h
-#        impl/model/ModelFive/config.h
-#        impl/model/ModelFive/SampleScheduler.h
-#        impl/model/ModelFive/StateLogger.cpp
-#        impl/model/ModelFive/StateLogger.h
-#        impl/model/ModelFive/ModelLogger.cpp
-#        impl/model/ModelFive/ModelLogger.h
-#        impl/model/ModelFive/SamplerLogger.cpp
-#        impl/model/ModelFive/SamplerLogger.h
-
-#        impl/model/ModelSix/State.cpp
-#        impl/model/ModelSix/State.h
-#        impl/model/ModelSix/Model.cpp
-#        impl/model/ModelSix/Model.h
-#        impl/model/ModelSix/config.h
-#        impl/model/ModelSix/SampleScheduler.h
-#        impl/model/ModelSix/StateLogger.cpp
-#        impl/model/ModelSix/StateLogger.h
-#        impl/model/ModelSix/ModelLogger.cpp
-#        impl/model/ModelSix/ModelLogger.h
-#        impl/model/ModelSix/SamplerLogger.cpp
-#        impl/model/ModelSix/SamplerLogger.h
-
-#        impl/model/ModelSeven/State.cpp
-#        impl/model/ModelSeven/State.h
-#        impl/model/ModelSeven/Model.cpp
-#        impl/model/ModelSeven/Model.h
-#        impl/model/ModelSeven/config.h
-#        impl/model/ModelSeven/SampleScheduler.h
-#        impl/model/ModelSeven/StateLogger.cpp
-#        impl/model/ModelSeven/StateLogger.h
-#        impl/model/ModelSeven/ModelLogger.cpp
-#        impl/model/ModelSeven/ModelLogger.h
-#        impl/model/ModelSeven/SamplerLogger.cpp
-#        impl/model/ModelSeven/SamplerLogger.h
-
-#        impl/model/ModelEight/State.cpp
-#        impl/model/ModelEight/State.h
-#        impl/model/ModelEight/Model.cpp
-#        impl/model/ModelEight/Model.h
-#        impl/model/ModelEight/config.h
-#        impl/model/ModelEight/SampleScheduler.h
-#        impl/model/ModelEight/StateLogger.cpp
-#        impl/model/ModelEight/StateLogger.h
-#        impl/model/ModelEight/ModelLogger.cpp
-#        impl/model/ModelEight/ModelLogger.h
-#        impl/model/ModelEight/SamplerLogger.cpp
-#        impl/model/ModelEight/SamplerLogger.h
-#        impl/model/ModelEight/SequentialScheduler.h
-
-        impl/model/ModelNine/State.cpp
-        impl/model/ModelNine/State.h
-        impl/model/ModelNine/Model.cpp
-        impl/model/ModelNine/Model.h
-        impl/model/ModelNine/config.h
-        impl/model/ModelNine/SampleScheduler.h
-        impl/model/ModelNine/StateLogger.cpp
-        impl/model/ModelNine/StateLogger.h
-        impl/model/ModelNine/ModelLogger.cpp
-        impl/model/ModelNine/ModelLogger.h
-        impl/model/ModelNine/SamplerLogger.cpp
-        impl/model/ModelNine/SamplerLogger.h
-        impl/model/ModelNine/SequentialScheduler.h
-
-        model/transmission_process/node_transmission_process/SuperInfectionNoMutation.h
-        model/observation_process/ObservationProcessLikelihoodv2.h
-        model/transmission_process/node_transmission_process/SimpleLossMutation.h
-        model/transmission_process/node_transmission_process/SimpleLoss.h
-        core/utils/timers.h
-        core/config.h
-        core/samplers/specialized/JointGeneticsTimeSampler.h
-        core/samplers/SamplerEnum.h
-        core/distributions/DiscreteDistribution.h
-        core/distributions/pdfs/DiscretePDF.h
-        core/distributions/pdfs/DiscretePDF.h
-        core/distributions/pdfs/DiscretePDF.cpp
-        core/distributions/DiscreteDistribution.cpp
-        core/datatypes/AllelesBitVec.h
-        ../lib/spline/spline.h
-        model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h
-        core/samplers/genetics/RandomAllelesBitSetSampler4.h
-        core/containers/AllowedRelationships.h
-        core/io/loggers/CompressedFileOutput.cpp
-        core/io/loggers/CompressedFileOutput.h
-        core/io/loggers/SQLiteOutput.cpp
-        core/io/loggers/SQLiteOutput.h
-        core/datatypes/Masks.h
-        core/datatypes/SparseAlleleSet.cpp
-        core/datatypes/SparseAlleleSet.h
-        model/transmission_process/node_transmission_process/MultinomialTransmissionProcess2.h
+    ${CORE_COMPUTATION_SOURCES}
+    ${CORE_CONTAINERS_SOURCES}
+    ${CORE_DATATYPES_SOURCES}
+    ${CORE_DISTRIBUTIONS_SOURCES}
+    ${CORE_IO_SOURCES}
+    ${CORE_MCMC_SOURCES}
+    ${CORE_PRIORS_SOURCES}
+    ${CORE_SAMPLERS_SOURCES}
+    ${CORE_UTILS_SOURCES}
+    ${MODEL_SOURCES}
+    ${IMPL_SOURCES}
+    ${OTHER_SOURCES}
 )
-
 
 add_library(transmission_networks STATIC ${SOURCE_FILES})
-target_link_libraries(
-        transmission_networks
-        PUBLIC
-        spline
-        PRIVATE
-        nlohmann_json::nlohmann_json
-        OpenMP::OpenMP_CXX
-        Eigen3::Eigen
-        fmt::fmt
-        ${Boost_LIBRARIES}
-        ZLIB::ZLIB
-        SQLiteCpp
-        TBB::tbb
+
+set_target_properties(transmission_networks PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+target_compile_features(transmission_networks PUBLIC cxx_std_20)
+
+target_include_directories(transmission_networks
+    PUBLIC
+        $<BUILD_INTERFACE:${TRANSMISSION_NETWORK_HEADERS_DIR}>
+        $<BUILD_INTERFACE:${TRANSMISSION_NETWORKS_INSTALL_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
+    PRIVATE
+        ${TRANSMISSION_NETWORKS_LIB_DIR}
 )
 
+target_link_libraries(transmission_networks
+    PUBLIC
+        spline
+    PRIVATE
+        Boost::boost
+        Eigen3::Eigen
+        nlohmann_json::nlohmann_json
+        fmt::fmt
+        ZLIB::ZLIB
+)
 
+link_openmp_if_available(transmission_networks)
 
-install(TARGETS transmission_networks DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
+install(TARGETS transmission_networks spline
+    EXPORT transmission_networksTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+        COMPONENT transmission_networks
+    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+        COMPONENT transmission_networks
+    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+        COMPONENT transmission_networks
+    INCLUDES DESTINATION ${CMAKE_INSTALL_PREFIX}/include
+        COMPONENT transmission_networks
+)
+
+install(DIRECTORY ${TRANSMISSION_NETWORK_HEADERS_DIR}/
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/include
+    COMPONENT transmission_networks
+    EXCLUDE_FROM_ALL
+    FILES_MATCHING
+        PATTERN "*.h"
+        PATTERN "*.hpp"
+)
+
+install(FILES ${SPLINE_HEADERS}
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/include/spline
+    COMPONENT transmission_networks
+)
+
+install(EXPORT transmission_networksTargets
+    FILE transmission_networksTargets.cmake
+    NAMESPACE transmission_networks::
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/transmission_networks
+    COMPONENT transmission_networks
+    EXPORT_LINK_INTERFACE_LIBRARIES
+)
+
+include(CMakePackageConfigHelpers)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/transmission_networksConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+configure_package_config_file(
+    ${CMAKE_SOURCE_DIR}/cmake/transmission_networksConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/transmission_networksConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/transmission_networks
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/transmission_networksConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/transmission_networksConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/cmake/transmission_networks
+    COMPONENT transmission_networks
+)

@@ -1,105 +1,110 @@
-cmake_minimum_required(VERSION 3.17)
-project(transmission_networks_tests)
+include(FetchContent)
 
-configure_file(${CMAKE_SOURCE_DIR}/cmake/GoogleTest-CMakeLists.txt.in ${CMAKE_BINARY_DIR}/googletest-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-        RESULT_VARIABLE result
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download)
-if (result)
-    message(FATAL_ERROR "CMake step for googletest failed: ${result}")
-endif ()
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        main
+)
 
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-        RESULT_VARIABLE result
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download)
-if (result)
-    message(FATAL_ERROR "Build step for googletest failed: ${result}")
-endif ()
-
-# Prevent overriding the parent project's compiler/linker
-# settings on Windows
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
 
-find_package(Boost)
-find_package(Eigen3)
-find_package(nlohmann_json)
-find_package(OpenMP)
-find_package(fmt)
+set(TEST_MAIN
+    main.cpp
+)
+set(CORE_CONTAINERS_TESTS
+    src/core/containers/InfectionTest.cpp
+    src/core/containers/AlleleFrequencyContainerTest.cpp
+    src/core/containers/TransmissionNetworkTest.cpp
+)
 
+set(CORE_DATATYPES_TESTS
+    src/core/datatypes/AllelesTest.cpp
+    src/core/datatypes/SimplexTest.cpp
+    src/core/datatypes/MasksTest.cpp
+)
 
-if (OPENMP_FOUND)
-    message(STATUS "OpenMP found")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-else ()
-    message(STATUS "OpenMP not found")
-endif ()
+set(CORE_DISTRIBUTIONS_TESTS
+    src/core/distributions/GeometricTest.cpp
+    src/core/distributions/ZTMultiplicativeBinomialTest.cpp
+    src/core/distributions/DiscreteTest.cpp
+    src/core/distributions/ZTGeometricTest.cpp
+)
 
-#include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+set(CORE_SAMPLERS_TESTS
+    src/core/samplers/ContinuousRandomWalkTest.cpp
+    src/core/samplers/ConstrainedContinuousRandomWalkTest.cpp
+    src/core/samplers/SALTSamplerTest.cpp
+    src/core/samplers/OrderSamplerTest.cpp
+    src/core/samplers/DiscreteRandomWalkTest.cpp
+    src/core/samplers/ConstrainedDiscreteRandomWalkTest.cpp
+    src/core/samplers/genetics/RandomAllelesBitSetSamplerTest.cpp
+)
 
-#set(EIGEN3_INCLUDE_DIR $ENV{EIGEN3_INCLUDE_DIR})
-#if( NOT EIGEN3_INCLUDE_DIR )
-#    message( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
-#endif()
-#include_directories (SYSTEM ${EIGEN3_INCLUDE_DIR})
+set(CORE_UTILS_TESTS
+    src/core/utils/CombinationIndicesGeneratorTests.cpp
+    src/core/utils/RandomSequenceTests.cpp
+    src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp
+    src/core/utils/ParseJSONTests.cpp
+    src/core/utils/ProbAnyMissingTests.cpp
+    src/core/utils/NumericsTest.cpp
+)
 
-add_subdirectory(${CMAKE_BINARY_DIR}/googletest-src
-        ${CMAKE_BINARY_DIR}/googletest-build
-        EXCLUDE_FROM_ALL)
+set(CORE_COMPUTATION_TESTS
+    src/core/core_likelihood_tests.cpp
+    src/core/computation/ObservationTimeDerivedOrderingTest.cpp
+    src/core/parameters/OrderingTest.cpp
+)
 
-include_directories(${TRANSMISSION_NETWORK_HEADERS_DIR})
+set(MODEL_TRANSMISSION_TESTS
+    src/model/transmission_process/OrderDerivedParentSetTest.cpp
+    src/model/transmission_process/OrderBasedTransmissionProcessTest.cpp
+    src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
+    src/model/transmission_process/NetworkBasedTransmissionProcessTest.cpp
+    src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp
+    src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp
+)
+
+set(MODEL_OBSERVATION_TESTS
+    src/model/observation_process/ObservationProcessTest.cpp
+)
 
 set(SOURCE_FILES
-        main.cpp
-        src/core/core_likelihood_tests.cpp
-        src/core/containers/InfectionTest.cpp
-        src/core/containers/AlleleFrequencyContainerTest.cpp
-        src/core/datatypes/AllelesTest.cpp
-        src/core/datatypes/SimplexTest.cpp
-        src/core/parameters/OrderingTest.cpp
-        src/core/samplers/ContinuousRandomWalkTest.cpp
-        src/core/samplers/ConstrainedContinuousRandomWalkTest.cpp
-        src/core/samplers/SALTSamplerTest.cpp
-        src/core/samplers/OrderSamplerTest.cpp
-        src/core/samplers/DiscreteRandomWalkTest.cpp
-        src/core/samplers/ConstrainedDiscreteRandomWalkTest.cpp
-        src/core/utils/CombinationIndicesGeneratorTests.cpp
-        src/model/transmission_process/OrderDerivedParentSetTest.cpp
-        src/model/transmission_process/OrderBasedTransmissionProcessTest.cpp
-        src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
-        src/core/distributions/GeometricTest.cpp
-        src/core/samplers/genetics/RandomAllelesBitSetSamplerTest.cpp
-        src/core/utils/RandomSequenceTests.cpp
-        src/model/observation_process/ObservationProcessTest.cpp
-        src/impl/ModelOneTest.cpp
-        src/core/distributions/ZTMultiplicativeBinomialTest.cpp
-        src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp
-        src/core/utils/ParseJSONTests.cpp
-        src/impl/ModelTwoTest.cpp
-        src/model/transmission_process/NetworkBasedTransmissionProcessTest.cpp
-        src/core/containers/TransmissionNetworkTest.cpp
-        src/impl/ModelThreeTest.cpp
-        src/core/utils/ProbAnyMissingTests.cpp
-        src/core/utils/NumericsTest.cpp
-        src/impl/ModelFourTest.cpp
-        src/core/computation/ObservationTimeDerivedOrderingTest.cpp
-        src/impl/ModelFiveTest.cpp src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp src/core/distributions/DiscreteTest.cpp
-        src/core/datatypes/MasksTest.cpp
-        src/core/distributions/ZTGeometricTest.cpp)
+    ${TEST_MAIN}
+    ${CORE_CONTAINERS_TESTS}
+    ${CORE_DATATYPES_TESTS}
+    ${CORE_DISTRIBUTIONS_TESTS}
+    ${CORE_SAMPLERS_TESTS}
+    ${CORE_UTILS_TESTS}
+    ${CORE_COMPUTATION_TESTS}
+    ${MODEL_TRANSMISSION_TESTS}
+    ${MODEL_OBSERVATION_TESTS}
+)
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
+
+set_target_properties(transmission_networks_tests PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+target_compile_features(transmission_networks_tests PRIVATE cxx_std_20)
+
+target_include_directories(transmission_networks_tests
+    PRIVATE
+        ${TRANSMISSION_NETWORK_HEADERS_DIR}
+)
+
 target_link_libraries(transmission_networks_tests
-        PRIVATE
-        #        ${Boost_FILESYSTEM_LIBRARY}
-        #        ${Boost_SYSTEM_LIBRARY}
+    PRIVATE
+        transmission_networks
         nlohmann_json::nlohmann_json
         Eigen3::Eigen
-        transmission_networks
-        OpenMP::OpenMP_CXX
         fmt::fmt
-        gtest)
-#target_link_libraries(transmission_networks_tests PRIVATE nlohmann_json::nlohmann_json)
+        gtest
+)
+
+link_openmp_if_available(transmission_networks_tests)
 
 include(CheckIPOSupported)
 check_ipo_supported(RESULT supported OUTPUT error)
@@ -111,4 +116,7 @@ else ()
     message(STATUS "IPO / LTO not supported: <${error}>")
 endif ()
 
-install(TARGETS transmission_networks_tests DESTINATION ${TRANSMISSION_NETWORKS_INSTALL_BIN_DIR})
+install(TARGETS transmission_networks_tests
+    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    COMPONENT tests
+)
