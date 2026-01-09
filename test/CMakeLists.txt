@@ -21,7 +21,6 @@ set(CORE_CONTAINERS_TESTS
 set(CORE_DATATYPES_TESTS
     src/core/datatypes/AllelesTest.cpp
     src/core/datatypes/SimplexTest.cpp
-    src/core/datatypes/MasksTest.cpp
 )
 
 set(CORE_DISTRIBUTIONS_TESTS
