@@ -1,0 +1,102 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 4,
+        "minor": 2,
+        "patch": 1
+    },
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "Default Config",
+            "description": "Default build using Ninja generator",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "debug",
+            "displayName": "Debug",
+            "description": "Debug build with symbols",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "release",
+            "displayName": "Release",
+            "description": "Optimized release build",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "release-coverage",
+            "displayName": "Release with Coverage",
+            "description": "Release build with code coverage instrumentation",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_CXX_FLAGS": "--coverage"
+            }
+        },
+        {
+            "name": "debug-clang",
+            "displayName": "Debug (Clang)",
+            "description": "Debug build with Clang compiler",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "release-clang",
+            "displayName": "Release (Clang)",
+            "description": "Release build with Clang compiler",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "displayName": "Debug",
+            "configurePreset": "debug"
+        },
+        {
+            "name": "release",
+            "displayName": "Release",
+            "configurePreset": "release"
+        },
+        {
+            "name": "release-coverage",
+            "displayName": "Release with Coverage",
+            "configurePreset": "release-coverage"
+        },
+        {
+            "name": "debug-clang",
+            "displayName": "Debug (Clang)",
+            "configurePreset": "debug-clang"
+        },
+        {
+            "name": "release-clang",
+            "displayName": "Release (Clang)",
+            "configurePreset": "release-clang"
+        }
+    ]
+}
