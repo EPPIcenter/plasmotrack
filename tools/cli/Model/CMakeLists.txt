@@ -24,6 +24,21 @@ target_link_libraries(transmission_networks_model
         ZLIB::ZLIB
 )
 
+# Configure version information
+# Ensure PATCH version is always numeric (default to 0 if empty)
+if("${PROJECT_VERSION_PATCH}" STREQUAL "")
+    set(VERSION_PATCH 0)
+else()
+    set(VERSION_PATCH ${PROJECT_VERSION_PATCH})
+endif()
+
+target_compile_definitions(transmission_networks_model
+    PRIVATE
+        TRANSMISSION_NETWORKS_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+        TRANSMISSION_NETWORKS_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+        TRANSMISSION_NETWORKS_VERSION_PATCH=${VERSION_PATCH}
+)
+
 link_openmp_if_available(transmission_networks_model SUPPRESS_PRAGMA_WARNINGS)
 
 install(TARGETS transmission_networks_model

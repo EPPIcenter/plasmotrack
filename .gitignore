@@ -57,6 +57,7 @@ cmake-build-*
 doc/proposal/out
 
 test/outputs/
+examples/output/
 .Rproj.user
 
 test/resources/JSON/nodes.json

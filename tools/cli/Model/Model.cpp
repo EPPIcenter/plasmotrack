@@ -5,6 +5,7 @@
 #include "core/io/parse_json.h"
 #include "core/samplers/meta/ReplicaExchange.h"
 #include "core/utils/timers.h"
+#include "core/version.h"
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/ModelLogger.h"
@@ -29,6 +30,7 @@ using namespace transmission_nets::core::io;
 using namespace transmission_nets::core::computation;
 using namespace transmission_nets::core::samplers;
 using namespace transmission_nets::core::utils;
+using namespace transmission_nets::core::version;
 
 namespace {
     const size_t SUCCESS                   = 0;
@@ -88,7 +90,8 @@ int main(int argc, char** argv) {
         namespace po = boost::program_options;
         po::options_description desc("Options");
         auto opts = desc.add_options();
-        opts("help", "Runs the model implementation");
+        opts("help", "Display help message");
+        opts("version", "Display version information");
         opts("burnin,b", po::value<int>(&burnin)->default_value(5000), "Number of steps to be used for burnin");
         opts("sample,s", po::value<int>(&sample)->default_value(10000), "Total number of steps to be used for sampling");
         opts("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned");
@@ -115,8 +118,15 @@ int main(int argc, char** argv) {
             /** --help option
                        */
             if (vm.count("help")) {
-                std::cout << "Model Nine Implementation" << std::endl
+                std::cout << "Plasmotrack: Transmission Network Inference" << std::endl
                           << desc << std::endl;
+                return SUCCESS;
+            }
+
+            /** --version option
+                       */
+            if (vm.count("version")) {
+                std::cout << "Plasmotrack version " << getVersionString() << std::endl;
                 return SUCCESS;
             }
 

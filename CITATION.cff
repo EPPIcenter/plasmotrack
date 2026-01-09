@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Murphy"
+    given-names: "Maxwell"
+    orcid: "https://orcid.org/0000-0003-0332-4388"
+title: "Plasmotrack: Transmission Network Inference"
+version: "1.0.0"
+date-released: "TBD"  # Update when preprint is released
+# doi: "10.XXXX/XXXXX"  # Add when preprint DOI is available
+# repository-code: "https://github.com/yourusername/plasmotrack"  # Add when repo is public
+license: "MIT"
+keywords:
+  - "transmission networks"
+  - "plasmodium falciparum"
+  - "MCMC"
+  - "Bayesian inference"
+  - "epidemiology"
+  - "genetic data"

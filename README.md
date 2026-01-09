@@ -1,6 +1,14 @@
-# Transmission Networks
+# Plasmotrack: Transmission Network Inference
 
-A C++ library and toolset for modeling transmission networks, with a focus on epidemiological network inference. The core model implementation is located in `src/impl/model/Model/Model.h`.
+A C++ library and toolset for modeling transmission networks using genetic data from plasmodium falciparum. The core model implementation is located in `src/impl/model/Model/Model.h`.
+
+**Version:** 1.0.0
+
+## Citation
+
+*Citation information will be added upon preprint release. Please check back for the full citation once the manuscript is published.*
+
+If you use Plasmotrack in your research, please cite the associated manuscript (details to be added).
 
 ## Quick Start
 
@@ -20,6 +28,7 @@ cmake --build --preset=release
 
 ## Table of Contents
 
+- [Citation](#citation)
 - [Quick Start](#quick-start)
 - [Prerequisites](#prerequisites)
 - [Repository Setup](#repository-setup)
@@ -368,6 +377,7 @@ The `transmission_networks_model` executable is the main CLI tool for running tr
 - `--seed <long>`: Random seed for reproducibility. Use -1 to generate a random seed (default: -1)
 - `--hotload, -h`: Hotload (resume) parameters from the output directory
 - `--null-model`: Run the null model (ignores genetic data, uses only temporal constraints)
+- `--version`: Display version information
 - `--help`: Display help message
 
 #### Example Usage

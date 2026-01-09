@@ -134,6 +134,7 @@ set(IMPL_SOURCES
 
 set(OTHER_SOURCES
     core/config.h
+    core/version.h
     core/containers/AllowedRelationships.h
     ../lib/spline/spline.h
 )
@@ -161,6 +162,21 @@ set_target_properties(transmission_networks PROPERTIES
     CXX_EXTENSIONS OFF
 )
 target_compile_features(transmission_networks PUBLIC cxx_std_20)
+
+# Configure version information
+# Ensure PATCH version is always numeric (default to 0 if empty)
+if("${PROJECT_VERSION_PATCH}" STREQUAL "")
+    set(VERSION_PATCH 0)
+else()
+    set(VERSION_PATCH ${PROJECT_VERSION_PATCH})
+endif()
+
+target_compile_definitions(transmission_networks
+    PRIVATE
+        TRANSMISSION_NETWORKS_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+        TRANSMISSION_NETWORKS_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+        TRANSMISSION_NETWORKS_VERSION_PATCH=${VERSION_PATCH}
+)
 
 target_include_directories(transmission_networks
     PUBLIC
