@@ -4,14 +4,6 @@ A C++ library and toolset for modeling transmission networks, with a focus on ep
 
 ## Quick Start
 
-**For detailed build instructions, see [BUILD.md](BUILD.md)**
-
-### Automated Build
-
-```bash
-./BUILD_DEMO.sh
-```
-
 ### Manual Build
 
 ```bash
@@ -261,8 +253,6 @@ After building with presets, outputs are located in:
 
 ## Building the Model
 
-> **📖 For detailed build instructions and examples, see [BUILD.md](BUILD.md)**
-
 ### Step-by-Step Build Instructions
 
 1. **Configure CMake using presets** (from project root):
@@ -328,9 +318,17 @@ cmake --build --preset=release-coverage
 
 The project uses the following compiler flags (defined in root `CMakeLists.txt`):
 
-- **Common**: `-g -Wall -Wextra -fno-omit-frame-pointer -Werror -Wno-unused-function -Wno-unused-parameter -Wno-maybe-uninitialized`
-- **GCC Release**: `-O3 -DNDEBUG`
-- **Clang Release**: `-O2 -DNDEBUG -pg -g -march=native -fopenmp`
+- **Common (all builds)**: `-Wall -Wextra -Wno-unused-function -Wno-unused-parameter`
+- **GCC-specific**: `-Wno-maybe-uninitialized` (GCC only)
+- **Conditional flags**:
+  - `-Werror`: Only if `TRANSMISSION_NETWORKS_WERROR=ON` (default: OFF)
+  - `-fno-omit-frame-pointer`: Only for Debug and RelWithDebInfo builds
+  - `-g`: Added automatically by CMake for Debug builds
+- **Release builds**:
+  - **Default optimization**: `-O2 -DNDEBUG` (both GCC and Clang)
+  - **Aggressive optimization**: `-O3` available via `TRANSMISSION_NETWORKS_AGGRESSIVE_OPTIMIZATION=ON`
+  - **Native CPU optimization**: `-march=native` available via `TRANSMISSION_NETWORKS_NATIVE_OPTIMIZATION=ON`
+- **OpenMP**: `-fopenmp` added automatically if OpenMP is found (linked per-target)
 
 ## Running Models
 
@@ -434,7 +432,7 @@ The input file must be a JSON file (optionally gzip-compressed with `.gz` extens
 
 #### JSON Schema
 
-The input JSON file must contain two main sections: `loci` and `nodes`. See `demo_data.json` in the repository root for a complete example.
+The input JSON file must contain two main sections: `loci` and `nodes`. 
 
 ```json
 {
@@ -527,7 +525,16 @@ IDP (Infection Duration Probability) files specify the probability distribution 
 - Example for a 10-day distribution:
 
 ```
-0.05,0.1,0.15,0.2,0.2,0.15,0.1,0.05,0.0,0.0
+0.05
+0.1
+0.15
+0.2
+0.2
+0.15
+0.1
+0.05
+0.0
+0.0
 ```
 
 This represents probabilities for days 0-9, where day 0 has probability 0.05, day 1 has 0.1, etc.
