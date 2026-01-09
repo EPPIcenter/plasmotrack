@@ -79,8 +79,6 @@ doc/proposal/.auctex-auto/
 
 *.log
 
-*.json
-
 rust/transmission_sim/target/debug/
 googletest-build/
 googletest-download/

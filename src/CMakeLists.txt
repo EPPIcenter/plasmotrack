@@ -32,9 +32,6 @@ set(CORE_CONTAINERS_SOURCES
 set(CORE_DATATYPES_SOURCES
     core/datatypes/Simplex.cpp
     core/datatypes/AllelesBitVec.h
-    core/datatypes/Masks.h
-    core/datatypes/SparseAlleleSet.cpp
-    core/datatypes/SparseAlleleSet.h
 )
 
 set(CORE_DISTRIBUTIONS_SOURCES
