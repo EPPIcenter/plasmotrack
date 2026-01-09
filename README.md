@@ -1,5 +1,7 @@
 # Plasmotrack: Transmission Network Inference
 
+[![DOI](https://zenodo.org/badge/231125107.svg)](https://doi.org/10.5281/zenodo.18202135)
+
 A C++ library and toolset for modeling transmission networks using genetic data from plasmodium falciparum. The core model implementation is located in `src/impl/model/Model/Model.h`.
 
 **Version:** 1.0.0
