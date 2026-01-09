@@ -513,7 +513,7 @@ The input JSON file must contain two main sections: `loci` and `nodes`.
 - `observation_time` (required): Float representing the time when the infection was observed (must be non-negative). Units are arbitrary but should be consistent across all nodes.
 - `symptomatic` (optional): Boolean indicating if the infection is symptomatic (default: `true`). Used to select the appropriate infection duration probability distribution.
 - `observed_genotype` (required): Array of observed genetic data objects
-- `allowed_parents` (required): Array of node ID strings that can be parents of this node. Use `"0"` to indicate the source population (external infection). This field constrains the possible transmission network structure based on epidemiological or other prior knowledge.
+- `allowed_parents` (required): Array of node ID strings that can be parents of this node. All parent IDs must correspond to existing nodes in the input. An empty array `[]` indicates the node has no allowed parents (i.e., it is a root node). This field constrains the possible transmission network structure based on epidemiological or other prior knowledge.
 
 **Observed genotype object:**
 - `locus` (required): String matching a locus label from the `loci` array

@@ -1,0 +1,60 @@
+{
+  "loci": [
+    {
+      "locus": "AS1",
+      "num_alleles": 8,
+      "allele_freqs": [0.0013, 0.0017, 0.001, 0.7533, 0.2027, 0.0389, 0.0006, 0.0005]
+    },
+    {
+      "locus": "AS11",
+      "num_alleles": 12,
+      "allele_freqs": [0.0006, 0.0001, 0.0001, 0.0199, 0.1868, 0.0365, 0.4397, 0.2626, 0.0352, 0.0081, 0.007, 0.0034]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "1",
+      "observation_time": 234.0737,
+      "symptomatic": true,
+      "observed_genotype": [
+        {
+          "locus": "AS1",
+          "genotype": "00001000"
+        },
+        {
+          "locus": "AS11",
+          "genotype": "000000010000"
+        }
+      ],
+      "allowed_parents": []
+    },
+    {
+      "id": "2",
+      "observation_time": 306.2297,
+      "symptomatic": true,
+      "observed_genotype": [
+        {
+          "locus": "AS1",
+          "genotype": "00010000"
+        },
+        {
+          "locus": "AS11",
+          "genotype": "000000010000"
+        }
+      ],
+      "allowed_parents": ["1"]
+    },
+    {
+      "id": "3",
+      "observation_time": 350.5,
+      "symptomatic": false,
+      "observed_genotype": [
+        {
+          "locus": "AS1",
+          "genotype": "00001000"
+        }
+      ],
+      "allowed_parents": ["1", "2"]
+    }
+  ]
+}
