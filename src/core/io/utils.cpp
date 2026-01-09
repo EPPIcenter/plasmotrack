@@ -6,6 +6,7 @@
 
 
 #include <fmt/core.h>
+#include <sstream>
 
 namespace transmission_nets::core::io {
 

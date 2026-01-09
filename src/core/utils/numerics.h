@@ -12,8 +12,26 @@
 
 #include <algorithm>
 #include <cmath>
-#include <execution>
 #include <numeric>
+
+// Check if std::execution::unseq is available
+// libc++ on macOS may not support unseq even with C++20
+#if __has_include(<execution>)
+#include <execution>
+// Check if unseq is actually available (some implementations don't support it)
+#if defined(__cpp_lib_parallel_algorithm) && __cpp_lib_parallel_algorithm >= 201603L
+    #if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 14000
+        // libc++ before version 14 doesn't support unseq
+        #define HAS_STD_EXECUTION_UNSEQ 0
+    #else
+        #define HAS_STD_EXECUTION_UNSEQ 1
+    #endif
+#else
+    #define HAS_STD_EXECUTION_UNSEQ 0
+#endif
+#else
+#define HAS_STD_EXECUTION_UNSEQ 0
+#endif
 
 namespace transmission_nets::core::utils {
     template<typename T>
@@ -203,6 +221,7 @@ namespace transmission_nets::core::utils {
             return -std::numeric_limits<ValueType>::infinity();
         }
 
+#if HAS_STD_EXECUTION_UNSEQ
         auto sum = std::transform_reduce(
             std::execution::unseq,
             begin,
@@ -211,6 +230,15 @@ namespace transmission_nets::core::utils {
             std::plus<ValueType>{},
             [max_el](ValueType a) { return std::exp(a - max_el); }
             );
+#else
+        auto sum = std::transform_reduce(
+            begin,
+            end,
+            ValueType{},
+            std::plus<ValueType>{},
+            [max_el](ValueType a) { return std::exp(a - max_el); }
+            );
+#endif
 
         // auto sum = std::accumulate(
         //         begin, end, ValueType{}, [max_el](ValueType a, ValueType b) { return a + std::exp(b - max_el); });
@@ -316,6 +344,7 @@ namespace transmission_nets::core::utils {
         // auto sum = std::accumulate(
                 // begin, end, ValueType{}, [max_el](const ValueType a, const ValueType b) { return a + std::exp(b - max_el); });
 
+#if HAS_STD_EXECUTION_UNSEQ
         auto red_sum = std::transform_reduce(
                 std::execution::unseq,
                 begin,
@@ -323,6 +352,14 @@ namespace transmission_nets::core::utils {
                 ValueType{},
                 std::plus<ValueType>{},
                 [max_el](const ValueType a) { return std::exp(a - max_el); });
+#else
+        auto red_sum = std::transform_reduce(
+                begin,
+                end,
+                ValueType{},
+                std::plus<ValueType>{},
+                [max_el](const ValueType a) { return std::exp(a - max_el); });
+#endif
         // if (std::abs(sum - red_sum) > 1e-6) {
             // fmt::print("Sum: {}, Red Sum: {}\n", sum, red_sum);
         // }

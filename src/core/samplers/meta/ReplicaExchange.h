@@ -14,8 +14,14 @@
 #include <fmt/core.h>
 
 #include <filesystem>
-#include <omp.h>
 #include <ranges>
+
+// OpenMP support - conditionally include if available
+#ifdef _OPENMP
+#include <omp.h>
+#elif __has_include(<omp.h>)
+#include <omp.h>
+#endif
 
 namespace fs = std::filesystem;
 

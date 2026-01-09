@@ -95,7 +95,7 @@ namespace transmission_nets::model::transmission_process {
 
     template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE, typename InterTransmissionProbImpl, typename SourceTransmissionProcessImpl>
     SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE, InterTransmissionProbImpl, SourceTransmissionProcessImpl>::SimpleLoss(p_Parameterdouble loss_prob, std::shared_ptr<InterTransmissionProbImpl> interTransmissionProb) : lossProb_(std::move(loss_prob)), interTransmissionProb_(std::move(interTransmissionProb)) {
-        lossProb_->template registerCacheableCheckpointTarget(this);
+        lossProb_->registerCacheableCheckpointTarget(this);
         lossProb_->add_post_change_listener([this]() {
             this->setDirty();
         });

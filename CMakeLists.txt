@@ -35,8 +35,12 @@ add_compile_options(
     -Wextra
     -Wno-unused-function
     -Wno-unused-parameter
-    -Wno-maybe-uninitialized
 )
+
+# -Wno-maybe-uninitialized is GCC-specific, use conditionally
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    add_compile_options(-Wno-maybe-uninitialized)
+endif()
 
 if(TRANSMISSION_NETWORKS_WERROR)
     add_compile_options(-Werror)

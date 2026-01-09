@@ -182,10 +182,11 @@ namespace transmission_nets::core::io {
                 auto infectionId = inf.at(idKey);
                 if (infectionId == targetInfection->id()) {
                     for (const auto& parentId : inf.at(allowedParentsKey)) {
+                        std::string parentIdStr = parentId.get<std::string>();
                         auto parentInf = std::ranges::find_if(
                                 infections,
-                                [&parentId](const std::shared_ptr<InfectionEvent> candidateInf) {
-                                    return candidateInf->id() == parentId;
+                                [&parentIdStr](const std::shared_ptr<InfectionEvent> candidateInf) {
+                                    return candidateInf->id() == parentIdStr;
                                 });
                         allowedRelationships->addParent(targetInfection, *parentInf);
                         allowedRelationships->addChild(*parentInf, targetInfection);

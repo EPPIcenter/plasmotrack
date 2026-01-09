@@ -97,6 +97,7 @@ target_include_directories(transmission_networks_tests
 target_link_libraries(transmission_networks_tests
     PRIVATE
         transmission_networks
+        Boost::boost
         nlohmann_json::nlohmann_json
         Eigen3::Eigen
         fmt::fmt
