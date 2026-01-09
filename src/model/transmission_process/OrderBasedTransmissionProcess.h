@@ -19,6 +19,8 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
+#include <deque>
+
 namespace transmission_nets::model::transmission_process {
 
     using Likelihood = core::computation::Likelihood;
