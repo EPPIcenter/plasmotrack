@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues live in GitHub Issues on `EPPIcenter/plasmotrack`, managed via the `gh` CLI. External pull requests are **not** a triage surface. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues on `EPPIcenter/plasmotrack`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -12,4 +12,4 @@ Canonical label vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`, 
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: the domain glossary is `CONTEXT.md` at the repo root (skills that name `GLOSSARY.md` mean this file); ADRs go in `docs/adr/`, which has none yet. See `docs/agents/domain.md`.

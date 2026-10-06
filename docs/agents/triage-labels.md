@@ -1,6 +1,6 @@
 # Triage Labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+This file maps the skills' five canonical triage roles to the label strings used in this repo's issue tracker.
 
 | Label in mattpocock/skills | Label in our tracker | Meaning                                  |
 | -------------------------- | -------------------- | ---------------------------------------- |
@@ -12,8 +12,6 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
-Edit the right-hand column to match whatever vocabulary you actually use.
-
 ## Labels outside this vocabulary
 
-The `wayfinder:*` labels (`map`, `research`, `prototype`, `grilling`, `task`) mark work type, not triage state. They are orthogonal to the table above — don't treat them as triage states, and don't remove them when applying a triage label.
+The `wayfinder:*` labels (`map`, `research`, `prototype`, `grilling`, `task`) mark work type, not triage state. Keep them in place when applying or changing a triage label.
