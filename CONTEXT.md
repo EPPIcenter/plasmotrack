@@ -1,0 +1,109 @@
+# plasmotrack
+
+An MCMC engine that infers who infected whom in a set of observed *Plasmodium* infections, together with the true genetics of each infection, from noisy genotyping data.
+
+## Language
+
+### Data
+
+**Infection**:
+A single observed *Plasmodium* infection in a single host at a single point in time, carrying one or more genetically distinct parasite strains. The unit the model reasons about — a host observed twice is two Infections.
+_Avoid_: Case, sample, patient, host, infection event
+
+**Locus**:
+A genotyped position in the parasite genome, with a fixed, known set of Alleles it can take.
+_Avoid_: Marker, site, SNP
+
+**Allele**:
+One of the possible variants at a Locus.
+_Avoid_: Variant, genotype
+
+**Observed genotype**:
+The set of Alleles reported by genotyping at one Locus in one Infection. Fixed data, and noisy — it may report Alleles that are not there and miss Alleles that are.
+_Avoid_: Observation, readout, called genotype
+
+**Latent genotype**:
+The set of Alleles actually present at one Locus in one Infection. Inferred, never observed; the Observed genotype is a noisy view of it.
+_Avoid_: True genotype, inferred genotype, hidden genotype
+
+**COI**:
+The number of genetically distinct parasite strains in an Infection. Not a parameter of the model — it is a property of a Latent genotype, so it exists only as something derived from one.
+_Avoid_: Complexity of infection (spelled out), multiplicity of infection, MOI, strain count
+
+### Transmission
+
+**Ordering**:
+A total order over all Infections, representing the sequence in which they were acquired. This is the sampled representation of the transmission network — the model samples the Ordering, not the network directly.
+_Avoid_: Network, topology, tree, permutation, sort order
+
+**Candidate parents**:
+For one Infection, the Infections that could have infected it: those that both precede it in the Ordering and are permitted by the study's epidemiological constraints. Changes as the Ordering moves.
+_Avoid_: Allowed parents, possible parents, eligible parents
+
+**Parent set**:
+A specific subset of an Infection's Candidate parents, hypothesised to be the ones that infected it together. Bounded in size — an Infection can be seeded by only so many sources at once.
+_Avoid_: Parents, sources, ancestors
+
+**Latent parent**:
+A per-Infection unobserved source drawn from the background parasite population, standing in for an infector that was never sampled. Every Infection has one available to it, so no Infection is forced to be explained by the observed data alone. Its genetics are inferred like any Latent genotype.
+_Avoid_: Unobserved parent, ghost parent, external parent, imported source. **Not** a transmission network edge, and not to be confused with a Parent set drawn from Candidate parents.
+
+**Source**:
+The background parasite population that Infections with no observed infector are drawn from. The origin of a Latent parent's genetics.
+_Avoid_: Reservoir, background, importation, external
+
+**Transmission process**:
+The model component giving the probability of an Infection's Latent genotypes given those of a Parent set — how strains are passed on, lost, and mutated. Marginalises over every possible Parent set analytically rather than sampling one.
+_Avoid_: Transmission model, transmission likelihood
+
+**Observation process**:
+The model component giving the probability of an Observed genotype given a Latent genotype — how genotyping introduces false positive and false negative Alleles.
+_Avoid_: Error model, noise model, measurement model
+
+**Allele frequency**:
+The prevalence of an Allele at a Locus in the Source population. Inferred, per Locus.
+_Avoid_: Population frequency, prior frequency
+
+### Inference
+
+**Sampling iteration**:
+One pass in which every parameter gets an update opportunity. The unit of MCMC time and the unit output cadence is expressed in.
+_Avoid_: Step, sweep, generation, cycle
+
+**Hot chain**:
+The replica running at the target posterior — the only chain whose draws are posterior samples, and the only one written to output.
+_Avoid_: Cold chain, main chain, target chain
+
+**Tempered chain**:
+A replica running at a flattened version of the posterior, existing only to help the Hot chain move between modes. Its draws are not posterior samples.
+_Avoid_: Heated chain, auxiliary chain
+
+**Run**:
+One independent execution of the sampler from its own starting state. Convergence diagnostics that compare replicates — R-hat, ESS — compare Runs, never chains within a Run.
+_Avoid_: Chain (in the multi-replicate sense), job, experiment, replicate
+
+**Phase**:
+Which part of a Run a Sampling iteration belongs to: burn-in or sampling. Only sampling-Phase draws are posterior samples. A property of every iteration, so every output row carries it — never a switch deciding whether a Run produces output at all.
+_Avoid_: Warmup, adaptation period, stage, tuning period
+
+### Output
+
+**Trace**:
+An output stream recording a quantity's value at individual Sampling iterations, one row each. The only form that preserves how a quantity co-varies with the rest of the state, and so the only form from which a non-linear functional of that quantity can be computed.
+_Avoid_: Log, chain, samples, draws (as a stream name)
+
+**Block**:
+An output stream recording a quantity accumulated over a contiguous range of Sampling iterations — its Window — rather than at any one of them, one row per Window. The Run-level quantity is the sum over Blocks, and drift between Blocks is the convergence signal.
+_Avoid_: Bin, chunk, batch, interval, summary
+
+**Window**:
+The contiguous range of Sampling iterations a Block covers. Also the unit of loss when a Run is killed, since a Block reaches disk only when its Window closes.
+_Avoid_: Block (for the range itself), period, epoch
+
+**Run event**:
+A record of something that happened during a Run that is not a quantity's value at a Sampling iteration.
+_Avoid_: Log, internal log, debug log, message
+
+**Run manifest**:
+The identity and recipe of a Run — seeds, CLI, versions, input identity — stored with that Run's output. Identity, not a copy of the input data.
+_Avoid_: Metadata, config dump, sidecar
