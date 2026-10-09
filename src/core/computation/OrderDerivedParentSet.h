@@ -12,6 +12,7 @@
 #include "core/containers/ParentSet.h"
 #include "core/parameters/Ordering.h"
 
+#include <algorithm>
 #include <memory>
 #include <set>
 
@@ -37,6 +38,11 @@ namespace transmission_nets::core::computation {
                                        std::shared_ptr<ElementType> child,
                                        const std::vector<std::shared_ptr<ElementType>>& allowedParents = {});
         containers::ParentSet<ElementType> value() noexcept override;
+        // The parent set itself rather than a copy, valid until it next changes.
+        const containers::ParentSet<ElementType>& members() noexcept {
+            this->setClean();
+            return this->value_;
+        }
         void addAllowedParent(std::shared_ptr<ElementType> p);
         void addAllowedParents(const std::vector<std::shared_ptr<ElementType>>& p);
 
@@ -72,14 +78,6 @@ namespace transmission_nets::core::computation {
             }
         });
 
-        // If an element changes, trigger this event
-        ordering_->add_element_changed_listener([=, this](std::shared_ptr<ElementType> element) {
-            if (this->value_.contains(element)) {
-                this->setDirty();
-                this->notify_element_changed(element);
-            }
-        });
-
         this->addAllowedParents(allowedParents);
 
         // Initialize the current parent set from the ordering
@@ -97,8 +95,20 @@ namespace transmission_nets::core::computation {
 
     template<typename ElementType, typename OrderingImpl>
     void OrderDerivedParentSet<ElementType, OrderingImpl>::addAllowedParent(std::shared_ptr<ElementType> p) {
-        if (p != child_) {
-            allowedParents_.insert(p);
+        // Told of each allowed parent's changes: a parent's genotype change reaches only the parent sets that could
+        // contain it, rather than every parent set through the ordering. A genotype change leaves the members as they
+        // are, so this parent set is not saved with it; what depends on the members' genotypes saves with them itself.
+        if (p != child_ and allowedParents_.insert(p).second) {
+            if constexpr (requires { p->add_post_change_listener([]() {}); }) {
+                // By address: a shared_ptr held in the parent's own listener would keep it alive.
+                p->add_post_change_listener([this, parent = p.get()]() {
+                    const auto found = std::ranges::lower_bound(this->value_, parent, containers::UidLess{}, [](const auto& element) { return element.get(); });
+                    if (found != this->value_.end() and found->get() == parent) {
+                        this->setDirty();
+                        this->notify_element_changed(*found);
+                    }
+                });
+            }
         }
     }
 
@@ -113,11 +123,7 @@ namespace transmission_nets::core::computation {
     template<typename ElementType, typename OrderingImpl>
     containers::ParentSet<ElementType> OrderDerivedParentSet<ElementType, OrderingImpl>::value() noexcept {
         this->setClean();
-        containers::ParentSet<ElementType> out{};
-        for (auto el : this->value_) {
-            out.insert(el);
-        }
-        return out;
+        return this->value_;
     }
 
 }// namespace transmission_nets::core::computation

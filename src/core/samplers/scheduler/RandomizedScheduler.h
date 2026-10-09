@@ -64,7 +64,8 @@ namespace transmission_nets::core::samplers {
 
         void registerSampler(WeightedScheduledSampler sampler);
 
-        void step();
+        // Updates randomly chosen samplers; samplers inside their adaptation window also adapt, unless `adapt` is false.
+        void step(bool adapt = true);
 
         void update(const WeightedScheduledSampler& sampler) const;
 
@@ -88,7 +89,7 @@ namespace transmission_nets::core::samplers {
     RandomizedScheduler<Engine>::RandomizedScheduler(std::shared_ptr<Engine> rng, int numSamples) : rng_(rng), num_samples_(numSamples) {}
 
     template<typename Engine>
-    void RandomizedScheduler<Engine>::step() {
+    void RandomizedScheduler<Engine>::step(const bool adapt) {
         if (!cumulative_weights_calculated_) {
             calculateCumulativeWeights();
         }
@@ -98,7 +99,9 @@ namespace transmission_nets::core::samplers {
             auto it = std::ranges::lower_bound(cumulative_weight_, v);
             const int idx = it - cumulative_weight_.begin();
             update(samplers_[idx]);
-            adapt(samplers_[idx]);
+            if (adapt) {
+                this->adapt(samplers_[idx]);
+            }
         }
         ++total_steps_;
     }

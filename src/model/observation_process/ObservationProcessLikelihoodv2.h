@@ -94,8 +94,10 @@ namespace transmission_nets::model::observation_process {
             const double expected_false_positives = expected_false_positives_->value();
             const double expected_false_negatives = expected_false_negatives_->value();
 
-            value_ = true_positive_count * log(1 - (expected_false_positives / total_alleles_)) +
-                     true_negative_count * log(1 - (expected_false_negatives / total_alleles_)) +
+            // A present allele is observed unless it is a false negative, an absent one missed unless it is a
+            // false positive.
+            value_ = true_positive_count * log(1 - (expected_false_negatives / total_alleles_)) +
+                     true_negative_count * log(1 - (expected_false_positives / total_alleles_)) +
                      false_positive_count * log(expected_false_positives / total_alleles_) +
                      false_negative_count * log(expected_false_negatives / total_alleles_);
 

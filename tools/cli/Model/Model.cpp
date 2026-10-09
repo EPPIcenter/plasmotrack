@@ -94,11 +94,11 @@ int main(int argc, char** argv) {
         opts("version", "Display version information");
         opts("burnin,b", po::value<int>(&burnin)->default_value(5000), "Number of steps to be used for burnin");
         opts("sample,s", po::value<int>(&sample)->default_value(10000), "Total number of steps to be used for sampling");
-        opts("thin,t", po::value<int>(&thin)->default_value(1000), "Number of steps to be thinned");
+        opts("thin,t", po::value<int>(&thin)->default_value(10), "Number of sampling steps per logged sample");
         opts("numchains,n", po::value<int>(&num_chains)->default_value(1), "Number of chains to run in replica exchange algorithm.");
         opts("numcores,c", po::value<unsigned int>(&num_cores)->default_value(1), "Number of cores to use in replica exchange algorithm.");
         opts("gradient,g", po::value<Probability>(&gradient)->default_value(0), "Lower temperature of gradient to use in replica exchange algorithm");
-        opts("seed", po::value<long>(&seed)->default_value(-1), "Seed used in random number generator. Note that if numchains > 1 then there is no guarantee of reproducibility. A value of -1 indicates generate a random seed.");
+        opts("seed", po::value<long>(&seed)->default_value(-1), "Seed used in random number generator. Runs with the same seed, input and options produce the same results, regardless of numcores. A value of -1 indicates generate a random seed.");
         opts("hotload,h", "Hotload parameters from the output directory");
         opts("symptomatic-idp", po::value<std::string>(&symptomatic_idp_path)->required(), "file path to Symptomatic IDP");
         opts("asymptomatic-idp", po::value<std::string>(&asymptomatic_idp_path)->required(), "file path to Symptomatic IDP");
@@ -161,6 +161,11 @@ int main(int argc, char** argv) {
             return ERROR_IN_COMMAND_LINE;
         }
 
+        if (thin < 1) {
+            std::cerr << "Thin must be at least 1." << std::endl;
+            return ERROR_IN_COMMAND_LINE;
+        }
+
         if (null_model) {
             fmt::print("Running the null model (no genetics)\n");
         }
@@ -211,8 +216,8 @@ int main(int argc, char** argv) {
 
             timers::dsec ds = t1 - t0;
             totalDuration += ds;
-            totalSamples += thin * num_chains;
-            samplesPerSecond = (thin * num_chains / ds.count());
+            totalSamples += num_chains;
+            samplesPerSecond = (num_chains / ds.count());
             averageSamplesPerSecond = totalSamples / totalDuration.count();
 
             fmt::print("(b={0}) ", kk);
@@ -221,6 +226,8 @@ int main(int argc, char** argv) {
         }
 
 
+        // Every step is sampled; one in `thin` is logged.
+        timers::dsec thinDuration{0};
         for (int jj = 0; jj < sample; ++jj) {
             if (interrupted) {
                 break;
@@ -232,9 +239,14 @@ int main(int argc, char** argv) {
 
             timers::dsec ds = t1 - t0;
             totalDuration += ds;
-            totalSamples += thin * num_chains;
-            samplesPerSecond = (thin * num_chains / ds.count());
+            thinDuration += ds;
+            totalSamples += num_chains;
+            if ((jj + 1) % thin != 0) {
+                continue;
+            }
+            samplesPerSecond = (thin * num_chains / thinDuration.count());
             averageSamplesPerSecond = totalSamples / totalDuration.count();
+            thinDuration = timers::dsec{0};
 
             repex->logModel();
             repex->logState();

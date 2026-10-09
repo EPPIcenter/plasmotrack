@@ -7,7 +7,10 @@
 #include "config.h"
 
 #include "core/samplers/scheduler/RandomizedScheduler.h"
+#include "core/samplers/specialized/CloneOrderSwapSampler.h"
 #include "core/samplers/specialized/JointGeneticsTimeSampler.h"
+#include "core/samplers/specialized/ParentRelinkSampler.h"
+#include "core/samplers/genetics/LatentParentCoverSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler4.h"
@@ -20,8 +23,8 @@ namespace transmission_nets::impl::Model {
     template<typename T, typename Engine = boost::random::mt19937, typename Scheduler = core::samplers::RandomizedScheduler<Engine>>
     struct SampleScheduler {
         SampleScheduler(std::shared_ptr<State> state, std::shared_ptr<T> target, std::shared_ptr<Engine> r, int samplesPerStep);
-        void step() {
-            scheduler_.step();
+        void step(const bool adapt = true) {
+            scheduler_.step(adapt);
         }
 
         std::shared_ptr<State> state_;
@@ -78,6 +81,15 @@ namespace transmission_nets::impl::Model {
                                             .id = fmt::format("Infection Alleles {}", infection->id()),
                                             .weight = 5,
                                             .debug = false});
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state_->latentParents[infection_idx_], state_->allowedRelationships->allowedParents(infection), target_, r, 1.0, upperBound, isSymptomatic ? state_->symptomaticInfectionDurationDist->value() : state_->asymptomaticInfectionDurationDist->value()),
+                                            .id = fmt::format("Relink {}", infection->id()),
+                                            .weight = 5});
+                scheduler_.registerSampler({.sampler = std::make_unique<genetics::LatentParentCoverSampler<T, Engine, InfectionEvent>>(infection, state_->latentParents[infection_idx_], target_, r, MAX_COI),
+                                            .id = fmt::format("Latent Parent Cover {}", infection->id()),
+                                            .weight = 5});
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>>(infection, state_->latentParents[infection_idx_], specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>::mutualPartners(state_->infections, state_->latentParents, *state_->allowedRelationships, infection_idx_), target_, r, 1.0, upperBound, isSymptomatic ? state_->symptomaticInfectionDurationDist->value() : state_->asymptomaticInfectionDurationDist->value()),
+                                            .id = fmt::format("Clone Order Swap {}", infection->id()),
+                                            .weight = 5});
                 for (const auto& [locus_label, locus] : state_->loci) {
                     if (infection->latentGenotype().contains(locus)) {
                         auto latentGenotype = infection->latentGenotype(locus);
@@ -143,7 +155,9 @@ namespace transmission_nets::impl::Model {
         }
 
         for ([[maybe_unused]] const auto& [locus_label, locus] : state_->loci) {
-            scheduler_.registerSampler({.sampler = std::make_unique<SALTSampler<T, Engine>>(state_->alleleFrequencies->alleleFrequencies(locus), target_, r, 1, .1, 2),
+            auto alleleFrequencySampler = std::make_unique<SALTSampler<T, Engine>>(state_->alleleFrequencies->alleleFrequencies(locus), target_, r, 1, .1, 2);
+            alleleFrequencySampler->setLowerLimit_(MIN_ALLELE_FREQUENCY);
+            scheduler_.registerSampler({.sampler = std::move(alleleFrequencySampler),
                                         .id = fmt::format("Allele Freq {}", locus->label),
                                         .adaptationStart = 20,
                                         .adaptationEnd = 200,

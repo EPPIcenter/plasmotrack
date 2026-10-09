@@ -7,6 +7,8 @@
 #include "core/containers/Infection.h"
 #include "core/datatypes/Alleles.h"
 
+#include <set>
+
 using namespace transmission_nets::core::datatypes;
 using namespace transmission_nets::core::containers;
 using namespace transmission_nets::core::parameters;
@@ -98,4 +100,24 @@ TEST(InfectionTest, HandlesCopyingInfection) {
     EXPECT_EQ(inf2->latentGenotype(as2)->value().allelesStr(), "00000011");
     fmt::print("HandlesCopyingInfection Complete.\n");
 
+}
+TEST(InfectionTest, CopiesGetUniqueUids) {
+    using GeneticsImpl = AllelesBitSet<16>;
+    using Infection    = Infection<GeneticsImpl, Locus>;
+
+    auto as1 = std::make_shared<Locus>("AS1", 6);
+
+    // Originals and copies are numbered from one shared counter; parent-set likelihood caches are keyed by uid.
+    auto inf1 = std::make_shared<Infection>("inf1", 10.0, false);
+    auto inf2 = std::make_shared<Infection>("inf2", 10.0, false);
+    inf1->addGenetics(as1, "011010", "011010");
+    inf2->addGenetics(as1, "011010", "011010");
+    auto copy1 = std::make_shared<Infection>(*inf1);
+    auto copy2 = std::make_shared<Infection>(*inf2);
+
+    std::set<int> uids{inf1->uid(), inf2->uid(), copy1->uid(), copy2->uid()};
+    EXPECT_EQ(uids.size(), 4);
+    for (const auto uid : uids) {
+        EXPECT_GE(uid, 0);
+    }
 }

@@ -368,7 +368,7 @@ The `transmission_networks_model` executable is the main CLI tool for running tr
 **MCMC Parameters:**
 - `--burnin, -b <int>`: Number of burn-in steps (default: 5000)
 - `--sample, -s <int>`: Total number of sampling steps (default: 10000)
-- `--thin, -t <int>`: Thinning interval - number of steps between logged samples (default: 1000)
+- `--thin, -t <int>`: Thinning interval - number of sampling steps per logged sample (default: 10)
 
 **Replica Exchange Parameters:**
 - `--numchains, -n <int>`: Number of chains to run in replica exchange algorithm (default: 1)

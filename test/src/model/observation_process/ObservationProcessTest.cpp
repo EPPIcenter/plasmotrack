@@ -16,6 +16,9 @@
 #include "model/observation_process/AlleleCounter.h"
 #include "model/observation_process/AlleleCounts.h"
 #include "model/observation_process/ObservationProcessLikelihoodv1.h"
+#include "model/observation_process/ObservationProcessLikelihoodv2.h"
+
+#include <cmath>
 
 using namespace transmission_nets::core::computation;
 using namespace transmission_nets::core::containers;
@@ -68,7 +71,9 @@ TEST(ObservationProcessTest, CoreTest) {
 
     ObservationProcessLikelihoodv1 target(alleleCountAccumulator, falsePositiveRate, falseNegativeRate);
 
+    // True positives are kept with probability 1 - FNR, true negatives with 1 - FPR.
     auto oldValue = target.value();
+    EXPECT_DOUBLE_EQ(oldValue, 36 * std::log(1 - .05) + 36 * std::log(.05));
 
     infections.at(0)->latentGenotype(loci.at(0))->saveState(1);
     infections.at(0)->latentGenotype(loci.at(0))->setValue(GeneticsImpl("100000"));
@@ -91,4 +96,21 @@ TEST(ObservationProcessTest, CoreTest) {
     EXPECT_EQ(alleleCountAccumulator->value().true_negative_count, 0);
     EXPECT_EQ(alleleCountAccumulator->value().false_positive_count, 0);
     EXPECT_EQ(alleleCountAccumulator->value().false_negative_count, 36);
+}
+TEST(ObservationProcessTest, V2PairsEachCountWithItsRate) {
+    using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
+
+    // Latent 110000 observed as 101000: one true positive, one false negative, one false positive, three true negatives.
+    auto observed = std::make_shared<Data<GeneticsImpl>>(GeneticsImpl("101000"));
+    auto latent   = std::make_shared<Parameter<GeneticsImpl>>(GeneticsImpl("110000"));
+
+    // Expected errors per locus, scaled by the 6 alleles into per-allele rates of .05 and .2.
+    auto expectedFalsePositives = std::make_shared<Parameter<double>>(.3);
+    auto expectedFalseNegatives = std::make_shared<Parameter<double>>(1.2);
+
+    ObservationProcessLikelihoodv2<GeneticsImpl> target(observed, latent, expectedFalsePositives, expectedFalseNegatives);
+
+    const double fpr = .05;
+    const double fnr = .2;
+    EXPECT_DOUBLE_EQ(target.value(), std::log(1 - fnr) + 3 * std::log(1 - fpr) + std::log(fpr) + std::log(fnr));
 }

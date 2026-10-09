@@ -33,6 +33,9 @@ namespace transmission_nets::impl::Model {
     static constexpr int MAX_PARENT_SET_SIZE = MAX_PARENTS + 1;
     // static constexpr int MAX_TRANSMISSIONS = 8;
     static constexpr int MAX_STRAINS = 12;
+    // Allele frequencies are kept at or above this, at the start and while sampling. A numerical guard only: far below
+    // one strain among all sources (about 1 / (2 * infections * mean COI)), so it should never bind.
+    static constexpr double MIN_ALLELE_FREQUENCY = 1e-6;
 
     namespace fs                           = std::filesystem;
 
@@ -51,7 +54,7 @@ namespace transmission_nets::impl::Model {
     using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent::GenotypeParameterMap , MAX_COI>;
 //    using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
 //    using NodeTransmissionImpl      = model::transmission_process::SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTS, InterTransmissionProbImpl, SourceTransmissionImpl>;
-    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionImpl, ParentSetSizeLikelihoodImpl>;
+    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionImpl, ParentSetSizeLikelihoodImpl, GeneticsImpl>;
 
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
     using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;

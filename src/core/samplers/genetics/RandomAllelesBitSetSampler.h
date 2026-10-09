@@ -58,7 +58,7 @@ namespace transmission_nets::core::samplers::genetics {
         Likelihood curLik = target_->value();
         parameter_->saveState(stateId);
 
-        const auto& currentVal = parameter_->value();
+        const auto currentVal = parameter_->value();
         const auto& proposal = sampleProposal(currentVal);
 
         std::string currentValStr = currentVal.serialize();
@@ -149,17 +149,9 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename AllelesBitSetImpl>
     Likelihood RandomAllelesBitSetSampler<T, Engine, AllelesBitSetImpl>::logMetropolisHastingsAdjustment([[maybe_unused]] const AllelesBitSetImpl& curr, [[maybe_unused]] const AllelesBitSetImpl& prop) noexcept {
-        // if there is only 1 allele, then there are total_alleles - 1 possible states to transition to.
-        // If there are > 1 allele, then there are total_alleles possible states.
-        // log(curr|proposed) - log(proposed|curr)
-        unsigned int curr_total_alleles = curr.totalPositiveCount();
-        unsigned int prop_total_alleles = prop.totalPositiveCount();
-
-        Likelihood numerator = prop_total_alleles == 1 ? std::log(1) - std::log(curr.totalAlleles() - 1) : std::log(1) - std::log(curr.totalAlleles());
-        Likelihood denominator = curr_total_alleles == 1 ? std::log(1) - std::log(prop.totalAlleles() - 1) : std::log(1) - std::log(prop.totalAlleles());
-
-        return numerator - denominator;
-        //        return 0;
+        // The proposal flips uniformly chosen alleles until the genotype is valid again. Each flip is as likely as its
+        // reverse, so every path is as likely as the same path reversed and the proposal is symmetric.
+        return 0;
     }
 }// namespace transmission_nets::core::samplers::genetics
 

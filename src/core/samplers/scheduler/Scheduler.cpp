@@ -35,10 +35,12 @@ namespace transmission_nets::core::samplers {
         }
     }
 
-    void Scheduler::step() {
+    void Scheduler::step(const bool adapt) {
         for (auto& sampler : samplers_) {
             update(sampler);
-            adapt(sampler);
+            if (adapt) {
+                this->adapt(sampler);
+            }
         }
         ++totalSteps;
     }

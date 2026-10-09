@@ -5,6 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PARENTSET_H
 #define TRANSMISSION_NETWORKS_APP_PARENTSET_H
 
+#include "core/containers/UidLess.h"
+
 #include <boost/container/flat_set.hpp>
 
 #include <memory>
@@ -13,7 +15,7 @@
 namespace transmission_nets::core::containers {
 
     template<typename ElementType>
-    using ParentSet = boost::container::flat_set<std::shared_ptr<ElementType>>;
+    using ParentSet = boost::container::flat_set<std::shared_ptr<ElementType>, UidLess>;
 
 }
 

@@ -51,7 +51,8 @@ namespace transmission_nets::core::samplers {
 
         void adapt(ScheduledSampler& sampler) const;
 
-        void step();
+        // Updates every sampler; samplers inside their adaptation window also adapt, unless `adapt` is false.
+        void step(bool adapt = true);
 
         [[nodiscard]] const std::vector<ScheduledSampler>& samplers() const noexcept;
 

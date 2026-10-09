@@ -139,6 +139,14 @@ namespace transmission_nets::core::io {
             }
 
             infections.push_back(std::make_shared<InfectionEvent>(inf.at(idKey), obs_time, symptomatic));
+            // An unobserved locus has no observed genotype, and its latent genotype starts as one random allele.
+            auto addUnobserved = [&](const std::shared_ptr<LocusImpl>& locus) {
+                std::string latent_genetics;
+                latent_genetics.resize(locus->totalAlleles(), '0');
+                boost::random::uniform_int_distribution<> dist(0, locus->totalAlleles() - 1);
+                latent_genetics[dist(*rng)] = '1';
+                infections.back()->addLatentGenetics(locus, latent_genetics);
+            };
             for (const auto& genetics : inf.at(obsGenotypesKey)) {
                 auto locusLabel = genetics.at(locusKey);
                 auto locusItr = loci.find(locusLabel);
@@ -150,11 +158,14 @@ namespace transmission_nets::core::io {
                     std::string obs_genetics = genetics.at(genotypeKey);
                     infections.back()->addGenetics(locusItr->second, obs_genetics, constrainCOI(obs_genetics, max_coi));
                 } else {
-                    std::string latent_genetics;
-                    latent_genetics.resize(locusItr->second->totalAlleles(), '0');
-                    boost::random::uniform_int_distribution<> dist(0, locusItr->second->totalAlleles() - 1);
-                    latent_genetics[dist(*rng)] = '1';
-                    infections.back()->addLatentGenetics(locusItr->second, latent_genetics);
+                    addUnobserved(locusItr->second);
+                }
+            }
+            // A locus missing from the list is unobserved too, as an all-zero genotype is. The model assumes every
+            // infection has every locus: parents' and children's genotypes are read at each other's loci.
+            for (const auto& [label, locus] : loci) {
+                if (not infections.back()->latentGenotype().contains(locus)) {
+                    addUnobserved(locus);
                 }
             }
         }

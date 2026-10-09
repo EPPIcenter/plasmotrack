@@ -28,7 +28,10 @@ namespace transmission_nets::core::samplers {
         RandomReverseEdgeID,
         RandomSwapEdgeID,
         ZanellaNeighborOrderID,
-        ZanellaOrderID
+        ZanellaOrderID,
+        ParentRelinkID,
+        LatentParentCoverID,
+        CloneOrderSwapID
     };
 }
 

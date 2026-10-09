@@ -187,7 +187,9 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine>
     double SALTSampler<T, Engine>::logMetropolisHastingsAdjustment(utils::LogPQ currLogPQ, utils::LogPQ propLogPQ, int k) noexcept {
-        return (currLogPQ.logP[0] - propLogPQ.logP[0]) + (k - 1) * (currLogPQ.logQ[0] - propLogPQ.logQ[0]);
+        // The proposal moves one frequency p in logit space by symmetric noise and rescales the other k - 1 so they
+        // sum to 1 - p'. The map's Jacobian, p' (1 - p')^(k - 1) / (p (1 - p)^(k - 1)), is the correction.
+        return (propLogPQ.logP[0] - currLogPQ.logP[0]) + (k - 1) * (propLogPQ.logQ[0] - currLogPQ.logQ[0]);
     }
 
     template<typename T, typename Engine>

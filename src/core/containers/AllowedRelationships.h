@@ -14,6 +14,8 @@
 
 #include <boost/container/flat_map.hpp>
 
+#include "core/containers/UidLess.h"
+
 
 namespace transmission_nets::core::containers {
     template<typename InfectionEvent>
@@ -63,8 +65,8 @@ namespace transmission_nets::core::containers {
 
     private:
         std::vector<std::shared_ptr<InfectionEvent>> infectionEvents_{};
-        boost::container::flat_map<std::shared_ptr<InfectionEvent>, std::vector<unsigned short>> allowedParents_{};
-        boost::container::flat_map<std::shared_ptr<InfectionEvent>, std::vector<unsigned short>> allowedChildren_{};
+        boost::container::flat_map<std::shared_ptr<InfectionEvent>, std::vector<unsigned short>, UidLess> allowedParents_{};
+        boost::container::flat_map<std::shared_ptr<InfectionEvent>, std::vector<unsigned short>, UidLess> allowedChildren_{};
     };
 }// namespace transmission_nets::core::containers
 

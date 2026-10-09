@@ -10,6 +10,7 @@
 #include "core/abstract/observables/UncacheablePassthrough.h"
 
 #include "core/containers/Locus.h"
+#include "core/containers/UidLess.h"
 
 #include "core/parameters/Parameter.h"
 
@@ -26,7 +27,7 @@ namespace transmission_nets::core::containers {
                                      public abstract::UncacheablePassthrough<AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>>,
                                      public abstract::CheckpointablePassthrough<AlleleFrequencyContainer<AlleleFrequencyImpl, LocusImpl>> {
 
-        using AlleleFrequencyMap = boost::container::flat_map<std::shared_ptr<LocusImpl>, std::shared_ptr<parameters::Parameter<AlleleFrequencyImpl>>>;
+        using AlleleFrequencyMap = boost::container::flat_map<std::shared_ptr<LocusImpl>, std::shared_ptr<parameters::Parameter<AlleleFrequencyImpl>>, UidLess>;
         // using AlleleFrequencyMap = std::unordered_map<std::shared_ptr<LocusImpl>, std::shared_ptr<parameters::Parameter<AlleleFrequencyImpl>>>;
 
     public:

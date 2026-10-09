@@ -90,10 +90,14 @@ namespace transmission_nets::core::samplers::genetics {
         categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, locus_->totalAlleles() - 1));
         const int allele_idx = categorical_dist_(*rng_);
 
-        double curr_state_log_prob = 0.0;
-        double proposed_state_log_prob = 0.0;
+        // Log proposal probabilities of the proposed path given the current one, and of the current path given the
+        // proposed one. Each infection's proposal depends on the allele in the infection before it on the path
+        // (the latent parent for the first), which the forward move has already changed and the reverse move has not.
+        double forward_log_prob = 0.0;
+        double reverse_log_prob = 0.0;
         std::shared_ptr<InfectionEventImpl> curr_inf = infection_;
-        std::shared_ptr<InfectionEventImpl> curr_latent_parent = latentParent_;
+        bool prev_curr_state = latentParent_->latentGenotype(locus_)->value().allele(allele_idx) == 1;
+        bool prev_proposed_state = prev_curr_state;
         int distance = 4;
         std::vector<int> path{};
         std::vector<int> curr_path{};
@@ -118,21 +122,18 @@ namespace transmission_nets::core::samplers::genetics {
             }
 
             // randomly select a child infection
-            categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, potential_children.size() - 1));
-            int child_idx = categorical_dist_(*rng_);
+            // (only when there is one: size() - 1 on an empty list wraps to an invalid range)
+            int child_idx = 0;
             std::shared_ptr<InfectionEventImpl> child;
-            if (potential_children.empty()) {
-                child = nullptr;
-            } else {
-                child = potential_children.at(child_idx);
+            if (!potential_children.empty()) {
+                categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, static_cast<int>(potential_children.size()) - 1));
+                child_idx = categorical_dist_(*rng_);
+                child     = potential_children.at(child_idx);
             }
 
             // check if observed in curr infection
             const bool has_data = curr_data != nullptr;
             const bool in_curr = has_data && curr_inf->observedGenotype(locus_)->value().allele(allele_idx) == 1;
-
-            // Check if set in parent infection
-            const bool in_parent = curr_latent_parent->latentGenotype(locus_)->value().allele(allele_idx) == 1;
 
             // Check if observed in child infection
             const bool child_has_data = child != nullptr && child->observedGenotype().contains(locus_);
@@ -140,23 +141,27 @@ namespace transmission_nets::core::samplers::genetics {
 
             const bool curr_state = curr_param->value().allele(allele_idx) == 1;
 
-            const double parent_prob_component = in_parent ? (tx_from_parent) : (tx_from_other);
             const double obs_data_component = has_data ? (in_curr ? (1 - fp_rate) : (fn_rate)) : 1.0;
             const double child_data_component =
                     child_has_data ? in_child ? tx_from_parent * (1 - fn_rate) + (1 - tx_from_parent) * fp_rate : tx_from_parent * fn_rate + (1 - tx_from_parent) * (1 - fp_rate)
                                    : 1.0;
 
-            const double prob_obs = parent_prob_component * obs_data_component * child_data_component;
+            // Probability of proposing the allele present, given whether it is present in the previous infection.
+            auto prob_present = [&](const bool in_parent) {
+                const double parent_prob_component = in_parent ? (tx_from_parent) : (tx_from_other);
+                return parent_prob_component * obs_data_component * child_data_component;
+            };
+            const double forward_prob_present = prob_present(prev_proposed_state);
+            const double reverse_prob_present = prob_present(prev_curr_state);
 
-            const int proposed_state = uniform_dist_(*rng_) < prob_obs ? 1 : 0;
+            const bool proposed_state = uniform_dist_(*rng_) < forward_prob_present;
 
-            const double prob_curr = curr_state == proposed_state ? prob_obs : 1 - prob_obs;
+            forward_log_prob += std::log(proposed_state ? forward_prob_present : 1 - forward_prob_present);
+            reverse_log_prob += std::log(curr_state ? reverse_prob_present : 1 - reverse_prob_present);
 
             path.push_back(proposed_state);
             curr_path.push_back(curr_state);
             obs_path.push_back(has_data ? in_curr ? 1 : 0 : -1);
-
-            path_differs = path_differs || (proposed_state != curr_state);
 
             if (proposed_state != curr_state) {
                 path_differs = true;
@@ -167,14 +172,12 @@ namespace transmission_nets::core::samplers::genetics {
                 curr_param->setValue(curr_val);
             }
 
-            curr_state_log_prob += std::log(prob_curr);
-            proposed_state_log_prob += std::log(prob_obs);
-
             if (potential_children.empty()) {
                 break;
             }
 
-            curr_latent_parent = curr_inf;
+            prev_curr_state     = curr_state;
+            prev_proposed_state = proposed_state;
             curr_inf = potential_children[child_idx];
             distance--;
         }
@@ -184,7 +187,7 @@ namespace transmission_nets::core::samplers::genetics {
             return;
         }
 
-        const Likelihood adj = proposed_state_log_prob - curr_state_log_prob;
+        const Likelihood adj = reverse_log_prob - forward_log_prob;
         const Likelihood acceptanceRatio = target_->value() - curLik + adj;
         const Likelihood logProbAccept = std::log(uniform_dist_(*rng_));
         const bool accept = logProbAccept <= acceptanceRatio;
@@ -193,8 +196,8 @@ namespace transmission_nets::core::samplers::genetics {
         //     fmt::print("Acceptance ratio: {}\n", acceptanceRatio);
         //     fmt::print("Log probability of acceptance: {}\n", logProbAccept);
         //     fmt::print("Current likelihood: {}\n", curLik);
-        //     fmt::print("Proposed State Log Probability: {}\n", proposed_state_log_prob);
-        //     fmt::print("Current State Log Probability: {}\n", curr_state_log_prob);
+        //     fmt::print("Forward Proposal Log Probability: {}\n", forward_log_prob);
+        //     fmt::print("Reverse Proposal Log Probability: {}\n", reverse_log_prob);
         //     fmt::print("Proposed likelihood: {}\n", target_->value());
         //     fmt::print("Adjustment: {}\n", adj);
         //     fmt::print("Proposed Path: {}\n", io::serialize(path));

@@ -107,6 +107,11 @@ namespace transmission_nets::core::datatypes {
 
         [[nodiscard]] constexpr bool allele(size_t pos) const noexcept;
 
+        // Consistent with operator==, which compares total_alleles_ and alleles_.
+        [[nodiscard]] std::size_t hash() const noexcept {
+            return std::hash<std::bitset<MaxAlleles>>{}(alleles_) ^ (static_cast<std::size_t>(total_alleles_) * 0x9e3779b97f4a7c15ULL);
+        }
+
     private:
         unsigned int total_alleles_ = 0;
         std::bitset<MaxAlleles> alleles_{};

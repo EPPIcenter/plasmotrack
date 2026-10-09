@@ -64,8 +64,10 @@ namespace transmission_nets::model::observation_process {
     template<typename AlleleCounter>
     core::computation::Likelihood ObservationProcessLikelihoodv1<AlleleCounter>::value() {
         if (this->isDirty()) {
-            value_ = total_alleles_->value().true_positive_count * log(1 - false_positive_rate_->value()) +
-                     total_alleles_->value().true_negative_count * log(1 - false_negative_rate_->value()) +
+            // A present allele is observed unless it is a false negative, an absent one missed unless it is a
+            // false positive.
+            value_ = total_alleles_->value().true_positive_count * log(1 - false_negative_rate_->value()) +
+                     total_alleles_->value().true_negative_count * log(1 - false_positive_rate_->value()) +
                      total_alleles_->value().false_positive_count * log(false_positive_rate_->value()) +
                      total_alleles_->value().false_negative_count * log(false_negative_rate_->value());
             this->setClean();

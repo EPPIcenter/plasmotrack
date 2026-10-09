@@ -13,6 +13,8 @@
 #include "core/utils/numerics.h"
 
 
+#include "core/containers/UidLess.h"
+
 #include <boost/container/flat_set.hpp>
 #include <boost/range/adaptors.hpp>
 
@@ -113,7 +115,7 @@ namespace transmission_nets::model::transmission_process {
         ListenerIdMap acceptStateListenerIdMap{};
         ListenerIdMap restoreStateListenerIdMap{};
 
-        using InfectionEventSet = boost::container::flat_set<std::shared_ptr<InfectionEventImpl>>;
+        using InfectionEventSet = boost::container::flat_set<std::shared_ptr<InfectionEventImpl>, core::containers::UidLess>;
 
         // Track parent deltas between save and accept/restore
         InfectionEventSet addedParents_{};

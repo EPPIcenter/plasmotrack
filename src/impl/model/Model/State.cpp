@@ -24,7 +24,7 @@ namespace transmission_nets::impl::Model {
         //     alleleFrequencies->addLocus(locus);
         // }
 
-        alleleFrequencies = core::io::parseAlleleFrequenciesFromJSON<AlleleFrequencyContainerImpl>(input, loci, .05);
+        alleleFrequencies = core::io::parseAlleleFrequenciesFromJSON<AlleleFrequencyContainerImpl>(input, loci, MIN_ALLELE_FREQUENCY);
 
         infectionEventOrdering = std::make_shared<OrderingImpl>();
         infectionEventOrdering->addElements(this->infections);

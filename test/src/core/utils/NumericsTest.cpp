@@ -59,3 +59,20 @@ TEST(NumericsTests, TestInitKVec) {
     }
 
 }
+// logitScale(x, s) is the logit of expit(x) * exp(s); on this grid the direct formula is accurate enough to compare.
+TEST(NumericsTest, LogitScaleMatchesDirectFormula) {
+    for (int i = -40; i <= 40; ++i) {
+        const double x = i / 4.0;
+        std::vector<double> logits{x};
+        for (int j = -80; j < 40; ++j) {
+            const double scale  = j / 20.0;
+            const double scaled = 1.0 / (1.0 + std::exp(-x)) * std::exp(scale);
+            if (scaled <= 1e-12 or scaled >= 1 - 1e-6) {
+                continue;
+            }
+            const double expected = std::log(scaled / (1 - scaled));
+            EXPECT_NEAR(transmission_nets::core::utils::logitScale(logits, scale)[0], expected, 1e-7 * std::max(1.0, std::abs(expected)))
+                    << "x " << x << ", scale " << scale;
+        }
+    }
+}

@@ -132,34 +132,17 @@ namespace transmission_nets::core::utils {
         return 1 / (1 + std::exp(-x));
     }
 
+    // The logit of expit(x) * exp(scale) for each x, the scaled probabilities staying below 1. Computed in log space:
+    // log p from x, plus the scale, minus log(1 - p exp(scale)) taken by expm1 or log1p, whichever is accurate.
     template<typename It, typename T = std::decay_t<decltype(*begin(std::declval<It>()))>>
     std::vector<double> logitScale(const It& x, double scale) {
         std::vector<double> out{};
         out.reserve(x.size());
-        double l2;
-        double u;
-        double v;
-        double ev;
-        double eumo;
-        bool ok;
         for (auto const& el : x) {
-            ok = (scale < std::log(2)) and (std::abs(scale) < std::abs(el + scale));
-            u = -scale - (!ok) * el;
-            v = -scale - ok * el;
-            ev = std::exp(v);
-            eumo = std::expm1(u);
-
-            if (std::isinf(eumo)) {
-                l2 = std::max(u, v) + std::log1p(std::exp(-std::abs(u - v)));
-            } else {
-                l2 = std::log(eumo + ev);
-            }
-
-            if (v > std::log(2 * std::abs(eumo))) {
-                out.push_back(-(v + std::log1p(eumo / ev)));
-            } else {
-                out.push_back(l2);
-            }
+            const double logP      = el < 0 ? el - std::log1p(std::exp(el)) : -std::log1p(std::exp(-el));
+            const double logScaled = logP + scale;
+            const double logRest   = logScaled > -std::log(2.0) ? std::log(-std::expm1(logScaled)) : std::log1p(-std::exp(logScaled));
+            out.push_back(logScaled - logRest);
         }
         return out;
     }

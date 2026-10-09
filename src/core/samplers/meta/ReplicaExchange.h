@@ -73,12 +73,14 @@ namespace transmission_nets::core::samplers {
             }
         }
 
+        // Samplers adapt their proposals during burn-in only; adapting while sampling would change the chain's
+        // stationary distribution.
         void sample() {
 #pragma omp parallel default(none) num_threads(num_cores_)
             {
 #pragma omp for
                 for (size_t ii = 0; ii < chains.size(); ++ii) {
-                    chains[ii].sampler->step();
+                    chains[ii].sampler->step(false);
                 }
             }
             if (chains.size() > 1) {
@@ -91,7 +93,7 @@ namespace transmission_nets::core::samplers {
             {
 #pragma omp for
                 for (size_t ii = 0; ii < chains.size(); ++ii) {
-                    chains[ii].sampler->step();
+                    chains[ii].sampler->step(true);
                 }
 
             }

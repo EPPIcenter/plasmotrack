@@ -27,10 +27,8 @@ namespace transmission_nets::core::computation {
                                            public abstract::Cacheable<ObservationTimeDerivedOrdering<InfectionEventImpl>>,
                                            public abstract::Checkpointable<ObservationTimeDerivedOrdering<InfectionEventImpl>, std::vector<std::shared_ptr<InfectionEventImpl>>> {
         using MovedCallback = std::function<void(std::shared_ptr<InfectionEventImpl> element)>;
-        using ChangedCallback = std::function<void(std::shared_ptr<InfectionEventImpl> element)>;
         CREATE_KEYED_EVENT(moved_left, std::shared_ptr<InfectionEventImpl>, MovedCallback);
         CREATE_KEYED_EVENT(moved_right, std::shared_ptr<InfectionEventImpl>, MovedCallback);
-        CREATE_EVENT(element_changed, ChangedCallback);
 
     public:
         explicit ObservationTimeDerivedOrdering() noexcept;
@@ -45,7 +43,6 @@ namespace transmission_nets::core::computation {
 
     private:
         void infectionDurationChanged(std::shared_ptr<InfectionEventImpl> ref);
-        void elementChanged(std::shared_ptr<InfectionEventImpl> ref);
         void addElement(std::shared_ptr<InfectionEventImpl> ref) noexcept;
     };
 
@@ -65,11 +62,10 @@ namespace transmission_nets::core::computation {
         register_moved_right_listener_key(ref);
 //        register_element_changed_listener_key(ref);
 
+        // A latent genotype change leaves the ordering as it is, so the ordering neither listens to it nor is saved
+        // with it; parent sets listen to their allowed parents themselves.
         ref->infectionDuration()->add_post_change_listener([=, this]() { this->infectionDurationChanged(ref); });
         ref->infectionDuration()->registerCacheableCheckpointTarget(this);
-
-        ref->add_post_change_listener([=, this]() { this->elementChanged(ref); });
-        ref->registerCacheableCheckpointTarget(this);
     }
 
     template<typename InfectionEventImpl>
@@ -165,12 +161,6 @@ namespace transmission_nets::core::computation {
                 }
             }
         }
-    }
-
-    template<typename InfectionEventImpl>
-    void ObservationTimeDerivedOrdering<InfectionEventImpl>::elementChanged(std::shared_ptr<InfectionEventImpl> ref) {
-        this->notify_element_changed(ref);
-        this->setDirty();
     }
 
     template<typename InfectionEventImpl>
