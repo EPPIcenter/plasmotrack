@@ -10,13 +10,14 @@
 #include <vector>
 
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/scheduler/SamplerIndex.h"
 
 namespace transmission_nets::core::samplers {
 
     struct ScheduledSampler {
         std::unique_ptr<AbstractSampler> sampler;
 
-        std::string id = "Unknown";
+        std::string id;// `<type>/<target>`, unique within the scheduler
         int adaptationStart = 0;
         int adaptationEnd = 0;
         bool scaledAdaptation  = false;
@@ -24,7 +25,6 @@ namespace transmission_nets::core::samplers {
         long unsigned int updateEnd = std::numeric_limits<int>::max();
         int updateFrequency = 1;
         double weight = 1.0;
-        bool debug = false;
 
         void update() const;
         void adapt() const;
@@ -43,8 +43,8 @@ namespace transmission_nets::core::samplers {
     class Scheduler {
 
     public:
-        explicit Scheduler(int numSamples);
-        void registerSampler(std::unique_ptr<AbstractSampler> sampler);
+        Scheduler() = default;
+        // Throws std::invalid_argument when the sampler's id is already registered.
         void registerSampler(ScheduledSampler sampler);
 
         void update(ScheduledSampler& sampler) const;
@@ -56,9 +56,21 @@ namespace transmission_nets::core::samplers {
 
         [[nodiscard]] const std::vector<ScheduledSampler>& samplers() const noexcept;
 
+        // Sampler ids in registration order.
+        [[nodiscard]] const std::vector<std::string>& samplerIds() const noexcept;
+
+        // Throws std::out_of_range for an id that isn't registered.
+        [[nodiscard]] AbstractSampler& sampler(const std::string& id) const;
+
+        // Sampling iterations run so far, which decide when each sampler updates and adapts.
+        [[nodiscard]] int iterations() const noexcept { return totalSteps; }
+
+        // Continue from `iterations`, as when resuming from a checkpoint.
+        void restoreIterations(const int iterations) noexcept { totalSteps = iterations; }
+
     protected:
         std::vector<ScheduledSampler> samplers_{};
-        int numSamples = 0;
+        SamplerIndex index_{};
         int totalSteps = 0;
     };
 

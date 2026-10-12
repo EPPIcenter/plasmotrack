@@ -140,6 +140,7 @@ namespace transmission_nets::core::samplers::specialized {
 
         if (accept) {
             acceptances_++;
+            countProposal(true);
 
             infection_duration_->acceptState();
             for (const auto& locus : infection_->loci()) {
@@ -147,6 +148,7 @@ namespace transmission_nets::core::samplers::specialized {
             }
         } else {
             rejections_++;
+            countProposal(false);
             infection_duration_->restoreState(stateId);
             for (const auto& locus : infection_->loci()) {
                 infection_->latentGenotype(locus)->restoreState(stateId);

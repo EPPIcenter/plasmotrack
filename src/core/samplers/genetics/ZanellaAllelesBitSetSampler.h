@@ -131,23 +131,6 @@ namespace transmission_nets::core::samplers::genetics {
         int i         = 0;
         double cumsum = 0;
         while (unifSample >= cumsum) {
-
-#ifdef DNDEBUG
-            if (i == int(normedNeighborhoodLik.size())) {
-                std::cerr << "CumSum: " << cumsum << " " << unifSample << std::endl;
-                std::cerr << "[";
-                for (const auto llik : normedNeighborhoodLik) {
-                    std::cerr << llik << ", ";
-                }
-                std::cerr << "]" << std::endl;
-
-                std::cerr << "[";
-                for (const auto llik : neighborhoodLik) {
-                    std::cerr << llik << ", ";
-                }
-                std::cerr << "]" << std::endl;
-            }
-#endif
             assert(i < int(normedNeighborhoodLik.size()));
             cumsum += normedNeighborhoodLik[i];
             ++i;
@@ -167,23 +150,6 @@ namespace transmission_nets::core::samplers::genetics {
         int i         = 0;
         double cumsum = 0;
         while (unifSample >= cumsum) {
-
-#ifdef DNDEBUG
-            if (i == int(normedNeighborhoodLik.size())) {
-                std::cerr << "CumSum: " << cumsum << " " << unifSample << std::endl;
-                std::cerr << "[";
-                for (const auto llik : normedNeighborhoodLik) {
-                    std::cerr << llik << ", ";
-                }
-                std::cerr << "]" << std::endl;
-
-                std::cerr << "[";
-                for (const auto llik : neighborhoodLik) {
-                    std::cerr << llik << ", ";
-                }
-                std::cerr << "]" << std::endl;
-            }
-#endif
             assert(i < int(normedNeighborhoodLik.size()));
             cumsum += normedNeighborhoodLik[i];
             ++i;
@@ -206,11 +172,6 @@ namespace transmission_nets::core::samplers::genetics {
                 parameter_->saveState(SAMPLER_STATE_ID::ZanellaAllelesBitSetFlipID);
                 parameter_->setValue(tmp);
                 neighborhood.push_back(target_->value() * 0.5);
-#ifdef DNDEBUG
-                if (std::isnan(neighborhood.back())) {
-                    std::cerr << "Encountered NaN: " << target_->value() << std::endl;
-                }
-#endif
                 parameter_->restoreState(SAMPLER_STATE_ID::ZanellaAllelesBitSetFlipID);
             } else {
                 neighborhood.push_back(-std::numeric_limits<Likelihood>::infinity());

@@ -2,30 +2,46 @@
 // Created by Maxwell Murphy on 11/15/23.
 //
 
+#include "core/io/ParquetStoreSink.h"
+#include "impl/model/Model/Checkpoint.h"
 #include "core/io/parse_json.h"
 #include "core/samplers/meta/ReplicaExchange.h"
+#include "core/utils/InterruptWatcher.h"
+#include "core/utils/Sha256.h"
 #include "core/utils/timers.h"
 #include "core/version.h"
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/Model.h"
-#include "impl/model/Model/ModelLogger.h"
 #include "impl/model/Model/SampleScheduler.h"
 #include "impl/model/Model/SequentialScheduler.h"
 #include "impl/model/Model/State.h"
-#include "impl/model/Model/StateLogger.h"
+#include "impl/model/Model/Progress.h"
+#include "impl/model/Model/RunDriver.h"
+#include "impl/model/Model/RunRecipe.h"
+#include "impl/model/Model/RunRecorder.h"
 #include "core/io/utils.h"
 
 #include <boost/program_options.hpp>
 
 #include <fmt/core.h>
 
-#include <csignal>
+#include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <map>
 #include <iostream>
+#include <optional>
+#include <random>
+#include <stdexcept>
 #include <string>
+#include <variant>
+#include <vector>
 
 
 using namespace transmission_nets::impl;
+namespace checkpoint = transmission_nets::impl::Model::checkpoint;
 using namespace transmission_nets::core::io;
 using namespace transmission_nets::core::computation;
 using namespace transmission_nets::core::samplers;
@@ -33,77 +49,73 @@ using namespace transmission_nets::core::utils;
 using namespace transmission_nets::core::version;
 
 namespace {
+    // Exit codes. An output, Run manifest or checkpoint that can't be written or used exits with OUTPUT_FAILURE (3),
+    // naming the path; see OutputFailure.h.
     const size_t SUCCESS                   = 0;
-    const size_t ERROR_IN_COMMAND_LINE     = 1;
+    const size_t ERROR_IN_COMMAND_LINE     = 1;// a bad option, or a Run refused to start or resume
     const size_t ERROR_UNHANDLED_EXCEPTION = 2;
-}
 
-// Global interrupt tracker
-bool interrupted = false;
-
-// Global replica exchange object
-std::unique_ptr<ReplicaExchange<Model::State, Model::Model, Model::SequentialSampleScheduler, Model::ModelLogger, Model::StateLogger>> repex;
-
-void finalize_output(int signal_num) {
-    if (interrupted and signal_num != SIGUSR2 and signal_num != SIGUSR1) {
-        fmt::print("Killing process, output inconsistent...\n");
-        exit(SUCCESS);
+    // 128 random bits as hex, drawn apart from the Run's seeded engines so that it changes nothing they draw.
+    std::string newRunId() {
+        std::random_device device;
+        std::string id;
+        for (int k = 0; k < 4; ++k) {
+            id += fmt::format("{:08x}", device());
+        }
+        return id;
     }
-    interrupted = true;
-    std::map <int, std::string> signals = {
-            {SIGINT, "SIGINT"},
-            {SIGQUIT, "SIGQUIT"},
-            {SIGABRT, "SIGABRT"},
-            {SIGTERM, "SIGTERM"},
-            {SIGUSR2, "SIGUSR2"},
-            {SIGUSR1, "SIGUSR1"},
-    };
-    fmt::print("Interrupt signal {} received. Finalizing output...", signals[signal_num]);
+
+    // The value of option `name` if it was given, not defaulted for --help.
+    template<typename T>
+    std::optional<T> givenValue(const boost::program_options::variables_map& vm, const char* name) {
+        if (!vm.count(name) or vm[name].defaulted()) {
+            return std::nullopt;
+        }
+        return vm[name].as<T>();
+    }
 }
-
-
 
 int main(int argc, char** argv) {
-    signal(SIGINT, finalize_output);
-    signal(SIGQUIT, finalize_output);
-    signal(SIGABRT, finalize_output);
-    signal(SIGTERM, finalize_output);
-    signal(SIGUSR2, finalize_output);
-    signal(SIGUSR1, finalize_output);
+    // Declared before the watcher so they outlive the watcher's thread, which forces the Run's end through the Run
+    // driver once there is one.
+    std::optional<Model::RunDriver> driver;
+    std::atomic<Model::RunDriver*> driving{nullptr};
+    // Constructed before any other thread starts, so every thread leaves the interrupt signals to the watcher.
+    const InterruptWatcher watcher([&](const std::string& signal) {
+        if (auto* const d = driving.load()) {
+            d->forceEnd(watcher.firstSignal(), signal);
+        }
+    });
 
 
-//    try {
-        int num_chains;
-        unsigned int num_cores;
-        Probability gradient;
-
-        int burnin;
-        int sample;
-        int thin;
-        long seed;
+    try {
         bool null_model;
         std::string input;
-        std::string output_dir;
         std::string symptomatic_idp_path;
         std::string asymptomatic_idp_path;
 
-        namespace po = boost::program_options;
+        // Defaults are the Run recipe's; boost holds them only to show them in --help.
+        namespace po       = boost::program_options;
+        namespace defaults = Model::defaults;
         po::options_description desc("Options");
         auto opts = desc.add_options();
         opts("help", "Display help message");
         opts("version", "Display version information");
-        opts("burnin,b", po::value<int>(&burnin)->default_value(5000), "Number of steps to be used for burnin");
-        opts("sample,s", po::value<int>(&sample)->default_value(10000), "Total number of steps to be used for sampling");
-        opts("thin,t", po::value<int>(&thin)->default_value(10), "Number of sampling steps per logged sample");
-        opts("numchains,n", po::value<int>(&num_chains)->default_value(1), "Number of chains to run in replica exchange algorithm.");
-        opts("numcores,c", po::value<unsigned int>(&num_cores)->default_value(1), "Number of cores to use in replica exchange algorithm.");
-        opts("gradient,g", po::value<Probability>(&gradient)->default_value(0), "Lower temperature of gradient to use in replica exchange algorithm");
-        opts("seed", po::value<long>(&seed)->default_value(-1), "Seed used in random number generator. Runs with the same seed, input and options produce the same results, regardless of numcores. A value of -1 indicates generate a random seed.");
-        opts("hotload,h", "Hotload parameters from the output directory");
+        opts("burnin,b", po::value<std::int64_t>()->default_value(defaults::BURN_IN), "Number of Sampling iterations in burn-in");
+        opts("sample,s", po::value<std::int64_t>()->default_value(defaults::SAMPLES), "Number of Sampling iterations in the sampling Phase");
+        opts("thin,t", po::value<std::int64_t>()->default_value(defaults::THIN), "A Trace row is written every -t Sampling iterations");
+        opts("window", po::value<std::int64_t>()->default_value(defaults::WINDOW), "Sampling iterations per Window, a multiple of --thin. Each Window is committed to the store whole, so a killed Run loses at most the Window in flight.");
+        opts("parent-set-floor", po::value<double>()->default_value(defaults::PARENT_SET_FLOOR), "Parent sets less probable than this are not recorded. A floor of 0 keeps every Parent set with non-zero probability.");
+        opts("numchains,n", po::value<int>()->default_value(defaults::CHAINS), "Number of chains to run in replica exchange algorithm.");
+        opts("numcores,c", po::value<unsigned int>()->default_value(defaults::CORES), "Number of cores to use in replica exchange algorithm.");
+        opts("gradient,g", po::value<double>()->default_value(defaults::GRADIENT), "Lower temperature of gradient to use in replica exchange algorithm");
+        opts("seed", po::value<long>()->default_value(defaults::SEED), "Seed used in random number generator. Runs with the same seed, input and options produce the same results, regardless of numcores. A value of -1 indicates generate a random seed.");
         opts("symptomatic-idp", po::value<std::string>(&symptomatic_idp_path)->required(), "file path to Symptomatic IDP");
         opts("asymptomatic-idp", po::value<std::string>(&asymptomatic_idp_path)->required(), "file path to Symptomatic IDP");
         opts("input,i", po::value<std::string>(&input)->required(), "Input file");
-        opts("output-dir,o", po::value<std::string>(&output_dir)->required(), "Output directory");
+        opts("output-dir,o", po::value<std::string>(), "Output directory: the Run's store is written here. Required unless --resume is given.");
+        opts("resume", po::value<std::string>(), "Continue the Run whose store is this directory from its latest checkpoint, with the same input. Give no output directory. Recipe options default to the Run's; only -s may change, and only grow.");
+        opts("start-from", po::value<std::string>(), "Start a new Run from the State and adaptation in this checkpoint (a Run's checkpoint.cbor or checkpoint-burn-in.cbor), with the same input. The new Run has its own seed and -b burn-in, and numbers iterations from 0.");
         opts("null-model", po::bool_switch(&null_model)->default_value(false), "Run the null model (no genetics)");
 
         po::positional_options_description p;
@@ -139,35 +151,61 @@ int main(int argc, char** argv) {
             return ERROR_IN_COMMAND_LINE;
         }
 
-        bool hotload = false;
-        if (vm.count("hotload")) {
-            hotload = true;
-        }
-
         namespace fs = std::filesystem;
+        using Model::RefusalKind;
+
+        Model::GivenOptions given{.burnIn         = givenValue<std::int64_t>(vm, "burnin"),
+                                  .samples        = givenValue<std::int64_t>(vm, "sample"),
+                                  .thin           = givenValue<std::int64_t>(vm, "thin"),
+                                  .window         = givenValue<std::int64_t>(vm, "window"),
+                                  .parentSetFloor = givenValue<double>(vm, "parent-set-floor"),
+                                  .chains         = givenValue<int>(vm, "numchains"),
+                                  .cores          = givenValue<unsigned int>(vm, "numcores"),
+                                  .gradient       = givenValue<double>(vm, "gradient"),
+                                  .seed           = givenValue<long>(vm, "seed"),
+                                  .nullModel      = null_model,
+                                  .outputDir      = givenValue<std::string>(vm, "output-dir"),
+                                  .resume         = givenValue<std::string>(vm, "resume"),
+                                  .startFrom      = givenValue<std::string>(vm, "start-from")};
 
         const fs::path nodesFile{input};
-        const fs::path outputDir{output_dir};
-        const std::vector<Probability> symptomatic_idp = loadVectorFromFile<Probability>(symptomatic_idp_path);
-        const std::vector<Probability> asymptomatic_idp = loadVectorFromFile<Probability>(asymptomatic_idp_path);
-
         if (!fs::exists(nodesFile)) {
-            std::cerr << "Nodes input file does not exist." << std::endl;
-            return ERROR_IN_COMMAND_LINE;
+            throw Model::Refused(Model::refuse(RefusalKind::InputMissing, "Nodes input file does not exist."));
+        }
+        const auto store = given.resume ? given.resume : given.outputDir;
+        if (store and !fs::exists(*store)) {
+            throw Model::Refused(Model::refuse(RefusalKind::OutputDirMissing, "Output directory does not exist."));
+        }
+        const auto symptomatic_idp  = loadVectorFromFile<Probability>(symptomatic_idp_path);
+        const auto asymptomatic_idp = loadVectorFromFile<Probability>(asymptomatic_idp_path);
+        given.inputSha256           = {{Model::input_names::INPUT, sha256HexOfFile(nodesFile)},
+                                       {Model::input_names::SYMPTOMATIC_IDP, sha256HexOfFile(symptomatic_idp_path)},
+                                       {Model::input_names::ASYMPTOMATIC_IDP, sha256HexOfFile(asymptomatic_idp_path)}};
+
+        // The Run the store holds, and the checkpoint the option given names. Which of them a Run may use is the Run
+        // recipe's to rule. A store with no Run has no checkpoint to read: the recipe refuses to resume it.
+        const auto stored = store ? Model::readStoredRun(*store) : std::nullopt;
+        std::optional<checkpoint::Checkpoint> saved;
+        if (given.startFrom) {
+            saved = checkpoint::load(*given.startFrom);
+        } else if (given.resume and stored) {
+            saved = checkpoint::load(*given.resume / checkpoint::LATEST_FILE);
         }
 
-        if (!fs::exists(outputDir)) {
-            std::cerr << "Output directory does not exist." << std::endl;
-            return ERROR_IN_COMMAND_LINE;
+        auto resolved = Model::resolve(given, stored, saved);
+        if (auto* refusal = std::get_if<Model::Refusal>(&resolved)) {
+            throw Model::Refused(std::move(*refusal));
+        }
+        auto& recipe        = std::get<Model::Recipe>(resolved);
+        const bool resuming = recipe.mode == Model::Mode::Resume;
+        auto& manifest      = recipe.manifest;
+        Model::ConsoleProgress progress(std::cout);
+        for (const auto& notice : recipe.notices) {
+            progress.notice(notice);
         }
 
-        if (thin < 1) {
-            std::cerr << "Thin must be at least 1." << std::endl;
-            return ERROR_IN_COMMAND_LINE;
-        }
-
-        if (null_model) {
-            fmt::print("Running the null model (no genetics)\n");
+        if (manifest.nullModel) {
+            progress.notice("Running the null model (no genetics)");
         }
 
         json j;
@@ -179,90 +217,68 @@ int main(int argc, char** argv) {
             j = loadJSON<std::ifstream&>(inputFile);
         }
 
-        if (seed == -1) {
-            seed = timers::time().time_since_epoch().count();
+        if (manifest.seed == -1) {
+            manifest.seed = timers::time().time_since_epoch().count();
         }
 
-        fmt::print("Seed Used: {}\n", seed);
-        auto r = std::make_shared<boost::random::mt19937>(seed);
-        repex  = std::make_unique<ReplicaExchange<Model::State, Model::Model, Model::SequentialSampleScheduler, Model::ModelLogger, Model::StateLogger>>(num_chains, thin, gradient, r, outputDir, hotload, null_model, num_cores, j, symptomatic_idp, asymptomatic_idp);
-
-        fmt::print("Starting Replica Exchange...\n");
-        repex->logState();
-        repex->finalize();
-
-        float samplesPerSecond = 0;
-        int totalSamples = 0;
-        float averageSamplesPerSecond = 0;
-        timers::dsec totalDuration{0};
-
-
-        fmt::print("Starting Llik: {0:.2f}\n", repex->hotValue());
-        for (int kk = 0; kk < burnin; ++kk) {
-            if (interrupted) {
-                repex->logModel();
-                repex->logState();
-                break;
+        auto r = std::make_shared<boost::random::mt19937>(manifest.seed);
+        std::unique_ptr<Model::Ensemble> repex;
+        if (saved) {
+            repex = checkpoint::restore(*saved, r, j, symptomatic_idp, asymptomatic_idp, manifest.nullModel, recipe.cores);
+            if (recipe.mode == Model::Mode::StartFrom) {
+                // A new Run's burn-in counts from 0, not from the saved position, so its ladder adapts on the same
+                // iterations as a fresh Run's.
+                auto exchange             = repex->exchangeState();
+                exchange.burnInIterations = 0;
+                repex->restoreExchangeState(exchange);
+                // A new Run draws from its own seed, from the saved State on.
+                r->seed(static_cast<std::uint32_t>(manifest.seed));
+                for (auto& chain : repex->chains) {
+                    chain.r->seed((*r)());
+                }
             }
+        } else {
+            repex = std::make_unique<Model::Ensemble>(manifest.chains, *manifest.gradient, r, manifest.nullModel, recipe.cores, j, symptomatic_idp, asymptomatic_idp);
+        }
+        if (!resuming) {
+            progress.notice(fmt::format("Seed Used: {}", manifest.seed));
+            // A resumed Run keeps its manifest: the original recipe. Its run_resumed event records the new -s.
+            manifest.runId        = newRunId();
+            manifest.startedAt    = timers::wallTime(std::chrono::system_clock::now());
+            manifest.cliArguments = std::vector<std::string>(argv, argv + argc);
+            manifest.gitCommit    = TRANSMISSION_NETWORKS_GIT_COMMIT;
+        }
+        const fs::path outputDir = recipe.store;
 
-            auto t0 = timers::time();
-            repex->burnin();
+        Model::RunRecorder recorder(*repex->hotChain().state, repex->samplerIds(), std::make_unique<ParquetStoreSink>(outputDir),
+                                    recipe.recorder, manifest);
+        const checkpoint::Identity identity{.runId = manifest.runId, .inputHash = given.inputSha256.at(Model::input_names::INPUT), .engineVersion = manifest.engineVersion};
+        driving = &driver.emplace(*repex, *r, recorder, outputDir, identity, progress);
 
-            if (kk % 5 == 0 and kk > 10 and num_chains > 1) {
-                repex->adaptTemp();
+        Model::RunStart start = Model::FreshRun{};
+        if (resuming) {
+            start = Model::ResumedRun{.position = saved->position, .parentSetIds = saved->parentSetIds};
+        }
+        const auto outcome = driver->drive(start, recipe.plan, [&]() -> std::optional<std::string> {
+            if (!watcher.interrupted()) {
+                return std::nullopt;
             }
-
-            auto t1 = timers::time();
-
-            timers::dsec ds = t1 - t0;
-            totalDuration += ds;
-            totalSamples += num_chains;
-            samplesPerSecond = (num_chains / ds.count());
-            averageSamplesPerSecond = totalSamples / totalDuration.count();
-
-            fmt::print("(b={0}) ", kk);
-            repex->printModelLlik();
-            fmt::print(" ({0:.2f} samples/sec -- Average: {1:.2f} samples/sec)\n", samplesPerSecond, averageSamplesPerSecond);
+            return watcher.firstSignal();
+        });
+        if (std::holds_alternative<Model::Stopped>(outcome)) {
+            // The Run stopped cleanly for the first interrupt; report it as a shell reports a process a signal ended.
+            return 128 + watcher.firstSignalNumber();
         }
 
-
-        // Every step is sampled; one in `thin` is logged.
-        timers::dsec thinDuration{0};
-        for (int jj = 0; jj < sample; ++jj) {
-            if (interrupted) {
-                break;
-            }
-
-            auto t0 = timers::time();
-            repex->sample();
-            auto t1 = timers::time();
-
-            timers::dsec ds = t1 - t0;
-            totalDuration += ds;
-            thinDuration += ds;
-            totalSamples += num_chains;
-            if ((jj + 1) % thin != 0) {
-                continue;
-            }
-            samplesPerSecond = (thin * num_chains / thinDuration.count());
-            averageSamplesPerSecond = totalSamples / totalDuration.count();
-            thinDuration = timers::dsec{0};
-
-            repex->logModel();
-            repex->logState();
-
-            fmt::print("(s={0}) ", jj);
-            repex->printModelLlik();
-            fmt::print("({0:.2f} samples/sec -- Average: {1:.2f} samples/sec)\n", samplesPerSecond, averageSamplesPerSecond);
-        }
-
-        repex->finalize();
-
-//    } catch (std::exception& e) {
-//        std::cerr << "Unhandled Exception reached the top of main: "
-//                  << e.what() << ", application will now exit" << std::endl;
-//        return ERROR_UNHANDLED_EXCEPTION;
-//    }
+    } catch (const Model::Refused& e) {
+        std::cerr << "ERROR: " << e.what() << std::endl;
+        return ERROR_IN_COMMAND_LINE;
+    } catch (const std::filesystem::filesystem_error& e) {
+        failOutput("use", e.path1(), e.code().message());
+    } catch (const std::exception& e) {
+        std::cerr << "ERROR: unhandled exception: " << e.what() << std::endl;
+        return ERROR_UNHANDLED_EXCEPTION;
+    }
 
     return SUCCESS;
 

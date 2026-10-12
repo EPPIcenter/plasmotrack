@@ -234,7 +234,7 @@ namespace transmission_nets::core::utils {
     }
 
     template<typename T>
-    double logDiffExp(const T a, const T b, const bool verbose = false) {
+    double logDiffExp(const T a, const T b) {
         /**
          * return the numerically stable log(exp(a) - exp(b))
          * if b > a, returns -inf
@@ -245,9 +245,6 @@ namespace transmission_nets::core::utils {
             //            std::cerr << "Warning -- b > a : " << b << " " << a << " " << b + std::log(1 - std::exp(a - b)) << std::endl;
             //#endif
             return -std::numeric_limits<T>::infinity();
-        }
-        if (verbose) {
-            fmt::print("Log Diff: {}, {}\n", std::exp(b - a), std::log(1.0 - std::exp(b - a)));
         }
         //        mpfr_t a_;
         //        mpfr_t b_;

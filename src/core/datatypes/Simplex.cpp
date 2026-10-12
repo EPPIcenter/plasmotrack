@@ -28,6 +28,19 @@ namespace transmission_nets::core::datatypes {
         set(freqs);
     }
 
+    Simplex Simplex::exactly(const std::vector<double>& freqs) {
+        Simplex simplex(static_cast<unsigned char>(freqs.size()));
+        simplex.coefficients_.fill(0);
+        simplex.min_ = std::numeric_limits<double>::max();
+        simplex.max_ = std::numeric_limits<double>::min();
+        for (unsigned char ii = 0; ii < simplex.total_elements_; ++ii) {
+            simplex.coefficients_[ii] = freqs[ii];
+            simplex.min_              = std::min(simplex.min_, freqs[ii]);
+            simplex.max_              = std::max(simplex.max_, freqs[ii]);
+        }
+        return simplex;
+    }
+
     Simplex::Simplex(const Simplex& other) : coefficients_(other.coefficients_), total_elements_(other.total_elements_), min_(other.min_), max_(other.max_) {}
 
     Simplex::Simplex(Simplex&& other) noexcept : coefficients_(other.coefficients_), total_elements_(other.total_elements_), min_(other.min_), max_(other.max_) {

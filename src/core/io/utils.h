@@ -20,11 +20,6 @@ namespace transmission_nets::core::io {
     namespace fs = std::filesystem;
     fs::path getPathFromEnvVar(const char* envVar);
 
-    std::string getLastLine(std::istream& in);
-    std::string getCompressedLastLine(const fs::path& in);
-    double hotloadDouble(const fs::path& filePath);
-    std::vector<double> hotloadVector(const fs::path& filePath);
-    std::string hotloadString(const fs::path& filePath);
     std::string makePathValid(const std::string& input);
     std::vector<char> decompressGzipFile(const fs::path& filePath);
 

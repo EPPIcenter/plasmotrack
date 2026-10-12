@@ -184,6 +184,7 @@ namespace transmission_nets::core::samplers::genetics {
 
         if (!path_differs) {
             acceptances_++;
+            countProposal(true);
             return;
         }
 
@@ -208,11 +209,13 @@ namespace transmission_nets::core::samplers::genetics {
 
         if (accept) {
             acceptances_++;
+            countProposal(true);
             for (auto& param : updatedParameters) {
                 param->acceptState();
             }
         } else {
             rejections_++;
+            countProposal(false);
             for (auto& param : updatedParameters) {
                 param->restoreState(stateId);
             }

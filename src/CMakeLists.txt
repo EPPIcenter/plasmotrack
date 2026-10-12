@@ -51,20 +51,15 @@ set(CORE_IO_SOURCES
     core/io/serialize.h
     core/io/utils.cpp
     core/io/utils.h
-    core/io/loggers/FileOutput.h
-    core/io/loggers/FileOutput.cpp
-    core/io/loggers/ValueLogger.h
-    core/io/loggers/MultiValueLogger.h
-    core/io/loggers/LambdaLogger.h
-    core/io/loggers/ParentSetDistLogger.h
-    core/io/loggers/AbstractLogger.h
-    core/io/loggers/AbstractOutput.h
-    core/io/loggers/CompressedFileOutput.cpp
-    core/io/loggers/CompressedFileOutput.h
-)
-
-set(CORE_MCMC_SOURCES
-    core/mcmc/Chain.h
+    core/io/MemoryStoreSink.h
+    core/io/StoreSink.h
+    core/io/Table.h
+    core/io/DurableFile.cpp
+    core/io/DurableFile.h
+    core/io/OutputFailure.cpp
+    core/io/OutputFailure.h
+    core/io/ParquetStoreSink.cpp
+    core/io/ParquetStoreSink.h
 )
 
 set(CORE_PRIORS_SOURCES
@@ -81,6 +76,7 @@ set(CORE_SAMPLERS_SOURCES
     core/samplers/scheduler/Scheduler.cpp
     core/samplers/scheduler/Scheduler.h
     core/samplers/scheduler/RandomizedScheduler.h
+    core/samplers/scheduler/SamplerIndex.h
     core/samplers/specialized/ZanellaJointGeneticsGraphSampler.h
     core/samplers/specialized/JointGeneticsTimeSampler.h
     core/samplers/topology/RandomAddEdgeSampler.h
@@ -89,6 +85,7 @@ set(CORE_SAMPLERS_SOURCES
     core/samplers/topology/RandomReverseEdgeSampler.h
     core/samplers/topology/ZanellaNeighborOrderSampler.h
     core/samplers/topology/ZanellaOrderSampler.h
+    core/samplers/meta/EnsembleSnapshot.h
     core/samplers/meta/ReplicaExchange.h
 )
 
@@ -101,6 +98,10 @@ set(CORE_UTILS_SOURCES
     core/utils/ProbAnyMissing.cpp
     core/utils/LogPQ.cpp
     core/utils/LogPQ.h
+    core/utils/InterruptWatcher.cpp
+    core/utils/InterruptWatcher.h
+    core/utils/Sha256.cpp
+    core/utils/Sha256.h
     core/utils/timers.h
 )
 
@@ -124,12 +125,20 @@ set(IMPL_SOURCES
     impl/model/Model/Model.cpp
     impl/model/Model/Model.h
     impl/model/Model/config.h
-    impl/model/Model/ModelLogger.cpp
-    impl/model/Model/ModelLogger.h
+    impl/model/Model/Checkpoint.cpp
+    impl/model/Model/Checkpoint.h
+    impl/model/Model/RunPosition.h
+    impl/model/Model/ParentSetIds.h
+    impl/model/Model/RunRecorder.cpp
+    impl/model/Model/RunRecorder.h
+    impl/model/Model/RunDriver.cpp
+    impl/model/Model/Progress.cpp
+    impl/model/Model/RunDriver.h
+    impl/model/Model/RunRecipe.cpp
+    impl/model/Model/RunRecipe.h
+    impl/model/Model/Refusal.h
     impl/model/Model/SampleScheduler.h
     impl/model/Model/SequentialScheduler.h
-    impl/model/Model/StateLogger.cpp
-    impl/model/Model/StateLogger.h
 )
 
 set(OTHER_SOURCES
@@ -145,7 +154,6 @@ set(SOURCE_FILES
     ${CORE_DATATYPES_SOURCES}
     ${CORE_DISTRIBUTIONS_SOURCES}
     ${CORE_IO_SOURCES}
-    ${CORE_MCMC_SOURCES}
     ${CORE_PRIORS_SOURCES}
     ${CORE_SAMPLERS_SOURCES}
     ${CORE_UTILS_SOURCES}
@@ -196,6 +204,7 @@ target_link_libraries(transmission_networks
         nlohmann_json::nlohmann_json
         fmt::fmt
         ZLIB::ZLIB
+        Parquet::parquet_static
 )
 
 link_openmp_if_available(transmission_networks)

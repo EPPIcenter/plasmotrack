@@ -1,0 +1,2 @@
+# The golden stores hold Parquet files; never convert line endings.
+* -text

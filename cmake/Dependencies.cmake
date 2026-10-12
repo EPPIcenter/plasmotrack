@@ -4,6 +4,7 @@ function(find_transmission_networks_dependencies)
     find_package(nlohmann_json REQUIRED)
     find_package(fmt REQUIRED)
     find_package(ZLIB REQUIRED)
+    find_package(Arrow REQUIRED)
     
     find_package(OpenMP COMPONENTS CXX)
     

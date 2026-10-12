@@ -61,9 +61,6 @@ namespace transmission_nets::core::samplers::genetics {
         const auto currentVal = parameter_->value();
         const auto& proposal = sampleProposal(currentVal);
 
-        std::string currentValStr = currentVal.serialize();
-        std::string proposalStr = proposal.serialize();
-
         assert(!target_->isDirty());
         parameter_->setValue(proposal);
         const Likelihood adj = logMetropolisHastingsAdjustment(currentVal, proposal);
@@ -71,47 +68,15 @@ namespace transmission_nets::core::samplers::genetics {
         const Likelihood logProbAccept = log(uniform_dist_(*rng_));
         const bool accept = (logProbAccept <= acceptanceRatio) and std::abs(acceptanceRatio) > 1e-10;
 
-
-        if (debug_) {
-            fmt::print("Acceptance ratio: {}\n", acceptanceRatio);
-            fmt::print("Llik change: {}\n", std::abs(acceptanceRatio) > 1e-10);
-            fmt::print("Log prob accept: {}\n", logProbAccept);
-            fmt::print("Accept: {}\n", accept);
-            fmt::print("Current likelihood: {}\n", curLik);
-            fmt::print("Proposed likelihood: {}\n", target_->value());
-            fmt::print("Adjustment: {}\n", adj);
-            fmt::print("Current value: {}\n", currentValStr);
-            fmt::print("Proposal: {}\n", proposalStr);
-        }
-
-
         if (accept) {
-            if (target_->value() < curLik and debug_) {
-                fmt::print("Likelihood decreased!\n");
-                fmt::print("Log prob accept: {}\n", logProbAccept);
-                fmt::print("Current Likelihood: {}\n", curLik);
-                fmt::print("New Llik: {} -- (AccR: {}, Adj: {})\n", target_->value(), acceptanceRatio, adj);
-                fmt::print("Current value: {}\n", currentVal.serialize());
-                fmt::print("Proposal: {}\n", proposal.serialize());
-
-                parameter_->setValue(currentVal);
-                fmt::print("Old Llik: {}\n", target_->value());
-                parameter_->setValue(proposal);
-                fmt::print("New Llik: {}\n", target_->value());
-                fmt::print("------------------------\n");
-            }
             acceptances_++;
+            countProposal(true);
             parameter_->acceptState();
         } else {
             rejections_++;
+            countProposal(false);
             parameter_->restoreState(stateId);
             assert(parameter_->value() == currentVal);
-        }
-
-        if (debug_) {
-            fmt::print("Acceptances: {}\n", acceptances_);
-            fmt::print("Rejections: {}\n", rejections_);
-            fmt::print("------------------------\n");
         }
 
         //        assert(!target_->isDirty());

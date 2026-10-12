@@ -23,11 +23,6 @@ namespace transmission_nets::impl::Model {
                        const std::vector<core::computation::Probability>& asymptomaticIDPDist,
                        const std::shared_ptr<boost::random::mt19937>& rng,
                        bool null_model = false);
-        State(const nlohmann::json& input,
-              const std::vector<core::computation::Probability>& symptomaticIDPDist,
-              const std::vector<core::computation::Probability>& asymptomaticIDPDist,
-              std::shared_ptr<boost::random::mt19937> rng,
-              const fs::path& outputDir, bool null_model = false);
 
         void initPriors();
 

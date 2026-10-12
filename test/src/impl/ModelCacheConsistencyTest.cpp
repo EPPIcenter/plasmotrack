@@ -87,7 +87,7 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
 
     auto state = std::make_shared<State>(input, idp, idp, rng);
     auto model = std::make_shared<Model>(state);
-    SequentialSampleScheduler<Model> scheduler(state, model, rng, 1);
+    SequentialSampleScheduler<Model> scheduler(state, model, rng);
 
     constexpr int sweeps = 6;
     for (int s = 0; s < sweeps; ++s) {

@@ -96,6 +96,7 @@ namespace transmission_nets::core::samplers::genetics {
         }
         if (impossible) {
             ++rejections_;
+            countProposal(false);
             for (const auto& locus : latentParent_->loci()) {
                 latentParent_->latentGenotype(locus)->restoreState(stateId);
             }
@@ -106,11 +107,13 @@ namespace transmission_nets::core::samplers::genetics {
         const double acceptanceRatio = target_->value() - currentLik + currentLogQ - proposedLogQ;
         if (std::log(uniform_(*rng_)) <= acceptanceRatio) {
             ++acceptances_;
+            countProposal(true);
             for (const auto& locus : latentParent_->loci()) {
                 latentParent_->latentGenotype(locus)->acceptState();
             }
         } else {
             ++rejections_;
+            countProposal(false);
             for (const auto& locus : latentParent_->loci()) {
                 latentParent_->latentGenotype(locus)->restoreState(stateId);
             }

@@ -155,7 +155,7 @@ namespace transmission_nets::core::abstract {
                                         ObserverMap<ListenerId_t, Callback>& callback_container) noexcept -> bool {
         auto elements_removed = callback_container.erase(id);
         if (elements_removed != 1) {
-            fmt::print("{} Elements Removed.", elements_removed);
+            fmt::print(stderr, "ERROR: removing listener {} removed {} listeners; expected 1.\n", id, elements_removed);
             assert(elements_removed == 1);
             exit(1);
         }

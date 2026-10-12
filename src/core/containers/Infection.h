@@ -180,7 +180,7 @@ namespace transmission_nets::core::containers {
         /**
          * @brief Changes whenever any latent genotype is set or restored, so callers can cache results per genome.
          * initializeValue() on a latent genotype does not notify and so does not change it; it is only used before
-         * any likelihood is computed (hotloading).
+         * any likelihood is computed (restoring a checkpoint).
          */
         [[nodiscard]] std::uint64_t latentGenomeVersion() const noexcept {
             return latentGenomeVersion_;

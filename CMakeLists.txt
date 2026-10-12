@@ -89,6 +89,8 @@ set(TRANSMISSION_NETWORKS_INSTALL_BIN_DIR ${CMAKE_INSTALL_PREFIX}/bin)
 set(TRANSMISSION_NETWORKS_LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
 set(TRANSMISSION_NETWORK_HEADERS_DIR ${PROJECT_SOURCE_DIR}/src)
 
+enable_testing()
+
 add_subdirectory(src)
 add_subdirectory(test)
 add_subdirectory(tools/cli/Model)

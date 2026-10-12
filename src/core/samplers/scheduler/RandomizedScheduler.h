@@ -7,6 +7,8 @@
 
 #include <boost/random.hpp>
 
+#include <optional>
+
 #include "Scheduler.h"
 
 namespace transmission_nets::core::samplers {
@@ -14,14 +16,13 @@ namespace transmission_nets::core::samplers {
     struct WeightedScheduledSampler {
         std::unique_ptr<AbstractSampler> sampler;
 
-        std::string id                = "Unknown";
+        std::string id;// `<type>/<target>`, unique within the scheduler
         int adaptationStart           = 0;
         int adaptationEnd             = 0;
         bool scaledAdaptation         = false;
         long unsigned int updateStart = 0;
         long unsigned int updateEnd   = std::numeric_limits<int>::max();
         double weight            = 1.0;
-        bool debug                    = false;
 
         bool operator<(const WeightedScheduledSampler& rhs) const {
             return weight < rhs.weight;
@@ -58,11 +59,19 @@ namespace transmission_nets::core::samplers {
     class RandomizedScheduler {
 
     public:
-        explicit RandomizedScheduler(std::shared_ptr<Engine> rng, int numSamples);
+        // Each Sampling iteration makes `updatesPerIteration` updates, each by a sampler drawn by weight. Without a
+        // count it makes one per registered sampler, so every sampler gets one update opportunity in expectation when
+        // the weights are equal, as with the sequential Scheduler.
+        explicit RandomizedScheduler(std::shared_ptr<Engine> rng, std::optional<int> updatesPerIteration = std::nullopt);
 
-        void registerSampler(std::unique_ptr<AbstractSampler> sampler);
-
+        // Throws std::invalid_argument when the sampler's id is already registered.
         void registerSampler(WeightedScheduledSampler sampler);
+
+        // Sampler ids in registration order.
+        [[nodiscard]] const std::vector<std::string>& samplerIds() const noexcept { return index_.ids(); }
+
+        // Throws std::out_of_range for an id that isn't registered.
+        [[nodiscard]] AbstractSampler& sampler(const std::string& id) const { return index_.at(id); }
 
         // Updates randomly chosen samplers; samplers inside their adaptation window also adapt, unless `adapt` is false.
         void step(bool adapt = true);
@@ -73,9 +82,10 @@ namespace transmission_nets::core::samplers {
 
     private:
         std::shared_ptr<Engine> rng_;
-        int num_samples_;
+        std::optional<int> updates_per_iteration_;
 
         std::vector<WeightedScheduledSampler> samplers_{};
+        SamplerIndex index_{};
         std::vector<double> cumulative_weight_{};
         int total_steps_         = 0;
         double total_weight_ = 0;
@@ -86,7 +96,7 @@ namespace transmission_nets::core::samplers {
     };
 
     template<typename Engine>
-    RandomizedScheduler<Engine>::RandomizedScheduler(std::shared_ptr<Engine> rng, int numSamples) : rng_(rng), num_samples_(numSamples) {}
+    RandomizedScheduler<Engine>::RandomizedScheduler(std::shared_ptr<Engine> rng, std::optional<int> updatesPerIteration) : rng_(rng), updates_per_iteration_(updatesPerIteration) {}
 
     template<typename Engine>
     void RandomizedScheduler<Engine>::step(const bool adapt) {
@@ -94,7 +104,8 @@ namespace transmission_nets::core::samplers {
             calculateCumulativeWeights();
         }
 
-        for (int i = 0; i < num_samples_; ++i) {
+        const auto updates = updates_per_iteration_.value_or(static_cast<int>(samplers_.size()));
+        for (int i = 0; i < updates; ++i) {
             long int v = dist_(*rng_);
             auto it = std::ranges::lower_bound(cumulative_weight_, v);
             const int idx = it - cumulative_weight_.begin();
@@ -107,18 +118,8 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename Engine>
-    void RandomizedScheduler<Engine>::registerSampler(std::unique_ptr<AbstractSampler> sampler) {
-        samplers_.push_back(WeightedScheduledSampler{.sampler = std::move(sampler)});
-        total_weight_ += samplers_.back().weight;
-        cumulative_weights_calculated_ = false;
-    }
-
-    template<typename Engine>
     void RandomizedScheduler<Engine>::registerSampler(WeightedScheduledSampler sampler) {
-        if (sampler.debug) {
-            sampler.sampler->setDebug();
-        }
-        sampler.sampler->setIdentifier(sampler.id);
+        index_.add(sampler.id, *sampler.sampler);
         samplers_.push_back(std::move(sampler));
 
         total_weight_ += samplers_.back().weight;

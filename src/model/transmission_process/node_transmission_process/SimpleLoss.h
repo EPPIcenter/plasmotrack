@@ -268,13 +268,6 @@ namespace transmission_nets::model::transmission_process {
 
 //        fmt::print("llik: {}\n", llik);
         if (std::isnan(llik) or llik <= -std::numeric_limits<Likelihood>::infinity()) {
-            fmt::print("NaN Encountered in SimpleLoss::calculateLogLikelihood without parent: {}\n", llik);
-            fmt::print("allelesLost: {}\n", core::io::serialize(allelesLostCounter_));
-            fmt::print("loss: {}\n", core::io::serialize(this->value()));
-            fmt::print("loss_prob: {}\n", this->lossProb_->value());
-            fmt::print("id: {}\n", infection->id());
-//            fmt::print("loss: {}\n", this->value()[1]);
-//            fmt::print("retained: {}\n", 1.0 - this->value()[1]);
             llik = -std::numeric_limits<Likelihood>::infinity();
         }
 
@@ -450,12 +443,6 @@ namespace transmission_nets::model::transmission_process {
 
 
         if (std::isnan(llik) or llik <= -std::numeric_limits<Likelihood>::infinity()) {
-            fmt::print("NaN Encountered in SimpleLoss::calculateLogLikelihood with parent: {}\n", llik);
-            fmt::print("allelesLost: {}\n", core::io::serialize(allelesLostCounter_));
-            fmt::print("stp: {}\n", stp->value());
-            fmt::print("loss: {}\n", core::io::serialize(this->value()));
-            fmt::print("loss_prob: {}\n", this->lossProb_->value());
-            fmt::print("id:{}\n", infection->id());
             llik = -std::numeric_limits<Likelihood>::infinity();
         }
 

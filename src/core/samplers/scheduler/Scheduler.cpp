@@ -6,16 +6,8 @@
 
 namespace transmission_nets::core::samplers {
 
-    Scheduler::Scheduler(int numSamples) : numSamples(numSamples) {}
-
-    void Scheduler::registerSampler(std::unique_ptr<AbstractSampler> sampler) {
-        samplers_.push_back(ScheduledSampler{.sampler = std::move(sampler)});
-    }
-
     void Scheduler::registerSampler(ScheduledSampler sampler) {
-        if (sampler.debug) {
-            sampler.sampler->setDebug();
-        }
+        index_.add(sampler.id, *sampler.sampler);
         samplers_.push_back(std::move(sampler));
     }
 
@@ -47,6 +39,14 @@ namespace transmission_nets::core::samplers {
 
     const std::vector<ScheduledSampler>& Scheduler::samplers() const noexcept {
         return samplers_;
+    }
+
+    const std::vector<std::string>& Scheduler::samplerIds() const noexcept {
+        return index_.ids();
+    }
+
+    AbstractSampler& Scheduler::sampler(const std::string& id) const {
+        return index_.at(id);
     }
 
     void ScheduledSampler::update() const {

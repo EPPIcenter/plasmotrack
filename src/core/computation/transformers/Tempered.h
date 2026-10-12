@@ -8,6 +8,8 @@
 
 #include <fmt/core.h>
 
+#include <memory>
+
 #include "core/computation/Computation.h"
 #include "core/computation/PartialLikelihood.h"
 

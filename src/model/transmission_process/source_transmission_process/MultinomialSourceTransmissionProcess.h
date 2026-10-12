@@ -18,6 +18,7 @@
 
 #include <boost/container/flat_map.hpp>
 #include <boost/container/flat_set.hpp>
+#include <fmt/core.h>
 
 #include <array>
 #include <cmath>
@@ -216,14 +217,7 @@ namespace transmission_nets::model::transmission_process {
             this->value_ = core::utils::logSumExp(coiPartialLlik_);
 
             if (std::isnan(this->value_) or this->value_ <= -std::numeric_limits<double>::infinity()) {
-                fmt::print("NAN in MultinomialSourceTransmissionProcess::value()\n");
-                fmt::print("\tcoiPartialLlik_ = {}\n", core::io::serialize(coiPartialLlik_));
-                fmt::print("Allele frequencies:\n");
-                for (const auto& locus : loci_) {
-                    fmt::print("\tlocus {} = {}\n", locus->label, core::io::serialize(alleleFrequenciesContainer_->alleleFrequencies(locus)->value()));
-                    fmt::print("\tgenotype = {}\n", genetics_.at(locus)->value().allelesStr());
-                }
-                fmt::print("{}\n", core::io::serialize_matrix(llikMatrix_, totalLoci_, MAX_COI + 1));
+                fmt::print(stderr, "ERROR: the Source likelihood is not finite; stopping the Run.\n");
                 this->value_ = -std::numeric_limits<double>::infinity();
                 exit(1);
             }

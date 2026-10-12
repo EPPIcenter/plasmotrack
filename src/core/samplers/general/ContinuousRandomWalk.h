@@ -53,6 +53,9 @@ namespace transmission_nets::core::samplers {
 
         void adapt(unsigned int idx) noexcept override;
 
+        [[nodiscard]] AdaptationState adaptationState() const override;
+
+        void restoreAdaptationState(const AdaptationState& state) override;
 
     protected:
         std::shared_ptr<parameters::Parameter<double>> parameter_{};
@@ -106,26 +109,16 @@ namespace transmission_nets::core::samplers {
         assert(!target_->isDirty());
         parameter_->setValue(proposal);
         const Likelihood adj = logMetropolisHastingsAdjustment(currentVal, proposal);
-
-        if (debug_) {
-            std::cout << "ID:" << identifier_ << std::endl;
-            std::cout << "Curr: " << currentVal << std::endl;
-            std::cout << "Prop: " << proposal << std::endl;
-            std::cout << "Var: " << variance() << std::endl;
-            std::cout << "Acceptance Rate: " << acceptanceRate() << std::endl;
-            std::cout << "Total Samples: " << acceptances_ + rejections_ << std::endl;
-            std::cout << "LLik: " << curLik << " " << target_->value() << " " << adj << std::endl;
-            std::cout << "----------------------------------------------------" << std::endl;
-        }
-
         const Likelihood acceptanceRatio = target_->value() - curLik + adj;
         assert(!target_->isDirty());
 
         if (log(uniform_dist_(*rng_)) <= acceptanceRatio) {
             acceptances_ += 1;
+            countProposal(true);
             parameter_->acceptState();
         } else {
             rejections_ += 1;
+            countProposal(false);
             parameter_->restoreState(stateId);
             assert(curLik == target_->value());
         }
@@ -151,6 +144,22 @@ namespace transmission_nets::core::samplers {
         if (std::isnan(variance_)) {
             variance_ = min_variance_;
         }
+    }
+
+    template<typename T, typename Engine, typename U>
+    AdaptationState ContinuousRandomWalk<T, Engine, U>::adaptationState() const {
+        return {.scales  = {{.variance = variance_, .counts = {.accepted = acceptances_, .proposed = acceptances_ + rejections_}}},
+                .updates = total_updates_};
+    }
+
+    template<typename T, typename Engine, typename U>
+    void ContinuousRandomWalk<T, Engine, U>::restoreAdaptationState(const AdaptationState& state) {
+        requireScales(state, 1);
+        const auto& scale = state.scales.front();
+        variance_         = scale.variance;
+        acceptances_      = static_cast<unsigned int>(scale.counts.accepted);
+        rejections_       = static_cast<unsigned int>(scale.counts.proposed - scale.counts.accepted);
+        total_updates_    = static_cast<unsigned int>(state.updates);
     }
 
     template<typename T, typename Engine, typename U>

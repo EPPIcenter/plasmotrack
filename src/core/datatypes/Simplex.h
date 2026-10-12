@@ -25,6 +25,10 @@ namespace transmission_nets::core::datatypes {
 
         Simplex(const std::initializer_list<double>& freqs);
 
+        // Keeps `freqs` exactly as given, without renormalising, as when restoring a checkpoint of a Simplex whose
+        // updates have left its sum a few ulps from 1.
+        static Simplex exactly(const std::vector<double>& freqs);
+
         Simplex(const Simplex& other);
 
         Simplex(Simplex&& other) noexcept;

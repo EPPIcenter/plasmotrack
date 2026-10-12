@@ -1,152 +1,161 @@
 #!/usr/bin/env python3
 """Mixing benchmark: effective samples per second of sampling, from a burned-in state.
 
-    mixing_benchmark.py run --model BIN --input JSON --symptomatic-idp F --asymptomatic-idp F --start DIR --out DIR
+    mixing_benchmark.py run --model BIN --input JSON --symptomatic-idp F --asymptomatic-idp F --start CHECKPOINT --out DIR
                             [--runs K --burnin B --samples S --seed N]
     mixing_benchmark.py analyze --out DIR
 
-`run` copies the burned-in output directory `--start` once per run and hotloads each copy, so every run starts from
-the same state. Hotloading does not restore the samplers' adapted proposal scales, so each run burns in for `--burnin`
-sweeps (adaptation runs from sweep 20 until burn-in ends) before sampling `--samples` sweeps. Runs execute in
-parallel, one per process; sweep times are taken from the model's progress lines as they are printed, so they are
-wall-clock times and only comparable between benchmarks run on an otherwise idle machine.
+`run` starts every Run with `--start-from` on the same checkpoint (`--start`): a Run's `checkpoint-burn-in.cbor`, or a
+Run's latest `checkpoint.cbor`; a Run directory stands for its `checkpoint.cbor`. So every Run starts from the same
+State and adaptation state. Each Run burns in for `--burnin` Sampling iterations with its own seed (adaptation runs from
+Sampling iteration 20 until burn-in ends), then samples `--samples` Sampling iterations with `-t 1`. Runs execute in
+parallel, one per process, each writing its store to DIR/runK. Sampling time is the wall time the store's
+`window_closed` events record for the sampling Phase, so it is only comparable between benchmarks run on an otherwise
+idle machine.
 
-`analyze` reads each run's traces and reports, per group of quantities, the multi-chain effective sample size across
-runs (which counts disagreement between runs as variance), split R-hat and the share of series above 1.1, and
-effective samples per second of sampling time summed over runs. Standard library only.
+`analyze` reads each Run's store and reports, per group of quantities, the multi-chain effective sample size across
+Runs (which counts disagreement between Runs as variance), split R-hat and the share of series above 1.1, and effective
+samples per second of sampling time summed over Runs. It reads only closed Windows, those with a marker under
+`_closed/`, so a killed Run is read up to its last closed Window. The store layout is described in doc/store-layout.md.
+
+Needs pyarrow (`pip install pyarrow`); otherwise standard library only.
 """
 
 import argparse
-import gzip
 import json
 import math
-import os
-import pty
-import re
 import shutil
 import statistics
 import subprocess
 import sys
-import threading
-import time
 from collections import defaultdict
 from pathlib import Path
 
-PROGRESS = re.compile(r"^\((b|s)=(\d+)\)")
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.parquet as pq
 
 
-def run_one(args, run_dir, seed, timings):
-    if run_dir.exists():
-        shutil.rmtree(run_dir)
-    # The start directory holds a file per infection, locus and parameter; on macOS clone it (copy-on-write) rather
-    # than copying each file, which takes minutes.
-    cloned = sys.platform == "darwin" and subprocess.run(["cp", "-cR", args.start, str(run_dir)]).returncode == 0
-    if not cloned:
-        shutil.copytree(args.start, run_dir)
-    cmd = [args.model, "-i", args.input, "-o", str(run_dir), "-h",
-           "--symptomatic-idp", args.symptomatic_idp, "--asymptomatic-idp", args.asymptomatic_idp,
-           "-b", str(args.burnin), "-s", str(args.samples), "-t", "1", "--seed", str(seed)]
-    # The model writes progress through stdio, which buffers whole blocks into a pipe; a pseudo-terminal makes it
-    # flush each line, so lines can be timed as they arrive.
-    stamps = []
-    master, slave = pty.openpty()
-    proc = subprocess.Popen(cmd, stdout=slave, stderr=slave, close_fds=True)
-    os.close(slave)
-    with open(run_dir / "run.log", "w", buffering=1) as log, os.fdopen(master, "r", errors="replace") as stream:
-        try:
-            for line in stream:
-                log.write(line)
-                match = PROGRESS.match(line)
-                if match:
-                    stamps.append((match.group(1), int(match.group(2)), time.time()))
-        except OSError:
-            pass  # the terminal closes when the model exits
-    proc.wait()
-    last_burnin = max((t for phase, _, t in stamps if phase == "b"), default=None)
-    sample_times = [t for phase, _, t in stamps if phase == "s"]
-    timings[run_dir.name] = {
-        "exit": proc.returncode,
-        "seed": seed,
-        "sampling_seconds": (sample_times[-1] - last_burnin) if sample_times and last_burnin else None,
-        "samples": len(sample_times),
-    }
+def checkpoint_path(start):
+    start = Path(start)
+    return start / "checkpoint.cbor" if start.is_dir() else start
 
 
 def run(args):
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    timings = {}
-    threads = []
+    start = checkpoint_path(args.start)
+    if not start.is_file():
+        sys.exit(f"no checkpoint at {start}")
+    started = []
     for r in range(args.runs):
-        thread = threading.Thread(target=run_one, args=(args, out / f"run{r}", args.seed + r, timings))
-        thread.start()
-        threads.append(thread)
-    for thread in threads:
-        thread.join()
+        run_dir = out / f"run{r}"
+        if run_dir.exists():
+            shutil.rmtree(run_dir)
+        run_dir.mkdir()
+        seed = args.seed + r
+        cmd = [args.model, "-i", args.input, "-o", str(run_dir), "--start-from", str(start),
+               "--symptomatic-idp", args.symptomatic_idp, "--asymptomatic-idp", args.asymptomatic_idp,
+               "-b", str(args.burnin), "-s", str(args.samples), "-t", "1", "--seed", str(seed)]
+        # The console goes beside the store, so that the store holds only what the engine writes.
+        console = open(out / f"run{r}.console", "w")
+        started.append((run_dir, seed, console, subprocess.Popen(cmd, stdout=console, stderr=subprocess.STDOUT)))
+    timings = {}
+    for run_dir, seed, console, proc in started:
+        proc.wait()
+        console.close()
+        timings[run_dir.name] = {"exit": proc.returncode, "seed": seed, **sampling_time(run_dir)}
     (out / "timings.json").write_text(json.dumps(timings, indent=2))
     print(json.dumps(timings, indent=2))
 
 
+# --- the store ------------------------------------------------------------------------------------------------------
+
+def closed_windows(run_dir):
+    """The Windows a reader may use: those whose commit marker exists. In-flight files are dot-prefixed."""
+    closed = run_dir / "_closed"
+    if not closed.is_dir():
+        return []
+    return sorted(json.loads(p.read_text())["window"] for p in closed.glob("window-*"))
+
+
+def read_table(run_dir, table, windows):
+    """One table over the given closed Windows, or None if it has no rows in them. A Window in which a table has no
+    rows has no file for it."""
+    files = [run_dir / table / f"window-{w:06d}.parquet" for w in windows]
+    parts = [pq.read_table(f) for f in files if f.exists()]
+    return pa.concat_tables(parts) if parts else None
+
+
+def sampling_rows(table):
+    """The sampling-Phase rows of a Trace or of the events table, in Sampling iteration order."""
+    if table is None:
+        return []
+    table = table.filter(pc.equal(table["phase"], "sampling"))
+    return table.take(pc.sort_indices(table, [("iteration", "ascending")])).to_pylist()
+
+
+def sampling_time(run_dir):
+    """Wall time and Sampling iterations of the sampling Phase, summed over the `window_closed` events."""
+    closes = [json.loads(e["payload"]) for e in sampling_rows(read_table(run_dir, "events", closed_windows(run_dir)))
+              if e["type"] == "window_closed"]
+    samples = sum(c["sampling_iterations"] for c in closes)
+    return {"sampling_seconds": sum(c["seconds"] for c in closes) if samples else None, "samples": samples}
+
+
 # --- traces ---------------------------------------------------------------------------------------------------------
 
-def read_rows(path):
-    with gzip.open(path, "rt") as f:
-        return [line.strip() for line in f if line.strip()]
+def parent_set_traces(run_dir, windows, groups):
+    """Per Sampling iteration: the probability of each Infection's Latent parent alone, and each observed parent's
+    marginal probability. Parent sets below the Run's floor are not in the store and count as 0."""
+    latent_parent = {r["infection"]: r["latent_parent"]
+                     for r in pq.read_table(run_dir / "structure" / "infections.parquet").to_pylist()}
+    latent_parents = set(latent_parent.values())
+    members = defaultdict(list)  # Parent set members by (Infection, set_id), from every closed Window of both Phases
+    member_rows = read_table(run_dir, "parent_set_members", windows)
+    for r in member_rows.to_pylist() if member_rows is not None else []:
+        members[(r["infection"], r["set_id"])].append(r["member"])
 
-
-def scalar_trace(path, skip_first):
-    rows = read_rows(path)
-    values = []
-    for row in rows:
-        try:
-            values.append(float(row))
-        except ValueError:
-            continue  # header
-    return values[1:] if skip_first else values
-
-
-def vector_trace(path, skip_first):
-    rows = [r for r in read_rows(path) if r[0].isdigit() or r[0] in "-."]
-    values = [[float(x) for x in row.split(",")] for row in rows]
-    return values[1:] if skip_first else values
-
-
-def parent_set_traces(path, child):
-    """Per iteration: the probability of the latent parent alone, and each observed parent's marginal probability."""
-    latent = f"{{{child}_copy}}"
-    no_parent = defaultdict(float)
-    marginals = defaultdict(lambda: defaultdict(float))
-    for row in read_rows(path)[1:]:
-        members, prob, it = row.rsplit(",", 2)
-        it, prob = int(it), float(prob)
-        if members == latent:
-            no_parent[it] += prob
-        for member in members.strip("{}").split(";"):
-            if not member.endswith("_copy"):
-                marginals[member][it] += prob
-    iters = sorted(set(no_parent) | {i for m in marginals.values() for i in m})
-    return iters, [no_parent[i] for i in iters], {m: [v[i] for i in iters] for m, v in marginals.items()}
+    iterations = defaultdict(set)
+    no_parent = defaultdict(lambda: defaultdict(float))
+    marginals = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    for r in sampling_rows(read_table(run_dir, "parent_sets", windows)):
+        child, it, prob = r["infection"], r["iteration"], r["prob"]
+        iterations[child].add(it)
+        parents = members[(child, r["set_id"])]
+        if parents == [latent_parent[child]]:
+            no_parent[child][it] += prob
+        for parent in parents:
+            if parent not in latent_parents:
+                marginals[child][parent][it] += prob
+    for child in sorted(iterations):
+        iters = sorted(iterations[child])
+        groups["P(no sampled parent)"][child] = [no_parent[child][i] for i in iters]
+        for parent, series in marginals[child].items():
+            groups["_edges"][f"{child}<-{parent}"] = [series[i] for i in iters]
 
 
 def run_traces(run_dir):
-    """Every traced quantity of one run, as {group: {name: series}}. State traces start with the hotloaded state."""
-    params = run_dir / "parameters"
+    """Every traced quantity of one Run's sampling Phase, as {group: {name: series}}."""
+    windows = closed_windows(run_dir)
     groups = defaultdict(dict)
-    groups["log posterior"]["log posterior"] = scalar_trace(run_dir / "stats" / "likelihood.csv.gz", skip_first=False)
+
+    scalars = sampling_rows(read_table(run_dir, "run_scalars", windows))
+    groups["log posterior"]["log posterior"] = [r["prior"] + r["likelihood"] for r in scalars]
     for name in ["mean_coi", "mean_strains_tx", "parent_set_size_prob"]:
-        groups["global scalars"][name] = scalar_trace(params / f"{name}.csv.gz", skip_first=True)
-    for folder, group in [("eps_pos", "false positive rate"), ("eps_neg", "false negative rate"), ("infection_duration", "infection duration")]:
-        for f in sorted((params / folder).glob("*.csv.gz")):
-            groups[group][f.name] = scalar_trace(f, skip_first=True)
-    for f in sorted((params / "allele_frequencies").glob("*.csv.gz")):
-        for j, series in enumerate(zip(*vector_trace(f, skip_first=True))):
-            groups["allele frequency"][f"{f.name}[{j}]"] = list(series)
-    for f in sorted((run_dir / "parent_sets").glob("*_ps.csv.gz")):
-        child = f.name[: -len("_ps.csv.gz")]
-        _, no_parent, marginals = parent_set_traces(f, child)
-        groups["P(no sampled parent)"][child] = no_parent
-        for parent, series in marginals.items():
-            groups["_edges"][f"{child}<-{parent}"] = series
+        groups["global scalars"][name] = [r[name] for r in scalars]
+
+    infections = sampling_rows(read_table(run_dir, "infections", windows))
+    for column, group in [("expected_false_positives", "false positive rate"),
+                          ("expected_false_negatives", "false negative rate"),
+                          ("infection_duration", "infection duration")]:
+        for r in infections:
+            groups[group].setdefault(r["infection"], []).append(r[column])
+
+    for r in sampling_rows(read_table(run_dir, "allele_frequencies", windows)):
+        groups["allele frequency"].setdefault(f"{r['locus']}[{r['allele']}]", []).append(r["frequency"])
+
+    parent_set_traces(run_dir, windows, groups)
     return groups
 
 
@@ -214,11 +223,11 @@ def analyze(args):
     traces = [run_traces(d) for d in run_dirs]
     failed = [name for name, t in timings.items() if t["exit"] != 0 or t["sampling_seconds"] is None]
     if failed:
-        sys.exit(f"runs without a complete sampling phase: {', '.join(sorted(failed))}")
+        sys.exit(f"Runs without a complete sampling Phase: {', '.join(sorted(failed))}")
     seconds = sum(t["sampling_seconds"] for t in timings.values())
     draws = sum(t["samples"] for t in timings.values())
 
-    # Edges: keep each child's most probable parent (by mean marginal over all runs).
+    # Edges: keep each child's most probable parent (by mean marginal over all Runs).
     best = {}
     for run_groups in traces:
         for key, series in run_groups.get("_edges", {}).items():
@@ -265,7 +274,8 @@ def main():
     r.add_argument("--input", required=True)
     r.add_argument("--symptomatic-idp", required=True)
     r.add_argument("--asymptomatic-idp", required=True)
-    r.add_argument("--start", required=True, help="burned-in output directory to hotload")
+    r.add_argument("--start", required=True,
+                   help="checkpoint every Run starts from: checkpoint-burn-in.cbor or checkpoint.cbor, or a Run directory for its checkpoint.cbor")
     r.add_argument("--out", required=True)
     r.add_argument("--runs", type=int, default=6)
     r.add_argument("--burnin", type=int, default=40)

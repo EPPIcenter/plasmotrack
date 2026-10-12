@@ -80,33 +80,18 @@ namespace transmission_nets::core::samplers::genetics {
         const auto logProbAccept = log(uniform_dist_(*rng_));
         const bool accept = logProbAccept <= acceptanceRatio;
 
-         if (debug_) {
-             fmt::print("Acceptance ratio: {}\n", acceptanceRatio);
-             fmt::print("Llik change: {}\n", std::abs(acceptanceRatio) > 0e-10);
-             fmt::print("Log prob accept: {}\n", logProbAccept);
-             fmt::print("Accept: {}\n", accept);
-             fmt::print("Current likelihood: {}\n", cur_lik);
-             fmt::print("Proposed likelihood: {}\n", target_->value());
-             fmt::print("Adjustment: {}\n", current_state_prob - proposed_state_prob);
-             fmt::print("Current state prob: {}\n", current_state_prob);
-             fmt::print("Proposed state prob: {}\n", proposed_state_prob);
-         }
-
         if (accept) {
             acceptances_++;
+            countProposal(true);
             for (const auto& locus : infection_->loci()) {
                 infection_->latentGenotype(locus)->acceptState();
             }
         } else {
             rejections_++;
+            countProposal(false);
             for (const auto& locus : infection_->loci()) {
                 infection_->latentGenotype(locus)->restoreState(stateId);
             }
-        }
-
-        if (debug_) {
-            fmt::print("Acceptance Rate: {}\n", acceptanceRate());
-            fmt::print("------------------------\n");
         }
 
         assert(!target_->isDirty());

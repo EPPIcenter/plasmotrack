@@ -65,6 +65,10 @@ namespace transmission_nets::core::samplers {
 
         double acceptanceRate(int idx) noexcept;
 
+        // One proposal scale per Allele frequency.
+        [[nodiscard]] AdaptationState adaptationState() const override;
+
+        void restoreAdaptationState(const AdaptationState& state) override;
 
     private:
         double sampleProposal(double logitCurr, double variance) noexcept;
@@ -144,6 +148,7 @@ namespace transmission_nets::core::samplers {
             for (const auto el : propVec) {
                 if (el < lowerLimit_) {
                     rejections_.at(idx)++;
+                    countProposal(false);
                     totalUpdates_++;
                     return;
                 }
@@ -166,9 +171,11 @@ namespace transmission_nets::core::samplers {
 
             if (accept) {
                 acceptances_.at(idx)++;
+                countProposal(true);
                 parameter_->acceptState();
             } else {
                 rejections_.at(idx)++;
+                countProposal(false);
                 parameter_->restoreState(stateId);
                 assert(!(target_->isDirty()));
                 assert(curLik == target_->value());
@@ -215,6 +222,28 @@ namespace transmission_nets::core::samplers {
         } else {
             return acceptances_.at(idx) / (acceptances_.at(idx) + rejections_.at(idx));
         }
+    }
+
+    template<typename T, typename Engine>
+    AdaptationState SALTSampler<T, Engine>::adaptationState() const {
+        AdaptationState state{.updates = static_cast<std::uint64_t>(totalUpdates_)};
+        for (size_t j = 0; j < variances_.size(); ++j) {
+            const auto accepted = static_cast<std::uint64_t>(acceptances_[j]);
+            state.scales.push_back({.variance = variances_[j], .counts = {.accepted = accepted, .proposed = accepted + static_cast<std::uint64_t>(rejections_[j])}});
+        }
+        return state;
+    }
+
+    template<typename T, typename Engine>
+    void SALTSampler<T, Engine>::restoreAdaptationState(const AdaptationState& state) {
+        requireScales(state, variances_.size());
+        for (size_t j = 0; j < variances_.size(); ++j) {
+            const auto& scale = state.scales[j];
+            variances_[j]     = scale.variance;
+            acceptances_[j]   = static_cast<double>(scale.counts.accepted);
+            rejections_[j]    = static_cast<double>(scale.counts.proposed - scale.counts.accepted);
+        }
+        totalUpdates_ = static_cast<int>(state.updates);
     }
 
     template<typename T, typename Engine>

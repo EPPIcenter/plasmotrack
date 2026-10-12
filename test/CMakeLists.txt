@@ -47,6 +47,7 @@ set(CORE_SAMPLERS_TESTS
 
 set(CORE_UTILS_TESTS
     src/core/utils/CombinationIndicesGeneratorTests.cpp
+    src/core/utils/InterruptWatcherTest.cpp
     src/core/utils/RandomSequenceTests.cpp
     src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp
     src/core/utils/ParseJSONTests.cpp
@@ -69,11 +70,29 @@ set(MODEL_TRANSMISSION_TESTS
     src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp
     src/model/transmission_process/node_transmission_process/MultinomialTransmissionProcessTest.cpp
     src/impl/ModelCacheConsistencyTest.cpp
+    src/impl/RunRecorderTest.cpp
+    src/impl/ReplicaExchangeSchedulerTest.cpp
+    src/impl/RegisteredSamplerTest.cpp
+    src/impl/ReplicaExchangeTest.cpp
+    src/impl/CheckpointTest.cpp
+    src/impl/RunDriverTest.cpp
+    src/impl/ConsoleProgressTest.cpp
+    src/impl/RunRecipeTest.cpp
     src/core/samplers/SamplingProbTest.cpp
 )
 
 set(MODEL_OBSERVATION_TESTS
     src/model/observation_process/ObservationProcessTest.cpp
+)
+
+set(TOOLS_TESTS
+    src/tools/GoldenRunTest.cpp
+    src/tools/CliStoreTest.cpp
+    src/tools/CliCheckpointTest.cpp
+    src/tools/CliFailureTest.cpp
+    src/core/io/ParquetRoundTripTest.cpp
+    src/core/io/ParquetStoreSinkTest.cpp
+    src/core/io/DurableFileTest.cpp
 )
 
 set(SOURCE_FILES
@@ -86,6 +105,7 @@ set(SOURCE_FILES
     ${CORE_COMPUTATION_TESTS}
     ${MODEL_TRANSMISSION_TESTS}
     ${MODEL_OBSERVATION_TESTS}
+    ${TOOLS_TESTS}
 )
 
 add_executable(transmission_networks_tests ${SOURCE_FILES})
@@ -109,8 +129,21 @@ target_link_libraries(transmission_networks_tests
         nlohmann_json::nlohmann_json
         Eigen3::Eigen
         fmt::fmt
+        ZLIB::ZLIB
+        Parquet::parquet_static
         gtest
 )
+
+# The golden-run check runs the CLI, so build it first and tell the test where it and its data are.
+add_dependencies(transmission_networks_tests transmission_networks_model)
+target_compile_definitions(transmission_networks_tests
+    PRIVATE
+        GOLDEN_CLI_PATH="$<TARGET_FILE:transmission_networks_model>"
+        GOLDEN_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/golden"
+        EXAMPLE_INPUT_PATH="${PROJECT_SOURCE_DIR}/examples/example_input.json"
+)
+
+add_test(NAME transmission_networks_tests COMMAND transmission_networks_tests)
 
 link_openmp_if_available(transmission_networks_tests)
 

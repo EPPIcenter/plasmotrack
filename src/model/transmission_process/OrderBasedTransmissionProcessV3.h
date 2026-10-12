@@ -1099,14 +1099,6 @@ namespace transmission_nets::model::transmission_process {
         if (null_model_) {
             return 0;
         }
-#ifndef NDEBUG
-        if (this->value_ <= -std::numeric_limits<Likelihood>::infinity()) {
-            std::cerr << "Saved States: " << this->saved_states_stack_.size() << std::endl;
-            for ([[maybe_unused]] const auto& savedState : this->saved_states_stack_) {
-                std::cerr << "State: " << savedState.saved_state << " " << savedState.saved_state_id << std::endl;
-            }
-        }
-#endif
         return Computation::peek();
     }
 

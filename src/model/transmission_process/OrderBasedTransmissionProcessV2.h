@@ -52,7 +52,7 @@ namespace transmission_nets::model::transmission_process {
 
         Likelihood value() override;
 
-        Likelihood recalculate(bool verbose = false);
+        Likelihood recalculate();
 
         void initializeValue();
 
@@ -137,11 +137,6 @@ namespace transmission_nets::model::transmission_process {
         core::containers::ParentSet<InfectionEventImpl> tmpPs_{};
         std::vector<Likelihood> parentLikelihoodContribution_{};
         std::vector<Likelihood> toAdd_{};
-
-        std::string action_;
-
-    public:
-        Likelihood peek() noexcept override;
     };
 
 
@@ -282,7 +277,7 @@ namespace transmission_nets::model::transmission_process {
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     Likelihood
-    OrderBasedTransmissionProcessV2<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::recalculate(bool verbose) {
+    OrderBasedTransmissionProcessV2<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::recalculate() {
         /*
          * function that completely recalculates the likelihood.
          */
@@ -291,13 +286,10 @@ namespace transmission_nets::model::transmission_process {
         std::vector<Likelihood> tmpToAdd_{};
         Likelihood maxLlik = val;
 
-        std::vector<std::string> parentIDs{};
-
         for (const auto& parent : parentSet_->value()) {
             tmpToAdd_.push_back(calculateParentLogLikelihoodContribution(parent, tmpCalculated_));
             maxLlik = std::max(maxLlik, tmpToAdd_.back());
             tmpCalculated_.insert(parent);
-            parentIDs.push_back(parent->id());
         }
 
         // calculate the single parent set consisting of the latent parent alone
@@ -307,24 +299,12 @@ namespace transmission_nets::model::transmission_process {
         val         = core::utils::logSumExpKnownMax(tmpToAdd_.begin(), tmpToAdd_.end(), maxLlik);
         calculated_ = std::move(tmpCalculated_);
 
-
-//        if (verbose or (parentSet_->value().size() == 0 and val <= -std::numeric_limits<Likelihood>::infinity())) {
-        if (verbose) {
-            fmt::print("Action: {}\n", action_);
-            fmt::print("Child Node: {}\n", child_->id());
-            fmt::print("Validate to Add: {}\n", fmt::join(tmpToAdd_, ", "));
-            fmt::print("Validation Current Parents: {}\n", fmt::join(parentIDs, ", "));
-            fmt::print("Latent parent contribution {}\n", tmpToAdd_.back());
-            fmt::print("Validation MaxLlik: {}\n", maxLlik);
-            fmt::print("Validation Value: {}\n", val);
-            fmt::print("====================================\n");
-        }
         return val;
     }
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     void OrderBasedTransmissionProcessV2<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::initializeValue() {
-        this->value_ = recalculate(true);
+        this->value_ = recalculate();
         this->latentParentDirty_ = false;
         this->setClean();
         toSubtract_.clear();
@@ -337,8 +317,6 @@ namespace transmission_nets::model::transmission_process {
         /*
          * Completely recalculate the likelihood
          */
-
-        action_ = "Node Transmission Process Set Dirty";
 
         if (!this->isDirty()) {
             this->setDirty();
@@ -363,8 +341,6 @@ namespace transmission_nets::model::transmission_process {
         /*
          * Recalculate latent parent contribution
          */
-
-        action_ = "Source Transmission Process Set Dirty";
 
         if (!this->isDirty()) {
             this->setDirty();
@@ -391,8 +367,6 @@ namespace transmission_nets::model::transmission_process {
          * Completely recalculate the likelihood
          */
 
-        action_ = "Child set dirty";
-
         if (!this->isDirty()) {
             this->setDirty();
         }
@@ -417,8 +391,6 @@ namespace transmission_nets::model::transmission_process {
         /*
          * Mark new parent to be calculated, add listeners to parent
          */
-
-        action_ = "Add Parent";
 
         addParentListeners(parent);
         addedParents_.insert(parent);
@@ -468,8 +440,6 @@ namespace transmission_nets::model::transmission_process {
     void OrderBasedTransmissionProcessV2<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::removeParent(
             std::shared_ptr<InfectionEventImpl> parent) {
 
-        action_ = "Remove Parent";
-
         calculated_.erase(parent);
 
         toSubtract_.push_back(calculateParentLogLikelihoodContribution(parent, calculated_));
@@ -516,7 +486,6 @@ namespace transmission_nets::model::transmission_process {
     void OrderBasedTransmissionProcessV2<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postParentUpdated(
             [[maybe_unused]] std::shared_ptr<InfectionEventImpl> parent) {
         // After the parent is updated, set the likelihood to dirty.
-        action_ = "Parent Updated";
         if (!this->isDirty()) {
             this->setDirty();
         }
@@ -542,7 +511,6 @@ namespace transmission_nets::model::transmission_process {
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     void OrderBasedTransmissionProcessV2<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::postLatentParentUpdated() {
         // After the latent parent is updated, set the likelihood and latentParent flag to dirty.
-        action_ = "Latent Parent Updated";
         latentParentDirty_ = true;
         if (!this->isDirty()) {
             this->setDirty();
@@ -757,20 +725,6 @@ namespace transmission_nets::model::transmission_process {
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
     Likelihood OrderBasedTransmissionProcessV2<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::peekParentSetLogLikelihood(const core::containers::ParentSet<InfectionEventImpl>& ps) {
         return ntp_->peekLogLikelihood(child_, ps);
-    }
-
-    template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    Likelihood OrderBasedTransmissionProcessV2<ParentSetMaxCardinality, NodeTransmissionProcessImpl, SourceTransmissionProcessImpl, InfectionEventImpl, ParentSetImpl>::peek() noexcept {
-
-#ifndef NDEBUG
-        if (this->value_ <= -std::numeric_limits<Likelihood>::infinity()) {
-            std::cerr << "Saved States: " << this->saved_states_stack_.size() << std::endl;
-            for ([[maybe_unused]] const auto& savedState : this->saved_states_stack_) {
-                std::cerr << "State: " << savedState.saved_state << " " << savedState.saved_state_id << std::endl;
-            }
-        }
-#endif
-        return Computation::peek();
     }
 
     template<int ParentSetMaxCardinality, typename NodeTransmissionProcessImpl, typename SourceTransmissionProcessImpl, typename InfectionEventImpl, typename ParentSetImpl>

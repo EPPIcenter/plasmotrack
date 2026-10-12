@@ -180,6 +180,7 @@ namespace transmission_nets::core::samplers::specialized {
         const double acceptanceRatio = target_->value() - currentLik + currentLogQ - proposedLogQ;
         if (std::log(uniform_(*rng_)) <= acceptanceRatio) {
             ++acceptances_;
+            countProposal(true);
             duration->acceptState();
             for (const auto& locus : exchanged_) {
                 latentParent_->latentGenotype(locus)->acceptState();
@@ -187,6 +188,7 @@ namespace transmission_nets::core::samplers::specialized {
             }
         } else {
             ++rejections_;
+            countProposal(false);
             duration->restoreState(stateId);
             for (const auto& locus : exchanged_) {
                 latentParent_->latentGenotype(locus)->restoreState(stateId);

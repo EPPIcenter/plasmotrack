@@ -129,20 +129,6 @@ namespace transmission_nets::core::samplers {
         int i             = 0;
         Likelihood cumsum = 0;
         while (unifSample >= cumsum) {
-            if (i == int(normedLlik.size())) {
-                std::cerr << "CumSum: " << cumsum << " " << unifSample << std::endl;
-                std::cerr << "[";
-                for (const auto llik : normedLlik) {
-                    std::cerr << llik << ", ";
-                }
-                std::cerr << "]" << std::endl;
-
-                std::cerr << "[";
-                for (const auto llik : Lliks) {
-                    std::cerr << llik << ", ";
-                }
-                std::cerr << "]" << std::endl;
-            }
             assert(i < int(normedLlik.size()));
             cumsum += normedLlik[i];
             ++i;
@@ -186,9 +172,6 @@ namespace transmission_nets::core::samplers {
                 parameter_.saveState("swap");
                 parameter_.swap(elementIdx, i);
                 neighborhood.push_back(target_.value() * 0.5);
-                if (std::isnan(neighborhood.back())) {
-                    std::cerr << "Encountered NaN: " << target_.value() << std::endl;
-                }
                 elements.push_back(i);
                 parameter_.restoreState("swap");
             }

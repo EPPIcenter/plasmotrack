@@ -14,6 +14,7 @@
 
 #include <fmt/core.h>
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -36,6 +37,15 @@ namespace transmission_nets::core::computation {
 
         void addElements(const std::vector<std::shared_ptr<InfectionEventImpl>>& refs) noexcept;
         std::vector<std::shared_ptr<InfectionEventImpl>> value() override;
+
+        // Puts the elements in `order`, which holds exactly the current elements, as when restoring a checkpoint:
+        // Infections with equal infection times keep their saved order. Notifies no listener, so it is for use
+        // before anything depends on the ordering.
+        void restoreOrder(std::vector<std::shared_ptr<InfectionEventImpl>> order) noexcept {
+            assert(order.size() == this->value_.size());
+            this->value_ = std::move(order);
+            this->setDirty();
+        }
 
     protected:
         friend class abstract::Cacheable<ObservationTimeDerivedOrdering<InfectionEventImpl>>;

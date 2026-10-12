@@ -361,14 +361,16 @@ The `transmission_networks_model` executable is the main CLI tool for running tr
 
 **Required Options:**
 - `--input, -i <file>`: Input JSON file containing network data (see [Input Format](#input-format) below)
-- `--output-dir, -o <directory>`: Output directory where results will be written
+- `--output-dir, -o <directory>`: Existing directory the Run's store is written to (see [Output Structure](#output-structure)). Not given with `--resume`
 - `--symptomatic-idp <file>`: File path to Symptomatic IDP (Infection Duration Probability) distribution
 - `--asymptomatic-idp <file>`: File path to Asymptomatic IDP (Infection Duration Probability) distribution
 
 **MCMC Parameters:**
 - `--burnin, -b <int>`: Number of burn-in steps (default: 5000)
 - `--sample, -s <int>`: Total number of sampling steps (default: 10000)
-- `--thin, -t <int>`: Thinning interval - number of sampling steps per logged sample (default: 10)
+- `--thin, -t <int>`: Thinning interval: Trace rows are written every `-t` Sampling iterations, in both Phases (default: 10)
+- `--window <int>`: Sampling iterations per Window, a multiple of `-t` (default: 100). A killed Run loses at most the Window in flight
+- `--parent-set-floor <float>`: Parent sets less probable than this are not written (default: 1e-9)
 
 **Replica Exchange Parameters:**
 - `--numchains, -n <int>`: Number of chains to run in replica exchange algorithm (default: 1)
@@ -377,7 +379,8 @@ The `transmission_networks_model` executable is the main CLI tool for running tr
 
 **Other Options:**
 - `--seed <long>`: Random seed for reproducibility. Use -1 to generate a random seed (default: -1)
-- `--hotload, -h`: Hotload (resume) parameters from the output directory
+- `--resume <run>`: Continue the Run whose store is `<run>` from its latest checkpoint. Give no output directory; only `-s` may change, and only grow
+- `--start-from <checkpoint>`: Start a new Run from a checkpoint's State and adaptation state (`checkpoint-burn-in.cbor` or `checkpoint.cbor` of any Run with the same input), with its own seed and `-b` burn-in
 - `--null-model`: Run the null model (ignores genetic data, uses only temporal constraints)
 - `--version`: Display version information
 - `--help`: Display help message
@@ -418,14 +421,24 @@ The `transmission_networks_model` executable is the main CLI tool for running tr
     --gradient 0.1
 ```
 
-**Resume from previous run (hotload):**
+**Resume an interrupted Run, or extend a finished one with a larger `-s`:**
 ```bash
 ./build/release/tools/cli/Model/transmission_networks_model \
     --input data/network.json \
-    --output-dir results/run1/ \
+    --resume results/run1/ \
+    --symptomatic-idp data/symptomatic_idp.txt \
+    --asymptomatic-idp data/asymptomatic_idp.txt
+```
+
+**Start a new Run from another Run's burned-in state:**
+```bash
+./build/release/tools/cli/Model/transmission_networks_model \
+    --input data/network.json \
+    --output-dir results/run4/ \
+    --start-from results/run1/checkpoint-burn-in.cbor \
     --symptomatic-idp data/symptomatic_idp.txt \
     --asymptomatic-idp data/asymptomatic_idp.txt \
-    --hotload
+    --burnin 0 --seed 2
 ```
 
 **Null model (no genetics):**
@@ -556,69 +569,42 @@ You can create IDP files from epidemiological data or use theoretical distributi
 
 ### Output Structure
 
-The model writes output to the specified output directory with the following structure:
+The model writes one store per Run to the output directory: Parquet tables committed one Window (default 100 Sampling
+iterations) at a time, a Run manifest, lookup tables, and checkpoints. Every column, the reader rule, the manifest,
+the Run events and the checkpoint are described in [doc/store-layout.md](doc/store-layout.md).
 
 ```
 output_dir/
-├── parameters/
-│   ├── mean_coi.csv.gz                    # Mean complexity of infection
-│   ├── mean_strains_tx.csv.gz             # Mean number of strains transmitted
-│   ├── parent_set_size_prob.csv.gz        # Parent set size probability
-│   ├── infection_order.csv.gz             # Infection event ordering
-│   ├── eps_pos/                           # False positive rates per node
-│   │   ├── node1.csv.gz
-│   │   ├── node2.csv.gz
-│   │   └── ...
-│   ├── eps_neg/                           # False negative rates per node
-│   │   ├── node1.csv.gz
-│   │   ├── node2.csv.gz
-│   │   └── ...
-│   ├── infection_duration/                # Infection duration per node
-│   │   ├── node1.csv.gz
-│   │   ├── node2.csv.gz
-│   │   └── ...
-│   ├── allele_frequencies/                # Allele frequencies per locus
-│   │   ├── L1.csv.gz
-│   │   ├── L2.csv.gz
-│   │   └── ...
-│   ├── genotypes/                         # Latent genotypes per node
-│   │   ├── node1/
-│   │   │   ├── L1.csv.gz
-│   │   │   ├── L2.csv.gz
-│   │   │   └── ...
-│   │   └── ...
-│   └── latent_parents/                    # Latent parent genotypes
-│       └── ...
-├── stats/
-│   └── likelihood.csv.gz                 # Log-likelihood values
-└── parent_sets/                          # Parent set distributions
-    ├── node1_ps.csv.gz
-    ├── node2_ps.csv.gz
-    └── ...
+├── manifest.json            # Run manifest: seed, CLI arguments, engine version, input hashes, -b/-s/-t/--window
+├── structure/               # Lookup tables: Loci and Allele positions, Infections, samplers
+├── run_scalars/             # Traces, one window-NNNNNN.parquet file per Window:
+├── infections/              #   mean COI, mean strains transmitted, prior and likelihood terms;
+├── ordering/                #   per-Infection error rates and infection durations; the Ordering;
+├── allele_frequencies/      #   Allele frequencies; Latent genotypes and Latent parent genotypes;
+├── latent_genotypes/        #   Parent-set distributions; every chain's prior and likelihood
+├── latent_parent_genotypes/
+├── parent_sets/
+├── parent_set_members/      # Members of each Parent set id
+├── chains/
+├── acceptance/              # Blocks: sampler acceptance and replica-exchange swap counts per Window
+├── swaps/
+├── events/                  # Run events: start, temperature adaptation, burn-in end, Window closes, interrupts, end
+├── _closed/                 # One commit marker per closed Window
+├── checkpoint.cbor          # Latest checkpoint, for --resume or --start-from
+└── checkpoint-burn-in.cbor  # Checkpoint taken at burn-in end, for --start-from
 ```
 
-#### Output File Formats
-
-**Parameter files** (`.csv.gz`):
-- Compressed CSV files with one value per line
-- Each line represents a sampled value from the MCMC chain
-- Files are gzip-compressed to save space
-
-**Parent set files** (`*_ps.csv.gz`):
-- CSV format with columns: `parent_set,prob,iter`
-- Each row represents a parent set configuration and its probability
-- Used to infer transmission network structure
-
-**Likelihood file** (`likelihood.csv.gz`):
-- Contains log-likelihood values for each iteration
-- Format: `llik,<value>`
+Every Trace row carries its Sampling iteration, Phase (`burn_in` or `sampling`) and Window. Only rows of Windows
+with a marker under `_closed/` are complete; a killed Run is readable up to its last closed Window. Read a table
+with `arrow::open_dataset()` in R or `pyarrow.dataset` in Python; the reference has examples of both.
 
 ### Interpreting Results
 
-1. **Transmission Networks**: Check `parent_sets/` directory for inferred parent-child relationships
-2. **Model Parameters**: Review `parameters/` for estimated epidemiological parameters
-3. **Convergence**: Monitor `stats/likelihood.csv.gz` to assess MCMC convergence
-4. **Genotype Inference**: Examine `parameters/genotypes/` for inferred latent genotypes
+1. **Transmission Networks**: `parent_sets` with `parent_set_members` give each Infection's Parent-set distribution per Sampling iteration
+2. **Model Parameters**: `run_scalars`, `infections` and `allele_frequencies` hold the sampled parameters
+3. **Convergence**: `run_scalars` (`prior + likelihood` is the log posterior) and `chains`; keep only `phase == "sampling"` rows as posterior samples
+4. **Genotype Inference**: `latent_genotypes` and `latent_parent_genotypes` hold the Latent genotypes as Allele bitstrings
+5. **Sampler diagnostics**: `acceptance` and `swaps`; `tools/benchmark/mixing_benchmark.py` reports ESS and R-hat across Runs
 
 ### Running Tests
 
@@ -636,15 +622,9 @@ Run with verbose output:
 
 ### Signal Handling
 
-The model handles interrupt signals gracefully:
-- **SIGINT** (Ctrl+C), **SIGTERM**: Gracefully finalizes output and exits
-- **SIGUSR1**, **SIGUSR2**: Finalizes current output without exiting
-- **SIGQUIT**, **SIGABRT**: Attempts graceful shutdown
-
-When interrupted, the model will:
-1. Complete the current iteration
-2. Write all buffered output to disk
-3. Exit cleanly (output remains consistent)
+The model handles SIGINT (Ctrl+C), SIGTERM, SIGQUIT, SIGABRT, SIGUSR1 and SIGUSR2:
+- **First signal**: the model finishes the current Sampling iteration, closes the Window in flight, writes a checkpoint, records an `interrupted` Run event and exits with code 128 + the signal number (130 for SIGINT). The Run can be continued with `--resume`.
+- **Second signal** (SIGINT, SIGTERM, SIGQUIT or SIGABRT): the model closes the Window in flight without a checkpoint and exits with code 128 + the signal number.
 
 ## Model Overview
 
@@ -686,7 +666,7 @@ The `--null-model` flag runs a simplified version that:
 2. **Use multiple cores** (`--numcores`) when running multiple chains
 3. **Adjust thinning** (`--thin`): Lower values = more samples but larger output files
 4. **Monitor convergence**: Check likelihood values stabilize before trusting results
-5. **Use hotload** (`--hotload`) to resume long runs that were interrupted
+5. **Use `--resume`** to continue a Run that was interrupted, and `--start-from` to start several Runs from one burned-in state
 
 ## Troubleshooting
 
