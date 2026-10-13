@@ -98,3 +98,4 @@ debug/
 optimize/
 .agents/
 skills-lock.json
+.claude/
