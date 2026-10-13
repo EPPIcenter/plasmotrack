@@ -154,6 +154,10 @@ namespace transmission_nets::impl::Model {
         }
 
         for ([[maybe_unused]] const auto& [locus_label, locus] : state_->loci) {
+            // A one-allele locus has a fixed frequency of 1 and nothing to sample.
+            if (locus->totalAlleles() < 2) {
+                continue;
+            }
             auto alleleFrequencySampler = std::make_unique<SALTSampler<T, Engine>>(state_->alleleFrequencies->alleleFrequencies(locus), target_, r, 1, .1, 2);
             alleleFrequencySampler->setLowerLimit_(MIN_ALLELE_FREQUENCY);
             scheduler_.registerSampler({.sampler = std::move(alleleFrequencySampler),

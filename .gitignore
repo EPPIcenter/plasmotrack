@@ -92,3 +92,9 @@ python/simtools/.coverage
 build/
 
 .cache/
+
+## Local scratch
+debug/
+optimize/
+.agents/
+skills-lock.json
