@@ -141,8 +141,19 @@ namespace transmission_nets::impl::Model {
             }
 
             for (const auto& [locus_label, locus] : state_->loci) {
+                if (FREQUENCY_WALK_PROPOSALS > 0) {
+                    scheduler_.registerSampler({.sampler = std::make_unique<general::SimplexLogRatioSampler<T, Engine>>(state_->alleleFrequencies->alleleFrequencies(locus), target_, r, MIN_ALLELE_FREQUENCY, FREQUENCY_WALK_PROPOSALS),
+                                                .id = fmt::format("SimplexLogRatioSampler/allele_frequencies/{}", locus_label),
+                                                .adaptationStart = 20,
+                                                .adaptationEnd = FREQUENCY_WALK_ADAPTATION_END,
+                                                .weight = 50});
+                }
+                if (not SALT_SAMPLER) {
+                    continue;
+                }
                 auto alleleFrequencySampler = std::make_unique<SALTSampler<T, Engine>>(state_->alleleFrequencies->alleleFrequencies(locus), target_, r, 1, .1, 2);
                 alleleFrequencySampler->setLowerLimit_(MIN_ALLELE_FREQUENCY);
+                alleleFrequencySampler->setProposalsPerUpdate(SALT_PROPOSALS_PER_UPDATE);
                 scheduler_.registerSampler({.sampler = std::move(alleleFrequencySampler),
                                             .id = fmt::format("SALTSampler/allele_frequencies/{}", locus_label),
                                             .adaptationStart = 20,

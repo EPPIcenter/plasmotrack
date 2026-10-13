@@ -17,6 +17,7 @@
 #include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler4.h"
 #include "core/samplers/general/SALTSampler.h"
+#include "core/samplers/general/SimplexLogRatioSampler.h"
 
 
 #include <core/samplers/general/ConstrainedContinuousRandomWalk.h>
@@ -156,6 +157,7 @@ namespace transmission_nets::impl::Model {
         for ([[maybe_unused]] const auto& [locus_label, locus] : state_->loci) {
             auto alleleFrequencySampler = std::make_unique<SALTSampler<T, Engine>>(state_->alleleFrequencies->alleleFrequencies(locus), target_, r, 1, .1, 2);
             alleleFrequencySampler->setLowerLimit_(MIN_ALLELE_FREQUENCY);
+            alleleFrequencySampler->setProposalsPerUpdate(SALT_PROPOSALS_PER_UPDATE);
             scheduler_.registerSampler({.sampler = std::move(alleleFrequencySampler),
                                         .id = fmt::format("SALTSampler/allele_frequencies/{}", locus->label),
                                         .adaptationStart = 20,

@@ -13,3 +13,8 @@ add_executable(transplant_groups transplant_groups.cpp)
 target_include_directories(transplant_groups PRIVATE ${TRANSMISSION_NETWORK_HEADERS_DIR})
 target_link_libraries(transplant_groups PRIVATE transmission_networks Boost::boost Eigen3::Eigen nlohmann_json::nlohmann_json fmt::fmt ZLIB::ZLIB)
 link_openmp_if_available(transplant_groups SUPPRESS_PRAGMA_WARNINGS)
+
+add_executable(frequency_hmc frequency_hmc.cpp)
+target_include_directories(frequency_hmc PRIVATE ${TRANSMISSION_NETWORK_HEADERS_DIR})
+target_link_libraries(frequency_hmc PRIVATE transmission_networks Boost::boost Eigen3::Eigen nlohmann_json::nlohmann_json fmt::fmt ZLIB::ZLIB)
+link_openmp_if_available(frequency_hmc SUPPRESS_PRAGMA_WARNINGS)

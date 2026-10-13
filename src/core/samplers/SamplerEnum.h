@@ -36,7 +36,8 @@ namespace transmission_nets::core::samplers {
         InformedOrderJumpTryID,
         ParentRelinkTryID,
         AlleleSwapID,
-        StrainCountID
+        StrainCountID,
+        SimplexLogRatioID
     };
 }
 

@@ -33,6 +33,14 @@ namespace transmission_nets::impl::Model {
     constexpr size_t INFORMED_JUMP_MAX_TRIES = 8;
     // Allele-frequency (SALT) updates run every this many Sampling iterations.
     constexpr int SALT_UPDATE_FREQUENCY = 3;
+    // Frequencies each SALT update proposes, chosen at random (0: every frequency at the locus, in random order).
+    constexpr unsigned int SALT_PROPOSALS_PER_UPDATE = 0;
+    // Whether SALT samplers are registered.
+    constexpr bool SALT_SAMPLER = true;
+    // Proposals per SimplexLogRatioSampler update, which moves all of a locus' frequencies at once (0: not registered).
+    constexpr unsigned int FREQUENCY_WALK_PROPOSALS = 0;
+    // SimplexLogRatioSampler adapts its scale and covariance until this Sampling iteration.
+    constexpr int FREQUENCY_WALK_ADAPTATION_END = 500;
     // Whether JointGeneticsTimeSampler is registered.
     constexpr bool JOINT_GENETICS_TIME_SAMPLER = false;
 

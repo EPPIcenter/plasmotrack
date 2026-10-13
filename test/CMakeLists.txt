@@ -35,6 +35,7 @@ set(CORE_SAMPLERS_TESTS
     src/core/samplers/ContinuousRandomWalkTest.cpp
     src/core/samplers/ConstrainedContinuousRandomWalkTest.cpp
     src/core/samplers/SALTSamplerTest.cpp
+    src/core/samplers/SimplexLogRatioSamplerTest.cpp
     src/core/samplers/OrderSamplerTest.cpp
     src/core/samplers/DiscreteRandomWalkTest.cpp
     src/core/samplers/ConstrainedDiscreteRandomWalkTest.cpp

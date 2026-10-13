@@ -57,6 +57,9 @@ namespace transmission_nets::core::samplers {
 
         void setLowerLimit_(double lim) noexcept;
 
+        // Frequencies proposed per update, chosen at random without replacement; 0 (the default) proposes each once.
+        void setProposalsPerUpdate(unsigned int proposals) noexcept { proposalsPerUpdate_ = proposals; }
+
         void update() noexcept override;
 
         void adapt() noexcept override;
@@ -92,6 +95,8 @@ namespace transmission_nets::core::samplers {
 
         double lowerLimit_ = .01;
 
+        unsigned int proposalsPerUpdate_ = 0;
+
         int totalUpdates_ = 0;
     };
 
@@ -126,6 +131,9 @@ namespace transmission_nets::core::samplers {
     void SALTSampler<T, Engine>::update() noexcept {
         SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::SALTID;
         auto indices              = utils::generators::randomSequence(0, parameter_->value().totalElements(), rng_);
+        if (proposalsPerUpdate_ > 0 and proposalsPerUpdate_ < indices.size()) {
+            indices.resize(proposalsPerUpdate_);
+        }
         for (const auto idx : indices) {
             Likelihood curLik = target_->value();
 
@@ -145,13 +153,19 @@ namespace transmission_nets::core::samplers {
             auto propVec = utils::expit(logitPropVec);
 
             // check to make sure proposal is within lower limit bounds
+            bool outOfBounds = false;
             for (const auto el : propVec) {
                 if (el < lowerLimit_) {
-                    rejections_.at(idx)++;
-                    countProposal(false);
-                    totalUpdates_++;
-                    return;
+                    outOfBounds = true;
+                    break;
                 }
+            }
+            // A rejection, and the update goes on to the next frequency: whether the rest are proposed must not
+            // depend on this proposal.
+            if (outOfBounds) {
+                rejections_.at(idx)++;
+                countProposal(false);
+                continue;
             }
 
             currentVal.set(propVec);
