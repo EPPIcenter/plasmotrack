@@ -145,13 +145,19 @@ namespace transmission_nets::core::samplers {
             auto propVec = utils::expit(logitPropVec);
 
             // check to make sure proposal is within lower limit bounds
+            bool outOfBounds = false;
             for (const auto el : propVec) {
                 if (el < lowerLimit_) {
-                    rejections_.at(idx)++;
-                    countProposal(false);
-                    totalUpdates_++;
-                    return;
+                    outOfBounds = true;
+                    break;
                 }
+            }
+            // A rejection, and the update goes on to the next frequency: whether the rest are proposed must not
+            // depend on this proposal.
+            if (outOfBounds) {
+                rejections_.at(idx)++;
+                countProposal(false);
+                continue;
             }
 
             currentVal.set(propVec);
