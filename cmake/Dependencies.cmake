@@ -63,25 +63,14 @@ function(link_openmp_if_available target_name)
     cmake_parse_arguments(ARGS "SUPPRESS_PRAGMA_WARNINGS" "" "" ${ARGN})
     
     if(OpenMP_FOUND AND OpenMP_CXX_FOUND)
+        # OpenMP::OpenMP_CXX supplies INTERFACE_COMPILE_OPTIONS / INTERFACE_LINK_OPTIONS.
+        # Do not also pass OpenMP_CXX_FLAGS here: on AppleClang it is "-Xclang -fopenmp" as one
+        # string and becomes a single invalid compiler argument while the target uses two flags.
         target_link_libraries(${target_name}
             PRIVATE
                 OpenMP::OpenMP_CXX
         )
-        if(OpenMP_CXX_FLAGS)
-            target_compile_options(${target_name}
-                PRIVATE
-                    $<$<COMPILE_LANGUAGE:CXX>:${OpenMP_CXX_FLAGS}>
-            )
-            message(STATUS "OpenMP linked to ${target_name} with flags: ${OpenMP_CXX_FLAGS}")
-        else()
-            if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-                target_compile_options(${target_name}
-                    PRIVATE
-                        -fopenmp
-                )
-                message(STATUS "OpenMP linked to ${target_name} with -fopenmp flag")
-            endif()
-        endif()
+        message(STATUS "OpenMP linked to ${target_name} (OpenMP::OpenMP_CXX)")
     elseif(ARGS_SUPPRESS_PRAGMA_WARNINGS)
         target_compile_options(${target_name}
             PRIVATE

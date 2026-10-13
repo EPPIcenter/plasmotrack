@@ -141,6 +141,10 @@ namespace transmission_nets::impl::Model {
             }
 
             for (const auto& [locus_label, locus] : state_->loci) {
+                // A one-allele locus has a fixed frequency of 1 and nothing to sample.
+                if (locus->totalAlleles() < 2) {
+                    continue;
+                }
                 if (FREQUENCY_WALK_PROPOSALS > 0) {
                     scheduler_.registerSampler({.sampler = std::make_unique<general::SimplexLogRatioSampler<T, Engine>>(state_->alleleFrequencies->alleleFrequencies(locus), target_, r, MIN_ALLELE_FREQUENCY, FREQUENCY_WALK_PROPOSALS),
                                                 .id = fmt::format("SimplexLogRatioSampler/allele_frequencies/{}", locus_label),

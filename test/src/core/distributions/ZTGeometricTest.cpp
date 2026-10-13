@@ -35,6 +35,7 @@ TEST_F(ZTGeometricTest, ValueTest) {
 }
 
 TEST_F(ZTGeometricTest, ProbabilityUpdateTest) {
+    prob->saveState(1);
     prob->setValue(0.2);
     auto result = ztGeometric->value();
 
@@ -44,6 +45,7 @@ TEST_F(ZTGeometricTest, ProbabilityUpdateTest) {
     }
 
     ASSERT_NEAR(sum, 1.0, 1e-5) << "The sum of probabilities should be approximately 1.0 after updating probability";
+    prob->acceptState();
 }
 
 // int main(int argc, char **argv) {
