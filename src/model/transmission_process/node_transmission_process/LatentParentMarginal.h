@@ -23,6 +23,7 @@
 #include "core/utils/fastmath.h"
 #include "model/transmission_process/node_transmission_process/MarginalLatentParent.h"
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cmath>
@@ -169,14 +170,16 @@ namespace transmission_nets::model::transmission_process {
                 slot.tables      = {};
             }
             const auto& f = fTable(key, child, parents);
+            if (f.entries.empty()) {
+                auto& table      = slot.tables[std::move(key)];
+                table.impossible = true;
+                return table;
+            }
             const marginal::SourceOverlap* overlap = nullptr;
             if (const auto it = slot.overlaps.find(child); it != slot.overlaps.end()) {
                 overlap = &it->second;
             } else {
-                auto childAlleles = allelesOf(child);
-                if (childAlleles.empty()) {
-                    childAlleles.push_back(0);// never read: the F table is empty
-                }
+                const auto childAlleles = allelesOf(child);
                 overlap = &slot.overlaps.emplace(child, marginal::SourceOverlap(frequencies_[frequencyId]->values, childAlleles, MAX_COI)).first->second;
             }
             auto& table = slot.tables[std::move(key)];
@@ -322,15 +325,18 @@ namespace transmission_nets::model::transmission_process {
             std::vector<double> values{};
         };
 
-        // f(m; U, w) for every nonempty U ⊆ C (a mask over C's alleles in index order) and every w = |G \ C| up to
-        // maxW, as probabilities. A U for which the parent set is impossible has possible = 0.
+        // f(m; U, w) for the nonempty U ⊆ C (a mask over C's alleles in index order) and w = |G \ C| up to maxW for
+        // which the parent set is possible, as probabilities; only those are kept. With the bounds of where g can be
+        // positive: k >= rMin, the fewest alleles of a possible latent parent, and m >= mMin.
+        struct FEntry {
+            std::uint32_t mask = 0;
+            std::uint16_t w    = 0;
+            std::uint16_t r    = 0;// |U| + w
+            std::array<double, MAX_STRAINS> f{};
+        };
         struct FTable {
             unsigned int maxW = 0;
-            std::vector<std::array<double, MAX_STRAINS>> f{};// index mask * (maxW + 1) + w
-            std::vector<unsigned char> possible{};
-            // The possible (mask, w), as (mask, w, |U| + w), and the bounds of where g can be positive: k >= rMin, the
-            // fewest alleles of a possible latent parent, and m >= mMin.
-            std::vector<std::array<unsigned int, 3>> entries{};
+            std::vector<FEntry> entries{};
             int rMin = MAX_COI + 1;
             int mMin = MAX_STRAINS + 1;
         };
@@ -358,51 +364,84 @@ namespace transmission_nets::model::transmission_process {
             if (const auto it = fTables_.find(key); it != fTables_.end()) {
                 return it->second;
             }
+            // Two generations, as for locus tables: a table from the older one moves to the current one when used, and
+            // the older one is dropped when the current one fills, so tables in use survive.
+            if (const auto it = olderFTables_.find(key); it != olderFTables_.end()) {
+                auto node = olderFTables_.extract(it);
+                return fTables_.insert(std::move(node)).position->second;
+            }
             if (fTables_.size() >= MAX_F_TABLES) {
-                fTables_.clear();
+                olderFTables_ = std::move(fTables_);
+                fTables_      = {};
             }
             const auto childAlleles   = allelesOf(child);
             const unsigned int A      = child.totalAlleles();
             const auto c              = static_cast<unsigned int>(childAlleles.size());
             FTable table{};
-            if (c == 0) {
-                return fTables_.emplace(key, std::move(table)).first->second;// no alleles: impossible
+            if (c == 0 or c > static_cast<unsigned int>(MAX_STRAINS)) {
+                // No alleles, or more than the most strains transmitted can carry: impossible.
+                return fTables_.emplace(key, std::move(table)).first->second;
+            }
+            // A child allele in no observed parent has frequency 0 unless the latent parent carries it, so masks
+            // without all of them are impossible and skipped without computing their terms.
+            unsigned int required = 0;
+            for (unsigned int i = 0; i < c; ++i) {
+                if (std::ranges::none_of(parents, [&](const GeneticsImpl* parent) { return parent->allele(childAlleles[i]); })) {
+                    required |= 1u << i;
+                }
             }
             table.maxW                  = std::min<unsigned int>(A - c, MAX_COI);
             const unsigned int numMasks = 1u << c;
-            table.f.assign(static_cast<size_t>(numMasks) * (table.maxW + 1), std::array<double, MAX_STRAINS>{});
-            table.possible.assign(table.f.size(), 0);
             const Variant variant = parents.empty() ? Variant::LatentParentOnly : Variant::ObservedAndLatentParents;
+            // The representative latent genotypes (marginal::representative), built incrementally: U's alleles, then
+            // one more allele outside C, in index order, for each w.
+            std::vector<unsigned int> outside;
+            for (unsigned int a = 0; a < A and outside.size() < table.maxW; ++a) {
+                if (not child.allele(a)) {
+                    outside.push_back(a);
+                }
+            }
+            GeneticsImpl latent = child;
             for (unsigned int mask = 1; mask < numMasks; ++mask) {
+                if ((mask & required) != required) {
+                    continue;
+                }
+                latent.reset();
+                for (unsigned int i = 0; i < c; ++i) {
+                    if (mask >> i & 1u) {
+                        latent.set(childAlleles[i]);
+                    }
+                }
                 for (unsigned int w = 0; w <= table.maxW; ++w) {
                     if (std::popcount(mask) + w > static_cast<unsigned int>(MAX_COI)) {
                         break;
                     }
-                    const auto latent = marginal::representative<GeneticsImpl>(A, childAlleles, mask, w);
-                    const auto& term  = ntp_->locusTerm(variant, child, parents, &latent);
+                    if (w > 0) {
+                        latent.set(outside[w - 1]);
+                    }
+                    const auto term   = ntp_->uncachedLocusTerm(variant, child, parents, &latent);
                     if (term.impossible) {
                         continue;
                     }
-                    const size_t idx = static_cast<size_t>(mask) * (table.maxW + 1) + w;
-                    bool any         = false;
+                    FEntry entry{.mask = mask, .w = static_cast<std::uint16_t>(w), .r = static_cast<std::uint16_t>(std::popcount(mask) + w)};
+                    bool any = false;
                     for (int m = 0; m < MAX_STRAINS; ++m) {
-                        table.f[idx][m] = std::exp(term.terms[m]);
-                        any             = any or table.f[idx][m] > 0;
+                        entry.f[m] = std::exp(term.terms[m]);
+                        any        = any or entry.f[m] > 0;
                     }
-                    table.possible[idx] = any ? 1 : 0;
                     if (any) {
-                        const int r = std::popcount(mask) + static_cast<int>(w);
-                        table.entries.push_back({mask, w, static_cast<unsigned int>(r)});
-                        table.rMin = std::min(table.rMin, r);
+                        table.rMin = std::min(table.rMin, static_cast<int>(entry.r));
                         for (int m = 0; m < MAX_STRAINS; ++m) {
-                            if (table.f[idx][m] > 0) {
+                            if (entry.f[m] > 0) {
                                 table.mMin = std::min(table.mMin, m + 1);
                                 break;
                             }
                         }
+                        table.entries.push_back(entry);
                     }
                 }
             }
+            table.entries.shrink_to_fit();
             return fTables_.emplace(key, std::move(table)).first->second;
         }
 
@@ -416,11 +455,10 @@ namespace transmission_nets::model::transmission_process {
             const int mMin = f.mMin;
             std::array<double, NUM_CELLS> g;
             std::fill(g.begin() + kMin * MAX_STRAINS, g.end(), 0.0);
-            const unsigned int numW = f.maxW + 1;
-            for (const auto& [mask, w, r] : f.entries) {
-                const auto& fm   = f.f[static_cast<size_t>(mask) * numW + w];
-                const double* ps = overlap.row(mask, w);
-                for (int k = static_cast<int>(r); k <= MAX_COI; ++k) {
+            for (const auto& entry : f.entries) {
+                const auto& fm   = entry.f;
+                const double* ps = overlap.row(entry.mask, entry.w);
+                for (int k = static_cast<int>(entry.r); k <= MAX_COI; ++k) {
                     const double p = ps[k];
                     double* row    = g.data() + k * MAX_STRAINS;
                     for (int m = 0; m < MAX_STRAINS; ++m) {
@@ -461,6 +499,7 @@ namespace transmission_nets::model::transmission_process {
         std::uint64_t useCounter_ = 0;
 
         std::unordered_map<GenotypeKey, FTable, GenotypeKeyHash> fTables_{};
+        std::unordered_map<GenotypeKey, FTable, GenotypeKeyHash> olderFTables_{};
     };
 
 }// namespace transmission_nets::model::transmission_process

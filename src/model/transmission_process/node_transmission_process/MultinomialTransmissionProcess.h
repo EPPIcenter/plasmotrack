@@ -158,6 +158,10 @@ namespace transmission_nets::model::transmission_process {
         // calculateLogLikelihood() call.
         const LocusTerm& locusTerm(Variant variant, const GeneticsImpl& child, std::span<const GeneticsImpl* const> parents, const GeneticsImpl* latentParent);
 
+        // As locusTerm, computed afresh and not cached: for callers that keep their own cache of the terms they need,
+        // whose terms would only push reused ones out of this cache.
+        LocusTerm uncachedLocusTerm(Variant variant, const GeneticsImpl& child, std::span<const GeneticsImpl* const> parents, const GeneticsImpl* latentParent);
+
         // The parent set's log-likelihood marginalised over strain counts, before the source and parent-set-size
         // terms. numParents counts the latent parent.
         Likelihood strainSummedLogLikelihood(const StrainSums& sums, size_t numParents);
@@ -274,6 +278,7 @@ namespace transmission_nets::model::transmission_process {
         core::utils::probAnyMissingFunctor probAnyMissing_;
 
         // Scratch buffers reused across locus evaluations.
+        std::vector<size_t> childAlleles_{};
         std::vector<Probability> parentPopFreqs_{};
         std::vector<Likelihood> prVec_{};
         std::vector<GeneticsImpl> genomeScratch_{};
@@ -425,7 +430,15 @@ namespace transmission_nets::model::transmission_process {
         const auto& childGenotype = key.genotypes[0];
         const size_t numParents = key.numParents;
 
-        parentPopFreqs_.assign(childGenotype.totalAlleles(), 0.0);
+        // Only the child's alleles' frequencies are used, so only they are accumulated, in index order; each receives
+        // the same additions, in the same parent order, as when every allele was accumulated.
+        childAlleles_.clear();
+        for (size_t i = 0; i < childGenotype.totalAlleles(); ++i) {
+            if (childGenotype.allele(i)) {
+                childAlleles_.push_back(i);
+            }
+        }
+        parentPopFreqs_.assign(childAlleles_.size(), 0.0);
         double zeroProbCutoff = 1e-6;
 
         switch (key.variant) {
@@ -434,9 +447,9 @@ namespace transmission_nets::model::transmission_process {
                 for (size_t p = 1; p <= numParents; ++p) {
                     const auto& parentGenotype = key.genotypes[p];
                     const int totalAllelesPresent = parentGenotype.totalPositiveCount();
-                    for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
-                        if (parentGenotype.allele(j)) {
-                            parentPopFreqs_[j] += (static_cast<Probability>(parentGenotype.allele(j)) / (totalAllelesPresent * numParents));
+                    for (size_t k = 0; k < childAlleles_.size(); ++k) {
+                        if (parentGenotype.allele(childAlleles_[k])) {
+                            parentPopFreqs_[k] += (static_cast<Probability>(parentGenotype.allele(childAlleles_[k])) / (totalAllelesPresent * numParents));
                         }
                     }
                 }
@@ -446,9 +459,9 @@ namespace transmission_nets::model::transmission_process {
                 for (size_t p = 1; p < numParents; ++p) {
                     const auto& parentGenotype = key.genotypes[p];
                     const int totalAllelesPresent = parentGenotype.totalPositiveCount();
-                    for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
-                        if (parentGenotype.allele(j)) {
-                            parentPopFreqs_[j] += (static_cast<Probability>(parentGenotype.allele(j)) / totalAllelesPresent / static_cast<Probability>(numParents));
+                    for (size_t k = 0; k < childAlleles_.size(); ++k) {
+                        if (parentGenotype.allele(childAlleles_[k])) {
+                            parentPopFreqs_[k] += (static_cast<Probability>(parentGenotype.allele(childAlleles_[k])) / totalAllelesPresent / static_cast<Probability>(numParents));
                         }
                     }
                 }
@@ -459,17 +472,17 @@ namespace transmission_nets::model::transmission_process {
                     out.impossible = true;
                     return out;
                 }
-                for (size_t j = 0; j < latentParentGenotype.totalAlleles(); ++j) {
-                    parentPopFreqs_[j] += (static_cast<Probability>(latentParentGenotype.allele(j)) / totalAllelesPresent / static_cast<Probability>(numParents));
+                for (size_t k = 0; k < childAlleles_.size(); ++k) {
+                    parentPopFreqs_[k] += (static_cast<Probability>(latentParentGenotype.allele(childAlleles_[k])) / totalAllelesPresent / static_cast<Probability>(numParents));
                 }
                 break;
             }
             case Variant::LatentParentOnly: {
                 const auto& parentGenotype = key.genotypes[1];
                 const int totalAllelesPresent = parentGenotype.totalPositiveCount();
-                for (size_t j = 0; j < parentGenotype.totalAlleles(); ++j) {
-                    if (parentGenotype.allele(j)) {
-                        parentPopFreqs_[j] += (static_cast<Probability>(parentGenotype.allele(j)) / totalAllelesPresent);
+                for (size_t k = 0; k < childAlleles_.size(); ++k) {
+                    if (parentGenotype.allele(childAlleles_[k])) {
+                        parentPopFreqs_[k] += (static_cast<Probability>(parentGenotype.allele(childAlleles_[k])) / totalAllelesPresent);
                     }
                 }
                 break;
@@ -480,12 +493,10 @@ namespace transmission_nets::model::transmission_process {
         prVec_.clear();
         bool zeroProbEvent = false;
 
-        for (size_t i = 0; i < childGenotype.totalAlleles(); ++i) {
-            if (childGenotype.allele(i)) {
-                prVec_.push_back(parentPopFreqs_[i]);
-                constrainedSetProb += parentPopFreqs_[i];
-                zeroProbEvent = zeroProbEvent || std::abs(parentPopFreqs_[i]) < zeroProbCutoff;
-            }
+        for (size_t k = 0; k < childAlleles_.size(); ++k) {
+            prVec_.push_back(parentPopFreqs_[k]);
+            constrainedSetProb += parentPopFreqs_[k];
+            zeroProbEvent = zeroProbEvent || std::abs(parentPopFreqs_[k]) < zeroProbCutoff;
         }
 
         if (prVec_.empty() || zeroProbEvent) {
@@ -653,6 +664,25 @@ namespace transmission_nets::model::transmission_process {
             key.genotypes[slot] = *latentParent;
         }
         return locusTerm(key);
+    }
+
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::LocusTerm
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::uncachedLocusTerm(
+            const Variant variant,
+            const GeneticsImpl& child,
+            const std::span<const GeneticsImpl* const> parents,
+            const GeneticsImpl* latentParent) {
+        LocusTermKey key{.variant = variant, .numParents = static_cast<unsigned int>(parents.size() + (latentParent != nullptr ? 1 : 0))};
+        key.genotypes[0] = child;
+        size_t slot      = 1;
+        for (const auto* parent : parents) {
+            key.genotypes[slot++] = *parent;
+        }
+        if (latentParent != nullptr) {
+            key.genotypes[slot] = *latentParent;
+        }
+        return computeLocusTerm(key);
     }
 
     template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>

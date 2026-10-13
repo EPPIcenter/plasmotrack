@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <bitset>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -44,10 +45,11 @@ namespace transmission_nets::model::transmission_process::marginal {
             const size_t stride = K + 1;
 
             // 1 / b!, and k!.
-            std::vector<double> invFactorial(stride, 1.0), factorial(stride, 1.0);
+            std::vector<double> invFactorial(stride, 1.0);
+            factorial_.assign(stride, 1.0);
             for (int b = 1; b <= K; ++b) {
-                factorial[b]    = factorial[b - 1] * b;
-                invFactorial[b] = 1.0 / factorial[b];
+                factorial_[b]   = factorial_[b - 1] * b;
+                invFactorial[b] = 1.0 / factorial_[b];
             }
             // Series of e^{πt} - 1 to degree K, into s.
             std::vector<double> s(stride);
@@ -66,19 +68,21 @@ namespace transmission_nets::model::transmission_process::marginal {
             }
 
             // R[w * stride + a]: alleles outside C, w of them drawn, coefficient of t^a.
-            std::vector<double> R((maxW_ + 1) * stride, 0.0);
-            R[0] = 1.0;
+            R_.assign((maxW_ + 1) * stride, 0.0);
+            R_[0] = 1.0;
             for (unsigned int i = 0; i < numAlleles; ++i) {
                 if (inChild[i] or frequencies[i] <= 0) {
                     continue;
                 }
                 drawnSeries(frequencies[i]);
+                // R[w][a] is 0 for a < w (w distinct alleles need w draws), so only a >= w is updated, and only the
+                // terms with a - b >= w - 1 are added; the zeros skipped would add nothing.
                 for (int w = static_cast<int>(maxW_); w >= 1; --w) {
-                    const double* below = R.data() + (w - 1) * stride;
-                    double* row         = R.data() + w * stride;
-                    for (int a = K; a >= 1; --a) {
+                    const double* below = R_.data() + (w - 1) * stride;
+                    double* row         = R_.data() + w * stride;
+                    for (int a = K; a >= w; --a) {
                         double add = 0;
-                        for (int b = 1; b <= a; ++b) {
+                        for (int b = 1; b <= a - (w - 1); ++b) {
                             add += below[a - b] * s[b];
                         }
                         row[a] += add;
@@ -86,57 +90,81 @@ namespace transmission_nets::model::transmission_process::marginal {
                 }
             }
 
-            const unsigned int numMasks = 1u << childSize;
-            prob_.assign(static_cast<size_t>(numMasks) * (maxW_ + 1) * stride, 0.0);
-            std::vector<double> E(stride), next(stride);
-            for (unsigned int mask = 1; mask < numMasks; ++mask) {
-                std::fill(E.begin(), E.end(), 0.0);
-                E[0] = 1.0;
-                for (unsigned int c = 0; c < childSize; ++c) {
-                    if (not(mask >> c & 1u)) {
-                        continue;
-                    }
-                    drawnSeries(frequencies[childAlleles[c]]);
-                    std::fill(next.begin(), next.end(), 0.0);
-                    for (int a = 0; a <= K; ++a) {
-                        if (E[a] == 0) {
-                            continue;
-                        }
-                        for (int b = 1; a + b <= K; ++b) {
-                            next[a + b] += E[a] * s[b];
-                        }
-                    }
-                    std::swap(E, next);
-                }
-                for (unsigned int w = 0; w <= maxW_; ++w) {
-                    const double* row = R.data() + w * stride;
-                    for (int k = 1; k <= K; ++k) {
-                        double coef = 0;
-                        for (int a = 0; a <= k; ++a) {
-                            coef += E[a] * row[k - a];
-                        }
-                        prob_[index(mask, w, k)] = coef * factorial[k];
-                    }
-                }
+            childSeries_.resize(childSize * stride);
+            for (unsigned int c = 0; c < childSize; ++c) {
+                drawnSeries(frequencies[childAlleles[c]]);
+                std::copy(s.begin(), s.end(), childSeries_.begin() + c * stride);
             }
+            // A mask's probabilities are computed when first asked for: a parent set reads only the masks its observed
+            // parents leave possible.
+            offsets_.assign(1u << childSize, NOT_COMPUTED);
         }
 
-        [[nodiscard]] double operator()(const unsigned int mask, const unsigned int w, const int k) const { return prob_[index(mask, w, k)]; }
-        // The probabilities for k = 0..maxCoi, for one (U, w).
-        [[nodiscard]] const double* row(const unsigned int mask, const unsigned int w) const { return prob_.data() + index(mask, w, 0); }
+        [[nodiscard]] double operator()(const unsigned int mask, const unsigned int w, const int k) const { return row(mask, w)[k]; }
+        // The probabilities for k = 0..maxCoi, for one (U, w). Valid until the next call for a mask not asked for before.
+        [[nodiscard]] const double* row(const unsigned int mask, const unsigned int w) const {
+            if (offsets_[mask] == NOT_COMPUTED) {
+                compute(mask);
+            }
+            return prob_.data() + offsets_[mask] + static_cast<size_t>(w) * (maxCoi_ + 1);
+        }
         [[nodiscard]] unsigned int maxW() const { return maxW_; }
         [[nodiscard]] int maxCoi() const { return maxCoi_; }
         [[nodiscard]] const std::vector<unsigned int>& childAlleles() const { return childAlleles_; }
 
     private:
-        [[nodiscard]] size_t index(const unsigned int mask, const unsigned int w, const int k) const {
-            return (static_cast<size_t>(mask) * (maxW_ + 1) + w) * (maxCoi_ + 1) + k;
+        static constexpr std::uint32_t NOT_COMPUTED = std::numeric_limits<std::uint32_t>::max();
+
+        void compute(const unsigned int mask) const {
+            const int K         = maxCoi_;
+            const size_t stride = K + 1;
+            const auto offset   = prob_.size();
+            assert(offset < NOT_COMPUTED);
+            offsets_[mask] = static_cast<std::uint32_t>(offset);
+            prob_.resize(offset + (maxW_ + 1) * stride, 0.0);
+
+            std::vector<double> E(stride, 0.0), next(stride);
+            E[0] = 1.0;
+            for (unsigned int c = 0; c < childAlleles_.size(); ++c) {
+                if (not(mask >> c & 1u)) {
+                    continue;
+                }
+                const double* s = childSeries_.data() + c * stride;
+                std::fill(next.begin(), next.end(), 0.0);
+                for (int a = 0; a <= K; ++a) {
+                    if (E[a] == 0) {
+                        continue;
+                    }
+                    for (int b = 1; a + b <= K; ++b) {
+                        next[a + b] += E[a] * s[b];
+                    }
+                }
+                std::swap(E, next);
+            }
+            // E[a] is 0 below |U| (each of U's alleles needs a draw) and row[k - a] below w, so a runs from |U|
+            // to k - w; the zeros skipped would add nothing.
+            const int u = std::popcount(mask);
+            for (unsigned int w = 0; w <= maxW_; ++w) {
+                const double* row = R_.data() + w * stride;
+                double* out       = prob_.data() + offset + w * stride;
+                for (int k = 1; k <= K; ++k) {
+                    double coef = 0;
+                    for (int a = u; a <= k - static_cast<int>(w); ++a) {
+                        coef += E[a] * row[k - a];
+                    }
+                    out[k] = coef * factorial_[k];
+                }
+            }
         }
 
         std::vector<unsigned int> childAlleles_;
         int maxCoi_        = 0;
         unsigned int maxW_ = 0;
-        std::vector<double> prob_;
+        std::vector<double> factorial_;
+        std::vector<double> R_;
+        std::vector<double> childSeries_;// e^{πt} - 1 to degree maxCoi for each child allele
+        mutable std::vector<std::uint32_t> offsets_;// by mask: where its probabilities start in prob_
+        mutable std::vector<double> prob_;
     };
 
     // log g_l(k, m) for one locus: entry k * MAX_STRAINS + (m - 1), for k = 0..MAX_COI (k = 0 is -inf).
@@ -149,9 +177,9 @@ namespace transmission_nets::model::transmission_process::marginal {
     Genetics representative(const unsigned int totalAlleles, const std::vector<unsigned int>& childAlleles, const unsigned int mask, unsigned int w) {
         Genetics g(static_cast<int>(totalAlleles));
         g.reset();// the size constructor sets the last allele
-        std::vector<bool> inChild(totalAlleles, false);
+        std::bitset<256> inChild;
         for (unsigned int c = 0; c < childAlleles.size(); ++c) {
-            inChild[childAlleles[c]] = true;
+            inChild.set(childAlleles[c]);
             if (mask >> c & 1u) {
                 g.set(childAlleles[c]);
             }

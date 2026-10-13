@@ -56,10 +56,37 @@ namespace transmission_nets::core::utils {
         return prob;
     }
 
-    std::vector<Likelihood> probAnyMissingFunctor::vectorized(const std::vector<Likelihood>& eventProbs, unsigned int numEvents) {
+    namespace {
+        // Appends every r-subset of {first, ..., n - 1} added to `prefix`, as a bit mask, with subsets in lexicographic
+        // order of their indices.
+        void appendSubsets(const std::size_t n, const std::size_t first, const std::size_t r, const std::uint32_t prefix, std::vector<std::uint32_t>& out) {
+            if (r == 0) {
+                out.push_back(prefix);
+                return;
+            }
+            for (std::size_t j = first; j + r <= n; ++j) {
+                appendSubsets(n, j + 1, r - 1, prefix | (1u << j), out);
+            }
+        }
+    }// namespace
+
+    const std::vector<std::uint32_t>& probAnyMissingFunctor::subsetOrder(const std::size_t n) {
+        if (subsetOrders.size() <= n) {
+            subsetOrders.resize(n + 1);
+        }
+        auto& order = subsetOrders[n];
+        if (order.empty()) {
+            for (std::size_t i = 1; i <= n; ++i) {
+                appendSubsets(n, 0, i, 0, order);
+            }
+        }
+        return order;
+    }
+
+    const std::vector<Likelihood>& probAnyMissingFunctor::vectorized(const std::vector<Likelihood>& eventProbs, unsigned int numEvents) {
         const std::size_t totalEvents = eventProbs.size();
 
-        std::vector<Likelihood> probVec(numEvents, 0.0);
+        probVec.assign(numEvents, 0.0);
 
         if (numEvents < totalEvents) {
             std::fill_n(probVec.begin(), numEvents, 1.0);
@@ -68,24 +95,26 @@ namespace transmission_nets::core::utils {
 
         std::fill_n(probVec.begin(), totalEvents - 1, 1.0);
 
-        //      Calculate via inclusion-exclusion principle
+        // 1 - p[c_0] - p[c_1] - ... for every subset, subtracting in index order: a subset's value is that of the
+        // subset without its largest index, less that index's probability.
+        baseVec.resize(std::size_t{1} << totalEvents);
+        baseVec[0] = 1.0;
+        for (std::size_t j = 0; j < totalEvents; ++j) {
+            const std::size_t top = std::size_t{1} << j;
+            for (std::size_t mask = 0; mask < top; ++mask) {
+                baseVec[top | mask] = baseVec[mask] - eventProbs[j];
+            }
+        }
+
+        //      Calculate via inclusion-exclusion principle, over subsets by size and then in lexicographic order
+        const auto& order = subsetOrder(totalEvents);
+        std::size_t next  = 0;
         double sign = -1.0;
         for (std::size_t i = 1; i <= totalEvents; ++i) {
             sign = -sign;
-            c.reset(totalEvents, i);
-            baseVec.clear();
-            baseVec.reserve(c.numCombinations);
-            while (!c.completed) {
-                Likelihood base = 1.0;
-
-                for (const auto j : c.curr) {
-                    base -= eventProbs[j];
-                }
-                baseVec.push_back(base);
-                c.next();
-            }
-
-            for (const Likelihood base : baseVec) {
+            const std::size_t count = binomial(totalEvents, i);
+            for (std::size_t n = 0; n < count; ++n) {
+                const Likelihood base = baseVec[order[next++]];
                 Likelihood r = sign;
                 for (std::size_t j = 0; j < totalEvents - 1; ++j) {
                     r *= base;
@@ -98,6 +127,14 @@ namespace transmission_nets::core::utils {
             }
         }
         return probVec;
+    }
+
+    std::size_t probAnyMissingFunctor::binomial(const std::size_t n, const std::size_t k) {
+        std::size_t out = 1;
+        for (std::size_t i = 1; i <= k; ++i) {
+            out = out * (n - k + i) / i;
+        }
+        return out;
     }
 
 

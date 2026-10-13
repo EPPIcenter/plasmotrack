@@ -129,13 +129,10 @@ namespace transmission_nets::core::datatypes {
 
     template<int MaxAlleles>
     AllelesBitSet<MaxAlleles>::AllelesBitSet(int totalAlleles) : total_alleles_(totalAlleles) {
-        std::string bitstr;
-        for (size_t i = 0; i < total_alleles_ - 1; ++i) {
-            bitstr += "0";
-        }
-        bitstr += "1";
-        assert(bitstr.size() <= MaxAlleles);
-        alleles_ = std::bitset<MaxAlleles>(bitstr);
+        // As the string of totalAlleles - 1 zeros and a one: the last allele present, which is bit 0.
+        assert(total_alleles_ <= MaxAlleles);
+        alleles_.reset();
+        alleles_.set(0);
     }
 
     template<int MaxAlleles>
