@@ -251,7 +251,9 @@ TEST_F(RunRecorderTest, StartingStateIsIterationZeroOfBurnInOnEveryTrace) {
 
     EXPECT_EQ(sink->windows(), (std::vector<WindowMarker>{{.window = 0, .firstIteration = 0, .lastIteration = 0, .phase = "burn_in"}}));
     const std::map<std::string, std::size_t> rowsPerIteration{
-            {"run_scalars", 1}, {"infections", 3}, {"ordering", 3}, {"allele_frequencies", 20}, {"latent_genotypes", 6}, {"latent_parent_genotypes", 6}};
+            {"run_scalars", 1}, {"infections", 3}, {"ordering", 3}, {"allele_frequencies", 20}, {"latent_genotypes", 6}};
+    // Latent parents are summed out of the model and have no genotypes to record.
+    EXPECT_EQ(sink->table("latent_parent_genotypes").rows(), 0u);
     for (const auto& [name, rows] : rowsPerIteration) {
         const auto table = sink->table(name);
         EXPECT_EQ(table.rows(), rows) << name;
@@ -556,8 +558,8 @@ TEST_F(RunRecorderTest, RowsReadWhicheverChainIsHotAtTheCall) {
     EXPECT_EQ(infection1AS1, (std::vector<std::string>{"00010001", "10000000", "00010001"}));
 }
 
-// The likelihood is the Observation process plus the Transmission process. Source sits inside Transmission, so it is
-// not added to the other two, and Parent-set size gets no column of its own.
+// The likelihood is the Observation process plus the Transmission process, and Parent-set size gets no column of its
+// own.
 TEST_F(RunRecorderTest, ProcessTermsAccountForTheLikelihood) {
     auto recorder = makeRecorder(1, 10);
     recorder.recordStart(ensemble());
@@ -572,10 +574,9 @@ TEST_F(RunRecorderTest, ProcessTermsAccountForTheLikelihood) {
     EXPECT_NEAR(observation + transmission, likelihood, 1e-9 * std::abs(likelihood));
     EXPECT_NE(observation, 0.0);
     EXPECT_TRUE(std::isfinite(scalars.column<double>("prior")[0]));
-    // The Latent parents' Source terms are log-probabilities of discrete outcomes, unlike the prior's log-densities.
-    const double source = scalars.column<double>("source")[0];
-    EXPECT_TRUE(std::isfinite(source));
-    EXPECT_LT(source, 0.0);
+    // Latent parents are summed out of the Transmission process, so there is no separate Source term; the column is
+    // kept for the table's layout.
+    EXPECT_EQ(scalars.column<double>("source")[0], 0.0);
 }
 
 // Each call hands over every temperature slot; slot 0 is the Hot chain. Rows follow the same `-t` grid as the other

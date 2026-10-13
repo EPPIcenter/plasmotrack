@@ -6,7 +6,7 @@
 
 #include "gtest/gtest.h"
 
-#include "core/samplers/genetics/LatentParentCoverSampler.h"
+#include "core/samplers/genetics/AlleleSwapSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
 #include "core/samplers/specialized/JointGeneticsTimeSampler.h"
@@ -135,7 +135,7 @@ namespace {
     };
 }// namespace
 
-TEST(GenotypeSamplerStationaryTest, LatentParentSampler) {
+TEST(GenotypeSamplerStationaryTest, RandomAllelesBitSetSampler) {
     auto rng      = std::make_shared<Engine>(20261008);
     auto genotype = std::make_shared<Parameter<GeneticsImpl>>(GeneticsImpl("100"));
     auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
@@ -256,7 +256,12 @@ TEST(GenotypeSamplerStationaryTest, JointGenotypeDurationSamplerAcrossParentSetC
     EXPECT_LT(distanceFromTarget(visits, draws, durations), 0.01);
 }
 
-TEST(GenotypeSamplerStationaryTest, ParentRelinkSampler) {
+// One try is a plain Metropolis-Hastings independence move; more tries make it a multiple-try move.
+class ParentRelinkStationaryTest : public testing::TestWithParam<unsigned int> {};
+
+INSTANTIATE_TEST_SUITE_P(Tries, ParentRelinkStationaryTest, testing::Values(1u, 4u), [](const auto& info) { return std::to_string(info.param); });
+
+TEST_P(ParentRelinkStationaryTest, LeavesTargetInvariant) {
     Fixture f;
     const auto r = f.index("r");
     f.setGenotype(f.state->infections[f.index("p")], "110");
@@ -272,7 +277,7 @@ TEST(GenotypeSamplerStationaryTest, ParentRelinkSampler) {
         shape[day] = 1.0 + static_cast<double>(day);
     }
     transmission_nets::core::samplers::specialized::ParentRelinkSampler<WeightedAllelesTarget, Engine, InfectionEvent>
-            sampler(infection, f.state->latentParents[r], f.state->allowedRelationships->allowedParents(infection), target, f.rng, 1.0, 60.0, shape, 0.3, 0.3);
+            sampler(infection, f.state->latentParents[r], f.state->allowedRelationships->allowedParents(infection), target, f.rng, 1.0, 60.0, shape, 0.3, 0.3, GetParam());
 
     // A genotype can be drawn from a source if it lies within the source's alleles and shares one of them, at the
     // durations for which the source came first: [1, 30) for p, infected on day 390, and for the latent parent any
@@ -311,19 +316,18 @@ TEST(GenotypeSamplerStationaryTest, ParentRelinkSampler) {
     EXPECT_LT(distanceFromTarget(visits, draws, durations), 0.01);
 }
 
-TEST(GenotypeSamplerStationaryTest, LatentParentCoverSampler) {
+// The swap keeps the number of alleles, so from a one-allele genotype it visits exactly the one-allele genotypes, in
+// proportion to the target.
+TEST(GenotypeSamplerStationaryTest, AlleleSwapSampler) {
     Fixture f;
     const auto c = f.index("c");
     f.setGenotype(f.state->infections[c], "100");
-    f.setGenotype(f.state->latentParents[c], "011");
-
-    auto genotype = f.state->latentParents[c]->latentGenotype(f.locus);
+    auto genotype = f.state->infections[c]->latentGenotype(f.locus);
     auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
-    transmission_nets::core::samplers::genetics::LatentParentCoverSampler<WeightedAllelesTarget, Engine, InfectionEvent>
-            sampler(f.state->infections[c], f.state->latentParents[c], target, f.rng, MAX_COI, 0.3);
+    transmission_nets::core::samplers::genetics::AlleleSwapSampler<WeightedAllelesTarget, Engine, GeneticsImpl> sampler(genotype, target, f.rng);
 
-    constexpr int draws = 400000;
+    constexpr int draws = 200000;
     const auto visits   = run(sampler, genotype, draws);
-    EXPECT_EQ(visits.size(), 7u);// every genotype with at least one allele
+    EXPECT_EQ(visits.size(), 3u);
     EXPECT_LT(distanceFromTarget(visits, draws), 0.01);
 }

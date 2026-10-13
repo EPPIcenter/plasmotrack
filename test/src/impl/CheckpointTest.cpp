@@ -103,7 +103,6 @@ TEST(CheckpointTest, RestoredChainsHaveTheSameStateAndLikelihood) {
         const auto& is  = again.replicas[replica].state;
         const auto& was = saved.replicas[replica].state;
         EXPECT_EQ(is.latentGenotypes, was.latentGenotypes);
-        EXPECT_EQ(is.latentParentGenotypes, was.latentParentGenotypes);
         EXPECT_EQ(is.alleleFrequencies, was.alleleFrequencies);
         EXPECT_EQ(is.ordering, was.ordering);
         EXPECT_EQ(is.infectionDurations, was.infectionDurations);
@@ -124,7 +123,7 @@ TEST(CheckpointTest, RestoredChainsHaveTheSameStateAndLikelihood) {
 TEST(CheckpointTest, EachTemperatureSlotKeepsItsReplicaTemperatureAndSwapBarriers) {
     TempDir dir;
     const auto file = dir.path / "checkpoint.cbor";
-    auto original = burnedIn(4, 14, 60);
+    auto original = burnedIn(4, 15, 60);
     for (int ii = 0; ii < 15; ++ii) {
         original.ensemble->burnin();
     }

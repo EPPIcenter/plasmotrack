@@ -7,10 +7,12 @@
 #include "config.h"
 
 #include "core/samplers/scheduler/RandomizedScheduler.h"
+#include "core/samplers/genetics/AlleleSwapSampler.h"
+#include "core/samplers/genetics/StrainCountSampler.h"
 #include "core/samplers/specialized/CloneOrderSwapSampler.h"
+#include "core/samplers/specialized/InformedOrderJumpSampler.h"
 #include "core/samplers/specialized/JointGeneticsTimeSampler.h"
 #include "core/samplers/specialized/ParentRelinkSampler.h"
-#include "core/samplers/genetics/LatentParentCoverSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler4.h"
@@ -78,15 +80,24 @@ namespace transmission_nets::impl::Model {
                 scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler3<T, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>>(infection, state_->parentSetList[infection->id()], state_->latentParents[infection_idx_], target_, r),
                                             .id = fmt::format("RandomAllelesBitSetSampler3/latent_genotypes/{}", infection->id()),
                                             .weight = 5});
-                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state_->latentParents[infection_idx_], state_->allowedRelationships->allowedParents(infection), target_, r, 1.0, upperBound, isSymptomatic ? state_->symptomaticInfectionDurationDist->value() : state_->asymptomaticInfectionDurationDist->value()),
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state_->latentParents[infection_idx_], state_->allowedRelationships->allowedParents(infection), target_, r, 1.0, upperBound, isSymptomatic ? state_->symptomaticInfectionDurationDist->value() : state_->asymptomaticInfectionDurationDist->value(), 0.01, 0.01, RELINK_TRIES),
                                             .id = fmt::format("ParentRelinkSampler/infection/{}", infection->id()),
                                             .weight = 5});
-                scheduler_.registerSampler({.sampler = std::make_unique<genetics::LatentParentCoverSampler<T, Engine, InfectionEvent>>(infection, state_->latentParents[infection_idx_], target_, r, MAX_COI),
-                                            .id = fmt::format("LatentParentCoverSampler/latent_parent_genotypes/{}", state_->latentParents[infection_idx_]->id()),
+                scheduler_.registerSampler({.sampler = std::make_unique<genetics::StrainCountSampler<T, Engine, InfectionEvent>>(infection, target_, r, MAX_COI),
+                                            .id = fmt::format("StrainCountSampler/latent_genotypes/{}", infection->id()),
                                             .weight = 5});
-                scheduler_.registerSampler({.sampler = std::make_unique<specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>>(infection, state_->latentParents[infection_idx_], specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>::mutualPartners(state_->infections, state_->latentParents, *state_->allowedRelationships, infection_idx_), target_, r, 1.0, upperBound, isSymptomatic ? state_->symptomaticInfectionDurationDist->value() : state_->asymptomaticInfectionDurationDist->value()),
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>>(infection, specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>::mutualPartners(state_->infections, *state_->allowedRelationships, infection_idx_), target_, r, 1.0, upperBound, isSymptomatic ? state_->symptomaticInfectionDurationDist->value() : state_->asymptomaticInfectionDurationDist->value()),
                                             .id = fmt::format("CloneOrderSwapSampler/ordering/{}", infection->id()),
                                             .weight = 5});
+                {
+                    std::vector<std::shared_ptr<InfectionEvent>> partners;
+                    for (const auto& partner : specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>::mutualPartners(state_->infections, *state_->allowedRelationships, infection_idx_)) {
+                        partners.push_back(partner.infection);
+                    }
+                    scheduler_.registerSampler({.sampler = std::make_unique<specialized::InformedOrderJumpSampler<T, Engine, InfectionEvent>>(infection, std::move(partners), target_, r, 1.0, upperBound, isSymptomatic ? state_->symptomaticInfectionDurationDist->value() : state_->asymptomaticInfectionDurationDist->value(), INFORMED_JUMP_MAX_TRIES),
+                                                .id = fmt::format("InformedOrderJumpSampler/ordering/{}", infection->id()),
+                                                .weight = 5});
+                }
                 for (const auto& [locus_label, locus] : state_->loci) {
                     if (infection->latentGenotype().contains(locus)) {
                         auto latentGenotype = infection->latentGenotype(locus);
@@ -99,6 +110,14 @@ namespace transmission_nets::impl::Model {
                         scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler4<T, Engine, InfectionEvent, GeneticsImpl, LocusImpl>>(infection, state_->latentParents[infection_idx_], locus, state_->allowedRelationships, target_, r, MAX_COI),
                                                     .id = fmt::format("RandomAllelesBitSetSampler4/latent_genotypes/{}/{}", infection->id(), locus->label),
                                                     .weight = 5});
+                        // Swaps pay where the observation says little about which allele is present: chosen as often as other
+                        // per-locus samplers at loci with no allele observed, a tenth as often at loci with several, and never at loci with one.
+                        const unsigned int observedAlleles = infection->observedGenotype().contains(locus) ? infection->observedGenotype(locus)->value().totalPositiveCount() : 0;
+                        if (observedAlleles != 1) {
+                            scheduler_.registerSampler({.sampler = std::make_unique<genetics::AlleleSwapSampler<T, Engine, GeneticsImpl>>(infection->latentGenotype(locus), target_, r),
+                                                    .id = fmt::format("AlleleSwapSampler/latent_genotypes/{}/{}", infection->id(), locus->label),
+                                                    .weight = observedAlleles == 0 ? 5.0 : 0.5});
+                        }
 
                         //                                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl, 1>>(latentGenotype, target_, r),
                         //                                                                    .weight  = 1});
@@ -111,21 +130,6 @@ namespace transmission_nets::impl::Model {
         }
 
 
-        for (const auto& infection : state_->latentParents) {
-            for (const auto& [locus_label, locus] : state_->loci) {
-                if (infection->latentGenotype().contains(locus)) {
-                    auto latentGenotype = infection->latentGenotype(locus);
-                    scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r, MAX_COI),
-                                                .id = fmt::format("RandomAllelesBitSetSampler/latent_parent_genotypes/{}/{}", infection->id(), locus_label),
-                                                .weight = 5});
-
-                    // scheduler_.registerSampler({.sampler = std::make_unique<genetics::ZanellaAllelesBitSetSampler<T, Engine, GeneticsImpl, 2>>(latentGenotype, target_, r),
-                    //                             .weight  = 1});
-                    // scheduler_.registerSampler({.sampler = std::make_unique<genetics::SequentialAllelesBitSetSampler<T, Engine, GeneticsImpl>>(latentGenotype, target_, r),
-                    //                             .weight  = 1});
-                }
-            }
-        }
 
 
 

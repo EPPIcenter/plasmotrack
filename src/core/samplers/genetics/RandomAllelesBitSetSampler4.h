@@ -92,7 +92,8 @@ namespace transmission_nets::core::samplers::genetics {
 
         // Log proposal probabilities of the proposed path given the current one, and of the current path given the
         // proposed one. Each infection's proposal depends on the allele in the infection before it on the path
-        // (the latent parent for the first), which the forward move has already changed and the reverse move has not.
+        // (for the first, the latent parent's fixed anchor genotype), which the forward move has already changed and
+        // the reverse move has not.
         double forward_log_prob = 0.0;
         double reverse_log_prob = 0.0;
         std::shared_ptr<InfectionEventImpl> curr_inf = infection_;

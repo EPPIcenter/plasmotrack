@@ -10,6 +10,7 @@
 #include "impl/model/Model/SampleScheduler.h"
 #include "impl/model/Model/SequentialScheduler.h"
 #include "impl/model/Model/State.h"
+#include "model/transmission_process/node_transmission_process/MarginalLatentParent.h"
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
@@ -80,10 +81,19 @@ namespace {
     }
 }// namespace
 
+namespace {
+    void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const nlohmann::json& input);
+}// namespace
+
 TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation) {
-    auto rng         = std::make_shared<boost::random::mt19937>(20261005);
-    const auto input = makeInput(*rng);
+    auto rng = std::make_shared<boost::random::mt19937>(20261005);
+    checkCacheConsistency(rng, makeInput(*rng));
+}
+
+namespace {
+void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const nlohmann::json& input) {
     const std::vector<double> idp(60, 1.0 / 60);
+
 
     auto state = std::make_shared<State>(input, idp, idp, rng);
     auto model = std::make_shared<Model>(state);
@@ -95,7 +105,8 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
     }
 
     // MCMC acceptance is random, so also force accepted and rejected changes through every invalidation
-    // path: the child's genotype, a latent parent's genotype, and infection durations (which reorder parent sets).
+    // path: genotypes, allele frequencies, the COI and strain-count parameters, and infection durations (which
+    // reorder parent sets).
     boost::random::uniform_01<> unif;
     boost::random::uniform_int_distribution<> pickNode(0, static_cast<int>(state->infections.size()) - 1);
     auto randomBits = [&](const unsigned int numAlleles) {
@@ -122,16 +133,55 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
     // OrderBasedTransmissionProcessV3::calcParentSetDist() reports them. The process groups parent sets by their
     // parents' genomes, so its log-sum-exp agrees up to rounding.
     using ParentSetLliks = std::vector<std::pair<double, transmission_nets::core::containers::ParentSet<InfectionEvent>>>;
+    // A parent set with the latent parent: its expectation over the latent parent drawn from the Source, by the
+    // from-scratch computation in MarginalLatentParent.h (no memo, no incremental sums), with fresh COI and
+    // strain-count distributions.
+    namespace marginal = transmission_nets::model::transmission_process::marginal;
+    auto latentTerm = [&](const std::shared_ptr<InfectionEvent>& infection, const std::vector<std::shared_ptr<InfectionEvent>>& observed) {
+        const auto& ntp = model->nodeTransmissionProcess;
+        COIProbabilityImpl coiProb(std::make_shared<transmission_nets::core::parameters::Parameter<double>>(state->meanCOI->value()));
+        NodeTransmissionImpl strains(std::make_shared<transmission_nets::core::parameters::Parameter<double>>(state->meanStrainsTransmitted->value()));
+        ParentSetSizeLikelihoodImpl psp(std::make_shared<transmission_nets::core::parameters::Parameter<double>>(state->parentSetSizeProb->value()));
+        const int n     = static_cast<int>(observed.size()) + 1;
+        const auto variant = observed.empty() ? NodeTransmissionImpl::Variant::LatentParentOnly : NodeTransmissionImpl::Variant::ObservedAndLatentParents;
+        marginal::LocusTable<MAX_COI, MAX_STRAINS> sums{};
+        sums.fill(0.0);
+        for (const auto& locus : infection->loci()) {
+            const auto& child = infection->latentGenotype(locus)->value();
+            std::vector<unsigned int> childAlleles;
+            for (unsigned int a = 0; a < child.totalAlleles(); ++a) {
+                if (child.allele(a)) {
+                    childAlleles.push_back(a);
+                }
+            }
+            if (childAlleles.empty()) {
+                return -std::numeric_limits<double>::infinity();
+            }
+            const auto frequencies = state->alleleFrequencies->alleleFrequencies(locus)->value().frequencies();
+            std::vector<const GeneticsImpl*> parents;
+            for (const auto& p : observed) {
+                parents.push_back(&p->latentGenotype(locus)->value());
+            }
+            const auto table = marginal::locusTable<MAX_COI, MAX_STRAINS, GeneticsImpl>(marginal::SourceOverlap(frequencies, childAlleles, MAX_COI), locus->totalAlleles(), [&](const GeneticsImpl& g) -> std::optional<std::array<double, MAX_STRAINS>> {
+                const auto& term = ntp->locusTerm(variant, child, std::span<const GeneticsImpl* const>(parents), &g);
+                if (term.impossible) {
+                    return std::nullopt;
+                }
+                return term.terms;
+            });
+            marginal::accumulate<MAX_COI, MAX_STRAINS>(sums, table);
+        }
+        return marginal::combine<MAX_COI, MAX_STRAINS>(sums, coiProb.value(), [&](const int m, const int np) { return strains.probNumStrains(m, np); }, n, std::log(psp.value()(n)));
+    };
     auto recompute = [&](const size_t j, ParentSetLliks* parentSets = nullptr) {
         const auto& infection = state->infections[j];
         const auto& latent    = state->latentParents[j];
-        const auto& stp       = model->sourceTransmissionProcessList[j];
         const auto& ntp       = model->nodeTransmissionProcess;
         const auto& psp       = model->parentSetSizeLikelihood;
         const auto parents    = state->parentSetList[infection->id()]->value();
         const int totalNodes  = parents.size();
 
-        std::vector<double> lliks{ntp->calculateLogLikelihood(infection, latent, stp, psp)};
+        std::vector<double> lliks{latentTerm(infection, {})};
         if (parentSets != nullptr) {
             parentSets->clear();
             parentSets->emplace_back(lliks.back(), transmission_nets::core::containers::ParentSet<InfectionEvent>{latent});
@@ -141,14 +191,16 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
             comboGen.reset(totalNodes, i);
             while (!comboGen.completed) {
                 transmission_nets::core::containers::ParentSet<InfectionEvent> parentSet{};
+                std::vector<std::shared_ptr<InfectionEvent>> observed;
                 for (const auto& idx : comboGen.curr) {
                     parentSet.insert(parents.begin()[idx]);
+                    observed.push_back(parents.begin()[idx]);
                 }
                 lliks.push_back(ntp->calculateLogLikelihood(infection, parentSet, psp));
                 if (parentSets != nullptr) {
                     parentSets->emplace_back(lliks.back(), parentSet);
                 }
-                lliks.push_back(ntp->calculateLogLikelihood(infection, latent, parentSet, stp, psp));
+                lliks.push_back(latentTerm(infection, observed));
                 if (parentSets != nullptr) {
                     parentSet.insert(latent);
                     parentSets->emplace_back(lliks.back(), parentSet);
@@ -176,16 +228,16 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
         for (int k = 1; k <= MAX_PARENT_SET_SIZE; ++k) {
             EXPECT_DOUBLE_EQ(model->parentSetSizeLikelihood->value()(k), fresh.value()(k)) << when << ", parent set size " << k;
         }
+        // The model's likelihood is the sum of its terms, each recomputed.
+        const double modelLikelihood = model->getLikelihood();
+        double termSum               = 0;
+        for (const auto& observation : model->observationProcessLikelihoodList) {
+            observation->setDirty();
+            termSum += observation->value();
+        }
         for (size_t j = 0; j < state->infections.size(); ++j) {
             // As the model reads it, which is stale if a change failed to mark the process dirty.
             const auto asRead = model->transmissionProcessList[j]->value();
-            // The reference must not trust cached intermediates either: a source term nothing read before an accept
-            // is marked clean with its old value.
-            const auto& source = model->sourceTransmissionProcessList[j];
-            source->setDirty();
-            // recompute() reads the same source process, so check it against its own value from scratch.
-            const auto sourceExpected = source->validate();
-            EXPECT_NEAR(source->value(), sourceExpected, 1e-9 * std::max(1.0, std::abs(sourceExpected))) << when << ", source term of node " << state->infections[j]->id();
             ParentSetLliks parentSets;
             const auto expected = recompute(j, &parentSets);
             // Parent sets are updated by the loci that changed rather than re-summed, so agreement is up to rounding.
@@ -198,6 +250,7 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
             };
             auto expectMatches = [&](const double actual, const std::string& how) { expectClose(actual, expected, how); };
             expectMatches(asRead, "as read");
+            termSum += expected;
             model->transmissionProcessList[j]->setDirty();
             const auto cached = model->transmissionProcessList[j]->value();
             expectMatches(cached, "recomputed from its cache");
@@ -212,6 +265,13 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
                 ++finite;
             }
         }
+        if (std::isfinite(termSum)) {
+            EXPECT_NEAR(modelLikelihood, termSum, 1e-9 * std::max(1.0, std::abs(termSum))) << when << ", the model's likelihood";
+        }
+        // Marking the terms dirty above queued them in the model's accumulator; it must take them in before any restore
+        // (an accumulator restored with targets still queued counts them twice).
+        model->value();
+        EXPECT_NEAR(model->getLikelihood(), modelLikelihood, 1e-9 * std::max(1.0, std::abs(modelLikelihood))) << when << ", the model's likelihood after re-evaluating its terms";
     };
 
     // Like a path proposal: one locus of a node and of one of its current parents change before a single evaluation.
@@ -302,13 +362,17 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
         if (k % 10 == 0) {
             checkAll("after " + std::to_string(k) + " perturbations");
         }
+        if (k % 50 == 25) {
+            // A real sweep, between checks, so that its moves meet the perturbations that follow.
+            scheduler.step();
+        }
         const int node  = pickNode(*rng);
         const auto kind = k % 5;
         if (kind == 2) {
             auto duration = state->infections[node]->infectionDuration();
             perturb(duration, 1.0 + unif(*rng) * 58.0);
         } else if (kind == 3) {
-            // Global parameters; allele frequencies and mean COI change only the source term.
+            // Global parameters; allele frequencies and mean COI change only the parent sets with the latent parent.
             switch ((k / 5) % 4) {
                 case 0:
                     perturb(state->parentSetSizeProb, 0.2 + 0.79 * unif(*rng));
@@ -336,14 +400,10 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
         } else if ((k / 5) % 3 == 1 and kind == 1) {
             perturbGenomes();
         } else if ((k / 5) % 3 == 2) {
-            // A node takes most of another node's genome, or its latent parent most of the node's.
-            if (kind == 0) {
-                perturbGenome(state->infections[node], state->infections[pickNode(*rng)]);
-            } else {
-                perturbGenome(state->latentParents[node], state->infections[node]);
-            }
+            // A node takes most of another node's genome.
+            perturbGenome(state->infections[node], state->infections[pickNode(*rng)]);
         } else {
-            const auto& infection = kind == 0 ? state->infections[node] : state->latentParents[node];
+            const auto& infection = state->infections[kind == 0 ? node : pickNode(*rng)];
             const auto& loci      = infection->loci();
             const auto& locus     = loci[k % loci.size()];
             auto genotype         = infection->latentGenotype(locus);
@@ -367,21 +427,20 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
     }
     checkAll("after rejected changes to each node's genotype");
 
-    // Nested saved states: the node's own genotype is saved under one id and its latent parent's under another, and
-    // both reach the node's process. In the second round the inner state is saved without a change, so the process's
-    // inner cache is shared with the outer one while its own slot holds stale entries from the first round.
-    // As in perturb(), an impossible state is restored at once.
+    // Nested saved states: the node's own genotype is saved under one id and the allele frequencies at the same locus
+    // under another, and both reach the node's process. In the second round the inner state is saved without a
+    // change, so the process's inner cache is shared with the outer one while its own slot holds stale entries from
+    // the first round. As in perturb(), an impossible state is restored at once.
     int nested = 0;
     for (int round = 0; round < 2; ++round) {
         for (size_t j = 0; j < state->infections.size(); ++j) {
             const auto& locus = state->infections[j]->loci()[(j + 1) % state->infections[j]->loci().size()];
             auto outer        = state->infections[j]->latentGenotype(locus);
-            auto inner        = state->latentParents[j]->latentGenotype(locus);
+            auto inner        = state->alleleFrequencies->alleleFrequencies(locus);
             const auto when   = "round " + std::to_string(round) + ", nested changes for node " + state->infections[j]->id();
-            // The latent parent is the only parent sure to cover the child, so the child takes the latent parent's
-            // genotype and the latent parent then gains an allele; random genotypes mostly make the model impossible.
+            // The child takes another infection's genotype, which mostly keeps the model possible.
             outer->saveState(1);
-            outer->setValue(inner->value());
+            outer->setValue(state->infections[pickNode(*rng)]->latentGenotype(locus)->value());
             if (not std::isfinite(model->value())) {
                 outer->restoreState(1);
                 model->value();
@@ -390,10 +449,11 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
             inner->saveState(2);
             const bool innerChanged = round == 0;
             if (innerChanged) {
-                auto widened = inner->value();
-                boost::random::uniform_int_distribution<unsigned int> pickAllele(0, locus->totalAlleles() - 1);
-                widened.set(pickAllele(*rng));
-                inner->setValue(widened);
+                std::vector<double> frequencies(locus->totalAlleles());
+                for (auto& frequency : frequencies) {
+                    frequency = 0.05 + unif(*rng);
+                }
+                inner->setValue(transmission_nets::core::datatypes::Simplex(frequencies));
             }
             if (not std::isfinite(model->value())) {
                 inner->restoreState(2);
@@ -423,3 +483,4 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
     EXPECT_GT(nested, static_cast<int>(state->infections.size()));
     EXPECT_GT(finite, 0);
 }
+}// namespace

@@ -12,7 +12,7 @@ namespace transmission_nets::core::samplers {
     }
 
     void Scheduler::update(ScheduledSampler& sampler) const {
-        if (isBetween(totalSteps, sampler.updateStart, sampler.updateEnd)) {
+        if (isBetween(totalSteps, sampler.updateStart, sampler.updateEnd) and isUpdateStep(sampler.updateFrequency, static_cast<int>(totalSteps - sampler.updateStart))) {
             sampler.update();
         }
     }

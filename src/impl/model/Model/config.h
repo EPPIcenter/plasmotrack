@@ -21,11 +21,21 @@
 
 #include "model/transmission_process/OrderBasedTransmissionProcessV3.h"
 #include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h"
+#include "model/transmission_process/node_transmission_process/LatentParentMarginal.h"
 #include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
 
 #include <filesystem>
 
 namespace transmission_nets::impl::Model {
+    // Tries per ParentRelinkSampler update (1: a plain independence move; more: a multiple-try move).
+    constexpr unsigned int RELINK_TRIES = 2;
+    // Partners tried per InformedOrderJumpSampler update (a random subset when an infection has more).
+    constexpr size_t INFORMED_JUMP_MAX_TRIES = 8;
+    // Allele-frequency (SALT) updates run every this many Sampling iterations.
+    constexpr int SALT_UPDATE_FREQUENCY = 3;
+    // Whether JointGeneticsTimeSampler is registered.
+    constexpr bool JOINT_GENETICS_TIME_SAMPLER = false;
+
 
     static constexpr int MAX_ALLELES       = 128;
     static constexpr int MAX_COI           = 20;
@@ -59,7 +69,10 @@ namespace transmission_nets::impl::Model {
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
     using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
 
-    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcessV3<MAX_PARENTS, NodeTransmissionImpl, SourceTransmissionImpl, ParentSetSizeLikelihoodImpl, InfectionEvent, ParentSetImpl>;
+    // The latent parent summed out of each infection's transmission term.
+    using LatentMarginalImpl = model::transmission_process::LatentParentMarginal<MAX_PARENTS, MAX_COI, MAX_STRAINS, NodeTransmissionImpl, COIProbabilityImpl, AlleleFrequencyContainerImpl, GeneticsImpl, LocusImpl>;
+
+    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcessV3<MAX_PARENTS, NodeTransmissionImpl, LatentMarginalImpl, ParentSetSizeLikelihoodImpl, InfectionEvent, ParentSetImpl>;
 
 }// namespace transmission_nets::impl::Model
 

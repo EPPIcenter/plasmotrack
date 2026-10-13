@@ -29,6 +29,9 @@ namespace transmission_nets::impl::Model {
         bool null_model_{};
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
+        // Each infection's latent parent, summed out of the model. These name it in parent-set output (id `<id>_copy`)
+        // and hold a fixed proposal anchor for the genotype samplers (see State.cpp); they are never sampled, read
+        // by the likelihood, or checkpointed.
         std::vector<std::shared_ptr<InfectionEvent>> latentParents{};
         std::shared_ptr<core::containers::AllowedRelationships<InfectionEvent>> allowedRelationships;
         std::map<std::string, std::shared_ptr<ParentSetImpl>> parentSetList{};

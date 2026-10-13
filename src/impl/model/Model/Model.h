@@ -43,9 +43,9 @@ namespace transmission_nets::impl::Model {
 //        std::shared_ptr<InterTransmissionProbImpl> intp;
         std::shared_ptr<NodeTransmissionImpl> nodeTransmissionProcess;
 
-        // Source Transmission Process
+        // The Source's COI distribution, and the latent parents summed out of the transmission process.
         std::shared_ptr<COIProbabilityImpl> coiProb;
-        std::vector<std::shared_ptr<SourceTransmissionImpl>> sourceTransmissionProcessList{};
+        std::shared_ptr<LatentMarginalImpl> latentMarginal;
 
         // Transmission Process
 //        std::map<std::shared_ptr<InfectionEvent>, std::shared_ptr<ParentSetImpl>> parentSetList{};

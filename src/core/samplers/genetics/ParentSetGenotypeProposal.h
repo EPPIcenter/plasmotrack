@@ -194,6 +194,10 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     /*
+     * `latentParent` here is the infection's latent-parent placeholder, whose genotypes are a fixed anchor (the observed
+     * genotypes, or every allele where nothing was observed; see State). The latent parent itself is summed out of the
+     * model, so the anchor only shapes the proposal, which stays valid because the anchor never changes.
+     *
      * Proposes an infection's latent genotypes from one parent-set option, chosen uniformly among 2T + 1, T being the
      * number of combinations of up to MaxParentSetSize observed parents: each combination with or without the latent
      * parent, or the latent parent alone. Each locus is then drawn by proposeLocus() from the chosen parents, a locus

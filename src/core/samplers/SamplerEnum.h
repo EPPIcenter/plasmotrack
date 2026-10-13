@@ -31,7 +31,12 @@ namespace transmission_nets::core::samplers {
         ZanellaOrderID,
         ParentRelinkID,
         LatentParentCoverID,
-        CloneOrderSwapID
+        CloneOrderSwapID,
+        InformedOrderJumpID,
+        InformedOrderJumpTryID,
+        ParentRelinkTryID,
+        AlleleSwapID,
+        StrainCountID
     };
 }
 

@@ -161,11 +161,6 @@ namespace transmission_nets::impl::Model::checkpoint {
                 saved.expectedFalseNegatives.push_back(state.expectedFalseNegatives[ii]->value());
             }
             saved.latentGenotypes = genotypes.take();
-            BitWriter parentGenotypes;
-            for (const auto& latentParent : state.latentParents) {
-                packGenotypes(*latentParent, state, parentGenotypes);
-            }
-            saved.latentParentGenotypes = parentGenotypes.take();
             for (const auto& [label, locus] : state.loci) {
                 saved.alleleFrequencies.push_back(state.alleleFrequencies->alleleFrequencies(locus)->value().frequencies());
             }
@@ -203,11 +198,6 @@ namespace transmission_nets::impl::Model::checkpoint {
                 state.expectedFalseNegatives[ii]->initializeValue(saved.expectedFalseNegatives[ii]);
             }
             genotypes.requireAllRead();
-            BitReader parentGenotypes(saved.latentParentGenotypes);
-            for (const auto& latentParent : state.latentParents) {
-                unpackGenotypes(*latentParent, state, parentGenotypes);
-            }
-            parentGenotypes.requireAllRead();
             size_t locusAt = 0;
             for (const auto& [label, locus] : state.loci) {
                 state.alleleFrequencies->alleleFrequencies(locus)->initializeValue(AlleleFrequencyImpl::exactly(saved.alleleFrequencies[locusAt++]));
@@ -232,7 +222,6 @@ namespace transmission_nets::impl::Model::checkpoint {
 
         ChainState chainStateFromJson(const json& j) {
             return {.latentGenotypes        = bytesFrom(j.at("latent_genotypes")),
-                    .latentParentGenotypes  = bytesFrom(j.at("latent_parent_genotypes")),
                     .alleleFrequencies      = j.at("allele_frequencies"),
                     .ordering               = j.at("ordering"),
                     .infectionDurations     = j.at("infection_durations"),
@@ -502,11 +491,9 @@ namespace transmission_nets::impl::Model::checkpoint {
         }
 
         void write(CborFile& out, const ChainState& state) {
-            out.map(10);
+            out.map(9);
             out.text("latent_genotypes");
             out.bytes(state.latentGenotypes);
-            out.text("latent_parent_genotypes");
-            out.bytes(state.latentParentGenotypes);
             out.text("allele_frequencies");
             out.array(state.alleleFrequencies.size());
             for (const auto& frequencies : state.alleleFrequencies) {

@@ -321,11 +321,9 @@ namespace transmission_nets::impl::Model {
         for (const auto& process : m.transmissionProcessList) {
             transmission += process->value();
         }
-        // The Latent parents' Source terms. They sit inside the Transmission process, so they don't add to it.
-        double source = 0;
-        for (const auto& process : m.sourceTransmissionProcessList) {
-            source += process->value();
-        }
+        // Kept for the table's layout: latent parents are summed out of the Transmission process, so there is no
+        // separate Source term.
+        const double source = 0;
 
         // The Parent-set distribution of each Infection, normalised over every Parent set, then floored. A Parent set with
         // probability exactly 0 (impossible, or underflowed) carries nothing, so it is dropped even with a floor of 0
@@ -395,7 +393,7 @@ namespace transmission_nets::impl::Model {
             }
         };
         genotypes(t.at("latent_genotypes"), s.infections, infectionIds_);
-        genotypes(t.at("latent_parent_genotypes"), s.latentParents, latentParentIds_);
+        // latent_parent_genotypes stays empty: latent parents are summed out and have no genotypes to record.
 
         for (std::size_t slot = 0; slot < ensemble.slots.size(); ++slot) {
             const auto& [replica, temperature, prior, likelihood] = ensemble.slots[slot];

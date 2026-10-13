@@ -35,7 +35,8 @@ namespace transmission_nets::impl::Model::checkpoint {
     using Engine = boost::random::mt19937;
 
     // Written into every checkpoint. Raise it when a change means an older engine would misread the file.
-    inline constexpr int FORMAT_VERSION = 2;
+    // 3: latent parents are summed out of the model, so their genotypes are no longer saved.
+    inline constexpr int FORMAT_VERSION = 3;
 
     // The checkpoints in a Run's store: the latest Window's, and the one at burn-in end.
     inline constexpr const char* LATEST_FILE  = "checkpoint.cbor";
@@ -69,11 +70,10 @@ namespace transmission_nets::impl::Model::checkpoint {
         bool operator==(const Layout&) const = default;
     };
 
-    // One chain's full State, in Layout order. Genotypes are packed Allele bits: for each Infection (or Latent parent),
-    // for each of its Loci, one bit per Allele, filling each byte from its most significant bit.
+    // One chain's full State, in Layout order. Genotypes are packed Allele bits: for each Infection, for each of its
+    // Loci, one bit per Allele, filling each byte from its most significant bit.
     struct ChainState {
         std::vector<std::uint8_t> latentGenotypes;
-        std::vector<std::uint8_t> latentParentGenotypes;
         std::vector<std::vector<double>> alleleFrequencies;// by Locus
         std::vector<std::uint32_t> ordering;               // positions in Layout::infections, first acquired first
         std::vector<double> infectionDurations;            // by Infection

@@ -42,6 +42,8 @@ set(CORE_SAMPLERS_TESTS
     src/core/samplers/genetics/RandomAllelesBitSetSampler4Test.cpp
     src/core/samplers/genetics/GenotypeSamplerStationaryTest.cpp
     src/core/samplers/specialized/CloneOrderSwapSamplerTest.cpp
+    src/core/samplers/specialized/InformedOrderJumpSamplerTest.cpp
+    src/core/samplers/genetics/StrainCountSamplerTest.cpp
     src/core/samplers/SchedulerTest.cpp
 )
 
@@ -69,6 +71,7 @@ set(MODEL_TRANSMISSION_TESTS
     src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp
     src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp
     src/model/transmission_process/node_transmission_process/MultinomialTransmissionProcessTest.cpp
+    src/model/transmission_process/node_transmission_process/MarginalLatentParentTest.cpp
     src/impl/ModelCacheConsistencyTest.cpp
     src/impl/RunRecorderTest.cpp
     src/impl/ReplicaExchangeSchedulerTest.cpp

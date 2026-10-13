@@ -69,22 +69,16 @@ namespace transmission_nets::impl::Model {
             i++;
         }
 
+            latentMarginal = std::make_shared<LatentMarginalImpl>(nodeTransmissionProcess, coiProb, state_->alleleFrequencies);
             for (unsigned int j = 0; j < state_->infections.size(); ++j) {
                 auto infection = state_->infections[j];
                 auto parentSet = state_->parentSetList[infection->id()];
+                // Names the infection's latent parent in its parent-set distribution; its genotypes are summed out.
                 auto latentParent = state_->latentParents[j];
-
-                sourceTransmissionProcessList.push_back(std::make_shared<SourceTransmissionImpl>(
-                        coiProb,
-                        state_->alleleFrequencies,
-                        latentParent->loci(),
-                        latentParent->latentGenotype(),
-                        state_->null_model_
-                        ));
 
                 transmissionProcessList.push_back(std::make_shared<TransmissionProcess>(
                         nodeTransmissionProcess,
-                        sourceTransmissionProcessList.back(),
+                        latentMarginal,
                         parentSetSizeLikelihood,
                         infection,
                         parentSet,

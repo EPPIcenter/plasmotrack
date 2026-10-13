@@ -1,5 +1,5 @@
 //
-// Moves an infection to the other side of an infection with the same genome, exchanging their latent parents.
+// Moves an infection to the other side of an infection with the same genome.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_CLONEORDERSWAPSAMPLER_H
@@ -22,28 +22,23 @@
 namespace transmission_nets::core::samplers::specialized {
 
     /*
-     * A Metropolis-Hastings move on an infection's duration and on its and a partner's latent parents. The partner is
-     * chosen uniformly among the infection's clones: the infections that can infect it and be infected by it and have
-     * its latent genome. The duration is drawn from `durationShape` (the duration prior, which rounds the duration to
-     * whole days) restricted to the durations that put the infection on the other side of the partner in the
-     * ordering, and the two latent parents' genomes are exchanged. Genomes are unchanged, so the reverse move picks
-     * the same partner with the same probability; the correction is the ratio of the duration densities.
+     * A Metropolis-Hastings move on an infection's duration. The partner is chosen uniformly among the infection's
+     * clones: the infections that can infect it and be infected by it and have its latent genome. The duration is drawn
+     * from `durationShape` (the duration prior, which rounds the duration to whole days) restricted to the durations
+     * that put the infection on the other side of the partner in the ordering. Genomes are unchanged, so the reverse
+     * move picks the same partner with the same probability; the correction is the ratio of the duration densities.
      *
-     * Of two clones, whichever came first has a latent parent that carries its genome, while the other's latent
-     * parent is barely constrained and drifts. Changing which came first one move at a time then needs the drifted
-     * latent parent to carry the genome again before the order can change, and in a clonal cluster chains stay with
-     * whichever order they reached first.
+     * With latent parents summed out of the model, changing which of two clones came first is a duration change; a
+     * random walk on the duration takes many steps to cross the partner, and this crosses it in one.
      */
     template<typename T, typename Engine, typename InfectionEventImpl>
     class CloneOrderSwapSampler : public AbstractSampler {
     public:
         struct Partner {
             std::shared_ptr<InfectionEventImpl> infection;
-            std::shared_ptr<InfectionEventImpl> latentParent;
         };
 
         CloneOrderSwapSampler(std::shared_ptr<InfectionEventImpl> infection,
-                              std::shared_ptr<InfectionEventImpl> latentParent,
                               std::vector<Partner> partners,
                               std::shared_ptr<T> target,
                               std::shared_ptr<Engine> rng,
@@ -51,11 +46,9 @@ namespace transmission_nets::core::samplers::specialized {
                               double maxDuration,
                               std::vector<double> durationShape);
 
-        // The infections that can infect infections[i] and be infected by it, with their latent parents (latentParents
-        // is parallel to infections).
+        // The infections that can infect infections[i] and be infected by it.
         template<typename AllowedRelationships>
         static std::vector<Partner> mutualPartners(const std::vector<std::shared_ptr<InfectionEventImpl>>& infections,
-                                                   const std::vector<std::shared_ptr<InfectionEventImpl>>& latentParents,
                                                    AllowedRelationships& allowed,
                                                    size_t i);
 
@@ -69,7 +62,6 @@ namespace transmission_nets::core::samplers::specialized {
         [[nodiscard]] std::pair<double, double> window(const InfectionEventImpl& partner, bool before) const;
 
         std::shared_ptr<InfectionEventImpl> infection_;
-        std::shared_ptr<InfectionEventImpl> latentParent_;
         std::vector<Partner> partners_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
@@ -82,12 +74,10 @@ namespace transmission_nets::core::samplers::specialized {
         unsigned int rejections_  = 0;
 
         std::vector<size_t> clones_{};// indices into partners_
-        std::vector<std::shared_ptr<typename InfectionEventImpl::LocusType>> exchanged_{};
     };
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     CloneOrderSwapSampler<T, Engine, InfectionEventImpl>::CloneOrderSwapSampler(std::shared_ptr<InfectionEventImpl> infection,
-                                                                               std::shared_ptr<InfectionEventImpl> latentParent,
                                                                                std::vector<Partner> partners,
                                                                                std::shared_ptr<T> target,
                                                                                std::shared_ptr<Engine> rng,
@@ -95,7 +85,6 @@ namespace transmission_nets::core::samplers::specialized {
                                                                                const double maxDuration,
                                                                                std::vector<double> durationShape)
         : infection_(std::move(infection)),
-          latentParent_(std::move(latentParent)),
           partners_(std::move(partners)),
           target_(std::move(target)),
           rng_(std::move(rng)),
@@ -107,7 +96,6 @@ namespace transmission_nets::core::samplers::specialized {
     template<typename AllowedRelationships>
     std::vector<typename CloneOrderSwapSampler<T, Engine, InfectionEventImpl>::Partner> CloneOrderSwapSampler<T, Engine, InfectionEventImpl>::mutualPartners(
             const std::vector<std::shared_ptr<InfectionEventImpl>>& infections,
-            const std::vector<std::shared_ptr<InfectionEventImpl>>& latentParents,
             AllowedRelationships& allowed,
             const size_t i) {
         std::vector<Partner> out{};
@@ -117,7 +105,7 @@ namespace transmission_nets::core::samplers::specialized {
                 continue;
             }
             if (const auto theirs = allowed.allowedParents(infections[j]); std::ranges::find(theirs, infections[i]) != theirs.end()) {
-                out.push_back({infections[j], latentParents[j]});
+                out.push_back({infections[j]});
             }
         }
         return out;
@@ -162,19 +150,6 @@ namespace transmission_nets::core::samplers::specialized {
         const double proposed = durationShape_.draw(first, second, proposedMass, *rng_);
         duration->saveState(stateId);
         duration->setValue(proposed);
-        exchanged_.clear();
-        for (const auto& locus : latentParent_->loci()) {
-            auto mine   = latentParent_->latentGenotype(locus);
-            auto theirs = partner.latentParent->latentGenotype(locus);
-            if (mine->value() != theirs->value()) {
-                mine->saveState(stateId);
-                theirs->saveState(stateId);
-                const auto value = mine->value();
-                mine->setValue(theirs->value());
-                theirs->setValue(value);
-                exchanged_.push_back(locus);
-            }
-        }
 
         const double proposedLogQ    = std::log(durationShape_.density(proposed) / proposedMass);
         const double acceptanceRatio = target_->value() - currentLik + currentLogQ - proposedLogQ;
@@ -182,18 +157,10 @@ namespace transmission_nets::core::samplers::specialized {
             ++acceptances_;
             countProposal(true);
             duration->acceptState();
-            for (const auto& locus : exchanged_) {
-                latentParent_->latentGenotype(locus)->acceptState();
-                partner.latentParent->latentGenotype(locus)->acceptState();
-            }
         } else {
             ++rejections_;
             countProposal(false);
             duration->restoreState(stateId);
-            for (const auto& locus : exchanged_) {
-                latentParent_->latentGenotype(locus)->restoreState(stateId);
-                partner.latentParent->latentGenotype(locus)->restoreState(stateId);
-            }
         }
     }
 

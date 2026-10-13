@@ -33,6 +33,20 @@ namespace transmission_nets::impl::Model {
             expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
             expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.01));
             latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
+            // The anchor: at each locus the observed genotype, or every allele where nothing was observed. A function
+            // of the data alone, so a resumed Run proposes as the original would.
+            for (const auto& locus : latentParents.back()->loci()) {
+                GeneticsImpl anchor(static_cast<int>(locus->totalAlleles()));
+                anchor.reset();
+                if (infection->observedGenotype().contains(locus) and infection->observedGenotype(locus)->value().totalPositiveCount() > 0) {
+                    anchor = infection->observedGenotype(locus)->value();
+                } else {
+                    for (unsigned int a = 0; a < locus->totalAlleles(); ++a) {
+                        anchor.set(a);
+                    }
+                }
+                latentParents.back()->latentGenotype(locus)->initializeValue(anchor);
+            }
         }
 
 //        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.95);

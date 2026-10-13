@@ -45,7 +45,7 @@ A specific subset of an Infection's Candidate parents, hypothesised to be the on
 _Avoid_: Parents, sources, ancestors
 
 **Latent parent**:
-A per-Infection unobserved source drawn from the background parasite population, standing in for an infector that was never sampled. Every Infection has one available to it, so no Infection is forced to be explained by the observed data alone. Its genetics are inferred like any Latent genotype.
+A per-Infection unobserved source drawn from the background parasite population, standing in for an infector that was never sampled. Every Infection has one available to it, so no Infection is forced to be explained by the observed data alone. Its genetics are drawn from the Source whether or not it infected the Infection, and are summed out of the model exactly rather than sampled: a Parent set that includes it scores the expected likelihood over every genome the Source could give it (see `doc/marginal-latent-parent.md`).
 _Avoid_: Unobserved parent, ghost parent, external parent, imported source. **Not** a transmission network edge, and not to be confused with a Parent set drawn from Candidate parents.
 
 **Source**:

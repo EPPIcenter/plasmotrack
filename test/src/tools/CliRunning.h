@@ -143,7 +143,8 @@ namespace transmission_nets::test {
             EXPECT_LE(marker.at("first_iteration").get<std::int64_t>(), marker.at("last_iteration").get<std::int64_t>()) << "Window " << w << " covers no Sampling iteration";
         }
         const auto tables = readStore(store);
-        for (const auto& table : {"run_scalars", "infections", "ordering", "allele_frequencies", "latent_genotypes", "latent_parent_genotypes", "parent_sets", "chains"}) {
+        // latent_parent_genotypes has no rows: latent parents are summed out of the model.
+        for (const auto& table : {"run_scalars", "infections", "ordering", "allele_frequencies", "latent_genotypes", "parent_sets", "chains"}) {
             const auto& rows = tables.at(table);
             ASSERT_GT(rows.rows(), 0u) << table;
             for (std::size_t r = 0; r < rows.rows(); ++r) {

@@ -51,32 +51,30 @@ namespace {
             "JointGeneticsTimeSampler/infection/1",
             "RandomAllelesBitSetSampler3/latent_genotypes/1",
             "ParentRelinkSampler/infection/1",
-            "LatentParentCoverSampler/latent_parent_genotypes/1_copy",
+            "StrainCountSampler/latent_genotypes/1",
             "CloneOrderSwapSampler/ordering/1",
+            "InformedOrderJumpSampler/ordering/1",
             "RandomAllelesBitSetSampler4/latent_genotypes/1/AS1",
             "RandomAllelesBitSetSampler4/latent_genotypes/1/AS11",
             "ConstrainedContinuousRandomWalk/infection_duration/2",
             "JointGeneticsTimeSampler/infection/2",
             "RandomAllelesBitSetSampler3/latent_genotypes/2",
             "ParentRelinkSampler/infection/2",
-            "LatentParentCoverSampler/latent_parent_genotypes/2_copy",
+            "StrainCountSampler/latent_genotypes/2",
             "CloneOrderSwapSampler/ordering/2",
+            "InformedOrderJumpSampler/ordering/2",
             "RandomAllelesBitSetSampler4/latent_genotypes/2/AS1",
             "RandomAllelesBitSetSampler4/latent_genotypes/2/AS11",
             "ConstrainedContinuousRandomWalk/infection_duration/3",
             "JointGeneticsTimeSampler/infection/3",
             "RandomAllelesBitSetSampler3/latent_genotypes/3",
             "ParentRelinkSampler/infection/3",
-            "LatentParentCoverSampler/latent_parent_genotypes/3_copy",
+            "StrainCountSampler/latent_genotypes/3",
             "CloneOrderSwapSampler/ordering/3",
+            "InformedOrderJumpSampler/ordering/3",
             "RandomAllelesBitSetSampler4/latent_genotypes/3/AS1",
             "RandomAllelesBitSetSampler4/latent_genotypes/3/AS11",
-            "RandomAllelesBitSetSampler/latent_parent_genotypes/1_copy/AS1",
-            "RandomAllelesBitSetSampler/latent_parent_genotypes/1_copy/AS11",
-            "RandomAllelesBitSetSampler/latent_parent_genotypes/2_copy/AS1",
-            "RandomAllelesBitSetSampler/latent_parent_genotypes/2_copy/AS11",
-            "RandomAllelesBitSetSampler/latent_parent_genotypes/3_copy/AS1",
-            "RandomAllelesBitSetSampler/latent_parent_genotypes/3_copy/AS11",
+            "AlleleSwapSampler/latent_genotypes/3/AS11",
             "ConstrainedContinuousRandomWalk/expected_false_negatives/1",
             "ConstrainedContinuousRandomWalk/expected_false_negatives/2",
             "ConstrainedContinuousRandomWalk/expected_false_negatives/3",
@@ -89,7 +87,12 @@ namespace {
 }// namespace
 
 TEST(SamplerIdsTest, TheSequentialSampleSchedulerNamesEverySamplerByTypeAndTarget) {
-    EXPECT_EQ(samplerIdsForSeed<SequentialSampleScheduler>(1), expectedIds);
+    // The sequential scheduler registers JointGeneticsTimeSampler only when the configuration asks for it.
+    auto expected = expectedIds;
+    if (not JOINT_GENETICS_TIME_SAMPLER) {
+        std::erase_if(expected, [](const std::string& id) { return id.starts_with("JointGeneticsTimeSampler/"); });
+    }
+    EXPECT_EQ(samplerIdsForSeed<SequentialSampleScheduler>(1), expected);
 }
 
 TEST(SamplerIdsTest, TheSampleSchedulerNamesEverySamplerByTypeAndTarget) {
@@ -124,7 +127,8 @@ TEST(SamplerIdsTest, TargetsNameTheInfectionByItsId) {
     EXPECT_TRUE(registered("ConstrainedContinuousRandomWalk/expected_false_negatives/pf1207"));
     EXPECT_TRUE(registered("ConstrainedContinuousRandomWalk/infection_duration/pf0031"));
     EXPECT_TRUE(registered("RandomAllelesBitSetSampler4/latent_genotypes/pf0594/AS11"));
-    EXPECT_TRUE(registered("RandomAllelesBitSetSampler/latent_parent_genotypes/pf0594_copy/AS1"));
+    // Latent parents are summed out of the model, so nothing samples them.
+    EXPECT_FALSE(registered("RandomAllelesBitSetSampler/latent_parent_genotypes/pf0594_copy/AS1"));
     EXPECT_TRUE(registered("SALTSampler/allele_frequencies/AS11"));
     for (const auto& id : ids) {
         EXPECT_FALSE(id.ends_with("/1") or id.find("/1/") != std::string::npos) << id;
@@ -159,8 +163,10 @@ TEST(SamplerCountsTest, EachUpdateCountsOneProposalAndAnAcceptedProposalChangesT
         if (id.starts_with("SALTSampler/")) {
             // one proposal per Allele frequency visited
             EXPECT_GE(counts.proposed, iterations) << id;
-        } else if (!id.starts_with("CloneOrderSwapSampler/")) {
-            // CloneOrderSwapSampler proposes only when the Infection has a clone it can move past
+        } else if (!id.starts_with("CloneOrderSwapSampler/") and !id.starts_with("InformedOrderJumpSampler/") and !id.starts_with("StrainCountSampler/")) {
+            // CloneOrderSwapSampler proposes only when the Infection has a clone it can move past, and
+            // InformedOrderJumpSampler only when a partner's other side has duration-prior mass, and StrainCountSampler
+            // only when its remove has a second strain to remove or its add chooses a locus
             EXPECT_EQ(counts.proposed, iterations) << id;
         }
     }

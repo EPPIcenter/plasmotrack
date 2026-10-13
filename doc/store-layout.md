@@ -121,11 +121,10 @@ Every Trace begins with these three columns:
 | `likelihood` | double | Log likelihood of the Hot chain. The log posterior is `prior + likelihood` |
 | `observation` | double | Log likelihood of the Observation process, summed over Infections |
 | `transmission` | double | Log likelihood of the Transmission process, summed over Infections |
-| `source` | double | Sum of the Latent parents' Source terms |
+| `source` | double | Always 0. Kept for the table's layout |
 
-`likelihood = observation + transmission`. Don't add `source` to them. The Transmission process already contains the
-Source terms, since every Parent set that includes the Latent parent carries one, and it averages over Parent sets, so
-`source` is not a separable part of `transmission` either.
+`likelihood = observation + transmission`. Latent parents are summed out of the Transmission process (each Parent set
+with a Latent parent scores its expectation over the Source), so there is no separate Source term.
 
 ### `infections` (Trace, one row per Infection per written iteration)
 
@@ -159,7 +158,8 @@ Source terms, since every Parent set that includes the Latent parent carries one
 | `locus` | string | Locus id |
 | `alleles` | string | Latent genotype as an Allele bitstring, such as `00101000`. Character `k` (0-based, from the left) is Allele `k`, and `1` means present. Same convention as the input's `genotype` strings |
 
-Only Loci the Infection was genotyped at are written. A Latent parent has the Loci of its Infection.
+Only Loci the Infection was genotyped at are written. `latent_parent_genotypes` has no rows: Latent parents are summed
+out of the model and have no genotypes to record. A reader should treat the table as possibly absent.
 
 ### `parent_sets` (Trace, one row per Infection × Parent set per written iteration)
 
@@ -299,16 +299,17 @@ checkpoint or the new one. `checkpoint-burn-in.cbor` is the same checkpoint for 
 written when that Window commits. A second interrupt closes the in-flight Window but writes no checkpoint, since the
 State may be mid-iteration.
 
-Both files are CBOR (`format_version` 1). Python `cbor2` or R `cbor` can read them for debugging:
+Both files are CBOR (`format_version` 3). An engine refuses a checkpoint of another format version. Python `cbor2` or
+R `cbor` can read them for debugging:
 
 | Key | Contents |
 |---|---|
-| `format_version` | 1 |
+| `format_version` | 3 (2 saved Latent parent genotypes, which are now summed out of the model) |
 | `identity` | `run_id`, `input_hash` (SHA-256 of the input), `engine_version` |
 | `run_position` | `iteration`, `phase` (Phase of the next Sampling iteration), `last_closed_window`, `burn_in_remaining`, `sampling_remaining` |
 | `parent_set_ids` | Per Infection: `sets` (array of `members`, `set_id`) and `next_id` |
 | `run_rng` | State of the top-level random engine, which draws swaps |
-| `replicas` | Per replica: `state` (Latent genotypes, Latent parent genotypes, Allele frequencies, Ordering, infection durations, expected false positives and negatives, `mean_coi`, `mean_strains_tx`, `parent_set_size_prob`), `rng`, `samplers` (by id: `counts`, `adaptation`), `scheduler_iterations` |
+| `replicas` | Per replica: `state` (Latent genotypes, Allele frequencies, Ordering, infection durations, expected false positives and negatives, `mean_coi`, `mean_strains_tx`, `parent_set_size_prob`), `rng`, `samplers` (by id: `counts`, `adaptation`), `scheduler_iterations` |
 | `exchange` | Temperature slots: `replicas` (replica in each slot), `temperatures`, `swap_barriers`, `barrier_iterations`, `second_pair_set_next`, `swap_counts` |
 
 Model caches are not saved; they are rebuilt from the State.
