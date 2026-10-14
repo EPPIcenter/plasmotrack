@@ -7,6 +7,7 @@
 
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
+#include "core/abstract/observables/Dependency.h"
 #include "core/abstract/observables/Observable.h"
 #include "core/computation/Computation.h"
 #include "core/containers/ParentSet.h"
@@ -57,7 +58,9 @@ namespace transmission_nets::core::computation {
 
     template<typename ElementType, typename OrderingImpl>
     OrderDerivedParentSet<ElementType, OrderingImpl>::OrderDerivedParentSet(std::shared_ptr<OrderingImpl> ordering, std::shared_ptr<ElementType> child, const std::vector<std::shared_ptr<ElementType>>& allowedParents) : ordering_(std::move(ordering)), child_(std::move(child)) {
-        ordering_->registerCacheableCheckpointTarget(this);
+        // Told which element moved by the ordering's keyed events below, so it saves with the ordering without being
+        // marked dirty by it.
+        abstract::savesWith(this, ordering_);
 
         // If the element moves to the left of child_, trigger this event
         ordering_->add_keyed_moved_left_listener(child_, [=, this](std::shared_ptr<ElementType> element) {

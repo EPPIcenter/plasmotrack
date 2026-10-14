@@ -9,6 +9,7 @@
 
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
+#include "core/abstract/observables/Dependency.h"
 #include "core/abstract/observables/Observable.h"
 
 #include "core/computation/Computation.h"
@@ -42,10 +43,7 @@ namespace transmission_nets::core::distributions {
     template<int MAX_COUNT>
     ZTPoisson<MAX_COUNT>::ZTPoisson(p_Parameterdouble mean) noexcept : mean_(std::move(mean)) {
         this->value_[0] = -std::numeric_limits<double>::infinity();
-        mean_->registerCacheableCheckpointTarget(this);
-        mean_->add_post_change_listener([=, this]() {
-            this->setDirty();
-        });
+        abstract::dependsOn(this, mean_);
         this->setDirty();
         this->value();
     }

@@ -53,6 +53,8 @@ set(CORE_UTILS_TESTS
 )
 
 set(CORE_COMPUTATION_TESTS
+    src/core/abstract/DependencyTest.cpp
+    src/core/computation/AccumulatorTest.cpp
     src/core/computation/ObservationTimeDerivedOrderingTest.cpp
     src/core/parameters/OrderingTest.cpp
 )
