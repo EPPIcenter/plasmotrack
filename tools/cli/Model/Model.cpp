@@ -12,8 +12,6 @@
 #include "core/version.h"
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/Model.h"
-#include "impl/model/Model/SampleScheduler.h"
-#include "impl/model/Model/SequentialScheduler.h"
 #include "impl/model/Model/State.h"
 #include "impl/model/Model/Progress.h"
 #include "impl/model/Model/RunDriver.h"

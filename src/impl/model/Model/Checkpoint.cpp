@@ -620,17 +620,17 @@ namespace transmission_nets::impl::Model::checkpoint {
     Checkpoint capture(const Ensemble& ensemble, const Engine& runRng, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds) {
         Checkpoint checkpoint{.identity = std::move(identity), .position = position, .parentSetIds = std::move(parentSetIds), .runRng = engineState(runRng), .exchange = ensemble.exchangeState()};
         checkpoint.layout          = stateLayout(*ensemble.chains.front().state);
-        checkpoint.layout.samplers = ensemble.chains.front().sampler->scheduler_.samplerIds();
+        checkpoint.layout.samplers = ensemble.chains.front().sampler->ids();
         const auto& ids = checkpoint.layout.samplers;
         for (const auto& chain : ensemble.chains) {
-            const auto& scheduler = chain.sampler->scheduler_;
-            if (scheduler.samplerIds() != ids or infectionIds(chain.state->infections) != checkpoint.layout.infections) {
+            const auto& samplers = *chain.sampler;
+            if (samplers.ids() != ids or infectionIds(chain.state->infections) != checkpoint.layout.infections) {
                 throw std::logic_error("chains of one ensemble have different samplers or Infections");
             }
-            Replica replica{.state = captureState(*chain.state), .rng = engineState(*chain.r), .schedulerIterations = scheduler.iterations()};
+            Replica replica{.state = captureState(*chain.state), .rng = engineState(*chain.r), .schedulerIterations = samplers.iterations()};
             replica.samplerCounts.reserve(ids.size());
             for (std::uint32_t ii = 0; ii < ids.size(); ++ii) {
-                const auto& sampler = scheduler.sampler(ids[ii]);
+                const auto& sampler = samplers.sampler(ids[ii]);
                 replica.samplerCounts.push_back(sampler.counts());
                 if (auto adaptation = sampler.adaptationState(); !adaptation.scales.empty() or adaptation.updates != 0) {
                     replica.adaptation.emplace(ii, std::move(adaptation));
@@ -701,18 +701,18 @@ namespace transmission_nets::impl::Model::checkpoint {
             const auto& saved = checkpoint.replicas[replica];
             auto& chain = ensemble->chains[replica];
             setEngineState(*chain.r, saved.rng);
-            auto& scheduler = chain.sampler->scheduler_;
-            // The scheduler counts in int.
+            auto& samplers = *chain.sampler;
+            // The Sampler set counts in int.
             if (saved.schedulerIterations < 0 or saved.schedulerIterations > std::numeric_limits<int>::max()) {
                 refuse(fmt::format("checkpoint of Run {} has replica {} at scheduler iteration {}, out of range", checkpoint.identity.runId, replica, saved.schedulerIterations));
             }
-            scheduler.restoreIterations(static_cast<int>(saved.schedulerIterations));
+            samplers.restoreIterations(static_cast<int>(saved.schedulerIterations));
             if (saved.samplerCounts.size() != samplerAt.size()) {
                 refuse(fmt::format("checkpoint of Run {} has counts for {} samplers in replica {}, not {}", checkpoint.identity.runId, saved.samplerCounts.size(), replica, samplerAt.size()));
             }
-            for (const auto& id : scheduler.samplerIds()) {
+            for (const auto& id : samplers.ids()) {
                 const auto at = savedFor(samplerAt, id, "sampler");
-                auto& sampler = scheduler.sampler(id);
+                auto& sampler = samplers.sampler(id);
                 sampler.restoreCounts(saved.samplerCounts[at]);
                 if (const auto adaptation = saved.adaptation.find(at); adaptation != saved.adaptation.end()) {
                     sampler.restoreAdaptationState(adaptation->second);
