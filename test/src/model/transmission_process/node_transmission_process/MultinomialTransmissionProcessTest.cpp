@@ -27,12 +27,13 @@ namespace {
     constexpr int MAX_ALLELES         = 128;
     constexpr int MAX_PARENTS         = 2;
     constexpr int MAX_STRAINS         = 12;
+    constexpr int MAX_COI             = 20;
     constexpr int MAX_PARENT_SET_SIZE = MAX_PARENTS + 1;
 
     using GeneticsImpl      = AllelesBitSet<MAX_ALLELES>;
     using InfectionEvent    = Infection<GeneticsImpl>;
     using ParentSetSizeImpl = ZTGeometric<MAX_PARENT_SET_SIZE>;
-    using NodeTerm          = MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizeImpl, GeneticsImpl>;
+    using NodeTerm          = MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, MAX_COI, ParentSetSizeImpl, GeneticsImpl>;
 }// namespace
 
 TEST(MultinomialTransmissionProcessTest, ExcludesStrainCountsBelowNumberOfParents) {
