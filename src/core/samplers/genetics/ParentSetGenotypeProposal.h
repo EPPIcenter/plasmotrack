@@ -1,5 +1,5 @@
 //
-// The genotype proposal shared by RandomAllelesBitSetSampler3 and JointGeneticsTimeSampler.
+// The genotype proposal of RandomAllelesBitSetSampler3.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_PARENTSETGENOTYPEPROPOSAL_H

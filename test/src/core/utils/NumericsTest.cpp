@@ -49,16 +49,6 @@ TEST(NumericsTests, TestLogitScale) {
     }
 }
 
-TEST(NumericsTests, TestInitKVec) {
-    auto out = initKvecs<4, 3>();
-    for (const auto & kvec : out) {
-        for (const auto & k : kvec) {
-           fmt::print("{} ", k);
-        }
-        fmt::print("\n");
-    }
-
-}
 // logitScale(x, s) is the logit of expit(x) * exp(s); on this grid the direct formula is accurate enough to compare.
 TEST(NumericsTest, LogitScaleMatchesDirectFormula) {
     for (int i = -40; i <= 40; ++i) {

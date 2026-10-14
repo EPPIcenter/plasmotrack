@@ -10,7 +10,6 @@
 #include "core/abstract/observables/Observable.h"
 #include "core/computation/Computation.h"
 #include "core/containers/ParentSet.h"
-#include "core/parameters/Ordering.h"
 
 #include <algorithm>
 #include <memory>

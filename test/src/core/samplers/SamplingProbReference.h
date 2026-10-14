@@ -1,5 +1,5 @@
 //
-// A plain implementation of the proposal probability of RandomAllelesBitSetSampler3 and JointGeneticsTimeSampler
+// A plain implementation of the proposal probability of RandomAllelesBitSetSampler3
 // (see ParentSetGenotypeProposal.h), written from its description rather than for speed: every parent-set option is
 // enumerated and each locus' probability is found by enumerating the alleles the chosen parents could contribute.
 // Used to check the samplers' calculateSamplingProb(), which reuses work across options and parents. Also the proposal

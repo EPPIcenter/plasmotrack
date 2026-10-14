@@ -21,7 +21,7 @@
 #define TRANSMISSION_NETWORKS_APP_LATENTPARENTMARGINAL_H
 
 #include "core/utils/fastmath.h"
-#include "model/transmission_process/node_transmission_process/MarginalLatentParent.h"
+#include "model/transmission_process/source_transmission_process/SourceOverlap.h"
 
 #include <algorithm>
 #include <array>
@@ -393,7 +393,7 @@ namespace transmission_nets::model::transmission_process {
             table.maxW                  = std::min<unsigned int>(A - c, MAX_COI);
             const unsigned int numMasks = 1u << c;
             const Variant variant = parents.empty() ? Variant::LatentParentOnly : Variant::ObservedAndLatentParents;
-            // The representative latent genotypes (marginal::representative), built incrementally: U's alleles, then
+            // The representative latent genotypes (as representative() in the tests' MarginalLatentParentReference.h builds them), built incrementally: U's alleles, then
             // one more allele outside C, in index order, for each w.
             std::vector<unsigned int> outside;
             for (unsigned int a = 0; a < A and outside.size() < table.maxW; ++a) {
