@@ -113,6 +113,14 @@ _Avoid_: Setup, bootstrap, factory, wiring, main
 The samplers attached to one chain, in the fixed order they update in, each with its update frequency and adaptation window. Built once per chain from the State and the Model, and the one place that decides which samplers a Run uses. Every chain in a Run has the same Sampler set, so sampler ids are the same across chains and across Runs from the same input.
 _Avoid_: Scheduler, schedule, move set, sampler list
 
+**Term**:
+One addend of the Model's log prior or log likelihood: a prior density of one Parameter, an Infection's Observation process at one Locus, or an Infection's Transmission process. A term declares the inputs it depends on once (see Dependency); it evaluates when read, keeps its last value, and saves, accepts and restores that value with its inputs. The Model's running sums take a term's last value out when it goes dirty and add the new one back when it is read.
+_Avoid_: Partial likelihood (the class name), component, factor
+
+**Dependency**:
+What a term or a cached computation declares about an input: it is marked dirty when the input changes, after any bookkeeping of its own, and it follows the input's saved states, so that a rejected change brings it back to the value it had and an accepted one settles it. An accept marks nothing clean; what nothing read stays dirty and evaluates when next read.
+_Avoid_: Listener, subscription, observer, checkpoint target
+
 **Proposal**:
 One Metropolis-Hastings step of a sampler, from the first parameter it changes to its accept or reject. The parameters it touches, the target's value before and after, and whether it was accepted live here; a sampler decides what to change and the Hastings adjustment, nothing else. A multiple-try move evaluates tries as Proposals that are reverted rather than counted.
 _Avoid_: Move, step (the Sampler set's step is a Sampling iteration), transaction, update

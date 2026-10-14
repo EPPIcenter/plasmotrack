@@ -300,8 +300,7 @@ namespace transmission_nets::model::transmission_process {
             degrade(SUMS_CHANGED, false);
         });
 
-        // The latent parent's COI distribution enters the latent entries' sum over its COI. Like the parent-set-size
-        // prior below, it is read in every evaluation.
+        // The latent parent's COI distribution enters the latent entries' sum over its COI.
         core::abstract::dependsOn(this, coiProb_, [this]() {
             lastUpdated_ = "coi distribution updated";
             degrade(SUMS_CHANGED, true);
@@ -324,8 +323,7 @@ namespace transmission_nets::model::transmission_process {
             locusIndex_[locus.get()] = l;
         }
 
-        // The parent-set-size prior enters every entry's outer term. Its value is only recomputed when read, so
-        // this process must be evaluated, reading it, before the change is accepted: an accept marks it clean.
+        // The parent-set-size prior enters every entry's outer term.
         core::abstract::dependsOn(this, psp_, [this]() {
             lastUpdated_ = "psp updated";
             degrade(OUTER_CHANGED, false);
@@ -1053,8 +1051,14 @@ namespace transmission_nets::model::transmission_process {
         if (this->isDirty()) {
             // Genome ids, used to group parents and compute entries, stay valid until the next batch.
             memo_->beginBatch();
-            // Read every evaluation, so that a change to it is never accepted unread (see the listener).
-            const auto coiLogProbs = coiProb_->value();
+            // The latent parent's COI log-probabilities, read once per evaluation that recomputes a latent entry.
+            std::optional<std::decay_t<decltype(coiProb_->value())>> coiLogProbsRead;
+            const auto coiLogProbs = [&]() -> const auto& {
+                if (not coiLogProbsRead) {
+                    coiLogProbsRead = coiProb_->value();
+                }
+                return *coiLogProbsRead;
+            };
             const auto& ps           = parentSet_->members();
             const bool parentChanged = std::ranges::any_of(cache().changes, [&](const auto& change) {
                 return change.infection != child_.get();
@@ -1123,7 +1127,7 @@ namespace transmission_nets::model::transmission_process {
                 // computing it from scratch.
                 auto finish = [&](const size_t position, const size_t numParents) {
                     if (current.valid[position] == SUMS_CHANGED) {
-                        current.summed[position] = position % 2 == 0 ? memo_->latentSummedLogLikelihood(current.latentSums[position / 2], numParents, coiLogProbs)
+                        current.summed[position] = position % 2 == 0 ? memo_->latentSummedLogLikelihood(current.latentSums[position / 2], numParents, coiLogProbs())
                                                                      : memo_->strainSummedLogLikelihood(current.sums[position], numParents);
                         current.valid[position]  = OUTER_CHANGED;
                     }
