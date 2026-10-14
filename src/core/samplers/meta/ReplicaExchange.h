@@ -34,7 +34,7 @@ namespace transmission_nets::core::samplers {
     using namespace core::computation;
     // Implements the replication exchange (parallel tempering) algorithm
 
-    template<typename State, typename Model, template<typename...> typename Scheduler, typename Engine = boost::random::mt19937>
+    template<typename State, typename Model, template<typename...> typename SamplerSet, typename Engine = boost::random::mt19937>
     struct ReplicaExchange {
         // The ladder adapts on the burnin() calls, numbered from 0, above LADDER_ADAPTS_AFTER that are multiples of
         // LADDER_ADAPTS_EVERY: 15, 20, ...
@@ -45,7 +45,7 @@ namespace transmission_nets::core::samplers {
             std::shared_ptr<Model> target;
             std::shared_ptr<Model> model;
             std::shared_ptr<State> state;
-            std::shared_ptr<Scheduler<Model>> sampler;
+            std::shared_ptr<SamplerSet<Model>> sampler;
             std::shared_ptr<Engine> r;
         };
 
@@ -74,7 +74,7 @@ namespace transmission_nets::core::samplers {
 
                 auto model = std::make_shared<Model>(state, temp);
                 auto target = model;
-                auto sampler = std::make_shared<Scheduler<Model>>(state, target, chain_r);
+                auto sampler = std::make_shared<SamplerSet<Model>>(state, target, chain_r);
 
                 Chain chain{target, model, state, sampler, chain_r};
                 chains.push_back(chain);
@@ -82,7 +82,7 @@ namespace transmission_nets::core::samplers {
             for (const auto& chain : chains) {
                 auto& replicaSamplers = samplers_.emplace_back();
                 for (const auto& id : samplerIds()) {
-                    replicaSamplers.push_back(&chain.sampler->scheduler_.sampler(id));
+                    replicaSamplers.push_back(&chain.sampler->sampler(id));
                 }
             }
         }
@@ -180,7 +180,7 @@ namespace transmission_nets::core::samplers {
 
         // The `<type>/<target>` ids of every replica's samplers, which all replicas register alike, in registration order.
         const std::vector<std::string>& samplerIds() const {
-            return chains.front().sampler->scheduler_.samplerIds();
+            return chains.front().sampler->ids();
         }
 
         // What the Run recorder is handed after each Sampling iteration.

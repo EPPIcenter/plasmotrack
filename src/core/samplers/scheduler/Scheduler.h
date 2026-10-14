@@ -18,25 +18,21 @@ namespace transmission_nets::core::samplers {
         std::unique_ptr<AbstractSampler> sampler;
 
         std::string id;// `<type>/<target>`, unique within the scheduler
+        // Adapts on the Sampling iterations in [adaptationStart, adaptationEnd), and updates every `updateFrequency` iterations.
         int adaptationStart = 0;
-        int adaptationEnd = 0;
-        bool scaledAdaptation  = false;
-        long unsigned int updateStart = 0;
-        long unsigned int updateEnd = std::numeric_limits<int>::max();
+        int adaptationEnd   = 0;
         int updateFrequency = 1;
-        double weight = 1.0;
 
         void update() const;
         void adapt() const;
-        void adapt(unsigned int step) const;
     };
 
 
-    inline bool isBetween(unsigned long val, unsigned long lower, unsigned long upper) {
+    inline bool isBetween(const int val, const int lower, const int upper) {
         return (val >= lower) && (val < upper);
     }
 
-    inline bool isUpdateStep(int frequency, int current_step) {
+    inline bool isUpdateStep(const int frequency, const int current_step) {
         return ((current_step + 1) % frequency) == 0;
     }
 

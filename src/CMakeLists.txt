@@ -61,7 +61,6 @@ set(CORE_SAMPLERS_SOURCES
     core/samplers/genetics/RandomAllelesBitSetSampler4.h
     core/samplers/scheduler/Scheduler.cpp
     core/samplers/scheduler/Scheduler.h
-    core/samplers/scheduler/RandomizedScheduler.h
     core/samplers/scheduler/SamplerIndex.h
     core/samplers/meta/EnsembleSnapshot.h
     core/samplers/meta/ReplicaExchange.h
@@ -108,8 +107,8 @@ set(IMPL_SOURCES
     impl/model/Model/RunRecipe.cpp
     impl/model/Model/RunRecipe.h
     impl/model/Model/Refusal.h
-    impl/model/Model/SampleScheduler.h
-    impl/model/Model/SequentialScheduler.h
+    impl/model/Model/SamplerSet.h
+    impl/model/Model/Ensemble.h
 )
 
 set(OTHER_SOURCES

@@ -62,7 +62,6 @@ set(MODEL_TRANSMISSION_TESTS
     src/model/transmission_process/node_transmission_process/MarginalLatentParentTest.cpp
     src/impl/ModelCacheConsistencyTest.cpp
     src/impl/RunRecorderTest.cpp
-    src/impl/ReplicaExchangeSchedulerTest.cpp
     src/impl/RegisteredSamplerTest.cpp
     src/impl/ReplicaExchangeTest.cpp
     src/impl/CheckpointTest.cpp

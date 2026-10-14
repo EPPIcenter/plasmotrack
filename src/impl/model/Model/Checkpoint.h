@@ -6,14 +6,11 @@
 #ifndef TRANSMISSION_NETWORKS_APP_CHECKPOINT_H
 #define TRANSMISSION_NETWORKS_APP_CHECKPOINT_H
 
-#include "core/samplers/meta/ReplicaExchange.h"
+#include "impl/model/Model/Ensemble.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/ParentSetIds.h"
 #include "impl/model/Model/Refusal.h"
 #include "impl/model/Model/RunPosition.h"
-// SequentialScheduler.h relies on the sampler headers SampleScheduler.h pulls in.
-#include "impl/model/Model/SampleScheduler.h"
-#include "impl/model/Model/SequentialScheduler.h"
 #include "impl/model/Model/State.h"
 
 #include <boost/random.hpp>
@@ -26,10 +23,6 @@
 #include <optional>
 #include <string>
 #include <vector>
-
-namespace transmission_nets::impl::Model {
-    using Ensemble = core::samplers::ReplicaExchange<State, Model, SequentialSampleScheduler>;
-}
 
 namespace transmission_nets::impl::Model::checkpoint {
     using Engine = boost::random::mt19937;
