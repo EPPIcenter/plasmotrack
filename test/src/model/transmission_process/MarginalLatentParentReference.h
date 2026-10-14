@@ -1,6 +1,6 @@
 //
 // The expectation over a latent parent drawn from the Source of a parent set's transmission term, computed exactly
-// and plainly: the reference the tests check the model's memoised LatentParentMarginal against.
+// and plainly: the reference the tests check the Transmission memo's latent locus tables against.
 // See doc/marginal-latent-parent.md for the derivation.
 //
 // For a child with latent genotypes C_l and a parent set S plus the latent parent L, the transmission term is

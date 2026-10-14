@@ -23,9 +23,7 @@ namespace transmission_nets::impl::Model {
         });
         prior.registerCacheableCheckpointTarget(this);
 
-//        intp                    = std::make_shared<InterTransmissionProbImpl>(state_->geometricGenerationProb);
-//        nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->lossProb, intp);
-        nodeTransmissionProcess = std::make_shared<NodeTransmissionImpl>(state_->meanStrainsTransmitted);
+        transmissionMemo        = std::make_shared<TransmissionMemoImpl>(state_->meanStrainsTransmitted, state_->alleleFrequencies);
         parentSetSizeLikelihood = std::make_shared<ParentSetSizeLikelihoodImpl>(state_->parentSetSizeProb);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
 
@@ -69,7 +67,6 @@ namespace transmission_nets::impl::Model {
             i++;
         }
 
-            latentMarginal = std::make_shared<LatentMarginalImpl>(nodeTransmissionProcess, coiProb, state_->alleleFrequencies);
             for (unsigned int j = 0; j < state_->infections.size(); ++j) {
                 auto infection = state_->infections[j];
                 auto parentSet = parentSets[infection->id()];
@@ -77,8 +74,8 @@ namespace transmission_nets::impl::Model {
                 auto latentParent = state_->latentParents[j];
 
                 transmissionProcessList.push_back(std::make_shared<TransmissionProcess>(
-                        nodeTransmissionProcess,
-                        latentMarginal,
+                        transmissionMemo,
+                        coiProb,
                         parentSetSizeLikelihood,
                         infection,
                         parentSet,

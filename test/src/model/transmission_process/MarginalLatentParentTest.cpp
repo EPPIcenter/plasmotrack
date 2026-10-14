@@ -11,8 +11,7 @@
 #include "core/parameters/Parameter.h"
 
 #include "MarginalLatentParentReference.h"
-#include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h"
-
+#include "model/transmission_process/TransmissionKernel.h"
 #include <boost/random.hpp>
 
 #include <cmath>
@@ -36,8 +35,8 @@ namespace {
     using Genetics   = AllelesBitSet<MAX_ALLELES>;
     using COIProb    = ZTPoisson<MAX_COI>;
     using PSP        = ZTGeometric<MAX_PARENTS + 1>;
-    using Ntp        = MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, PSP, Genetics>;
-    using Variant    = Ntp::Variant;
+    using Kernel     = TransmissionKernel<MAX_PARENTS, MAX_STRAINS, MAX_COI, Genetics>;
+    using Variant    = Kernel::Variant;
     using Engine     = boost::random::mt19937;
     using Table      = marginal::LocusTable<MAX_COI, MAX_STRAINS>;
     constexpr double NEG_INF = -std::numeric_limits<double>::infinity();
@@ -149,8 +148,8 @@ TEST(MarginalLatentParentTest, SourceOverlapMatchesEnumeration) {
 
 TEST(MarginalLatentParentTest, MatchesBruteForceOverLatentParentGenomes) {
     Engine rng(20261012);
-    auto meanTransmitted = std::make_shared<Parameter<double>>(1.7);
-    Ntp ntp(meanTransmitted);
+    Kernel kernel;
+    const auto strainTable = Kernel::strainCountTable(1.7);
     auto meanCoi = std::make_shared<Parameter<double>>(2.2);
     COIProb coiProb(meanCoi);
     auto psProb = std::make_shared<Parameter<double>>(0.6);
@@ -198,7 +197,7 @@ TEST(MarginalLatentParentTest, MatchesBruteForceOverLatentParentGenomes) {
                 }
                 const marginal::SourceOverlap overlap(freqs[l], childAlleles, MAX_COI);
                 const auto table = marginal::locusTable<MAX_COI, MAX_STRAINS, Genetics>(overlap, alleleCounts[l], [&](const Genetics& latent) -> std::optional<std::array<double, MAX_STRAINS>> {
-                    const auto& term = ntp.locusTerm(variant, child[l], std::span<const Genetics* const>(ptrs), &latent);
+                    const auto& term = kernel.locusTerm(variant, child[l], std::span<const Genetics* const>(ptrs), &latent);
                     if (term.impossible) {
                         return std::nullopt;
                     }
@@ -206,7 +205,7 @@ TEST(MarginalLatentParentTest, MatchesBruteForceOverLatentParentGenomes) {
                 });
                 marginal::accumulate<MAX_COI, MAX_STRAINS>(sums, table);
             }
-            const double exact = marginal::combine<MAX_COI, MAX_STRAINS>(sums, coiLogProbs, [&](const int m, const int np) { return ntp.probNumStrains(m, np); }, n, std::log(psp.value()(n)));
+            const double exact = marginal::combine<MAX_COI, MAX_STRAINS>(sums, coiLogProbs, [&](const int m, const int np) { return Kernel::probNumStrains(strainTable, m, np); }, n, std::log(psp.value()(n)));
 
             // Brute force: every latent-parent genome, its Source probability times the parent set's term.
             double brute = NEG_INF;
@@ -221,13 +220,13 @@ TEST(MarginalLatentParentTest, MatchesBruteForceOverLatentParentGenomes) {
                     }
                     source = logAdd(source, lp);
                 }
-                Ntp::StrainSums strainSums{};
+                Kernel::StrainSums strainSums{};
                 for (size_t l = 0; l < L; ++l) {
                     const auto ptrs     = parentPtrs(l);
                     const Genetics lat  = fromMask(alleleCounts[l], g[l]);
-                    strainSums.add(ntp.locusTerm(variant, child[l], std::span<const Genetics* const>(ptrs), &lat));
+                    strainSums.add(kernel.locusTerm(variant, child[l], std::span<const Genetics* const>(ptrs), &lat));
                 }
-                const double term = ntp.strainSummedLogLikelihood(strainSums, n);
+                const double term = Kernel::strainSummedLogLikelihood(strainSums, n, strainTable);
                 if (term > NEG_INF) {
                     brute = logAdd(brute, source + term + std::log(psp.value()(n)));
                 }

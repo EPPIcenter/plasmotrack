@@ -10,7 +10,7 @@
 #include "impl/model/Model/SamplerSet.h"
 #include "core/samplers/Proposal.h"
 #include "impl/model/Model/State.h"
-#include "../model/transmission_process/node_transmission_process/MarginalLatentParentReference.h"
+#include "../model/transmission_process/MarginalLatentParentReference.h"
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
@@ -132,7 +132,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
         model->value();
     };
     // Independent of the parent-set cache: evaluates every parent set directly, in the order
-    // OrderBasedTransmissionProcessV3::calcParentSetDist() reports them. The process groups parent sets by their
+    // TransmissionTerm::calcParentSetDist() reports them. The process groups parent sets by their
     // parents' genomes, so its log-sum-exp agrees up to rounding.
     using ParentSetLliks = std::vector<std::pair<double, transmission_nets::core::containers::ParentSet<InfectionEvent>>>;
     // A parent set with the latent parent: its expectation over the latent parent drawn from the Source, by the
@@ -140,12 +140,12 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
     // strain-count distributions.
     namespace marginal = transmission_nets::model::transmission_process::marginal;
     auto latentTerm = [&](const std::shared_ptr<InfectionEvent>& infection, const std::vector<std::shared_ptr<InfectionEvent>>& observed) {
-        const auto& ntp = model->nodeTransmissionProcess;
+        const auto& memo = model->transmissionMemo;
         COIProbabilityImpl coiProb(std::make_shared<transmission_nets::core::parameters::Parameter<double>>(state->meanCOI->value()));
-        NodeTransmissionImpl strains(std::make_shared<transmission_nets::core::parameters::Parameter<double>>(state->meanStrainsTransmitted->value()));
+        const auto strainTable = TransmissionMemoImpl::Kernel::strainCountTable(state->meanStrainsTransmitted->value());
         ParentSetSizeLikelihoodImpl psp(std::make_shared<transmission_nets::core::parameters::Parameter<double>>(state->parentSetSizeProb->value()));
         const int n     = static_cast<int>(observed.size()) + 1;
-        const auto variant = observed.empty() ? NodeTransmissionImpl::Variant::LatentParentOnly : NodeTransmissionImpl::Variant::ObservedAndLatentParents;
+        const auto variant = observed.empty() ? TransmissionMemoImpl::Variant::LatentParentOnly : TransmissionMemoImpl::Variant::ObservedAndLatentParents;
         marginal::LocusTable<MAX_COI, MAX_STRAINS> sums{};
         sums.fill(0.0);
         for (const auto& locus : infection->loci()) {
@@ -165,7 +165,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
                 parents.push_back(&p->latentGenotype(locus)->value());
             }
             const auto table = marginal::locusTable<MAX_COI, MAX_STRAINS, GeneticsImpl>(marginal::SourceOverlap(frequencies, childAlleles, MAX_COI), locus->totalAlleles(), [&](const GeneticsImpl& g) -> std::optional<std::array<double, MAX_STRAINS>> {
-                const auto& term = ntp->locusTerm(variant, child, std::span<const GeneticsImpl* const>(parents), &g);
+                const auto& term = memo->locusTerm(variant, child, std::span<const GeneticsImpl* const>(parents), &g);
                 if (term.impossible) {
                     return std::nullopt;
                 }
@@ -173,12 +173,12 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
             });
             marginal::accumulate<MAX_COI, MAX_STRAINS>(sums, table);
         }
-        return marginal::combine<MAX_COI, MAX_STRAINS>(sums, coiProb.value(), [&](const int m, const int np) { return strains.probNumStrains(m, np); }, n, std::log(psp.value()(n)));
+        return marginal::combine<MAX_COI, MAX_STRAINS>(sums, coiProb.value(), [&](const int m, const int np) { return TransmissionMemoImpl::Kernel::probNumStrains(strainTable, m, np); }, n, std::log(psp.value()(n)));
     };
     auto recompute = [&](const size_t j, ParentSetLliks* parentSets = nullptr) {
         const auto& infection = state->infections[j];
         const auto& latent    = state->latentParents[j];
-        const auto& ntp       = model->nodeTransmissionProcess;
+        const auto& memo      = model->transmissionMemo;
         const auto& psp       = model->parentSetSizeLikelihood;
         const auto parents    = model->parentSets.at(infection->id())->value();
         const int totalNodes  = parents.size();
@@ -198,7 +198,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
                     parentSet.insert(parents.begin()[idx]);
                     observed.push_back(parents.begin()[idx]);
                 }
-                lliks.push_back(ntp->calculateLogLikelihood(infection, parentSet, psp));
+                lliks.push_back(memo->observedParentsLogLikelihood(infection, parentSet) + std::log(psp->value()(parentSet.size())));
                 if (parentSets != nullptr) {
                     parentSets->emplace_back(lliks.back(), parentSet);
                 }
