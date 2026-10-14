@@ -1,14 +1,13 @@
 //
-// Every sampler a Model scheduler registers has an id `<type>/<target>`, unique within the scheduler and the same for
-// every chain and every Run built from the same input, so that acceptance Blocks and the checkpoint can name samplers.
+// Every sampler the Sampler set registers has an id `<type>/<target>`, unique within the set and the same for every
+// chain and every Run built from the same input, so that acceptance Blocks and the checkpoint can name samplers.
 // Through AbstractSampler alone, each exposes its proposal counts and its adaptation state, and both can be restored.
 //
 
 #include "gtest/gtest.h"
 
 #include "impl/model/Model/Model.h"
-#include "impl/model/Model/SampleScheduler.h"
-#include "impl/model/Model/SequentialScheduler.h"
+#include "impl/model/Model/SamplerSet.h"
 #include "impl/model/Model/State.h"
 
 #include <boost/random.hpp>
@@ -31,14 +30,13 @@ namespace {
         return nlohmann::json::parse(in);
     }
 
-    template<template<typename...> typename ModelScheduler>
     std::vector<std::string> samplerIdsForSeed(const unsigned int seed) {
         const std::vector<double> idp(60, 1.0 / 60);
         auto rng   = std::make_shared<boost::random::mt19937>(seed);
         auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
         auto model = std::make_shared<Model>(state);
-        ModelScheduler<Model> scheduler(state, model, rng);
-        return scheduler.scheduler_.samplerIds();
+        SamplerSet<Model> samplers(state, model, rng);
+        return samplers.ids();
     }
 
     // Ids for the example input: Infections 1, 2 and 3, Loci AS1 and AS11. Every Infection has a Latent genotype at every
@@ -48,7 +46,6 @@ namespace {
             "ConstrainedContinuousRandomWalk/mean_strains_tx",
             "ConstrainedContinuousRandomWalk/parent_set_size_prob",
             "ConstrainedContinuousRandomWalk/infection_duration/1",
-            "JointGeneticsTimeSampler/infection/1",
             "RandomAllelesBitSetSampler3/latent_genotypes/1",
             "ParentRelinkSampler/infection/1",
             "StrainCountSampler/latent_genotypes/1",
@@ -57,7 +54,6 @@ namespace {
             "RandomAllelesBitSetSampler4/latent_genotypes/1/AS1",
             "RandomAllelesBitSetSampler4/latent_genotypes/1/AS11",
             "ConstrainedContinuousRandomWalk/infection_duration/2",
-            "JointGeneticsTimeSampler/infection/2",
             "RandomAllelesBitSetSampler3/latent_genotypes/2",
             "ParentRelinkSampler/infection/2",
             "StrainCountSampler/latent_genotypes/2",
@@ -66,7 +62,6 @@ namespace {
             "RandomAllelesBitSetSampler4/latent_genotypes/2/AS1",
             "RandomAllelesBitSetSampler4/latent_genotypes/2/AS11",
             "ConstrainedContinuousRandomWalk/infection_duration/3",
-            "JointGeneticsTimeSampler/infection/3",
             "RandomAllelesBitSetSampler3/latent_genotypes/3",
             "ParentRelinkSampler/infection/3",
             "StrainCountSampler/latent_genotypes/3",
@@ -86,22 +81,12 @@ namespace {
     };
 }// namespace
 
-TEST(SamplerIdsTest, TheSequentialSampleSchedulerNamesEverySamplerByTypeAndTarget) {
-    // The sequential scheduler registers JointGeneticsTimeSampler only when the configuration asks for it.
-    auto expected = expectedIds;
-    if (not JOINT_GENETICS_TIME_SAMPLER) {
-        std::erase_if(expected, [](const std::string& id) { return id.starts_with("JointGeneticsTimeSampler/"); });
-    }
-    EXPECT_EQ(samplerIdsForSeed<SequentialSampleScheduler>(1), expected);
-}
-
-TEST(SamplerIdsTest, TheSampleSchedulerNamesEverySamplerByTypeAndTarget) {
-    EXPECT_EQ(samplerIdsForSeed<SampleScheduler>(1), expectedIds);
+TEST(SamplerIdsTest, TheSamplerSetNamesEverySamplerByTypeAndTarget) {
+    EXPECT_EQ(samplerIdsForSeed(1), expectedIds);
 }
 
 TEST(SamplerIdsTest, IdsAreTheSameForEveryChainAndRunFromTheSameInput) {
-    EXPECT_EQ(samplerIdsForSeed<SequentialSampleScheduler>(1), samplerIdsForSeed<SequentialSampleScheduler>(2));
-    EXPECT_EQ(samplerIdsForSeed<SampleScheduler>(1), samplerIdsForSeed<SampleScheduler>(2));
+    EXPECT_EQ(samplerIdsForSeed(1), samplerIdsForSeed(2));
 }
 
 // Analysts read ids in the acceptance Block, so a target names its Infection by the Infection's id from the input, not
@@ -119,8 +104,8 @@ TEST(SamplerIdsTest, TargetsNameTheInfectionByItsId) {
     auto rng   = std::make_shared<boost::random::mt19937>(1);
     auto state = std::make_shared<State>(input, idp, idp, rng);
     auto model = std::make_shared<Model>(state);
-    SequentialSampleScheduler<Model> scheduler(state, model, rng);
-    const auto& ids = scheduler.scheduler_.samplerIds();
+    SamplerSet<Model> samplers(state, model, rng);
+    const auto& ids = samplers.ids();
     const auto registered = [&](const std::string& id) { return std::ranges::find(ids, id) != ids.end(); };
 
     EXPECT_TRUE(registered("ConstrainedContinuousRandomWalk/expected_false_positives/pf0594"));
@@ -142,23 +127,23 @@ TEST(SamplerCountsTest, EachUpdateCountsOneProposalAndAnAcceptedProposalChangesT
     auto rng   = std::make_shared<boost::random::mt19937>(7);
     auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
     auto model = std::make_shared<Model>(state);
-    SequentialSampleScheduler<Model> scheduler(state, model, rng);
+    SamplerSet<Model> samplers(state, model, rng);
 
     constexpr int iterations = 50;
     std::uint64_t changes    = 0;
     for (int i = 0; i < iterations; ++i) {
         const double before = state->meanCOI->value();
-        scheduler.step();
+        samplers.step();
         changes += state->meanCOI->value() != before;
     }
 
-    const auto meanCoi = scheduler.scheduler_.sampler("ConstrainedContinuousRandomWalk/mean_coi").counts();
+    const auto meanCoi = samplers.sampler("ConstrainedContinuousRandomWalk/mean_coi").counts();
     EXPECT_EQ(meanCoi.proposed, iterations);
     EXPECT_EQ(meanCoi.accepted, changes);
     EXPECT_GT(changes, 0u);
 
-    for (const auto& id : scheduler.scheduler_.samplerIds()) {
-        const auto counts = scheduler.scheduler_.sampler(id).counts();
+    for (const auto& id : samplers.ids()) {
+        const auto counts = samplers.sampler(id).counts();
         EXPECT_LE(counts.accepted, counts.proposed) << id;
         if (id.starts_with("SALTSampler/")) {
             // one proposal per Allele frequency visited
@@ -177,11 +162,11 @@ TEST(SamplerCountsTest, RestoredCountsContinueFromWhereTheyWere) {
     auto rng   = std::make_shared<boost::random::mt19937>(7);
     auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
     auto model = std::make_shared<Model>(state);
-    SequentialSampleScheduler<Model> scheduler(state, model, rng);
-    auto& meanCoi = scheduler.scheduler_.sampler("ConstrainedContinuousRandomWalk/mean_coi");
+    SamplerSet<Model> samplers(state, model, rng);
+    auto& meanCoi = samplers.sampler("ConstrainedContinuousRandomWalk/mean_coi");
 
     meanCoi.restoreCounts({.accepted = 30, .proposed = 100});
-    scheduler.step();
+    samplers.step();
 
     EXPECT_EQ(meanCoi.counts().proposed, 101u);
     EXPECT_GE(meanCoi.counts().accepted, 30u);
@@ -193,15 +178,15 @@ namespace {
         std::shared_ptr<boost::random::mt19937> rng;
         std::shared_ptr<State> state;
         std::shared_ptr<Model> model;
-        SequentialSampleScheduler<Model> scheduler;
+        SamplerSet<Model> samplers;
 
         explicit Chain(const unsigned int seed, const std::vector<double>& idp = std::vector<double>(60, 1.0 / 60))
             : rng(std::make_shared<boost::random::mt19937>(seed)),
               state(std::make_shared<State>(exampleInput(), idp, idp, rng)),
               model(std::make_shared<Model>(state)),
-              scheduler(state, model, rng) {}
+              samplers(state, model, rng) {}
 
-        transmission_nets::core::samplers::AbstractSampler& sampler(const std::string& id) { return scheduler.scheduler_.sampler(id); }
+        transmission_nets::core::samplers::AbstractSampler& sampler(const std::string& id) { return samplers.sampler(id); }
     };
 }// namespace
 
@@ -210,7 +195,7 @@ namespace {
 TEST(AdaptationStateTest, AdaptingSamplersExposeTheirProposalScales) {
     Chain chain(11);
     for (int i = 0; i < 30; ++i) {
-        chain.scheduler.step();// adaptation runs from Sampling iteration 20
+        chain.samplers.step();// adaptation runs from Sampling iteration 20
     }
 
     const auto meanCoi = chain.sampler("ConstrainedContinuousRandomWalk/mean_coi").adaptationState();
@@ -219,7 +204,7 @@ TEST(AdaptationStateTest, AdaptingSamplersExposeTheirProposalScales) {
 
     // Every adapting sampler is registered with variance 1; adaptation moves at least some of them.
     bool anyScaleMoved = false;
-    for (const auto& id : chain.scheduler.scheduler_.samplerIds()) {
+    for (const auto& id : chain.samplers.ids()) {
         for (const auto& scale : chain.sampler(id).adaptationState().scales) {
             anyScaleMoved = anyScaleMoved or scale.variance != 1.0;
         }
@@ -237,10 +222,10 @@ TEST(AdaptationStateTest, AdaptingSamplersExposeTheirProposalScales) {
 TEST(AdaptationStateTest, RestoredStateAdaptsExactlyAsTheSavedOne) {
     Chain saved(11);
     for (int i = 0; i < 30; ++i) {
-        saved.scheduler.step();
+        saved.samplers.step();
     }
     Chain restored(12);
-    for (const auto& id : saved.scheduler.scheduler_.samplerIds()) {
+    for (const auto& id : saved.samplers.ids()) {
         restored.sampler(id).restoreAdaptationState(saved.sampler(id).adaptationState());
         EXPECT_EQ(restored.sampler(id).adaptationState(), saved.sampler(id).adaptationState()) << id;
 

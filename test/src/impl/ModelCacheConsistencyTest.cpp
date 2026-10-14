@@ -7,10 +7,9 @@
 
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/Model.h"
-#include "impl/model/Model/SampleScheduler.h"
-#include "impl/model/Model/SequentialScheduler.h"
+#include "impl/model/Model/SamplerSet.h"
 #include "impl/model/Model/State.h"
-#include "model/transmission_process/node_transmission_process/MarginalLatentParent.h"
+#include "../model/transmission_process/node_transmission_process/MarginalLatentParentReference.h"
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
@@ -97,11 +96,11 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
 
     auto state = std::make_shared<State>(input, idp, idp, rng);
     auto model = std::make_shared<Model>(state);
-    SequentialSampleScheduler<Model> scheduler(state, model, rng);
+    SamplerSet<Model> samplers(state, model, rng);
 
     constexpr int sweeps = 6;
     for (int s = 0; s < sweeps; ++s) {
-        scheduler.step();
+        samplers.step();
     }
 
     // MCMC acceptance is random, so also force accepted and rejected changes through every invalidation
@@ -134,7 +133,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
     // parents' genomes, so its log-sum-exp agrees up to rounding.
     using ParentSetLliks = std::vector<std::pair<double, transmission_nets::core::containers::ParentSet<InfectionEvent>>>;
     // A parent set with the latent parent: its expectation over the latent parent drawn from the Source, by the
-    // from-scratch computation in MarginalLatentParent.h (no memo, no incremental sums), with fresh COI and
+    // from-scratch computation in MarginalLatentParentReference.h (no memo, no incremental sums), with fresh COI and
     // strain-count distributions.
     namespace marginal = transmission_nets::model::transmission_process::marginal;
     auto latentTerm = [&](const std::shared_ptr<InfectionEvent>& infection, const std::vector<std::shared_ptr<InfectionEvent>>& observed) {
@@ -364,7 +363,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
         }
         if (k % 50 == 25) {
             // A real sweep, between checks, so that its moves meet the perturbations that follow.
-            scheduler.step();
+            samplers.step();
         }
         const int node  = pickNode(*rng);
         const auto kind = k % 5;

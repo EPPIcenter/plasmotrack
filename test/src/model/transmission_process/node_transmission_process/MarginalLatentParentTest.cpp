@@ -1,5 +1,5 @@
 //
-// Checks the exact expectation over a Source-drawn latent parent (MarginalLatentParent.h) against brute-force
+// Checks the exact expectation over a Source-drawn latent parent (MarginalLatentParentReference.h) against brute-force
 // enumeration of every latent-parent genome on small loci.
 //
 
@@ -10,7 +10,7 @@
 #include "core/distributions/ZTPoisson.h"
 #include "core/parameters/Parameter.h"
 
-#include "model/transmission_process/node_transmission_process/MarginalLatentParent.h"
+#include "MarginalLatentParentReference.h"
 #include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h"
 
 #include <boost/random.hpp>
@@ -36,7 +36,7 @@ namespace {
     using Genetics   = AllelesBitSet<MAX_ALLELES>;
     using COIProb    = ZTPoisson<MAX_COI>;
     using PSP        = ZTGeometric<MAX_PARENTS + 1>;
-    using Ntp        = MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, void, PSP, Genetics>;
+    using Ntp        = MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, PSP, Genetics>;
     using Variant    = Ntp::Variant;
     using Engine     = boost::random::mt19937;
     using Table      = marginal::LocusTable<MAX_COI, MAX_STRAINS>;

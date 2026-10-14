@@ -7,9 +7,7 @@
 #include "gtest/gtest.h"
 
 #include "core/samplers/genetics/AlleleSwapSampler.h"
-#include "core/samplers/genetics/RandomAllelesBitSetSampler.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
-#include "core/samplers/specialized/JointGeneticsTimeSampler.h"
 #include "core/samplers/specialized/ParentRelinkSampler.h"
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/State.h"
@@ -135,18 +133,6 @@ namespace {
     };
 }// namespace
 
-TEST(GenotypeSamplerStationaryTest, RandomAllelesBitSetSampler) {
-    auto rng      = std::make_shared<Engine>(20261008);
-    auto genotype = std::make_shared<Parameter<GeneticsImpl>>(GeneticsImpl("100"));
-    auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
-    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler<WeightedAllelesTarget, Engine, GeneticsImpl> sampler(genotype, target, rng, MAX_COI);
-
-    constexpr int draws = 400000;
-    const auto visits   = run(sampler, genotype, draws);
-    EXPECT_EQ(visits.size(), 7u);// every genotype with at least one allele
-    EXPECT_LT(distanceFromTarget(visits, draws), 0.01);
-}
-
 TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSampler) {
     Fixture f;
     const auto c = f.index("c");
@@ -190,70 +176,6 @@ TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSamplerAtUnobservedLocus) {
     const auto visits   = run(sampler, genotype, draws);
     EXPECT_EQ(visits.size(), 7u);// every genotype with at least one allele
     EXPECT_LT(distanceFromTarget(visits, draws), 0.01);
-}
-
-TEST(GenotypeSamplerStationaryTest, JointGenotypeDurationSampler) {
-    Fixture f;
-    const auto q = f.index("q");
-    f.setGenotype(f.state->latentParents[q], "111");
-    f.setGenotype(f.state->infections[q], "010");
-
-    const auto& infection = f.state->infections[q];
-    auto parentSet        = std::make_shared<ParentSetImpl>(f.state->infectionEventOrdering, infection, f.state->allowedRelationships->allowedParents(infection));
-    ASSERT_TRUE(parentSet->value().empty());
-
-    auto genotype = infection->latentGenotype(f.locus);
-    auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
-    transmission_nets::core::samplers::specialized::JointGeneticsTimeSampler<WeightedAllelesTarget, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>
-            sampler(infection, parentSet, f.state->latentParents[q], infection->infectionDuration(), target, f.rng, 1.0, 60.0, 3.0, 0.3, 0.3);
-
-    constexpr int draws = 400000;
-    const auto visits   = run(sampler, genotype, draws);
-    EXPECT_GE(visits.size(), 3u);
-    EXPECT_LT(distanceFromTarget(visits, draws), 0.01);
-}
-
-TEST(GenotypeSamplerStationaryTest, JointGenotypeDurationSamplerAcrossParentSetChanges) {
-    Fixture f;
-    const auto r = f.index("r");
-    f.setGenotype(f.state->infections[f.index("p")], "110");
-    f.setGenotype(f.state->latentParents[r], "011");
-    f.setGenotype(f.state->infections[r], "010");
-
-    const auto& infection = f.state->infections[r];
-    auto parentSet        = std::make_shared<ParentSetImpl>(f.state->infectionEventOrdering, infection, f.state->allowedRelationships->allowedParents(infection));
-
-    auto genotype = infection->latentGenotype(f.locus);
-    auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
-    transmission_nets::core::samplers::specialized::JointGeneticsTimeSampler<WeightedAllelesTarget, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>
-            sampler(infection, parentSet, f.state->latentParents[r], infection->infectionDuration(), target, f.rng, 1.0, 60.0, 3.0, 0.3, 0.3);
-
-    // The target ignores the duration, but genotypes outside the latent parent's alleles can only be proposed while p
-    // is a candidate parent, for durations in [1, 30) rather than [1, 60).
-    const GeneticsImpl latentAlleles("011");
-    auto durations = [&](const std::string& genotype) {
-        return GeneticsImpl::falsePositiveCount(latentAlleles, GeneticsImpl(genotype)) == 0 ? 59.0 : 29.0;
-    };
-    for (int i = 0; i < 5000; ++i) {
-        sampler.update();
-    }
-    std::map<std::string, int> visits;
-    constexpr int draws = 1000000;
-    int withParent      = 0;
-    for (int i = 0; i < draws; ++i) {
-        sampler.update();
-        ++visits[genotype->value().serialize()];
-        withParent += parentSet->value().empty() ? 0 : 1;
-    }
-    double total          = 0;
-    double totalWithParent = 0;
-    for (const auto& [genotype, count] : visits) {
-        total += targetWeight(genotype) * durations(genotype);
-        totalWithParent += targetWeight(genotype) * 29.0;
-    }
-    EXPECT_EQ(visits.size(), 7u);// every genotype with at least one allele
-    EXPECT_NEAR(static_cast<double>(withParent) / draws, totalWithParent / total, 0.01);
-    EXPECT_LT(distanceFromTarget(visits, draws, durations), 0.01);
 }
 
 // One try is a plain Metropolis-Hastings independence move; more tries make it a multiple-try move.

@@ -377,37 +377,6 @@ namespace transmission_nets::core::utils {
         return out;
     }
 
-    inline constexpr unsigned long const_pow_helper(unsigned long base, unsigned long exp) {
-        return (exp == 0) ? 1 : base * const_pow_helper(base, exp - 1);
-    }
-
-    inline constexpr unsigned long const_pow(unsigned int a, unsigned int b) {
-        return const_pow_helper(a, b);
-    }
-
-
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE>
-    constexpr std::array<unsigned int, MAX_PARENTSET_SIZE + 1> idxToKvec(unsigned int idx) {
-        std::array<unsigned int, MAX_PARENTSET_SIZE + 1> indxs;
-        indxs.fill(1);
-
-        for (unsigned int i = 0; i < MAX_PARENTSET_SIZE; ++i) {
-            indxs[i] += idx % MAX_TRANSMISSIONS;
-            idx /= MAX_TRANSMISSIONS;
-        }
-
-        return indxs;
-    }
-
-    template<unsigned int MAX_TRANSMISSIONS, unsigned int MAX_PARENTSET_SIZE>
-    constexpr std::array<std::array<unsigned int, MAX_PARENTSET_SIZE + 1>, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> initKvecs() {
-        std::array<std::array<unsigned int, MAX_PARENTSET_SIZE + 1>, core::utils::const_pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE)> kvecs;
-        for (unsigned int i = 0; i < pow(MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE); i++) {
-            kvecs[i] = idxToKvec<MAX_TRANSMISSIONS, MAX_PARENTSET_SIZE>(i);
-        }
-        return kvecs;
-    }
-
 }// namespace transmission_nets::core::utils
 
 #endif//TRANSMISSION_NETWORKS_APP_NUMERICS_H

@@ -12,18 +12,14 @@ namespace transmission_nets::core::samplers {
     }
 
     void Scheduler::update(ScheduledSampler& sampler) const {
-        if (isBetween(totalSteps, sampler.updateStart, sampler.updateEnd) and isUpdateStep(sampler.updateFrequency, static_cast<int>(totalSteps - sampler.updateStart))) {
+        if (isUpdateStep(sampler.updateFrequency, totalSteps)) {
             sampler.update();
         }
     }
 
     void Scheduler::adapt(ScheduledSampler& sampler) const {
         if (isBetween(totalSteps, sampler.adaptationStart, sampler.adaptationEnd)) {
-            if (sampler.scaledAdaptation) {
-                sampler.adapt(totalSteps - sampler.updateStart);
-            } else {
-                sampler.adapt();
-            }
+            sampler.adapt();
         }
     }
 
@@ -55,10 +51,6 @@ namespace transmission_nets::core::samplers {
 
     void ScheduledSampler::adapt() const {
         sampler->adapt();
-    }
-
-    void ScheduledSampler::adapt(unsigned int step) const {
-        sampler->adapt(step);
     }
 
 }// namespace transmission_nets::core::samplers

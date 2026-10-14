@@ -33,11 +33,11 @@ namespace transmission_nets::model::transmission_process {
     using Likelihood = core::computation::Likelihood;
     using Probability = core::computation::Probability;
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
     class MultinomialTransmissionProcess : public core::computation::Computation<std::array<Likelihood, MAX_STRAINS*(MAX_PARENTS + 1)>>,
-                                           public core::abstract::Observable<MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>>,
-                                           public core::abstract::Cacheable<MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>>,
-                                           public core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>, std::array<Likelihood, MAX_STRAINS*(MAX_PARENTS + 1)>> {
+                                           public core::abstract::Observable<MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>>,
+                                           public core::abstract::Cacheable<MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>>,
+                                           public core::abstract::Checkpointable<MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>, std::array<Likelihood, MAX_STRAINS*(MAX_PARENTS + 1)>> {
 
         using p_ParameterDouble = std::shared_ptr<core::parameters::Parameter<double>>;
         using p_ParameterArray = std::shared_ptr<core::parameters::Parameter<std::array<Probability, MAX_PARENTS + 1>>>;
@@ -45,7 +45,6 @@ namespace transmission_nets::model::transmission_process {
         using p_Infection = std::shared_ptr<core::containers::Infection<GeneticsImpl>>;
         using ParentSet   = core::containers::ParentSet<core::containers::Infection<GeneticsImpl>>;
 
-        using p_SourceTransmissionProcess = std::shared_ptr<SourceTransmissionProcessImpl>;
         using p_ParentSetSizePrior = std::shared_ptr<ParentSetSizePriorImpl>;
 
     public:
@@ -61,12 +60,10 @@ namespace transmission_nets::model::transmission_process {
             return this->value_[(num_parents - 1) * MAX_STRAINS + (num_strains - 1)];
         }
 
+        // The term for the observed parents alone, with the parent-set-size prior. The Model evaluates parent sets
+        // in batches (below) and sums the latent parent out in LatentParentMarginal; this is the plain form the tests
+        // check those against.
         Likelihood calculateLogLikelihood(p_Infection infection, const ParentSet& parentSet, p_ParentSetSizePrior psp);
-
-
-        Likelihood calculateLogLikelihood(p_Infection infection, p_Infection latentParent, const ParentSet& parentSet, p_SourceTransmissionProcess stp, p_ParentSetSizePrior psp);
-
-        Likelihood calculateLogLikelihood(p_Infection infection, p_Infection latentParent, p_SourceTransmissionProcess stp, p_ParentSetSizePrior psp);
 
         // Batch evaluation of many parent sets of one child, with genome identities resolved once rather than per
         // parent set. Call beginBatch(), resolve ids with genomeOf() / locusOrderOf(), then call parentSetSums(); the
@@ -91,7 +88,8 @@ namespace transmission_nets::model::transmission_process {
             return locusOrderId(infection);
         }
 
-        // The three calculateLogLikelihood overloads differ only in how each locus' parent allele pool is built.
+        // How each locus' parent allele pool is built: from the observed parents, from them plus a latent parent, or
+        // from a latent parent alone.
         enum class Variant : unsigned char {
             ObservedParents,
             ObservedAndLatentParents,
@@ -269,8 +267,8 @@ namespace transmission_nets::model::transmission_process {
         // Empty if some locus makes the parent set impossible.
         std::optional<Likelihood> strainSummedLogLikelihood(Variant variant, const p_Infection& infection, const ParentSet* parentSet, const p_Infection& latentParent, size_t numParents, const ResolvedGenomes* resolved);
 
-        // Shared body of the calculateLogLikelihood overloads; `stp` is null for the observed-parents-only variant.
-        Likelihood logLikelihood(Variant variant, const p_Infection& infection, const ParentSet* parentSet, const p_Infection& latentParent, const p_SourceTransmissionProcess& stp, const p_ParentSetSizePrior& psp, const ResolvedGenomes* resolved);
+        // Body of calculateLogLikelihood, also callable with pre-resolved genome ids.
+        Likelihood logLikelihood(Variant variant, const p_Infection& infection, const ParentSet* parentSet, const p_Infection& latentParent, const p_ParentSetSizePrior& psp, const ResolvedGenomes* resolved);
 
         p_ParameterDouble meanStrainsTransmitted_;
         p_ParameterArray probParentSetSize_;
@@ -298,8 +296,8 @@ namespace transmission_nets::model::transmission_process {
 #endif
     };
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::MultinomialTransmissionProcess(p_ParameterDouble mean_strains_transmitted) : meanStrainsTransmitted_(std::move(mean_strains_transmitted)) {
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::MultinomialTransmissionProcess(p_ParameterDouble mean_strains_transmitted) : meanStrainsTransmitted_(std::move(mean_strains_transmitted)) {
         meanStrainsTransmitted_->registerCacheableCheckpointTarget(this);
         meanStrainsTransmitted_->add_post_change_listener([this]() {
             this->setDirty();
@@ -312,8 +310,8 @@ namespace transmission_nets::model::transmission_process {
         this->MultinomialTransmissionProcess::value();
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    std::array<Likelihood, MAX_STRAINS*(MAX_PARENTS + 1)> MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::value() {
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    std::array<Likelihood, MAX_STRAINS*(MAX_PARENTS + 1)> MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::value() {
         /*
          * Value is a matrix that gives the probability of transmitting some number of strains from some number of parents. The
          * rows are the number of parents, and the columns are the number of strains. We assume the number of strains transmitted
@@ -351,17 +349,17 @@ namespace transmission_nets::model::transmission_process {
 
 
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    const typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::LocusTerm&
-    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::locusTerm(const LocusTermKey& key) {
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    const typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::LocusTerm&
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::locusTerm(const LocusTermKey& key) {
         if (const auto it = locusTerms_.find(key); it != locusTerms_.end()) {
             return it->second;
         }
         return locusTerms_.emplace(key, computeLocusTerm(key)).first->second;
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    void MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::reserveCacheCapacity() {
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    void MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::reserveCacheCapacity() {
         if (locusTerms_.size() >= MAX_LOCUS_TERM_CACHE_SIZE) {
             locusTerms_.clear();
         }
@@ -376,9 +374,9 @@ namespace transmission_nets::model::transmission_process {
         }
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::GenomeId
-    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::genomeId(const p_Infection& infection) {
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::GenomeId
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::genomeId(const p_Infection& infection) {
         // Latent genotypes in the latentGenotype() map's order, which is the same for every infection in a chain.
         genomeScratch_.clear();
         const auto version = infection->latentGenomeVersion();
@@ -405,9 +403,9 @@ namespace transmission_nets::model::transmission_process {
         return interned->second;
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::GenomeId
-    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::locusOrderId(const p_Infection& infection) {
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::GenomeId
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::locusOrderId(const p_Infection& infection) {
         // An infection's loci are fixed once it is constructed.
         if (const auto it = infectionLocusOrders_.find(infection->uid()); it != infectionLocusOrders_.end()) {
             return it->second;
@@ -421,9 +419,9 @@ namespace transmission_nets::model::transmission_process {
         return interned->second;
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::LocusTerm
-    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::computeLocusTerm(const LocusTermKey& key) {
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::LocusTerm
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::computeLocusTerm(const LocusTermKey& key) {
         // The arithmetic below, including operation order and the zero-probability cutoffs, matches the
         // per-variant code this replaced so that results are bit-identical.
         LocusTerm out{};
@@ -517,9 +515,9 @@ namespace transmission_nets::model::transmission_process {
         return out;
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::StrainSumEntry&
-    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::strainSums(
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::StrainSumEntry&
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::strainSums(
             const Variant variant,
             const p_Infection& infection,
             const ParentSet* parentSet,
@@ -580,8 +578,8 @@ namespace transmission_nets::model::transmission_process {
         return strainSums_.emplace(sumKey, StrainSumEntry{.sums = sums}).first->second;
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    std::optional<Likelihood> MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::strainSummedLogLikelihood(
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    std::optional<Likelihood> MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::strainSummedLogLikelihood(
             const Variant variant,
             const p_Infection& infection,
             const ParentSet* parentSet,
@@ -602,8 +600,8 @@ namespace transmission_nets::model::transmission_process {
         return entry.summed;
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::strainSummedLogLikelihood(const StrainSums& sums, const size_t numParents) {
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::strainSummedLogLikelihood(const StrainSums& sums, const size_t numParents) {
         if (sums.impossible) {
             return -std::numeric_limits<Likelihood>::infinity();
         }
@@ -635,9 +633,9 @@ namespace transmission_nets::model::transmission_process {
         return core::utils::logSumExpKnownMax(logLikelihoods.begin(), logLikelihoods.end(), maxLl);
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    const typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::StrainSums&
-    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::parentSetSums(
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    const typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::StrainSums&
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::parentSetSums(
             const Variant variant,
             const p_Infection& infection,
             const ParentSet* parentSet,
@@ -647,9 +645,9 @@ namespace transmission_nets::model::transmission_process {
         return strainSums(variant, infection, parentSet, latentParent, numParents, &resolved).sums;
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    const typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::LocusTerm&
-    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::locusTerm(
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    const typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::LocusTerm&
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::locusTerm(
             const Variant variant,
             const GeneticsImpl& child,
             const std::span<const GeneticsImpl* const> parents,
@@ -666,9 +664,9 @@ namespace transmission_nets::model::transmission_process {
         return locusTerm(key);
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::LocusTerm
-    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::uncachedLocusTerm(
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    typename MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::LocusTerm
+    MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::uncachedLocusTerm(
             const Variant variant,
             const GeneticsImpl& child,
             const std::span<const GeneticsImpl* const> parents,
@@ -685,13 +683,12 @@ namespace transmission_nets::model::transmission_process {
         return computeLocusTerm(key);
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::logLikelihood(
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::logLikelihood(
             const Variant variant,
             const p_Infection& infection,
             const ParentSet* parentSet,
             const p_Infection& latentParent,
-            const p_SourceTransmissionProcess& stp,
             const p_ParentSetSizePrior& psp,
             const ResolvedGenomes* resolved) {
         // One for each observed parent, plus the latent parent if present.
@@ -701,31 +698,16 @@ namespace transmission_nets::model::transmission_process {
             return -std::numeric_limits<Likelihood>::infinity();
         }
         Likelihood llik = *summed;
-        if (stp != nullptr) {
-            llik += stp->value();
-        }
 
         // Add the prior on the number of parents. psp holds probabilities, not log-probabilities.
         llik += std::log(psp->value()(numParents));
         return llik;
     }
 
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::calculateLogLikelihood(p_Infection infection, const ParentSet& parentSet, p_ParentSetSizePrior psp) {
+    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename ParentSetSizePriorImpl, typename GeneticsImpl>
+    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizePriorImpl, GeneticsImpl>::calculateLogLikelihood(p_Infection infection, const ParentSet& parentSet, p_ParentSetSizePrior psp) {
         reserveCacheCapacity();
-        return logLikelihood(Variant::ObservedParents, infection, &parentSet, nullptr, nullptr, psp, nullptr);
-    }
-
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::calculateLogLikelihood(p_Infection infection, p_Infection latentParent, const ParentSet& parentSet, p_SourceTransmissionProcess stp, p_ParentSetSizePrior psp) {
-        reserveCacheCapacity();
-        return logLikelihood(Variant::ObservedAndLatentParents, infection, &parentSet, latentParent, stp, psp, nullptr);
-    }
-
-    template<unsigned int MAX_PARENTS, unsigned int MAX_STRAINS, typename SourceTransmissionProcessImpl, typename ParentSetSizePriorImpl, typename GeneticsImpl>
-    Likelihood MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionProcessImpl, ParentSetSizePriorImpl, GeneticsImpl>::calculateLogLikelihood(p_Infection infection, p_Infection latentParent, p_SourceTransmissionProcess stp, p_ParentSetSizePrior psp) {
-        reserveCacheCapacity();
-        return logLikelihood(Variant::LatentParentOnly, infection, nullptr, latentParent, stp, psp, nullptr);
+        return logLikelihood(Variant::ObservedParents, infection, &parentSet, nullptr, psp, nullptr);
     }
 
 }// namespace transmission_nets::model::transmission_process
