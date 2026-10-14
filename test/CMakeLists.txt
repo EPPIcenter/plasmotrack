@@ -64,6 +64,7 @@ set(MODEL_TRANSMISSION_TESTS
     src/impl/ModelCacheConsistencyTest.cpp
     src/impl/RunRecorderTest.cpp
     src/impl/RegisteredSamplerTest.cpp
+    src/impl/QuantityTest.cpp
     src/impl/ReplicaExchangeTest.cpp
     src/impl/CheckpointTest.cpp
     src/impl/RunDriverTest.cpp
