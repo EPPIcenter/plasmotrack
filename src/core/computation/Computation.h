@@ -7,12 +7,15 @@
 
 namespace transmission_nets::core::computation {
 
+    // A value computed from inputs. value() evaluates it; peek() is the value as last evaluated, which a Checkpointable
+    // restores along with the computation, so it is what a running sum over computations holds for this one (see
+    // Accumulator). peek() reads nothing and computes nothing.
     template<typename T>
     class Computation {
     public:
-        virtual T peek() noexcept {
+        T peek() const noexcept {
             return value_;
-        };
+        }
 
         virtual T value() = 0;
 

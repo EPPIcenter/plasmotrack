@@ -36,7 +36,6 @@ namespace transmission_nets::model::observation_process {
                 bool null_model = false);
 
         core::computation::Likelihood value() override;
-        core::computation::Likelihood peek() noexcept override;
         std::string identifier() override;
 
     private:
@@ -101,14 +100,6 @@ namespace transmission_nets::model::observation_process {
 
         assert(value_ < std::numeric_limits<core::computation::Likelihood>::infinity());
 
-        return value_;
-    }
-
-    template<typename GeneticsImpl>
-    core::computation::Likelihood ObservationProcessLikelihoodv2<GeneticsImpl>::peek() noexcept {
-        if (null_model_) {
-            return 0;
-        }
         return value_;
     }
 
