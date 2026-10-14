@@ -205,10 +205,11 @@ namespace transmission_nets::core::samplers::genetics {
      * observed parent if every locus is compatible with it.
      *
      * The samplers' calculateSamplingProb() is the probability of this proposal, so the two must change together.
-     * Every locus is saved under savedStateId, changed or not.
+     * `change(genotype, value)` is called for each locus whose proposal differs from its current value; the caller's
+     * Proposal saves and sets it.
      */
-    template<int MaxParentSetSize, typename InfectionPtr, typename ParentSet, typename Engine>
-    void proposeGenotypesFromParentSet(const InfectionPtr& infection, const InfectionPtr& latentParent, const ParentSet& parentSet, Engine& rng, const double fnRate, const double fpRate, const int savedStateId) {
+    template<int MaxParentSetSize, typename InfectionPtr, typename ParentSet, typename Engine, typename Change>
+    void proposeGenotypesFromParentSet(const InfectionPtr& infection, const InfectionPtr& latentParent, const ParentSet& parentSet, Engine& rng, const double fnRate, const double fpRate, Change&& change) {
         const size_t numParents = parentSet.size();
         size_t numCombinations  = 0;
         for (size_t k = 1; k <= MaxParentSetSize and k <= numParents; ++k) {
@@ -239,8 +240,6 @@ namespace transmission_nets::core::samplers::genetics {
 
         for (const auto& locus : infection->loci()) {
             auto genotype = infection->latentGenotype(locus);
-            genotype->saveState(savedStateId);
-
             using Genetics = std::remove_cvref_t<decltype(genotype->value())>;
             std::array<const Genetics*, MaxParentSetSize + 1> parents{};
             size_t numChosen = 0;
@@ -259,7 +258,7 @@ namespace transmission_nets::core::samplers::genetics {
                 proposal = proposeLocus(parents, numChosen, nothingObserved, rng, UNOBSERVED_LOCUS_PRESENCE, fpRate);
             }
             if (proposal != genotype->value()) {
-                genotype->setValue(proposal);
+                change(*genotype, proposal);
             }
         }
     }

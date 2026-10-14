@@ -12,9 +12,6 @@
 
 #include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
-#include "core/samplers/SamplerEnum.h"
-
-
 // Random Walk Metropolis Hastings using a gaussian proposal distribution centered at the current value
 
 namespace transmission_nets::core::samplers {
@@ -30,15 +27,9 @@ namespace transmission_nets::core::samplers {
                              double maxVariance) noexcept;
 
 
-        [[nodiscard]] unsigned int acceptances() const noexcept;
-
-        [[nodiscard]] unsigned int rejections() const noexcept;
-
         [[nodiscard]] double variance() const noexcept;
 
         [[nodiscard]] double acceptanceRate() const noexcept;
-
-        void setTargetAcceptanceRate(double target) noexcept;
 
         void setAdaptationRate(double rate) noexcept;
 
@@ -50,8 +41,6 @@ namespace transmission_nets::core::samplers {
         void update() noexcept override;
 
         void adapt() noexcept override;
-
-        void adapt(unsigned int idx) noexcept override;
 
         [[nodiscard]] AdaptationState adaptationState() const override;
 
@@ -66,16 +55,9 @@ namespace transmission_nets::core::samplers {
         double max_variance_ = 1e6;
 
         boost::random::normal_distribution<> normal_dist_{0, 1};
-        boost::random::uniform_01<> uniform_dist_{};
-
         double adaptation_rate_        = .5;
         double target_acceptance_rate_ = .23;
-
-        unsigned int acceptances_   = 0;
-        unsigned int rejections_    = 0;
         unsigned int total_updates_ = 0;
-
-        double timeSpentSampling_ = 0;
 
 
     };
@@ -99,32 +81,11 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine, typename U>
     void ContinuousRandomWalk<T, Engine, U>::update() noexcept {
-        SAMPLER_STATE_ID stateId = SAMPLER_STATE_ID::ConstrainedContinuousRandomWalkID;
-        Likelihood curLik         = target_->value();
-        parameter_->saveState(stateId);
-
+        auto proposal           = this->propose(*target_, *rng_);
         const double currentVal = parameter_->value();
-        const double proposal   = sampleProposal();
-
-        assert(!target_->isDirty());
-        parameter_->setValue(proposal);
-        const Likelihood adj = logMetropolisHastingsAdjustment(currentVal, proposal);
-        const Likelihood acceptanceRatio = target_->value() - curLik + adj;
-        assert(!target_->isDirty());
-
-        if (log(uniform_dist_(*rng_)) <= acceptanceRatio) {
-            acceptances_ += 1;
-            countProposal(true);
-            parameter_->acceptState();
-        } else {
-            rejections_ += 1;
-            countProposal(false);
-            parameter_->restoreState(stateId);
-            assert(curLik == target_->value());
-        }
-        assert(!std::isinf(target_->value()));
-        assert(!target_->isDirty());
-
+        const double proposed   = sampleProposal();
+        proposal.change(*parameter_, proposed);
+        proposal.metropolis(logMetropolisHastingsAdjustment(currentVal, proposed));
         total_updates_++;
     }
 
@@ -138,17 +99,8 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine, typename U>
-    void ContinuousRandomWalk<T, Engine, U>::adapt(unsigned int idx) noexcept {
-        variance_ += (acceptanceRate() - target_acceptance_rate_) / std::pow(idx, adaptation_rate_);
-        variance_ = std::clamp(variance_, min_variance_, max_variance_);
-        if (std::isnan(variance_)) {
-            variance_ = min_variance_;
-        }
-    }
-
-    template<typename T, typename Engine, typename U>
     AdaptationState ContinuousRandomWalk<T, Engine, U>::adaptationState() const {
-        return {.scales  = {{.variance = variance_, .counts = {.accepted = acceptances_, .proposed = acceptances_ + rejections_}}},
+        return {.scales  = {{.variance = variance_, .counts = this->counts()}},
                 .updates = total_updates_};
     }
 
@@ -157,24 +109,15 @@ namespace transmission_nets::core::samplers {
         requireScales(state, 1);
         const auto& scale = state.scales.front();
         variance_         = scale.variance;
-        acceptances_      = static_cast<unsigned int>(scale.counts.accepted);
-        rejections_       = static_cast<unsigned int>(scale.counts.proposed - scale.counts.accepted);
         total_updates_    = static_cast<unsigned int>(state.updates);
-    }
-
-    template<typename T, typename Engine, typename U>
-    unsigned int ContinuousRandomWalk<T, Engine, U>::acceptances() const noexcept {
-        return acceptances_;
-    }
-
-    template<typename T, typename Engine, typename U>
-    unsigned int ContinuousRandomWalk<T, Engine, U>::rejections() const noexcept {
-        return rejections_;
+        // The walk's one scale counts every proposal it makes, so its counts are the sampler's.
+        this->restoreCounts(scale.counts);
     }
 
     template<typename T, typename Engine, typename U>
     double ContinuousRandomWalk<T, Engine, U>::acceptanceRate() const noexcept {
-        return static_cast<double>(acceptances_) / static_cast<double>(rejections_ + acceptances_);
+        const auto counts = this->counts();
+        return static_cast<double>(counts.accepted) / static_cast<double>(counts.proposed);
     }
 
     template<typename T, typename Engine, typename U>
@@ -192,11 +135,6 @@ namespace transmission_nets::core::samplers {
     template<typename T, typename Engine, typename U>
     double ContinuousRandomWalk<T, Engine, U>::variance() const noexcept {
         return variance_;
-    }
-
-    template<typename T, typename Engine, typename U>
-    void ContinuousRandomWalk<T, Engine, U>::setTargetAcceptanceRate(double target) noexcept {
-        target_acceptance_rate_ = target;
     }
 
     template<typename T, typename Engine, typename U>

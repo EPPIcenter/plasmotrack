@@ -1,54 +1,26 @@
 //
-// Created by Maxwell Murphy on 3/25/20.
+// A sampler: one Metropolis-Hastings move on some of a chain's parameters, run once per Sampling iteration it is due.
+// Each update is one Proposal (or none, when the move has nothing to propose), which counts into the sampler's counts.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_ABSTRACTSAMPLER_H
 #define TRANSMISSION_NETWORKS_APP_ABSTRACTSAMPLER_H
 
-#include <cstdint>
+#include "core/computation/PartialLikelihood.h"
+#include "core/samplers/Proposal.h"
+#include "core/samplers/SamplerCounts.h"
+
 #include <stdexcept>
 #include <string>
-#include <utility>
-#include <vector>
-
-#include "core/computation/PartialLikelihood.h"
-#include "core/samplers/SamplerEnum.h"
 
 namespace transmission_nets::core::samplers {
     using Likelihood = core::computation::Likelihood;
-
-    // Metropolis-Hastings proposals a sampler has made and accepted since it was built (or since its counts were
-    // restored), over every Sampling iteration of both Phases.
-    struct SamplerCounts {
-        std::uint64_t accepted = 0;
-        std::uint64_t proposed = 0;
-
-        bool operator==(const SamplerCounts&) const = default;
-    };
-
-    // One proposal scale and the proposals made at it, which the adaptation rule reads.
-    struct ProposalScale {
-        double variance = 0;
-        SamplerCounts counts{};
-
-        bool operator==(const ProposalScale&) const = default;
-    };
-
-    // Everything a sampler's adaptation rule reads: its proposal scales (one for a random walk, one per Allele
-    // frequency for SALT, none for a sampler that doesn't adapt) and its update count, which sets the step size.
-    struct AdaptationState {
-        std::vector<ProposalScale> scales{};
-        std::uint64_t updates = 0;
-
-        bool operator==(const AdaptationState&) const = default;
-    };
 
     class AbstractSampler {
     public:
         virtual ~AbstractSampler()     = default;
         virtual void update() noexcept = 0;
         virtual void adapt() noexcept {};
-        virtual void adapt([[maybe_unused]] unsigned int idx) noexcept {};
 
         [[nodiscard]] SamplerCounts counts() const noexcept { return counts_; }
 
@@ -70,19 +42,16 @@ namespace transmission_nets::core::samplers {
             }
         }
 
-        // Call once per proposal, after the accept/reject decision.
-        void countProposal(const bool accepted) noexcept {
-            ++counts_.proposed;
-            counts_.accepted += accepted;
+        // Opens a Proposal on `target`, counting into this sampler's counts when it settles.
+        template<typename Target, typename Engine>
+        [[nodiscard]] Proposal<Target, Engine> propose(Target& target, Engine& rng) {
+            return Proposal<Target, Engine>(target, rng, counts_);
         }
 
     private:
         SamplerCounts counts_{};
     };
 
-
-
 }// namespace transmission_nets::core::samplers
-
 
 #endif//TRANSMISSION_NETWORKS_APP_ABSTRACTSAMPLER_H

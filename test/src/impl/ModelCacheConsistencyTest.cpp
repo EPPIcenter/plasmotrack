@@ -8,6 +8,7 @@
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/SamplerSet.h"
+#include "core/samplers/Proposal.h"
 #include "impl/model/Model/State.h"
 #include "../model/transmission_process/node_transmission_process/MarginalLatentParentReference.h"
 
@@ -117,14 +118,16 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
         }
         return bits;
     };
-    // Like a sampler, never accept an impossible state: the model's running sums cannot recover from -inf.
-    auto perturb = [&](auto& param, const auto& proposal) {
-        param->saveState(1);
-        param->setValue(proposal);
-        if (std::isfinite(model->value()) && unif(*rng) < 0.5) {
-            param->acceptState();
+    // Each perturbation is a Proposal, as a sampler's would be. Like a sampler, never accept an impossible state: the
+    // model's running sums cannot recover from -inf.
+    transmission_nets::core::samplers::SamplerCounts perturbations{};
+    auto perturb = [&](auto& param, const auto& proposed) {
+        auto step = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
+        step.change(*param, proposed);
+        if (std::isfinite(step.value()) && unif(*rng) < 0.5) {
+            step.accept();
         } else {
-            param->restoreState(1);
+            step.reject();
         }
         model->value();
     };
@@ -284,16 +287,13 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
         const auto& locus  = infection->loci()[node % infection->loci().size()];
         auto childGenotype  = infection->latentGenotype(locus);
         auto parentGenotype = parent->latentGenotype(locus);
-        childGenotype->saveState(1);
-        parentGenotype->saveState(1);
-        parentGenotype->setValue(GeneticsImpl(randomBits(locus->totalAlleles())));
-        childGenotype->setValue(parentGenotype->value());
-        if (std::isfinite(model->value()) && unif(*rng) < 0.5) {
-            childGenotype->acceptState();
-            parentGenotype->acceptState();
+        auto step           = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
+        step.change(*parentGenotype, GeneticsImpl(randomBits(locus->totalAlleles())));
+        step.change(*childGenotype, parentGenotype->value());
+        if (std::isfinite(step.value()) && unif(*rng) < 0.5) {
+            step.accept();
         } else {
-            childGenotype->restoreState(1);
-            parentGenotype->restoreState(1);
+            step.reject();
         }
         model->value();
     };
@@ -302,23 +302,18 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
     // so that the model mostly stays possible. Changing most loci makes parent sets be recomputed rather than updated.
     auto perturbGenome = [&](const auto& infection, const auto& donor) {
         const auto& loci = infection->loci();
-        for (const auto& locus : loci) {
-            infection->latentGenotype(locus)->saveState(1);
-        }
+        auto step        = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
         // Sometimes the whole genome, so that the infection joins the donor's genome class.
         const double share = unif(*rng) < 0.5 ? 1.0 : 0.8;
         for (const auto& locus : loci) {
             if (unif(*rng) < share) {
-                infection->latentGenotype(locus)->setValue(donor->latentGenotype(locus)->value());
+                step.change(*infection->latentGenotype(locus), donor->latentGenotype(locus)->value());
             }
         }
-        const bool accept = std::isfinite(model->value()) && unif(*rng) < 0.5;
-        for (const auto& locus : loci) {
-            if (accept) {
-                infection->latentGenotype(locus)->acceptState();
-            } else {
-                infection->latentGenotype(locus)->restoreState(1);
-            }
+        if (std::isfinite(step.value()) && unif(*rng) < 0.5) {
+            step.accept();
+        } else {
+            step.reject();
         }
         model->value();
     };
@@ -328,6 +323,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
     auto perturbGenomes = [&]() {
         boost::random::uniform_int_distribution<> pickCount(2, 4);
         std::vector<std::shared_ptr<InfectionEvent>> changed;
+        auto step = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
         for (int c = pickCount(*rng); c > 0; --c) {
             const auto& infection = state->infections[pickNode(*rng)];
             const auto& donor     = state->infections[pickNode(*rng)];
@@ -337,22 +333,15 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
             changed.push_back(infection);
             const double share = unif(*rng) < 0.5 ? 1.0 : 0.8;
             for (const auto& locus : infection->loci()) {
-                auto genotype = infection->latentGenotype(locus);
-                genotype->saveState(1);
                 if (unif(*rng) < share) {
-                    genotype->setValue(donor->latentGenotype(locus)->value());
+                    step.change(*infection->latentGenotype(locus), donor->latentGenotype(locus)->value());
                 }
             }
         }
-        const bool accept = std::isfinite(model->value()) && unif(*rng) < 0.5;
-        for (const auto& infection : changed) {
-            for (const auto& locus : infection->loci()) {
-                if (accept) {
-                    infection->latentGenotype(locus)->acceptState();
-                } else {
-                    infection->latentGenotype(locus)->restoreState(1);
-                }
-            }
+        if (std::isfinite(step.value()) && unif(*rng) < 0.5) {
+            step.accept();
+        } else {
+            step.reject();
         }
         model->value();
     };

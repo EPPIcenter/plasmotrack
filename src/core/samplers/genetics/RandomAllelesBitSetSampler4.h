@@ -30,10 +30,6 @@ namespace transmission_nets::core::samplers::genetics {
                 unsigned int max_coi) noexcept;
 
         void update() noexcept override;
-        [[nodiscard]] unsigned int acceptances() noexcept;
-        [[nodiscard]] unsigned int rejections() noexcept;
-        [[nodiscard]] double acceptanceRate() noexcept;
-
     private:
         std::shared_ptr<InfectionEventImpl> infection_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
@@ -45,10 +41,6 @@ namespace transmission_nets::core::samplers::genetics {
 
         boost::random::uniform_01<> uniform_dist_{};
         boost::random::uniform_int_distribution<> categorical_dist_{};
-
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_ = 0;
-        unsigned int total_updates_ = 0;
 
         // todo: make this tunable
         const double fp_rate = 0.05;
@@ -81,11 +73,7 @@ namespace transmission_nets::core::samplers::genetics {
         using Data = datatypes::Data<AlleleImpl>;
         namespace views = std::ranges::views;
 
-        SAMPLER_STATE_ID stateId = RandomAlleleBitSet4ID;
-        const Likelihood curLik = target_->value();
-
-        std::vector<std::shared_ptr<Parameter>> updatedParameters{};
-
+        auto proposal = this->propose(*target_, *rng_);
         // randomly select an allele state to be propagated through the transmission tree
         categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, locus_->totalAlleles() - 1));
         const int allele_idx = categorical_dist_(*rng_);
@@ -166,11 +154,8 @@ namespace transmission_nets::core::samplers::genetics {
 
             if (proposed_state != curr_state) {
                 path_differs = true;
-                curr_param->saveState(stateId);
-                updatedParameters.push_back(curr_param);
-
                 curr_val.set(allele_idx, proposed_state);
-                curr_param->setValue(curr_val);
+                proposal.change(*curr_param, curr_val);
             }
 
             if (potential_children.empty()) {
@@ -184,60 +169,10 @@ namespace transmission_nets::core::samplers::genetics {
         }
 
         if (!path_differs) {
-            acceptances_++;
-            countProposal(true);
+            proposal.accept();
             return;
         }
-
-        const Likelihood adj = reverse_log_prob - forward_log_prob;
-        const Likelihood acceptanceRatio = target_->value() - curLik + adj;
-        const Likelihood logProbAccept = std::log(uniform_dist_(*rng_));
-        const bool accept = logProbAccept <= acceptanceRatio;
-
-        // if (debug_ and accept) {
-        //     fmt::print("Acceptance ratio: {}\n", acceptanceRatio);
-        //     fmt::print("Log probability of acceptance: {}\n", logProbAccept);
-        //     fmt::print("Current likelihood: {}\n", curLik);
-        //     fmt::print("Forward Proposal Log Probability: {}\n", forward_log_prob);
-        //     fmt::print("Reverse Proposal Log Probability: {}\n", reverse_log_prob);
-        //     fmt::print("Proposed likelihood: {}\n", target_->value());
-        //     fmt::print("Adjustment: {}\n", adj);
-        //     fmt::print("Proposed Path: {}\n", io::serialize(path));
-        //     fmt::print("Current Path: {}\n", io::serialize(curr_path));
-        //     fmt::print("Observed Path: {}\n", io::serialize(obs_path));
-        //     fmt::print("----------------------------------------------------\n");
-        // }
-
-        if (accept) {
-            acceptances_++;
-            countProposal(true);
-            for (auto& param : updatedParameters) {
-                param->acceptState();
-            }
-        } else {
-            rejections_++;
-            countProposal(false);
-            for (auto& param : updatedParameters) {
-                param->restoreState(stateId);
-            }
-        }
-
-        total_updates_++;
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename AlleleImpl, typename LocusImpl>
-    unsigned int RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, AlleleImpl, LocusImpl>::acceptances() noexcept {
-        return acceptances_;
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename AlleleImpl, typename LocusImpl>
-    unsigned int RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, AlleleImpl, LocusImpl>::rejections() noexcept {
-        return rejections_;
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename AlleleImpl, typename LocusImpl>
-    double RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, AlleleImpl, LocusImpl>::acceptanceRate() noexcept {
-        return static_cast<double>(acceptances_) / static_cast<double>(total_updates_);
+        proposal.metropolis(reverse_log_prob - forward_log_prob);
     }
 
 

@@ -39,6 +39,7 @@ set(CORE_SAMPLERS_TESTS
     src/core/samplers/specialized/InformedOrderJumpSamplerTest.cpp
     src/core/samplers/genetics/StrainCountSamplerTest.cpp
     src/core/samplers/SchedulerTest.cpp
+    src/core/samplers/ProposalTest.cpp
 )
 
 set(CORE_UTILS_TESTS
