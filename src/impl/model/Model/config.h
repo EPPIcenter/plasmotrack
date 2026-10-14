@@ -18,7 +18,7 @@
 
 #include "model/observation_process/ObservationProcessLikelihoodv2.h"
 
-#include "model/transmission_process/OrderBasedTransmissionProcessV3.h"
+#include "model/transmission_process/TransmissionTerm.h"
 #include "model/transmission_process/TransmissionMemo.h"
 #include <filesystem>
 
@@ -59,7 +59,7 @@ namespace transmission_nets::impl::Model {
     // The per-chain memory of Transmission kernel results, with the latent parent summed out of each term through it.
     using TransmissionMemoImpl = model::transmission_process::TransmissionMemo<MAX_PARENTS, MAX_STRAINS, MAX_COI, GeneticsImpl, InfectionEvent, LocusImpl, AlleleFrequencyContainerImpl>;
 
-    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcessV3<MAX_PARENTS, TransmissionMemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEvent, ParentSetImpl>;
+    using TransmissionProcess = model::transmission_process::TransmissionTerm<MAX_PARENTS, TransmissionMemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEvent, ParentSetImpl>;
 
 }// namespace transmission_nets::impl::Model
 

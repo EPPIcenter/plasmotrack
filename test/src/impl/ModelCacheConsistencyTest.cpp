@@ -10,7 +10,7 @@
 #include "impl/model/Model/SamplerSet.h"
 #include "core/samplers/Proposal.h"
 #include "impl/model/Model/State.h"
-#include "../model/transmission_process/node_transmission_process/MarginalLatentParentReference.h"
+#include "../model/transmission_process/MarginalLatentParentReference.h"
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
@@ -132,7 +132,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
         model->value();
     };
     // Independent of the parent-set cache: evaluates every parent set directly, in the order
-    // OrderBasedTransmissionProcessV3::calcParentSetDist() reports them. The process groups parent sets by their
+    // TransmissionTerm::calcParentSetDist() reports them. The process groups parent sets by their
     // parents' genomes, so its log-sum-exp agrees up to rounding.
     using ParentSetLliks = std::vector<std::pair<double, transmission_nets::core::containers::ParentSet<InfectionEvent>>>;
     // A parent set with the latent parent: its expectation over the latent parent drawn from the Source, by the
