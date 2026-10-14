@@ -3,36 +3,25 @@
 //
 
 #include "core/io/ParquetStoreSink.h"
-#include "impl/model/Model/Checkpoint.h"
 #include "core/io/parse_json.h"
-#include "core/samplers/meta/ReplicaExchange.h"
+#include "core/io/utils.h"
 #include "core/utils/InterruptWatcher.h"
 #include "core/utils/Sha256.h"
-#include "core/utils/timers.h"
 #include "core/version.h"
-#include "impl/model/Model/config.h"
-#include "impl/model/Model/Model.h"
-#include "impl/model/Model/State.h"
+#include "impl/model/Model/Checkpoint.h"
 #include "impl/model/Model/Progress.h"
-#include "impl/model/Model/RunDriver.h"
+#include "impl/model/Model/RunAssembly.h"
 #include "impl/model/Model/RunRecipe.h"
-#include "impl/model/Model/RunRecorder.h"
-#include "core/io/utils.h"
 
 #include <boost/program_options.hpp>
 
 #include <fmt/core.h>
 
-#include <algorithm>
 #include <atomic>
-#include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <map>
 #include <iostream>
 #include <optional>
-#include <random>
-#include <stdexcept>
 #include <string>
 #include <variant>
 #include <vector>
@@ -42,7 +31,6 @@ using namespace transmission_nets::impl;
 namespace checkpoint = transmission_nets::impl::Model::checkpoint;
 using namespace transmission_nets::core::io;
 using namespace transmission_nets::core::computation;
-using namespace transmission_nets::core::samplers;
 using namespace transmission_nets::core::utils;
 using namespace transmission_nets::core::version;
 
@@ -52,16 +40,6 @@ namespace {
     const size_t SUCCESS                   = 0;
     const size_t ERROR_IN_COMMAND_LINE     = 1;// a bad option, or a Run refused to start or resume
     const size_t ERROR_UNHANDLED_EXCEPTION = 2;
-
-    // 128 random bits as hex, drawn apart from the Run's seeded engines so that it changes nothing they draw.
-    std::string newRunId() {
-        std::random_device device;
-        std::string id;
-        for (int k = 0; k < 4; ++k) {
-            id += fmt::format("{:08x}", device());
-        }
-        return id;
-    }
 
     // The value of option `name` if it was given, not defaulted for --help.
     template<typename T>
@@ -76,7 +54,7 @@ namespace {
 int main(int argc, char** argv) {
     // Declared before the watcher so they outlive the watcher's thread, which forces the Run's end through the Run
     // driver once there is one.
-    std::optional<Model::RunDriver> driver;
+    std::optional<Model::AssembledRun> run;
     std::atomic<Model::RunDriver*> driving{nullptr};
     // Constructed before any other thread starts, so every thread leaves the interrupt signals to the watcher.
     const InterruptWatcher watcher([&](const std::string& signal) {
@@ -196,68 +174,31 @@ int main(int argc, char** argv) {
         }
         auto& recipe        = std::get<Model::Recipe>(resolved);
         const bool resuming = recipe.mode == Model::Mode::Resume;
-        auto& manifest      = recipe.manifest;
         Model::ConsoleProgress progress(std::cout);
         for (const auto& notice : recipe.notices) {
             progress.notice(notice);
         }
 
-        if (manifest.nullModel) {
+        if (recipe.manifest.nullModel) {
             progress.notice("Running the null model (no genetics)");
         }
 
-        json j;
+        Model::Inputs inputs{.symptomaticIdp = symptomatic_idp, .asymptomaticIdp = asymptomatic_idp};
         if (nodesFile.extension() == ".gz") {
             std::vector<char> decompressed = decompressGzipFile(nodesFile);
-            j = loadJSON(decompressed);
+            inputs.input                   = loadJSON(decompressed);
         } else {
             std::ifstream inputFile{nodesFile};
-            j = loadJSON<std::ifstream&>(inputFile);
+            inputs.input = loadJSON<std::ifstream&>(inputFile);
         }
 
-        if (manifest.seed == -1) {
-            manifest.seed = timers::time().time_since_epoch().count();
-        }
-
-        auto r = std::make_shared<boost::random::mt19937>(manifest.seed);
-        std::unique_ptr<Model::Ensemble> repex;
-        if (saved) {
-            repex = checkpoint::restore(*saved, r, j, symptomatic_idp, asymptomatic_idp, manifest.nullModel, recipe.cores);
-            if (recipe.mode == Model::Mode::StartFrom) {
-                // A new Run's burn-in counts from 0, not from the saved position, so its ladder adapts on the same
-                // iterations as a fresh Run's.
-                auto exchange             = repex->exchangeState();
-                exchange.burnInIterations = 0;
-                repex->restoreExchangeState(exchange);
-                // A new Run draws from its own seed, from the saved State on.
-                r->seed(static_cast<std::uint32_t>(manifest.seed));
-                for (auto& chain : repex->chains) {
-                    chain.r->seed((*r)());
-                }
-            }
-        } else {
-            repex = std::make_unique<Model::Ensemble>(manifest.chains, *manifest.gradient, r, manifest.nullModel, recipe.cores, j, symptomatic_idp, asymptomatic_idp);
-        }
+        const Model::Provenance provenance{.runId = Model::newRunId(), .cliArguments = std::vector<std::string>(argv, argv + argc), .gitCommit = TRANSMISSION_NETWORKS_GIT_COMMIT};
+        driving = run.emplace(Model::assemble(recipe, inputs, saved, std::make_unique<ParquetStoreSink>(recipe.store), progress, provenance)).driver.get();
         if (!resuming) {
-            progress.notice(fmt::format("Seed Used: {}", manifest.seed));
-            // A resumed Run keeps its manifest: the original recipe. Its run_resumed event records the new -s.
-            manifest.runId        = newRunId();
-            manifest.startedAt    = timers::wallTime(std::chrono::system_clock::now());
-            manifest.cliArguments = std::vector<std::string>(argv, argv + argc);
-            manifest.gitCommit    = TRANSMISSION_NETWORKS_GIT_COMMIT;
+            progress.notice(fmt::format("Seed Used: {}", run->manifest.seed));
         }
-        const fs::path outputDir = recipe.store;
 
-        Model::RunRecorder recorder(*repex->hotChain().state, repex->samplerIds(), std::make_unique<ParquetStoreSink>(outputDir),
-                                    recipe.recorder, manifest);
-        const checkpoint::Identity identity{.runId = manifest.runId, .inputHash = given.inputSha256.at(Model::input_names::INPUT), .engineVersion = manifest.engineVersion};
-        driving = &driver.emplace(*repex, *r, recorder, outputDir, identity, progress);
-
-        Model::RunStart start = Model::FreshRun{};
-        if (resuming) {
-            start = Model::ResumedRun{.position = saved->position, .parentSetIds = saved->parentSetIds};
-        }
-        const auto outcome = driver->drive(start, recipe.plan, [&]() -> std::optional<std::string> {
+        const auto outcome = run->drive([&]() -> std::optional<std::string> {
             if (!watcher.interrupted()) {
                 return std::nullopt;
             }
