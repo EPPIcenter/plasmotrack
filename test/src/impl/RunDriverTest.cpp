@@ -261,7 +261,7 @@ TEST(RunDriverTest, ACheckpointIsTakenAtEachWindowsEndWithTheStateItEndsAt) {
         checkpointed.push_back(saved.position.iteration);
         EXPECT_EQ(saved.identity, IDENTITY);
         EXPECT_EQ(saved.position.lastClosedWindow, static_cast<std::int64_t>(checkpointed.size()) - 1);
-        EXPECT_EQ(hotReplica(saved).state.meanCoi, scalarAt(store, "mean_coi", saved.position.iteration));
+        EXPECT_EQ(hotReplica(saved).state.scalars.at("mean_coi"), scalarAt(store, "mean_coi", saved.position.iteration));
     }
     EXPECT_EQ(checkpointed, (std::vector<std::int64_t>{5, 10, 13, 18, 23, 25}));
     EXPECT_EQ(seen.back().position, (RunPosition{.iteration = 25, .phase = Phase::Sampling, .lastClosedWindow = 5, .burnInRemaining = 0, .samplingRemaining = 0}));
@@ -279,7 +279,7 @@ TEST(RunDriverTest, TheBurnInCheckpointHoldsTheStateAtBurnInEnd) {
     const auto burnIn = checkpoint::load(dir.path / "checkpoint-burn-in.cbor");
     EXPECT_EQ(burnIn.identity, IDENTITY);
     EXPECT_EQ(burnIn.position, (RunPosition{.iteration = 13, .phase = Phase::Sampling, .lastClosedWindow = 2, .burnInRemaining = 0, .samplingRemaining = 12}));
-    EXPECT_EQ(hotReplica(burnIn).state.meanCoi, scalarAt(store, "mean_coi", 13));
+    EXPECT_EQ(hotReplica(burnIn).state.scalars.at("mean_coi"), scalarAt(store, "mean_coi", 13));
     auto rng            = std::make_shared<Engine>();
     const auto restored = checkpoint::restore(burnIn, rng, exampleInput(), IDP, IDP, false, 1);
     EXPECT_NEAR(restored->hotChain().model->getLikelihood(), scalarAt(store, "likelihood", 13), 1e-9);
