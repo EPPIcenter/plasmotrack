@@ -56,6 +56,13 @@ _Avoid_: Reservoir, background, importation, external
 The model component giving the probability of an Infection's Latent genotypes given those of a Parent set — how strains are passed on, lost, and mutated. Marginalises over every possible Parent set analytically rather than sampling one.
 _Avoid_: Transmission model, transmission likelihood
 
+**Transmission kernel**:
+The arithmetic of the Transmission process for one Locus or one Parent set: a pure function of genotypes, Allele frequencies and the count distributions, holding no Infection, Parameter or cache. One Infection's Transmission term sums its results, kept by the Transmission memo.
+_Avoid_: Node transmission process, likelihood function, core
+
+**Transmission memo**:
+The per-chain memory of Transmission kernel results, keyed by genome and frequency identity, shared by every Infection's Transmission term. Its one lifetime rule: a term begins a batch before each evaluation, and results from before the batch may be gone.
+_Avoid_: Cache (every module has caches; this is the one that is shared), node process, marginal
 **Observation process**:
 The model component giving the probability of an Observed genotype given a Latent genotype — how genotyping introduces false positive and false negative Alleles.
 _Avoid_: Error model, noise model, measurement model

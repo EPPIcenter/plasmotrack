@@ -87,6 +87,7 @@ set(CORE_UTILS_SOURCES
 set(MODEL_SOURCES
     model/observation_process/ObservationProcessLikelihoodv2.h
     model/transmission_process/TransmissionKernel.h
+    model/transmission_process/TransmissionTerm.h
     model/transmission_process/TransmissionMemo.h
     model/transmission_process/source_transmission_process/SourceOverlap.h
 )

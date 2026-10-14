@@ -9,13 +9,15 @@ Code:
 
 - `src/model/transmission_process/source_transmission_process/SourceOverlap.h`: the Source at one locus, P(U, w | k),
   used by the model and by the reference.
-- `test/src/model/transmission_process/node_transmission_process/MarginalLatentParentReference.h`: the computation,
-  written plainly (the reference the tests check the model against).
-- `src/model/transmission_process/node_transmission_process/LatentParentMarginal.h`: the computation as the model uses
-  it, memoised.
-- `src/model/transmission_process/OrderBasedTransmissionProcessV3.h`: each Infection's transmission term, with the
-  latent entries' incremental sums.
-- `test/src/model/transmission_process/node_transmission_process/MarginalLatentParentTest.cpp`: brute-force tests.
+- `test/src/model/transmission_process/MarginalLatentParentReference.h`: the computation, written plainly (the
+  reference the tests check the model against).
+- `src/model/transmission_process/TransmissionKernel.h`: the computation as the model uses it: the F table, its
+  contraction with the Source overlap into a locus table, and the sum over COI and strains.
+- `src/model/transmission_process/TransmissionMemo.h`: the per-chain memo of those results, keyed by genotypes and
+  frequency ids.
+- `src/model/transmission_process/TransmissionTerm.h`: each Infection's transmission term, with the latent entries'
+  incremental sums.
+- `test/src/model/transmission_process/MarginalLatentParentTest.cpp`: brute-force tests.
 - `test/src/impl/ModelCacheConsistencyTest.cpp`: every cached term against the plain computation after real sweeps.
 - `tools/diag/direction_check.cpp`: the model's terms for the two orders of a pair.
 
@@ -187,8 +189,8 @@ Expected effect on an iteration:
 
 **Model.**
 
-- `LatentParentMarginal` is one per chain, beside the node transmission process. It gives each locus table log g(k, m)
-  from three memoised layers:
+- The Transmission memo is one per chain. It gives each locus table log g(k, m) from three memoised layers over the
+  Transmission kernel:
   - the F table f(m; U, w): the node process's own locus term with a representative latent genotype. Depends on the
     genotypes only.
   - the Source overlap P(U, w | k): depends on the locus' allele frequencies and the child's genotype.
@@ -200,8 +202,8 @@ Expected effect on an iteration:
 - A table's positive cells form a rectangle (k ≥ the fewest alleles a possible latent parent needs, m ≥ |C|). So a
   parent set's sums over loci are plain 21 × 12 arrays plus counts of the rectangles' bounds, and swapping one locus'
   table in and out is exact.
-- `summedLogLikelihood` adds P(k) and P(m | n) and log-sum-exps only cells within 40 log units of the largest.
-- `OrderBasedTransmissionProcessV3` keeps its structure (genome classes, entries, nested-checkpoint caches). Entries
+- `latentSummedLogLikelihood` adds P(k) and P(m | n) and log-sum-exps only cells within 40 log units of the largest.
+- `TransmissionTerm` keeps its structure (genome classes, entries, nested-checkpoint caches). Entries
   with the latent parent hold these (k, m) sums instead of strain sums. The cache records the frequency id each locus
   was summed with:
   - **Genotype changes** swap one locus' table, as before.

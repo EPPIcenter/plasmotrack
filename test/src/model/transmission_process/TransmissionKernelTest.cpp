@@ -6,7 +6,7 @@
 
 #include "gtest/gtest.h"
 
-#include "node_transmission_process/MarginalLatentParentReference.h"
+#include "MarginalLatentParentReference.h"
 
 #include "core/datatypes/Alleles.h"
 #include "model/transmission_process/TransmissionKernel.h"
