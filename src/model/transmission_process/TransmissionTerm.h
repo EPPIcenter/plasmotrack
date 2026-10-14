@@ -74,8 +74,6 @@ namespace transmission_nets::model::transmission_process {
 
         std::string identifier() override;
 
-        Likelihood peek() noexcept override;
-
         // Input parameters
         std::shared_ptr<MemoImpl> memo_;
         std::shared_ptr<COIProbabilityImpl> coiProb_;
@@ -1211,7 +1209,8 @@ namespace transmission_nets::model::transmission_process {
             this->setClean();
         }
         if (null_model_) {
-            return 0;
+            // The entries' multiplicities still combine to a count; the term itself is 0.
+            this->value_ = 0;
         }
         return this->value_;
     }
@@ -1236,14 +1235,6 @@ namespace transmission_nets::model::transmission_process {
             std::swap(caches_[0], caches_[slots_[cacheIndex_]]);
         }
         cacheIndex_ = 0;
-    }
-
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    Likelihood TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::peek() noexcept {
-        if (null_model_) {
-            return 0;
-        }
-        return Computation::peek();
     }
 
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
