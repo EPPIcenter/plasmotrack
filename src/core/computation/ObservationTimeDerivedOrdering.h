@@ -7,6 +7,7 @@
 
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
+#include "core/abstract/observables/Dependency.h"
 #include "core/abstract/observables/Observable.h"
 
 #include "core/computation/Computation.h"
@@ -74,8 +75,7 @@ namespace transmission_nets::core::computation {
 
         // A latent genotype change leaves the ordering as it is, so the ordering neither listens to it nor is saved
         // with it; parent sets listen to their allowed parents themselves.
-        ref->infectionDuration()->add_post_change_listener([=, this]() { this->infectionDurationChanged(ref); });
-        ref->infectionDuration()->registerCacheableCheckpointTarget(this);
+        abstract::dependsOn(this, ref->infectionDuration(), [=, this]() { this->infectionDurationChanged(ref); });
     }
 
     template<typename InfectionEventImpl>

@@ -5,7 +5,10 @@
 #ifndef TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV2_H
 #define TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV2_H
 
-#include <core/datatypes/Data.h>
+#include "core/abstract/observables/Dependency.h"
+#include "core/computation/PartialLikelihood.h"
+#include "core/datatypes/Data.h"
+#include "core/parameters/Parameter.h"
 
 namespace transmission_nets::model::observation_process {
 
@@ -57,15 +60,7 @@ namespace transmission_nets::model::observation_process {
                                                         expected_false_positives_(std::move(expectedFalsePositives)),
                                                         expected_false_negatives_(std::move(expectedFalseNegatives)), null_model_(null_model) {
         total_alleles_ = latent_genetics_->value().totalAlleles();
-        latent_genetics_->add_post_change_listener([=, this]() { this->setDirty(); });
-        latent_genetics_->registerCacheableCheckpointTarget(this);
-
-        expected_false_positives_->add_post_change_listener([=, this]() { this->setDirty(); });
-        expected_false_positives_->registerCacheableCheckpointTarget(this);
-
-        expected_false_negatives_->add_post_change_listener([=, this]() { this->setDirty(); });
-        expected_false_negatives_->registerCacheableCheckpointTarget(this);
-
+        core::abstract::dependsOn(this, latent_genetics_, expected_false_positives_, expected_false_negatives_);
         this->setDirty();
         this->value();
     }
