@@ -7,7 +7,6 @@
 
 #include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
-#include "core/samplers/SamplerEnum.h"
 
 #include <boost/random.hpp>
 
@@ -34,8 +33,7 @@ namespace transmission_nets::core::samplers::genetics {
             : genotype_(std::move(genotype)), target_(std::move(target)), rng_(std::move(rng)) {}
 
         void update() noexcept override {
-            const SAMPLER_STATE_ID stateId = AlleleSwapID;
-            const auto& current            = genotype_->value();
+            const auto& current = genotype_->value();
             present_.clear();
             absent_.clear();
             for (unsigned int i = 0; i < current.totalAlleles(); ++i) {
@@ -45,35 +43,18 @@ namespace transmission_nets::core::samplers::genetics {
                 return;
             }
             boost::random::uniform_int_distribution<size_t> pickPresent(0, present_.size() - 1), pickAbsent(0, absent_.size() - 1);
-            auto proposal = current;
-            proposal.set(present_[pickPresent(*rng_)], false);
-            proposal.set(absent_[pickAbsent(*rng_)], true);
+            auto proposed = current;
+            proposed.set(present_[pickPresent(*rng_)], false);
+            proposed.set(absent_[pickAbsent(*rng_)], true);
 
-            const double currentLik = target_->value();
-            genotype_->saveState(stateId);
-            genotype_->setValue(proposal);
-            const double proposedLik = target_->value();
-            if (std::log(uniform_(*rng_)) <= proposedLik - currentLik) {
-                ++acceptances_;
-                countProposal(true);
-                genotype_->acceptState();
-            } else {
-                ++rejections_;
-                countProposal(false);
-                genotype_->restoreState(stateId);
-            }
+            auto proposal = this->propose(*target_, *rng_);
+            proposal.change(*genotype_, proposed);
+            proposal.metropolis();
         }
-
-        [[nodiscard]] unsigned int acceptances() const noexcept { return acceptances_; }
-        [[nodiscard]] unsigned int rejections() const noexcept { return rejections_; }
-
     private:
         std::shared_ptr<parameters::Parameter<GeneticsImpl>> genotype_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
-        boost::random::uniform_01<> uniform_{};
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_  = 0;
         std::vector<unsigned int> present_{}, absent_{};
     };
 

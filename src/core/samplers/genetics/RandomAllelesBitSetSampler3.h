@@ -23,12 +23,6 @@ namespace transmission_nets::core::samplers::genetics {
 
         void update() noexcept override;
 
-        [[nodiscard]] unsigned int acceptances() noexcept;
-
-        [[nodiscard]] unsigned int rejections() noexcept;
-
-        [[nodiscard]] double acceptanceRate() noexcept;
-
         [[nodiscard]] Likelihood calculateSamplingProb() noexcept;
 
     private:
@@ -39,12 +33,6 @@ namespace transmission_nets::core::samplers::genetics {
         double fn_rate_;
         double fp_rate_;
         std::shared_ptr<Engine> rng_;
-
-        boost::random::uniform_01<> uniform_dist_{};
-
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_ = 0;
-        unsigned int total_updates_ = 0;
 
         ParentSetProposalProbability<InfectionEventImpl, MaxParentSetSize> proposalProbability_{fn_rate_, fp_rate_};
     };
@@ -66,37 +54,12 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename ParentSetImpl, int MaxParentSetSize, int MaxCOI>
     void RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, GeneticsImpl, ParentSetImpl, MaxParentSetSize, MaxCOI>::update() noexcept {
-        SAMPLER_STATE_ID stateId = RandomAlleleBitSet3ID;
-
-        Likelihood cur_lik = target_->value();
+        auto proposal = this->propose(*target_, *rng_);
         // before doing anything, calculate probability of sampling current state for adjustment
-        Likelihood current_state_prob = calculateSamplingProb();
-
-        proposeGenotypesFromParentSet<MaxParentSetSize>(infection_, latent_parent_, ps_->value(), *rng_, fn_rate_, fp_rate_, stateId);
-
-        Likelihood proposed_state_prob = calculateSamplingProb();
-
-        const auto acceptanceRatio = target_->value() - cur_lik + current_state_prob - proposed_state_prob;
-        const auto logProbAccept = log(uniform_dist_(*rng_));
-        const bool accept = logProbAccept <= acceptanceRatio;
-
-        if (accept) {
-            acceptances_++;
-            countProposal(true);
-            for (const auto& locus : infection_->loci()) {
-                infection_->latentGenotype(locus)->acceptState();
-            }
-        } else {
-            rejections_++;
-            countProposal(false);
-            for (const auto& locus : infection_->loci()) {
-                infection_->latentGenotype(locus)->restoreState(stateId);
-            }
-        }
-
-        assert(!target_->isDirty());
-
-        total_updates_++;
+        const Likelihood current_state_prob = calculateSamplingProb();
+        proposeGenotypesFromParentSet<MaxParentSetSize>(infection_, latent_parent_, ps_->value(), *rng_, fn_rate_, fp_rate_, [&](auto& genotype, const auto& value) { proposal.change(genotype, value); });
+        const Likelihood proposed_state_prob = calculateSamplingProb();
+        proposal.metropolis(current_state_prob - proposed_state_prob);
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename ParentSetImpl, int MaxParentSetSize, int MaxCOI>
@@ -104,21 +67,6 @@ namespace transmission_nets::core::samplers::genetics {
         // The probability of proposing the current genotypes (see ParentSetGenotypeProposal.h): a uniform mixture
         // over the parent-set options.
         return proposalProbability_.logProb(*infection_, *latent_parent_, ps_->value());
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename ParentSetImpl, int MaxParentSetSize, int MaxCOI>
-    unsigned int RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, GeneticsImpl, ParentSetImpl, MaxParentSetSize, MaxCOI>::acceptances() noexcept {
-        return acceptances_;
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename ParentSetImpl, int MaxParentSetSize, int MaxCOI>
-    unsigned int RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, GeneticsImpl, ParentSetImpl, MaxParentSetSize, MaxCOI>::rejections() noexcept {
-        return rejections_;
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename ParentSetImpl, int MaxParentSetSize, int MaxCOI>
-    double RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, GeneticsImpl, ParentSetImpl, MaxParentSetSize, MaxCOI>::acceptanceRate() noexcept {
-        return static_cast<double>(acceptances_) / (acceptances_ + rejections_);
     }
 
 }// namespace transmission_nets::core::samplers::genetics
