@@ -1,6 +1,3 @@
-//
-// Created by mmurphy on 10/29/21.
-//
 
 #ifndef TRANSMISSION_NETWORKS_APP_STATE_H
 #define TRANSMISSION_NETWORKS_APP_STATE_H
@@ -26,6 +23,37 @@ namespace transmission_nets::impl::Model {
 
         void initPriors();
 
+        // Visits every Quantity, in a fixed order: the Run scalars, then each Infection's values, each Locus's Allele
+        // frequencies, each Infection's Latent genotype at each of its Loci (Loci in label order), then the Ordering.
+        // The names are those of sampler targets, Trace columns and Checkpoint keys. A visitor handles every kind:
+        //   scalar(name, parameter) · perInfection(name, index, parameter) · alleleFrequencies(locus, parameter)
+        //   latentGenotype(index, locus, parameter) · ordering(ordering)
+        template<typename Visitor>
+        void quantities(Visitor&& v) const {
+            v.scalar("mean_coi", meanCOI);
+            v.scalar("mean_strains_tx", meanStrainsTransmitted);
+            v.scalar("parent_set_size_prob", parentSetSizeProb);
+            for (size_t i = 0; i < infections.size(); ++i) {
+                v.perInfection("expected_false_positives", i, expectedFalsePositives[i]);
+                v.perInfection("expected_false_negatives", i, expectedFalseNegatives[i]);
+                v.perInfection("infection_duration", i, infections[i]->infectionDuration());
+            }
+            for (const auto& [label, locus] : loci) {
+                v.alleleFrequencies(locus, alleleFrequencies->alleleFrequencies(locus));
+            }
+            for (size_t i = 0; i < infections.size(); ++i) {
+                for (const auto& [label, locus] : loci) {
+                    if (infections[i]->latentGenotype().contains(locus)) {
+                        v.latentGenotype(i, locus, infections[i]->latentGenotype(locus));
+                    }
+                }
+            }
+            v.ordering(infectionEventOrdering);
+        }
+
+        // The scalar and per-Infection Quantity names, in enumeration order.
+        [[nodiscard]] std::vector<std::string> scalarNames() const;
+        [[nodiscard]] std::vector<std::string> perInfectionNames() const;
         bool null_model_{};
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
@@ -34,18 +62,12 @@ namespace transmission_nets::impl::Model {
         // by the likelihood, or checkpointed.
         std::vector<std::shared_ptr<InfectionEvent>> latentParents{};
         std::shared_ptr<core::containers::AllowedRelationships<InfectionEvent>> allowedRelationships;
-        std::map<std::string, std::shared_ptr<ParentSetImpl>> parentSetList{};
-
         std::shared_ptr<AlleleFrequencyContainerImpl> alleleFrequencies;
 
         // Network Structure
         std::shared_ptr<OrderingImpl> infectionEventOrdering;
 
         // Symptomatic vs Asymptomatic infection duration -- time between infection and detection
-//        p_Parameterdouble symptomaticInfectionDurationShape;
-//        p_Parameterdouble symptomaticInfectionDurationScale;
-//        p_Parameterdouble asymptomaticInfectionDurationShape;
-//        p_Parameterdouble asymptomaticInfectionDurationScale;
 
         p_DiscreteDist symptomaticInfectionDurationDist;
         p_DiscreteDist asymptomaticInfectionDurationDist;
@@ -68,17 +90,7 @@ namespace transmission_nets::impl::Model {
         p_Parameterdouble meanStrainsTransmitted;
         p_Parameterdouble meanStrainsTransmittedPriorShape;
         p_Parameterdouble meanStrainsTransmittedPriorScale;
-//        p_Parameterdouble geometricGenerationProb;
-//        p_Parameterdouble geometricGenerationProbPriorAlpha;
-//        p_Parameterdouble geometricGenerationProbPriorBeta;
-//
-//        p_Parameterdouble lossProb;
-//        p_Parameterdouble lossProbPriorAlpha;
-//        p_Parameterdouble lossProbPriorBeta;
 
-//        p_Parameterdouble mutationProb;
-//        p_Parameterdouble mutationProbPriorAlpha;
-//        p_Parameterdouble mutationProbPriorBeta;
 
         // Source Transmission Process
         p_Parameterdouble meanCOI;

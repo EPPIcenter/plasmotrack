@@ -121,98 +121,101 @@ namespace transmission_nets::impl::Model::checkpoint {
             size_t bits_ = 0;
         };
 
-        void packGenotypes(const InfectionEvent& owner, const State& state, BitWriter& bits) {
-            const auto& genotypes = owner.latentGenotype();
-            for (const auto& [label, locus] : state.loci) {
-                if (const auto it = genotypes.find(locus); it != genotypes.end()) {
-                    const auto& alleles = it->second->value();
-                    for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
-                        bits.push(alleles.allele(allele));
-                    }
-                }
-            }
-        }
-
-        void unpackGenotypes(InfectionEvent& owner, const State& state, BitReader& bits) {
-            auto& genotypes = owner.latentGenotype();
-            for (const auto& [label, locus] : state.loci) {
-                if (const auto it = genotypes.find(locus); it != genotypes.end()) {
-                    GeneticsImpl alleles(static_cast<int>(it->second->value().totalAlleles()));
-                    for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
-                        alleles.set(allele, bits.next());
-                    }
-                    it->second->initializeValue(alleles);
-                }
-            }
-        }
-
         Layout stateLayout(const State& state) {
             return {.infections = infectionIds(state.infections), .latentParents = infectionIds(state.latentParents), .loci = locusLabels(state)};
         }
 
+        // Visits a State's Quantities into a ChainState.
+        struct Capturing {
+            const State& state;
+            ChainState saved{};
+            BitWriter genotypes{};
+
+            void scalar(const char* name, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
+                saved.scalars.emplace(name, p->value());
+            }
+            void perInfection(const char* name, size_t, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
+                saved.perInfection[name].push_back(p->value());
+            }
+            void alleleFrequencies(const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<AlleleFrequencyImpl>>& p) {
+                saved.alleleFrequencies.push_back(p->value().frequencies());
+            }
+            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
+                const auto& alleles = p->value();
+                for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
+                    genotypes.push(alleles.allele(allele));
+                }
+            }
+            void ordering(const std::shared_ptr<OrderingImpl>& ordering) {
+                std::map<const InfectionEvent*, std::uint32_t> position;
+                for (std::uint32_t ii = 0; ii < state.infections.size(); ++ii) {
+                    position.emplace(state.infections[ii].get(), ii);
+                }
+                for (const auto& infection : ordering->value()) {
+                    saved.ordering.push_back(position.at(infection.get()));
+                }
+            }
+            ChainState take() {
+                saved.latentGenotypes = genotypes.take();
+                return std::move(saved);
+            }
+        };
+
         ChainState captureState(const State& state) {
-            ChainState saved;
-            BitWriter genotypes;
-            for (size_t ii = 0; ii < state.infections.size(); ++ii) {
-                const auto& infection = *state.infections[ii];
-                packGenotypes(infection, state, genotypes);
-                saved.infectionDurations.push_back(infection.infectionDuration()->value());
-                saved.expectedFalsePositives.push_back(state.expectedFalsePositives[ii]->value());
-                saved.expectedFalseNegatives.push_back(state.expectedFalseNegatives[ii]->value());
-            }
-            saved.latentGenotypes = genotypes.take();
-            for (const auto& [label, locus] : state.loci) {
-                saved.alleleFrequencies.push_back(state.alleleFrequencies->alleleFrequencies(locus)->value().frequencies());
-            }
-            std::map<const InfectionEvent*, std::uint32_t> position;
-            for (std::uint32_t ii = 0; ii < state.infections.size(); ++ii) {
-                position.emplace(state.infections[ii].get(), ii);
-            }
-            for (const auto& infection : state.infectionEventOrdering->value()) {
-                saved.ordering.push_back(position.at(infection.get()));
-            }
-            saved.meanCoi                = state.meanCOI->value();
-            saved.meanStrainsTransmitted = state.meanStrainsTransmitted->value();
-            saved.parentSetSizeProb      = state.parentSetSizeProb->value();
-            return saved;
+            Capturing capturing{.state = state};
+            state.quantities(capturing);
+            return capturing.take();
         }
+
+        // Visits a ChainState into a State no Model has been built on yet.
+        struct Restoring {
+            State& state;
+            const ChainState& saved;
+            BitReader genotypes;
+            size_t locusAt = 0;
+
+            void scalar(const char* name, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
+                p->initializeValue(savedFor(saved.scalars, name, "Quantity"));
+            }
+            void perInfection(const char* name, const size_t index, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
+                const auto& values = savedFor(saved.perInfection, name, "per-Infection Quantity");
+                if (index == 0) {
+                    requireLength(values, state.infections.size(), name);
+                }
+                p->initializeValue(values[index]);
+            }
+            void alleleFrequencies(const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<AlleleFrequencyImpl>>& p) {
+                p->initializeValue(AlleleFrequencyImpl::exactly(saved.alleleFrequencies[locusAt++]));
+            }
+            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
+                GeneticsImpl alleles(static_cast<int>(p->value().totalAlleles()));
+                for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
+                    alleles.set(allele, genotypes.next());
+                }
+                p->initializeValue(alleles);
+            }
+            void ordering(const std::shared_ptr<OrderingImpl>& ordering) {
+                genotypes.requireAllRead();
+                std::vector<std::shared_ptr<InfectionEvent>> order;
+                for (const auto at : saved.ordering) {
+                    if (at >= state.infections.size()) {
+                        refuse(fmt::format("checkpoint's Ordering has Infection {} of {}", at, state.infections.size()));
+                    }
+                    order.push_back(state.infections[at]);
+                }
+                ordering->restoreOrder(std::move(order));
+            }
+        };
 
         // Fills a State no Model has been built on yet, from the same input as `layout`.
         void restoreState(const Layout& layout, const ChainState& saved, State& state) {
             requireSameNames(layout.infections, infectionIds(state.infections), "Infections");
             requireSameNames(layout.latentParents, infectionIds(state.latentParents), "Latent parents");
             requireSameNames(layout.loci, locusLabels(state), "Loci");
-            const auto numInfections = state.infections.size();
-            requireLength(saved.infectionDurations, numInfections, "infection durations");
-            requireLength(saved.expectedFalsePositives, numInfections, "expected false positives");
-            requireLength(saved.expectedFalseNegatives, numInfections, "expected false negatives");
             requireLength(saved.alleleFrequencies, state.loci.size(), "Allele frequencies");
-            requireLength(saved.ordering, numInfections, "Infections in the Ordering");
-
-            BitReader genotypes(saved.latentGenotypes);
-            for (size_t ii = 0; ii < numInfections; ++ii) {
-                auto& infection = *state.infections[ii];
-                unpackGenotypes(infection, state, genotypes);
-                infection.infectionDuration()->initializeValue(saved.infectionDurations[ii]);
-                state.expectedFalsePositives[ii]->initializeValue(saved.expectedFalsePositives[ii]);
-                state.expectedFalseNegatives[ii]->initializeValue(saved.expectedFalseNegatives[ii]);
-            }
-            genotypes.requireAllRead();
-            size_t locusAt = 0;
-            for (const auto& [label, locus] : state.loci) {
-                state.alleleFrequencies->alleleFrequencies(locus)->initializeValue(AlleleFrequencyImpl::exactly(saved.alleleFrequencies[locusAt++]));
-            }
-            std::vector<std::shared_ptr<InfectionEvent>> order;
-            for (const auto at : saved.ordering) {
-                if (at >= numInfections) {
-                    refuse(fmt::format("checkpoint's Ordering has Infection {} of {}", at, numInfections));
-                }
-                order.push_back(state.infections[at]);
-            }
-            state.infectionEventOrdering->restoreOrder(std::move(order));
-            state.meanCOI->initializeValue(saved.meanCoi);
-            state.meanStrainsTransmitted->initializeValue(saved.meanStrainsTransmitted);
-            state.parentSetSizeProb->initializeValue(saved.parentSetSizeProb);
+            requireLength(saved.ordering, state.infections.size(), "Infections in the Ordering");
+            Restoring restoring{.state = state, .saved = saved, .genotypes = BitReader(saved.latentGenotypes)};
+            state.quantities(restoring);
         }
 
         std::vector<std::uint8_t> bytesFrom(const json& j) {
@@ -221,15 +224,11 @@ namespace transmission_nets::impl::Model::checkpoint {
         }
 
         ChainState chainStateFromJson(const json& j) {
-            return {.latentGenotypes        = bytesFrom(j.at("latent_genotypes")),
-                    .alleleFrequencies      = j.at("allele_frequencies"),
-                    .ordering               = j.at("ordering"),
-                    .infectionDurations     = j.at("infection_durations"),
-                    .expectedFalsePositives = j.at("expected_false_positives"),
-                    .expectedFalseNegatives = j.at("expected_false_negatives"),
-                    .meanCoi                = j.at("mean_coi"),
-                    .meanStrainsTransmitted = j.at("mean_strains_tx"),
-                    .parentSetSizeProb      = j.at("parent_set_size_prob")};
+            return {.scalars           = j.at("scalars"),
+                    .perInfection      = j.at("per_infection"),
+                    .alleleFrequencies = j.at("allele_frequencies"),
+                    .latentGenotypes   = bytesFrom(j.at("latent_genotypes")),
+                    .ordering          = j.at("ordering")};
         }
 
         json toJson(const Ensemble::ExchangeState& exchange) {
@@ -491,31 +490,31 @@ namespace transmission_nets::impl::Model::checkpoint {
         }
 
         void write(CborFile& out, const ChainState& state) {
-            out.map(9);
-            out.text("latent_genotypes");
-            out.bytes(state.latentGenotypes);
+            out.map(5);
+            out.text("scalars");
+            out.map(state.scalars.size());
+            for (const auto& [name, value] : state.scalars) {
+                out.text(name);
+                out.number(value);
+            }
+            out.text("per_infection");
+            out.map(state.perInfection.size());
+            for (const auto& [name, values] : state.perInfection) {
+                out.text(name);
+                out.numbers(values);
+            }
             out.text("allele_frequencies");
             out.array(state.alleleFrequencies.size());
             for (const auto& frequencies : state.alleleFrequencies) {
                 out.numbers(frequencies);
             }
+            out.text("latent_genotypes");
+            out.bytes(state.latentGenotypes);
             out.text("ordering");
             out.array(state.ordering.size());
             for (const auto at : state.ordering) {
                 out.number(std::uint64_t{at});
             }
-            out.text("infection_durations");
-            out.numbers(state.infectionDurations);
-            out.text("expected_false_positives");
-            out.numbers(state.expectedFalsePositives);
-            out.text("expected_false_negatives");
-            out.numbers(state.expectedFalseNegatives);
-            out.text("mean_coi");
-            out.number(state.meanCoi);
-            out.text("mean_strains_tx");
-            out.number(state.meanStrainsTransmitted);
-            out.text("parent_set_size_prob");
-            out.number(state.parentSetSizeProb);
         }
 
         // Each sampler's counts, as two arrays in Layout order.

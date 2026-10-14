@@ -106,6 +106,9 @@ _Avoid_: Scheduler, schedule, move set, sampler list
 One Metropolis-Hastings step of a sampler, from the first parameter it changes to its accept or reject. The parameters it touches, the target's value before and after, and whether it was accepted live here; a sampler decides what to change and the Hastings adjustment, nothing else. A multiple-try move evaluates tries as Proposals that are reverted rather than counted.
 _Avoid_: Move, step (the Sampler set's step is a Sampling iteration), transaction, update
 
+**Quantity**:
+One sampled part of the State, named once. The name is the target in its sampler's id, its Trace column or table, and its Checkpoint key. Five kinds: a Run scalar, a per-Infection value, a Locus's Allele frequencies, an Infection's Latent genotype at a Locus, and the Ordering. The priors' hyperparameters and the input are not Quantities.
+_Avoid_: parameter (the class a Quantity's value lives in), field, variable
 ### Output
 
 **Trace**:

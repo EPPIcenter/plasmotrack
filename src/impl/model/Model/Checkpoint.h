@@ -29,7 +29,8 @@ namespace transmission_nets::impl::Model::checkpoint {
 
     // Written into every checkpoint. Raise it when a change means an older engine would misread the file.
     // 3: latent parents are summed out of the model, so their genotypes are no longer saved.
-    inline constexpr int FORMAT_VERSION = 3;
+    // 4: Quantities are saved by name: the scalars and the per-Infection values are maps keyed by Quantity name.
+    inline constexpr int FORMAT_VERSION = 4;
 
     // The checkpoints in a Run's store: the latest Window's, and the one at burn-in end.
     inline constexpr const char* LATEST_FILE  = "checkpoint.cbor";
@@ -63,19 +64,14 @@ namespace transmission_nets::impl::Model::checkpoint {
         bool operator==(const Layout&) const = default;
     };
 
-    // One chain's full State, in Layout order. Genotypes are packed Allele bits: for each Infection, for each of its
-    // Loci, one bit per Allele, filling each byte from its most significant bit.
+    // One chain's Quantities (see State::quantities), in Layout order. Genotypes are packed Allele bits: for each
+    // Infection, for each of its Loci, one bit per Allele, filling each byte from its most significant bit.
     struct ChainState {
+        std::map<std::string, double> scalars;                  // by Quantity name
+        std::map<std::string, std::vector<double>> perInfection;// by Quantity name, then by Infection
+        std::vector<std::vector<double>> alleleFrequencies;     // by Locus
         std::vector<std::uint8_t> latentGenotypes;
-        std::vector<std::vector<double>> alleleFrequencies;// by Locus
-        std::vector<std::uint32_t> ordering;               // positions in Layout::infections, first acquired first
-        std::vector<double> infectionDurations;            // by Infection
-        std::vector<double> expectedFalsePositives;        // by Infection
-        std::vector<double> expectedFalseNegatives;        // by Infection
-        double meanCoi = 0;
-        double meanStrainsTransmitted = 0;
-        double parentSetSizeProb = 0;
-
+        std::vector<std::uint32_t> ordering;// positions in Layout::infections, first acquired first
         bool operator==(const ChainState&) const = default;
     };
 

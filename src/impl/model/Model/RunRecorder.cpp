@@ -44,11 +44,26 @@ namespace transmission_nets::impl::Model {
         }
     }// namespace
 
-    // Rows of every table for the in-flight Window not yet handed to the sink.
+    // Rows of every table for the in-flight Window not yet handed to the sink. The run_scalars and infections tables
+    // have one column per scalar and per-Infection Quantity, in the State's enumeration order.
     struct RunRecorder::WindowRows {
+        explicit WindowRows(const State& structure) {
+            std::vector<std::pair<std::string, core::io::Column>> scalars;
+            for (const auto& name : structure.scalarNames()) {
+                scalars.emplace_back(name, D{});
+            }
+            for (const auto& term : {"prior", "likelihood", "observation", "transmission", "source"}) {
+                scalars.emplace_back(term, D{});
+            }
+            tables.emplace("run_scalars", Table{traceColumns(std::move(scalars))});
+            std::vector<std::pair<std::string, core::io::Column>> infections{{"infection", S{}}};
+            for (const auto& name : structure.perInfectionNames()) {
+                infections.emplace_back(name, D{});
+            }
+            tables.emplace("infections", Table{traceColumns(std::move(infections))});
+        }
+
         std::map<std::string, Table> tables{
-                {"run_scalars", {traceColumns({{"mean_coi", D{}}, {"mean_strains_tx", D{}}, {"parent_set_size_prob", D{}}, {"prior", D{}}, {"likelihood", D{}}, {"observation", D{}}, {"transmission", D{}}, {"source", D{}}})}},
-                {"infections", {traceColumns({{"infection", S{}}, {"expected_false_positives", D{}}, {"expected_false_negatives", D{}}, {"infection_duration", D{}}})}},
                 {"ordering", {traceColumns({{"infection", S{}}, {"rank", I{}}})}},
                 {"allele_frequencies", {traceColumns({{"locus", S{}}, {"allele", I{}}, {"frequency", D{}}})}},
                 {"latent_genotypes", {traceColumns({{"infection", S{}}, {"locus", S{}}, {"alleles", S{}}})}},
@@ -129,7 +144,7 @@ namespace transmission_nets::impl::Model {
 
     RunRecorder::RunRecorder(const State& structure, std::vector<std::string> samplerIds, std::unique_ptr<core::io::StoreSink> sink, const RecorderOptions options, const RunManifest& manifest, Clock clock)
         : samplerIds_(std::move(samplerIds)), chains_(manifest.chains), sink_(std::move(sink)), options_(options), clock_(std::move(clock)),
-          burnIn_(manifest.burnIn), samples_(manifest.samples), rows_(std::make_unique<WindowRows>()) {
+          burnIn_(manifest.burnIn), samples_(manifest.samples), rows_(std::make_unique<WindowRows>(structure)) {
         for (const auto& infection : structure.infections) {
             infectionIds_.push_back(infection->id());
         }
@@ -360,39 +375,72 @@ namespace transmission_nets::impl::Model {
             }
         }
 
-        addRow(t.at("run_scalars"), it, phase, window,
-               s.meanCOI->value(), s.meanStrainsTransmitted->value(), s.parentSetSizeProb->value(),
-               m.getPrior(), m.getLikelihood(), observation, transmission, source);
+        // Every Quantity's rows. Scalars and per-Infection values are gathered first: a run_scalars row carries every
+        // scalar beside the Model's terms, and an infections row carries every per-Infection Quantity.
+        struct Tracing {
+            RunRecorder& recorder;
+            std::map<std::string, Table>& tables;
+            std::int64_t it;
+            std::string phase;
+            std::int64_t window;
+            std::vector<double> scalars{};
+            std::vector<std::vector<double>> perInfectionValues{};// by Infection, then by Quantity in enumeration order
 
-        for (std::size_t i = 0; i < infectionIds_.size(); ++i) {
-            addRow(t.at("infections"), it, phase, window, infectionIds_[i],
-                   s.expectedFalsePositives[i]->value(), s.expectedFalseNegatives[i]->value(), s.infections[i]->infectionDuration()->value());
-        }
-
-        const auto ordering = s.infectionEventOrdering->value();
-        for (std::size_t rank = 0; rank < ordering.size(); ++rank) {
-            addRow(t.at("ordering"), it, phase, window, ordering[rank]->id(), static_cast<std::int64_t>(rank));
-        }
-
-        for (const auto& label : locusLabels_) {
-            const auto frequencies = s.alleleFrequencies->alleleFrequencies(s.loci.at(label))->value();
-            for (unsigned int a = 0; a < frequencies.totalElements(); ++a) {
-                addRow(t.at("allele_frequencies"), it, phase, window, label, static_cast<std::int64_t>(a), frequencies.frequencies(a));
+            void scalar(const char*, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
+                scalars.push_back(p->value());
             }
-        }
-
-        auto genotypes = [&](Table& table, const std::vector<std::shared_ptr<InfectionEvent>>& infections, const std::vector<std::string>& ids) {
-            for (std::size_t i = 0; i < infections.size(); ++i) {
-                for (const auto& label : locusLabels_) {
-                    const auto& locus = s.loci.at(label);
-                    if (std::ranges::find(infections[i]->loci(), locus) == infections[i]->loci().end()) {
-                        continue;
-                    }
-                    addRow(table, it, phase, window, ids[i], label, infections[i]->latentGenotype(locus)->value().serialize());
+            void perInfection(const char*, const size_t index, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
+                if (perInfectionValues.size() <= index) {
+                    perInfectionValues.resize(index + 1);
+                }
+                perInfectionValues[index].push_back(p->value());
+            }
+            void alleleFrequencies(const std::shared_ptr<LocusImpl>& locus, const std::shared_ptr<core::parameters::Parameter<AlleleFrequencyImpl>>& p) {
+                const auto& frequencies = p->value();
+                for (unsigned int a = 0; a < frequencies.totalElements(); ++a) {
+                    addRow(tables.at("allele_frequencies"), it, phase, window, locus->label, static_cast<std::int64_t>(a), frequencies.frequencies(a));
+                }
+            }
+            void latentGenotype(const size_t index, const std::shared_ptr<LocusImpl>& locus, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
+                addRow(tables.at("latent_genotypes"), it, phase, window, recorder.infectionIds_[index], locus->label, p->value().serialize());
+            }
+            void ordering(const std::shared_ptr<OrderingImpl>& ordering) {
+                const auto order = ordering->value();
+                for (std::size_t rank = 0; rank < order.size(); ++rank) {
+                    addRow(tables.at("ordering"), it, phase, window, order[rank]->id(), static_cast<std::int64_t>(rank));
                 }
             }
         };
-        genotypes(t.at("latent_genotypes"), s.infections, infectionIds_);
+        Tracing tracing{.recorder = *this, .tables = t, .it = it, .phase = phase, .window = window};
+        s.quantities(tracing);
+        // A row given column by column, for the tables whose columns the State's enumeration decides.
+        const auto push = [](Table& table, std::size_t& k, const auto& value) {
+            std::get<std::vector<std::decay_t<decltype(value)>>>(table.columns.at(k++).second).push_back(value);
+        };
+        {
+            auto& table   = t.at("run_scalars");
+            std::size_t k = 0;
+            push(table, k, it);
+            push(table, k, phase);
+            push(table, k, window);
+            for (const double value : tracing.scalars) {
+                push(table, k, value);
+            }
+            for (const double term : {m.getPrior(), m.getLikelihood(), observation, transmission, source}) {
+                push(table, k, term);
+            }
+        }
+        for (std::size_t i = 0; i < infectionIds_.size(); ++i) {
+            auto& table   = t.at("infections");
+            std::size_t k = 0;
+            push(table, k, it);
+            push(table, k, phase);
+            push(table, k, window);
+            push(table, k, infectionIds_[i]);
+            for (const double value : tracing.perInfectionValues.at(i)) {
+                push(table, k, value);
+            }
+        }
         // latent_parent_genotypes stays empty: latent parents are summed out and have no genotypes to record.
 
         for (std::size_t slot = 0; slot < ensemble.slots.size(); ++slot) {
