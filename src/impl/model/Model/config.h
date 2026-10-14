@@ -54,7 +54,7 @@ namespace transmission_nets::impl::Model {
 
     using COIProbabilityImpl     = core::distributions::ZTPoisson<MAX_COI>;
     using ParentSetSizeLikelihoodImpl = core::distributions::ZTGeometric<MAX_PARENT_SET_SIZE>;
-    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizeLikelihoodImpl, GeneticsImpl>;
+    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, MAX_COI, ParentSetSizeLikelihoodImpl, GeneticsImpl>;
 
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
     using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;

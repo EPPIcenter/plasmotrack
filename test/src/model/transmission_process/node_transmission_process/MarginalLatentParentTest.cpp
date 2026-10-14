@@ -36,7 +36,7 @@ namespace {
     using Genetics   = AllelesBitSet<MAX_ALLELES>;
     using COIProb    = ZTPoisson<MAX_COI>;
     using PSP        = ZTGeometric<MAX_PARENTS + 1>;
-    using Ntp        = MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, PSP, Genetics>;
+    using Ntp        = MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, MAX_COI, PSP, Genetics>;
     using Variant    = Ntp::Variant;
     using Engine     = boost::random::mt19937;
     using Table      = marginal::LocusTable<MAX_COI, MAX_STRAINS>;

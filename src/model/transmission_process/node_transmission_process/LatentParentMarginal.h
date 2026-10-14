@@ -21,8 +21,8 @@
 #define TRANSMISSION_NETWORKS_APP_LATENTPARENTMARGINAL_H
 
 #include "core/utils/fastmath.h"
+#include "model/transmission_process/TransmissionKernel.h"
 #include "model/transmission_process/source_transmission_process/SourceOverlap.h"
-
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -39,76 +39,14 @@ namespace transmission_nets::model::transmission_process {
     template<int MAX_PARENTS, int MAX_COI, int MAX_STRAINS, typename NodeTransmissionProcessImpl, typename COIProbabilityImpl, typename AlleleFrequencyContainer, typename GeneticsImpl, typename LocusImpl>
     class LatentParentMarginal {
     public:
-        static constexpr int NUM_CELLS = (MAX_COI + 1) * MAX_STRAINS;// cell k * MAX_STRAINS + (m - 1); k = 0 is unused
-        using Likelihood  = double;
-        using FrequencyId = std::uint32_t;
-        using Variant     = typename NodeTransmissionProcessImpl::Variant;
-
-        // log g(k, m) at one locus. Where g(k, m) > 0 is a rectangle: k >= kMin (the fewest alleles a latent parent
-        // needs for the parent set to be possible) and m >= mMin (the child's alleles). Cells outside it hold 0 and
-        // are excluded by the bounds, so tables add as plain arrays. `impossible` when no cell is positive.
-        struct LocusTable {
-            // Leaves `terms` uninitialised: tables are built in place in the memo, which would otherwise zero them.
-            LocusTable() noexcept {}
-            bool impossible   = false;
-            std::uint8_t kMin = 0;
-            std::uint8_t mMin = 0;
-            std::array<Likelihood, NUM_CELLS> terms;
-        };
-
-        // Locus tables summed over a child's loci, kept so that one locus' table can be swapped for another. The sum's
-        // support is the intersection of the tables' rectangles, so the bounds are kept as counts: removing a table is
-        // exact.
-        struct Sums {
-            std::array<Likelihood, NUM_CELLS> finite{};
-            std::array<std::uint16_t, MAX_COI + 1> kMinCount{};
-            std::array<std::uint16_t, MAX_STRAINS + 1> mMinCount{};
-            std::uint16_t impossible = 0;
-            // As StrainSums::stoppedAt: summing stopped at this locus, the first that makes the parent set impossible.
-            const LocusImpl* stoppedAt = nullptr;
-
-            void add(const LocusTable& table) {
-                if (table.impossible) {
-                    ++impossible;
-                    return;
-                }
-                for (int i = 0; i < NUM_CELLS; ++i) {
-                    finite[i] += table.terms[i];
-                }
-                ++kMinCount[table.kMin];
-                ++mMinCount[table.mMin];
-            }
-
-            void remove(const LocusTable& table) {
-                if (table.impossible) {
-                    --impossible;
-                    return;
-                }
-                for (int i = 0; i < NUM_CELLS; ++i) {
-                    finite[i] -= table.terms[i];
-                }
-                --kMinCount[table.kMin];
-                --mMinCount[table.mMin];
-            }
-
-            // The support's lower bounds.
-            [[nodiscard]] int kLow() const {
-                for (int k = MAX_COI; k > 0; --k) {
-                    if (kMinCount[k] > 0) {
-                        return k;
-                    }
-                }
-                return 1;
-            }
-            [[nodiscard]] int mLow() const {
-                for (int m = MAX_STRAINS; m > 0; --m) {
-                    if (mMinCount[m] > 0) {
-                        return m;
-                    }
-                }
-                return 1;
-            }
-        };
+        // The kernel's arithmetic and the types it sums: see TransmissionKernel.h.
+        using Kernel                   = TransmissionKernel<MAX_PARENTS, MAX_STRAINS, MAX_COI, GeneticsImpl>;
+        static constexpr int NUM_CELLS = Kernel::NUM_CELLS;
+        using Likelihood               = double;
+        using FrequencyId              = std::uint32_t;
+        using Variant                  = typename NodeTransmissionProcessImpl::Variant;
+        using LocusTable               = typename Kernel::LocusTable;
+        using Sums                     = typename Kernel::LatentSums;
 
         LatentParentMarginal(std::shared_ptr<NodeTransmissionProcessImpl> ntp,
                              std::shared_ptr<COIProbabilityImpl> coiProb,
@@ -179,61 +117,21 @@ namespace transmission_nets::model::transmission_process {
             if (const auto it = slot.overlaps.find(child); it != slot.overlaps.end()) {
                 overlap = &it->second;
             } else {
-                const auto childAlleles = allelesOf(child);
+                const auto childAlleles = Kernel::allelesOf(child);
                 overlap = &slot.overlaps.emplace(child, marginal::SourceOverlap(frequencies_[frequencyId]->values, childAlleles, MAX_COI)).first->second;
             }
             auto& table = slot.tables[std::move(key)];
-            contract(f, *overlap, table);
+            Kernel::contract(f, *overlap, table);
             return table;
         }
 
         // The parent set's log-likelihood, before the parent-set-size prior, summed over the latent parent's COI and
         // the strains transmitted. numParents counts the latent parent.
         Likelihood summedLogLikelihood(const Sums& sums, const size_t numParents) {
-            constexpr Likelihood negInf = -std::numeric_limits<Likelihood>::infinity();
             if (sums.impossible) {
-                return negInf;
+                return Kernel::NEG_INF;
             }
-            const auto coiLogProbs = coiProb_->value();
-            const int mFirst       = std::max(sums.mLow(), static_cast<int>(numParents));
-            const int kFirst       = sums.kLow();
-            std::array<Likelihood, MAX_STRAINS + 1> strainLogProbs{};
-            for (int m = mFirst; m <= MAX_STRAINS; ++m) {
-                strainLogProbs[m] = ntp_->probNumStrains(m, static_cast<int>(numParents));
-            }
-            // The support is the rectangle k >= kFirst, m >= mFirst; the COI distribution is positive for every k >= 1.
-            const int width = MAX_STRAINS - mFirst + 1;
-            std::array<Likelihood, NUM_CELLS> terms;
-            int count          = 0;
-            Likelihood maxTerm = negInf;
-            for (int k = kFirst; k <= MAX_COI; ++k) {
-                const Likelihood* row = sums.finite.data() + k * MAX_STRAINS + mFirst - 1;
-                const Likelihood* tx  = strainLogProbs.data() + mFirst;
-                const Likelihood coi  = coiLogProbs[k];
-                Likelihood* out       = terms.data() + count;
-                for (int j = 0; j < width; ++j) {
-                    out[j]  = coi + tx[j] + row[j];
-                    maxTerm = std::max(maxTerm, out[j]);
-                }
-                count += width;
-            }
-            if (maxTerm == negInf) {
-                return negInf;
-            }
-            // Cells more than NEGLIGIBLE below the largest add less than exp(-NEGLIGIBLE) each; usually most are.
-            constexpr Likelihood NEGLIGIBLE = 40;
-            std::array<Likelihood, NUM_CELLS> near;
-            int numNear = 0;
-            for (int i = 0; i < count; ++i) {
-                const Likelihood d = terms[i] - maxTerm;
-                near[numNear]      = d;
-                numNear += d > -NEGLIGIBLE ? 1 : 0;
-            }
-            Likelihood total = 0;
-            for (int i = 0; i < numNear; ++i) {
-                total += core::utils::expNonPositive(near[i]);
-            }
-            return maxTerm + std::log(total);
+            return Kernel::latentSummedLogLikelihood(sums, numParents, coiProb_->value(), ntp_->strainCountTable());
         }
 
         // Bounds memory. Forgets every frequency id when there are too many, which a transmission process notices
@@ -325,21 +223,7 @@ namespace transmission_nets::model::transmission_process {
             std::vector<double> values{};
         };
 
-        // f(m; U, w) for the nonempty U ⊆ C (a mask over C's alleles in index order) and w = |G \ C| up to maxW for
-        // which the parent set is possible, as probabilities; only those are kept. With the bounds of where g can be
-        // positive: k >= rMin, the fewest alleles of a possible latent parent, and m >= mMin.
-        struct FEntry {
-            std::uint32_t mask = 0;
-            std::uint16_t w    = 0;
-            std::uint16_t r    = 0;// |U| + w
-            std::array<double, MAX_STRAINS> f{};
-        };
-        struct FTable {
-            unsigned int maxW = 0;
-            std::vector<FEntry> entries{};
-            int rMin = MAX_COI + 1;
-            int mMin = MAX_STRAINS + 1;
-        };
+        using FTable = typename Kernel::FTable;
 
         static GenotypeKey genotypeKey(const GeneticsImpl& child, std::span<const GeneticsImpl* const> parents) {
             GenotypeKey key{.numParents = static_cast<unsigned int>(parents.size())};
@@ -348,16 +232,6 @@ namespace transmission_nets::model::transmission_process {
                 key.genotypes[p + 1] = *parents[p];
             }
             return key;
-        }
-
-        static std::vector<unsigned int> allelesOf(const GeneticsImpl& g) {
-            std::vector<unsigned int> out;
-            for (unsigned int i = 0; i < g.totalAlleles(); ++i) {
-                if (g.allele(i)) {
-                    out.push_back(i);
-                }
-            }
-            return out;
         }
 
         const FTable& fTable(const GenotypeKey& key, const GeneticsImpl& child, std::span<const GeneticsImpl* const> parents) {
@@ -374,111 +248,7 @@ namespace transmission_nets::model::transmission_process {
                 olderFTables_ = std::move(fTables_);
                 fTables_      = {};
             }
-            const auto childAlleles   = allelesOf(child);
-            const unsigned int A      = child.totalAlleles();
-            const auto c              = static_cast<unsigned int>(childAlleles.size());
-            FTable table{};
-            if (c == 0 or c > static_cast<unsigned int>(MAX_STRAINS)) {
-                // No alleles, or more than the most strains transmitted can carry: impossible.
-                return fTables_.emplace(key, std::move(table)).first->second;
-            }
-            // A child allele in no observed parent has frequency 0 unless the latent parent carries it, so masks
-            // without all of them are impossible and skipped without computing their terms.
-            unsigned int required = 0;
-            for (unsigned int i = 0; i < c; ++i) {
-                if (std::ranges::none_of(parents, [&](const GeneticsImpl* parent) { return parent->allele(childAlleles[i]); })) {
-                    required |= 1u << i;
-                }
-            }
-            table.maxW                  = std::min<unsigned int>(A - c, MAX_COI);
-            const unsigned int numMasks = 1u << c;
-            const Variant variant = parents.empty() ? Variant::LatentParentOnly : Variant::ObservedAndLatentParents;
-            // The representative latent genotypes (as representative() in the tests' MarginalLatentParentReference.h builds them), built incrementally: U's alleles, then
-            // one more allele outside C, in index order, for each w.
-            std::vector<unsigned int> outside;
-            for (unsigned int a = 0; a < A and outside.size() < table.maxW; ++a) {
-                if (not child.allele(a)) {
-                    outside.push_back(a);
-                }
-            }
-            GeneticsImpl latent = child;
-            for (unsigned int mask = 1; mask < numMasks; ++mask) {
-                if ((mask & required) != required) {
-                    continue;
-                }
-                latent.reset();
-                for (unsigned int i = 0; i < c; ++i) {
-                    if (mask >> i & 1u) {
-                        latent.set(childAlleles[i]);
-                    }
-                }
-                for (unsigned int w = 0; w <= table.maxW; ++w) {
-                    if (std::popcount(mask) + w > static_cast<unsigned int>(MAX_COI)) {
-                        break;
-                    }
-                    if (w > 0) {
-                        latent.set(outside[w - 1]);
-                    }
-                    const auto term   = ntp_->uncachedLocusTerm(variant, child, parents, &latent);
-                    if (term.impossible) {
-                        continue;
-                    }
-                    FEntry entry{.mask = mask, .w = static_cast<std::uint16_t>(w), .r = static_cast<std::uint16_t>(std::popcount(mask) + w)};
-                    bool any = false;
-                    for (int m = 0; m < MAX_STRAINS; ++m) {
-                        entry.f[m] = std::exp(term.terms[m]);
-                        any        = any or entry.f[m] > 0;
-                    }
-                    if (any) {
-                        table.rMin = std::min(table.rMin, static_cast<int>(entry.r));
-                        for (int m = 0; m < MAX_STRAINS; ++m) {
-                            if (entry.f[m] > 0) {
-                                table.mMin = std::min(table.mMin, m + 1);
-                                break;
-                            }
-                        }
-                        table.entries.push_back(entry);
-                    }
-                }
-            }
-            table.entries.shrink_to_fit();
-            return fTables_.emplace(key, std::move(table)).first->second;
-        }
-
-        static void contract(const FTable& f, const marginal::SourceOverlap& overlap, LocusTable& out) {
-            if (f.entries.empty()) {
-                out.impossible = true;
-                return;
-            }
-            // Every frequency is positive, so P(U, w | k) > 0 for k >= |U| + w, and g > 0 on k >= rMin, m >= mMin.
-            const int kMin = f.rMin;
-            const int mMin = f.mMin;
-            std::array<double, NUM_CELLS> g;
-            std::fill(g.begin() + kMin * MAX_STRAINS, g.end(), 0.0);
-            for (const auto& entry : f.entries) {
-                const auto& fm   = entry.f;
-                const double* ps = overlap.row(entry.mask, entry.w);
-                for (int k = static_cast<int>(entry.r); k <= MAX_COI; ++k) {
-                    const double p = ps[k];
-                    double* row    = g.data() + k * MAX_STRAINS;
-                    for (int m = 0; m < MAX_STRAINS; ++m) {
-                        row[m] += p * fm[m];
-                    }
-                }
-            }
-            out.impossible = false;
-            out.kMin       = static_cast<std::uint8_t>(kMin);
-            out.mMin       = static_cast<std::uint8_t>(mMin);
-            std::fill(out.terms.begin(), out.terms.end(), 0.0);
-            // Inside the rectangle every cell is positive in exact arithmetic; one that underflowed below the smallest
-            // normal double counts as that, which is as good as zero.
-            for (int k = kMin; k <= MAX_COI; ++k) {
-                const double* in = g.data() + k * MAX_STRAINS + mMin - 1;
-                double* to       = out.terms.data() + k * MAX_STRAINS + mMin - 1;
-                for (int j = 0; j <= MAX_STRAINS - mMin; ++j) {
-                    to[j] = core::utils::logPositive(std::max(in[j], std::numeric_limits<double>::min()));
-                }
-            }
+            return fTables_.emplace(key, kernel_.fTable(child, parents)).first->second;
         }
 
         static constexpr size_t MAX_TABLES_PER_SLOT = 1 << 12;
@@ -487,6 +257,7 @@ namespace transmission_nets::model::transmission_process {
 
         std::shared_ptr<NodeTransmissionProcessImpl> ntp_;
         std::shared_ptr<COIProbabilityImpl> coiProb_;
+        Kernel kernel_{};
         std::shared_ptr<AlleleFrequencyContainer> alleleFrequencies_;
 
         std::uint64_t generation_ = 0;
