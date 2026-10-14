@@ -6,7 +6,6 @@
 #define TRANSMISSION_NETWORKS_APP_PARENTRELINKSAMPLER_H
 
 #include "core/samplers/AbstractSampler.h"
-#include "core/samplers/SamplerEnum.h"
 #include "core/samplers/genetics/GenomePartition.h"
 #include "core/samplers/genetics/ParentSetGenotypeProposal.h"
 #include "core/samplers/specialized/DurationShape.h"
@@ -59,9 +58,6 @@ namespace transmission_nets::core::samplers::specialized {
         // Log density of the proposal at the infection's current duration and genotypes.
         [[nodiscard]] double logProposalDensity() const;
 
-        [[nodiscard]] unsigned int acceptances() const noexcept { return acceptances_; }
-        [[nodiscard]] unsigned int rejections() const noexcept { return rejections_; }
-
     private:
         [[nodiscard]] size_t numSources() const noexcept { return allowedParents_.size() + 1; }
         // Sources are the allowed parents, then the latent parent.
@@ -93,15 +89,12 @@ namespace transmission_nets::core::samplers::specialized {
             std::vector<Genetics> genotypes{};
         };
         void drawTry(Try& t);
-        // Sets the infection to `t`, evaluates the target and the proposal density there, and restores it (evaluated).
+        // Sets the infection to `t`, evaluates the target and the proposal density there, and restores it.
         std::pair<double, double> evaluateTry(const Try& t);
         void multipleTryUpdate();
         std::vector<Try> forward_{}, reference_{};
 
         boost::random::uniform_01<> uniform_{};
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_  = 0;
-
         // The genome term depends on a source only through its genome, and in a clonal cluster most allowed parents
         // share one, so it is evaluated once per class of allowed parents with the same genome.
         mutable genetics::GenomePartition<InfectionEventImpl> sourceClasses_{};
@@ -233,26 +226,19 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     std::pair<double, double> ParentRelinkSampler<T, Engine, InfectionEventImpl>::evaluateTry(const Try& t) {
-        const SAMPLER_STATE_ID stateId = ParentRelinkTryID;
-        auto duration                  = infection_->infectionDuration();
-        duration->saveState(stateId);
-        duration->setValue(t.duration);
+        auto trial = this->propose(*target_, *rng_);
+        trial.change(*infection_->infectionDuration(), t.duration);
         size_t l = 0;
         for (const auto& locus : infection_->loci()) {
             auto genotype = infection_->latentGenotype(locus);
-            genotype->saveState(stateId);
             if (t.genotypes[l] != genotype->value()) {
-                genotype->setValue(t.genotypes[l]);
+                trial.change(*genotype, t.genotypes[l]);
             }
             ++l;
         }
-        const double value = target_->value();
+        const double value = trial.value();
         const double logQ  = logProposalDensity();
-        duration->restoreState(stateId);
-        for (const auto& locus : infection_->loci()) {
-            infection_->latentGenotype(locus)->restoreState(stateId);
-        }
-        target_->value();
+        trial.revert();
         return {value, logQ};
     }
 
@@ -294,8 +280,7 @@ namespace transmission_nets::core::samplers::specialized {
         }
         const double forward = logSumExp(weights);
         if (forward == negInf) {
-            ++rejections_;
-            countProposal(false);
+            this->propose(*target_, *rng_).reject();
             return;
         }
         const double u = uniform_(*rng_);
@@ -317,32 +302,18 @@ namespace transmission_nets::core::samplers::specialized {
             references.push_back(q == negInf ? negInf : value - q);
         }
         const double backward = logSumExp(references);
-
-        if (std::log(uniform_(*rng_)) <= forward - backward) {
-            const SAMPLER_STATE_ID stateId = ParentRelinkID;
-            auto duration                  = infection_->infectionDuration();
-            duration->saveState(stateId);
-            duration->setValue(forward_[chosen].duration);
-            size_t l = 0;
-            for (const auto& locus : infection_->loci()) {
-                auto genotype = infection_->latentGenotype(locus);
-                genotype->saveState(stateId);
-                if (forward_[chosen].genotypes[l] != genotype->value()) {
-                    genotype->setValue(forward_[chosen].genotypes[l]);
-                }
-                ++l;
+        // The chosen try is applied, then kept or restored by the decision.
+        auto proposal = this->propose(*target_, *rng_);
+        proposal.change(*infection_->infectionDuration(), forward_[chosen].duration);
+        size_t l = 0;
+        for (const auto& locus : infection_->loci()) {
+            auto genotype = infection_->latentGenotype(locus);
+            if (forward_[chosen].genotypes[l] != genotype->value()) {
+                proposal.change(*genotype, forward_[chosen].genotypes[l]);
             }
-            target_->value();
-            ++acceptances_;
-            countProposal(true);
-            duration->acceptState();
-            for (const auto& locus : infection_->loci()) {
-                infection_->latentGenotype(locus)->acceptState();
-            }
-        } else {
-            ++rejections_;
-            countProposal(false);
+            ++l;
         }
+        proposal.decide(forward - backward);
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
@@ -351,9 +322,8 @@ namespace transmission_nets::core::samplers::specialized {
             multipleTryUpdate();
             return;
         }
-        const SAMPLER_STATE_ID stateId = ParentRelinkID;
-        const double currentLik        = target_->value();
-        const double currentLogQ       = logProposalDensity();
+        auto proposal            = this->propose(*target_, *rng_);
+        const double currentLogQ = logProposalDensity();
 
         const auto sources = feasibleSources();
         boost::random::uniform_int_distribution<size_t> pickSource(0, sources.size() - 1);
@@ -361,43 +331,24 @@ namespace transmission_nets::core::samplers::specialized {
         const auto [first, second] = window(s);
 
         const double proposed = durationShape_.draw(first, second, mass, *rng_);
-        auto duration         = infection_->infectionDuration();
-        duration->saveState(stateId);
-        duration->setValue(proposed);
+        proposal.change(*infection_->infectionDuration(), proposed);
         for (const auto& locus : infection_->loci()) {
             auto genotype = infection_->latentGenotype(locus);
-            genotype->saveState(stateId);
             const std::array<const Genetics*, 1> parents{&source(s).latentGenotype(locus)->value()};
-            Genetics proposal;
+            Genetics proposedGenotype;
             if (infection_->observedGenotype().contains(locus)) {
-                proposal = genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnRate_, fpRate_);
+                proposedGenotype = genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnRate_, fpRate_);
             } else {
                 auto nothingObserved = genotype->value();
                 nothingObserved.reset();
-                proposal = genetics::proposeLocus(parents, 1, nothingObserved, *rng_, genetics::UNOBSERVED_LOCUS_PRESENCE, fpRate_);
+                proposedGenotype = genetics::proposeLocus(parents, 1, nothingObserved, *rng_, genetics::UNOBSERVED_LOCUS_PRESENCE, fpRate_);
             }
-            if (proposal != genotype->value()) {
-                genotype->setValue(proposal);
-            }
-        }
-
-        const double proposedLogQ    = logProposalDensity();
-        const double acceptanceRatio = target_->value() - currentLik + currentLogQ - proposedLogQ;
-        if (std::log(uniform_(*rng_)) <= acceptanceRatio) {
-            ++acceptances_;
-            countProposal(true);
-            duration->acceptState();
-            for (const auto& locus : infection_->loci()) {
-                infection_->latentGenotype(locus)->acceptState();
-            }
-        } else {
-            ++rejections_;
-            countProposal(false);
-            duration->restoreState(stateId);
-            for (const auto& locus : infection_->loci()) {
-                infection_->latentGenotype(locus)->restoreState(stateId);
+            if (proposedGenotype != genotype->value()) {
+                proposal.change(*genotype, proposedGenotype);
             }
         }
+        const double proposedLogQ = logProposalDensity();
+        proposal.metropolis(currentLogQ - proposedLogQ);
     }
 
 }// namespace transmission_nets::core::samplers::specialized

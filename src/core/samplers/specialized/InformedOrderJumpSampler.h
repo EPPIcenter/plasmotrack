@@ -6,7 +6,6 @@
 #define TRANSMISSION_NETWORKS_APP_INFORMEDORDERJUMPSAMPLER_H
 
 #include "core/samplers/AbstractSampler.h"
-#include "core/samplers/SamplerEnum.h"
 #include "core/samplers/specialized/DurationShape.h"
 
 #include <boost/random.hpp>
@@ -38,8 +37,8 @@ namespace transmission_nets::core::samplers::specialized {
      * independently of the state, and makes the move among those; the reverse move draws the same subset with the same
      * probability, so the move still leaves the target invariant. maxTries = 0 uses every partner.
      *
-     * Every duration tried is evaluated before it is restored, since restoring a change the target has not evaluated
-     * leaves the target's cached value wrong.
+     * Each try is a Proposal that is reverted, so it is evaluated before it is restored and restores only its own
+     * change while the move's own change is saved.
      */
     template<typename T, typename Engine, typename InfectionEventImpl>
     class InformedOrderJumpSampler : public AbstractSampler {
@@ -57,15 +56,12 @@ namespace transmission_nets::core::samplers::specialized {
 
         void update() noexcept override;
 
-        [[nodiscard]] unsigned int acceptances() const noexcept { return acceptances_; }
-        [[nodiscard]] unsigned int rejections() const noexcept { return rejections_; }
-
     private:
         static constexpr double NEG_INF = -std::numeric_limits<double>::infinity();
 
         // The durations [first, second) that put the infection on the other side of partner j from where it is now.
         [[nodiscard]] std::pair<double, double> otherSide(size_t j) const;
-        // log target at duration d, leaving the duration and the target as they were (both evaluated).
+        // log target at duration d, leaving the duration as it was.
         double logTargetAt(double d);
 
         static double logSumExp(const std::vector<double>& xs) {
@@ -93,9 +89,6 @@ namespace transmission_nets::core::samplers::specialized {
         size_t maxTries_;
 
         boost::random::uniform_01<> uniform_{};
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_  = 0;
-
         std::vector<double> tries_{}, weights_{}, references_{};
         std::vector<size_t> active_{};// the partners tried in this update
     };
@@ -110,20 +103,15 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     double InformedOrderJumpSampler<T, Engine, InfectionEventImpl>::logTargetAt(const double d) {
-        // Its own state id: the reference tries are evaluated while the move's own change is saved.
-        const SAMPLER_STATE_ID stateId = InformedOrderJumpTryID;
-        auto duration                  = infection_->infectionDuration();
-        duration->saveState(stateId);
-        duration->setValue(d);
-        const double value = target_->value();
-        duration->restoreState(stateId);
-        target_->value();
+        auto trial = this->propose(*target_, *rng_);
+        trial.change(*infection_->infectionDuration(), d);
+        const double value = trial.value();
+        trial.revert();
         return value;
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     void InformedOrderJumpSampler<T, Engine, InfectionEventImpl>::update() noexcept {
-        const SAMPLER_STATE_ID stateId = InformedOrderJumpID;
         if (partners_.empty()) {
             return;
         }
@@ -163,8 +151,7 @@ namespace transmission_nets::core::samplers::specialized {
         const double forward = logSumExp(weights_);
         if (not any or forward == NEG_INF) {
             if (any) {
-                ++rejections_;
-                countProposal(false);
+                this->propose(*target_, *rng_).reject();
             }
             return;
         }
@@ -190,9 +177,9 @@ namespace transmission_nets::core::samplers::specialized {
         }
 
         // Move to the chosen duration, then draw the reference tries from there.
-        duration->saveState(stateId);
-        duration->setValue(tries_[chosen]);
-        target_->value();
+        auto proposal = this->propose(*target_, *rng_);
+        proposal.change(*duration, tries_[chosen]);
+        proposal.value();
         references_.assign(k, NEG_INF);
         for (size_t j = 0; j < k; ++j) {
             const auto [first, second] = otherSide(active_[j]);
@@ -211,17 +198,7 @@ namespace transmission_nets::core::samplers::specialized {
             references_[j]    = logTargetAt(r) - logT;
         }
         const double backward = logSumExp(references_);
-
-        if (std::log(uniform_(*rng_)) <= forward - backward) {
-            ++acceptances_;
-            countProposal(true);
-            duration->acceptState();
-        } else {
-            ++rejections_;
-            countProposal(false);
-            duration->restoreState(stateId);
-            target_->value();
-        }
+        proposal.decide(forward - backward);
     }
 
 }// namespace transmission_nets::core::samplers::specialized

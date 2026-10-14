@@ -102,6 +102,10 @@ _Avoid_: Config, settings, options (those are what was given on the command line
 The samplers attached to one chain, in the fixed order they update in, each with its update frequency and adaptation window. Built once per chain from the State and the Model, and the one place that decides which samplers a Run uses. Every chain in a Run has the same Sampler set, so sampler ids are the same across chains and across Runs from the same input.
 _Avoid_: Scheduler, schedule, move set, sampler list
 
+**Proposal**:
+One Metropolis-Hastings step of a sampler, from the first parameter it changes to its accept or reject. The parameters it touches, the target's value before and after, and whether it was accepted live here; a sampler decides what to change and the Hastings adjustment, nothing else. A multiple-try move evaluates tries as Proposals that are reverted rather than counted.
+_Avoid_: Move, step (the Sampler set's step is a Sampling iteration), transaction, update
+
 ### Output
 
 **Trace**:
