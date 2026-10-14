@@ -69,6 +69,7 @@ set(MODEL_TRANSMISSION_TESTS
     src/impl/ReplicaExchangeTest.cpp
     src/impl/CheckpointTest.cpp
     src/impl/RunDriverTest.cpp
+    src/impl/RunAssemblyTest.cpp
     src/impl/ConsoleProgressTest.cpp
     src/impl/RunRecipeTest.cpp
     src/core/samplers/SamplingProbTest.cpp

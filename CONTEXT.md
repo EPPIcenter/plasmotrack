@@ -105,6 +105,10 @@ _Avoid_: Runner, engine, main loop, sampler (already the MCMC moves)
 Everything that decides how a Run samples and what it records: chain count, temperature ladder, burn-in and sampling lengths, thinning, Window size, Parent-set floor, seed and model choice. Fixed when a Run starts; resuming a Run must keep it, except that sampling may be lengthened. Recorded in the Run manifest.
 _Avoid_: Config, settings, options (those are what was given on the command line, before it resolves to a recipe)
 
+**Run assembly**:
+The one place that turns a resolved Run recipe, the loaded inputs and the checkpoint if there is one into a Run ready to drive: the engine, the Ensemble, the Run recorder and the Run driver, with where the Run starts. It owns the seed draw, the burn-in reset and reseed of a Run started from a checkpoint, and the Run manifest's identity. main and the tests assemble a Run the same way.
+_Avoid_: Setup, bootstrap, factory, wiring, main
+
 **Sampler set**:
 The samplers attached to one chain, in the fixed order they update in, each with its update frequency and adaptation window. Built once per chain from the State and the Model, and the one place that decides which samplers a Run uses. Every chain in a Run has the same Sampler set, so sampler ids are the same across chains and across Runs from the same input.
 _Avoid_: Scheduler, schedule, move set, sampler list

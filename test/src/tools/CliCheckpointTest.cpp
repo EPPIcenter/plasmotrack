@@ -2,8 +2,8 @@
 // Checkpoints through the CLI end to end: --resume continues an interrupted Run from its checkpoint, --start-from
 // begins a new Run from one's State, and a checkpoint that can't be written ends the Run. Each test runs the CLI binary
 // on the example input and reads the store back with the Arrow C++ reader. When Checkpoints are taken and where a
-// resumed Run picks up are tested in-process in RunDriverTest; which checkpoints a Run may resume or start from, in
-// RunRecipeTest.
+// resumed Run picks up are tested in-process in RunDriverTest; what a Run started from a checkpoint keeps and draws
+// anew, in RunAssemblyTest; which checkpoints a Run may resume or start from, in RunRecipeTest.
 //
 
 #include "gtest/gtest.h"
@@ -149,25 +149,6 @@ TEST(CliCheckpoint, StartFromMakesANewRunFromACheckpointsState) {
     EXPECT_NEAR(scalarAt(store, "likelihood", 0), scalarAt(source, "likelihood", 30), 1e-6);
     // The source Run is untouched.
     EXPECT_EQ(readJson(source / "manifest.json"), sourceManifest);
-
-    if (!HasFailure()) fs::remove_all(work);
-}
-
-// A new Run's burn-in counts from 0 even when started from a checkpoint far into another Run, so its ladder adapts
-// on the Sampling iterations a fresh Run's does: the 16th, then every 5th.
-TEST(CliCheckpoint, AStartedRunsLadderAdaptsAsAFreshRunsDoes) {
-    const auto work   = makeWork("start-from-adapts");
-    const auto source = work / "out";
-    auto threeChains  = SHORT_RUN;
-    threeChains.insert(threeChains.end(), {"-n", "3"});
-    ASSERT_EQ(runCli(work, threeChains), 0) << consoleOutput(work);
-
-    ASSERT_EQ(startFrom(work, "from", source / "checkpoint.cbor", {"--seed", "9", "-n", "3", "-b", "22", "-s", "5", "-t", "1", "--window", "10"}), 0) << consoleOutput(work);
-    std::vector<std::int64_t> adaptedAt;
-    for (const auto& e : eventsOfType(work / "from", "temperatures_adapted")) {
-        adaptedAt.push_back(e.iteration);
-    }
-    EXPECT_EQ(adaptedAt, (std::vector<std::int64_t>{16, 21}));
 
     if (!HasFailure()) fs::remove_all(work);
 }
