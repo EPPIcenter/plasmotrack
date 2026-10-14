@@ -11,7 +11,6 @@
 #include "core/containers/AlleleFrequencyContainer.h"
 
 #include "core/datatypes/Alleles.h"
-// #include "core/datatypes/SparseAlleleSet.h"
 
 
 #include "core/distributions/ZTPoisson.h"
@@ -22,8 +21,6 @@
 #include "model/transmission_process/OrderBasedTransmissionProcessV3.h"
 #include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h"
 #include "model/transmission_process/node_transmission_process/LatentParentMarginal.h"
-#include "model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h"
-
 #include <filesystem>
 
 namespace transmission_nets::impl::Model {
@@ -33,15 +30,12 @@ namespace transmission_nets::impl::Model {
     constexpr size_t INFORMED_JUMP_MAX_TRIES = 8;
     // Allele-frequency (SALT) updates run every this many Sampling iterations.
     constexpr int SALT_UPDATE_FREQUENCY = 3;
-    // Whether JointGeneticsTimeSampler is registered.
-    constexpr bool JOINT_GENETICS_TIME_SAMPLER = false;
 
 
     static constexpr int MAX_ALLELES       = 128;
     static constexpr int MAX_COI           = 20;
     static constexpr int MAX_PARENTS       = 2;
     static constexpr int MAX_PARENT_SET_SIZE = MAX_PARENTS + 1;
-    // static constexpr int MAX_TRANSMISSIONS = 8;
     static constexpr int MAX_STRAINS = 12;
     // Allele frequencies are kept at or above this, at the start and while sampling. A numerical guard only: far below
     // one strain among all sources (about 1 / (2 * infections * mean COI)), so it should never bind.
@@ -52,7 +46,6 @@ namespace transmission_nets::impl::Model {
     using Likelihood                   = core::computation::Likelihood;
     using LocusImpl                    = core::containers::Locus;
     using GeneticsImpl                 = core::datatypes::AllelesBitSet<MAX_ALLELES>;
-    // using GeneticsImpl                 = core::datatypes::SparseAlleleSet;
     using InfectionEvent               = core::containers::Infection<GeneticsImpl>;
     using AlleleFrequencyImpl          = core::datatypes::Simplex;
     using AlleleFrequencyContainerImpl = core::containers::AlleleFrequencyContainer<AlleleFrequencyImpl>;
@@ -61,10 +54,7 @@ namespace transmission_nets::impl::Model {
 
     using COIProbabilityImpl     = core::distributions::ZTPoisson<MAX_COI>;
     using ParentSetSizeLikelihoodImpl = core::distributions::ZTGeometric<MAX_PARENT_SET_SIZE>;
-    using SourceTransmissionImpl = model::transmission_process::MultinomialSourceTransmissionProcess<COIProbabilityImpl, AlleleFrequencyContainerImpl, InfectionEvent::GenotypeParameterMap , MAX_COI>;
-//    using InterTransmissionProbImpl = core::distributions::ZTGeometric<MAX_TRANSMISSIONS>;
-//    using NodeTransmissionImpl      = model::transmission_process::SimpleLoss<MAX_TRANSMISSIONS, MAX_PARENTS, InterTransmissionProbImpl, SourceTransmissionImpl>;
-    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, SourceTransmissionImpl, ParentSetSizeLikelihoodImpl, GeneticsImpl>;
+    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizeLikelihoodImpl, GeneticsImpl>;
 
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
     using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;

@@ -48,7 +48,6 @@ namespace {
             "ConstrainedContinuousRandomWalk/mean_strains_tx",
             "ConstrainedContinuousRandomWalk/parent_set_size_prob",
             "ConstrainedContinuousRandomWalk/infection_duration/1",
-            "JointGeneticsTimeSampler/infection/1",
             "RandomAllelesBitSetSampler3/latent_genotypes/1",
             "ParentRelinkSampler/infection/1",
             "StrainCountSampler/latent_genotypes/1",
@@ -57,7 +56,6 @@ namespace {
             "RandomAllelesBitSetSampler4/latent_genotypes/1/AS1",
             "RandomAllelesBitSetSampler4/latent_genotypes/1/AS11",
             "ConstrainedContinuousRandomWalk/infection_duration/2",
-            "JointGeneticsTimeSampler/infection/2",
             "RandomAllelesBitSetSampler3/latent_genotypes/2",
             "ParentRelinkSampler/infection/2",
             "StrainCountSampler/latent_genotypes/2",
@@ -66,7 +64,6 @@ namespace {
             "RandomAllelesBitSetSampler4/latent_genotypes/2/AS1",
             "RandomAllelesBitSetSampler4/latent_genotypes/2/AS11",
             "ConstrainedContinuousRandomWalk/infection_duration/3",
-            "JointGeneticsTimeSampler/infection/3",
             "RandomAllelesBitSetSampler3/latent_genotypes/3",
             "ParentRelinkSampler/infection/3",
             "StrainCountSampler/latent_genotypes/3",
@@ -87,12 +84,7 @@ namespace {
 }// namespace
 
 TEST(SamplerIdsTest, TheSequentialSampleSchedulerNamesEverySamplerByTypeAndTarget) {
-    // The sequential scheduler registers JointGeneticsTimeSampler only when the configuration asks for it.
-    auto expected = expectedIds;
-    if (not JOINT_GENETICS_TIME_SAMPLER) {
-        std::erase_if(expected, [](const std::string& id) { return id.starts_with("JointGeneticsTimeSampler/"); });
-    }
-    EXPECT_EQ(samplerIdsForSeed<SequentialSampleScheduler>(1), expected);
+    EXPECT_EQ(samplerIdsForSeed<SequentialSampleScheduler>(1), expectedIds);
 }
 
 TEST(SamplerIdsTest, TheSampleSchedulerNamesEverySamplerByTypeAndTarget) {

@@ -5,7 +5,6 @@
 #ifndef TRANSMISSION_NETWORKS_APP_REPLICAEXCHANGE_H
 #define TRANSMISSION_NETWORKS_APP_REPLICAEXCHANGE_H
 
-#include "core/computation/transformers/Tempered.h"
 #include "core/samplers/meta/EnsembleSnapshot.h"
 #include "spline.h"
 

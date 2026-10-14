@@ -7,8 +7,10 @@ section 5 describes the implementation.
 
 Code:
 
-- `src/model/transmission_process/node_transmission_process/MarginalLatentParent.h`: the computation, written plainly
-  (the reference the tests check the model against).
+- `src/model/transmission_process/source_transmission_process/SourceOverlap.h`: the Source at one locus, P(U, w | k),
+  used by the model and by the reference.
+- `test/src/model/transmission_process/node_transmission_process/MarginalLatentParentReference.h`: the computation,
+  written plainly (the reference the tests check the model against).
 - `src/model/transmission_process/node_transmission_process/LatentParentMarginal.h`: the computation as the model uses
   it, memoised.
 - `src/model/transmission_process/OrderBasedTransmissionProcessV3.h`: each Infection's transmission term, with the
@@ -41,7 +43,7 @@ n = |P| parents (L counts). π_l are the Allele frequencies at l.
    the set is impossible at locus l if G_L ∩ C_l = ∅: L must share an allele with the child at every locus.
    Observed parents carry no such rule. With L alone, C ⊆ G_L is forced anyway, because p_j = 0 for j ∉ G_L.
 
-**Source** (`MultinomialSourceTransmissionProcess`): k ~ ZTPoisson truncated to 1..MAX_COI = 20. At each locus,
+**Source** (`SourceOverlap`): k ~ ZTPoisson truncated to 1..MAX_COI = 20. At each locus,
 G_l = the distinct alleles of k i.i.d. draws from π_l, so P(G | k) = π_G^k (1 − PAM(π|_G normalised, k)). Loci are
 independent given k.
 
@@ -232,11 +234,11 @@ Expected effect on an iteration:
 **Tests.**
 
 - `ModelCacheConsistencyTest` now:
-  - checks every cached term and every parent set's term against `MarginalLatentParent.h` computed from scratch,
+  - checks every cached term and every parent set's term against `MarginalLatentParentReference.h` computed from scratch,
     after sweeps, interleaved sweeps, and genotype, allele-frequency, COI, strain-count and duration perturbations;
   - covers nested saved states with allele frequencies as the inner change;
   - checks that the model's likelihood is the sum of its terms.
-- Brute-force tests check `MarginalLatentParent.h`.
+- Brute-force tests check `MarginalLatentParentReference.h` and `SourceOverlap`.
 - The full suite passes except the two `GoldenRunTest` stores, which change by design.
 
 **Speed.** Measured on lowdiv_s0, 80 sweeps, both binaries run at once on the same loaded machine:

@@ -17,12 +17,7 @@ set_target_properties("spline" PROPERTIES
 
 set(CORE_COMPUTATION_SOURCES
     core/computation/PartialLikelihood.cpp
-    core/computation/LogLikelihood.cpp
-    core/computation/ConstrainedOrderDerivedParentSet.h
     core/computation/ObservationTimeDerivedOrdering.h
-    core/computation/transformers/Transformer.h
-    core/computation/transformers/LogTransformer.h
-    core/computation/transformers/Tempered.h
 )
 
 set(CORE_CONTAINERS_SOURCES
@@ -31,7 +26,6 @@ set(CORE_CONTAINERS_SOURCES
 
 set(CORE_DATATYPES_SOURCES
     core/datatypes/Simplex.cpp
-    core/datatypes/AllelesBitVec.h
 )
 
 set(CORE_DISTRIBUTIONS_SOURCES
@@ -62,29 +56,13 @@ set(CORE_IO_SOURCES
     core/io/ParquetStoreSink.h
 )
 
-set(CORE_PRIORS_SOURCES
-    core/priors/Prior.h
-)
-
 set(CORE_SAMPLERS_SOURCES
     core/samplers/SamplerEnum.h
-    core/samplers/general/ConstrainedDiscreteRandomWalk.h
-    core/samplers/general/SimplexSampler.h
-    core/samplers/genetics/RandomAllelesBitSetSampler.h
     core/samplers/genetics/RandomAllelesBitSetSampler4.h
-    core/samplers/genetics/ZanellaAllelesBitSetSampler.h
     core/samplers/scheduler/Scheduler.cpp
     core/samplers/scheduler/Scheduler.h
     core/samplers/scheduler/RandomizedScheduler.h
     core/samplers/scheduler/SamplerIndex.h
-    core/samplers/specialized/ZanellaJointGeneticsGraphSampler.h
-    core/samplers/specialized/JointGeneticsTimeSampler.h
-    core/samplers/topology/RandomAddEdgeSampler.h
-    core/samplers/topology/RandomRemoveEdgeSampler.h
-    core/samplers/topology/RandomSwapEdgeSampler.h
-    core/samplers/topology/RandomReverseEdgeSampler.h
-    core/samplers/topology/ZanellaNeighborOrderSampler.h
-    core/samplers/topology/ZanellaOrderSampler.h
     core/samplers/meta/EnsembleSnapshot.h
     core/samplers/meta/ReplicaExchange.h
 )
@@ -106,17 +84,10 @@ set(CORE_UTILS_SOURCES
 )
 
 set(MODEL_SOURCES
-    model/OrderingLikelihood.h
-    model/observation_process/AlleleCounts.cpp
     model/observation_process/ObservationProcessLikelihoodv2.h
-    model/transmission_process/NetworkBasedTransmissionProcess.h
-    model/transmission_process/node_transmission_process/NoSuperInfectionMutation.h
-    model/transmission_process/node_transmission_process/SuperInfectionNoMutation.h
-    model/transmission_process/node_transmission_process/SimpleLossMutation.h
-    model/transmission_process/node_transmission_process/SimpleLoss.h
     model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h
-    model/transmission_process/node_transmission_process/MultinomialTransmissionProcess2.h
-    model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcess.h
+    model/transmission_process/node_transmission_process/LatentParentMarginal.h
+    model/transmission_process/source_transmission_process/SourceOverlap.h
 )
 
 set(IMPL_SOURCES
@@ -154,7 +125,6 @@ set(SOURCE_FILES
     ${CORE_DATATYPES_SOURCES}
     ${CORE_DISTRIBUTIONS_SOURCES}
     ${CORE_IO_SOURCES}
-    ${CORE_PRIORS_SOURCES}
     ${CORE_SAMPLERS_SOURCES}
     ${CORE_UTILS_SOURCES}
     ${MODEL_SOURCES}
