@@ -4,8 +4,9 @@
 // A dependent of an input is marked dirty when the input changes, after any bookkeeping of its own, and follows the
 // input's saved states: it saves with it, accepts with it and restores with it. Its restored value is the one it had
 // when the input was saved, so a restore leaves it clean; a save evaluates it first (see Checkpointable::saveState), so
-// that value is always current. An accept settles whatever the dependent was evaluated to and marks it clean; the
-// Proposal evaluates the target before every accept, so a dependent reached through the Model is never accepted unread.
+// that value is always current. An accept settles the dependent's saved states and nothing else: one still dirty, which
+// nothing read since the change, stays dirty and evaluates when next read. (The Proposal evaluates the target before
+// every accept, so a dependent reached through the Model is never dirty then.)
 //
 // An input is a Parameter, a container that passes its Parameters' events through, or a cached computation: the first
 // two announce post_change, the last set_dirty. The compiler picks.
@@ -47,15 +48,12 @@ namespace transmission_nets::core::abstract {
             input.add_restore_state_listener(onId);
         };
 
-        // `dependent` saves, accepts and restores with `input`, and is clean after an accept or a restore.
+        // `dependent` saves, accepts and restores with `input`, and is clean after a restore.
         template<typename Dependent, typename Input>
         void followSavedStates(Dependent* dependent, Input& input) {
             static_assert(HasSavedStates<Input>, "an input has saved states to follow");
             input.add_save_state_listener([dependent](const int savedStateId) { dependent->saveState(savedStateId); });
-            input.add_accept_state_listener([dependent]() {
-                dependent->acceptState();
-                dependent->setClean();
-            });
+            input.add_accept_state_listener([dependent]() { dependent->acceptState(); });
             input.add_restore_state_listener([dependent](const int savedStateId) {
                 dependent->restoreState(savedStateId);
                 dependent->setClean();

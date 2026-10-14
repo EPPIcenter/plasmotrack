@@ -160,6 +160,43 @@ TEST(DependencyTest, ASecondSaveUnderTheSameIdSavesNothingMore) {
     EXPECT_EQ(sum.evaluations, 2);
 }
 
+// An accept settles the saved states and nothing else: a dependent nothing read since the change stays dirty, and
+// evaluates when next read.
+TEST(DependencyTest, AnAcceptLeavesAnUnreadDependentDirty) {
+    auto x = std::make_shared<Parameter>(1.0);
+    Sum sum;
+    sum.add(x);
+    sum.setDirty();
+    ASSERT_EQ(sum.value(), 1.0);
+
+    change(*x, 1, 2.0);
+    x->acceptState();
+    EXPECT_TRUE(sum.isDirty());
+    EXPECT_EQ(sum.value(), 2.0);
+    EXPECT_FALSE(sum.isDirty());
+}
+
+// A save evaluates the dependent first, so a dependent dirty at the save restores to the value its inputs had then.
+TEST(DependencyTest, ASaveEvaluatesTheDependentSoItsRestoreIsCurrent) {
+    auto x = std::make_shared<Parameter>(1.0);
+    auto y = std::make_shared<Parameter>(10.0);
+    Sum sum;
+    sum.add(x);
+    sum.add(y);
+    sum.setDirty();
+    ASSERT_EQ(sum.value(), 11.0);
+
+    change(*x, 1, 2.0);
+    x->acceptState();// accepted unread: the sum is dirty
+    change(*y, 2, 20.0);// y's save evaluates the sum at x = 2, y = 10 before y changes
+    EXPECT_EQ(sum.evaluations, 2);
+    EXPECT_EQ(sum.value(), 22.0);
+    y->restoreState(2);
+    EXPECT_FALSE(sum.isDirty());
+    EXPECT_EQ(sum.value(), 12.0);
+    EXPECT_EQ(sum.evaluations, 3);
+}
+
 // A dependent that only saves with an input is not marked dirty by its changes.
 TEST(DependencyTest, SavesWithFollowsSavedStatesWithoutDirtying) {
     auto x = std::make_shared<Parameter>(1.0);
