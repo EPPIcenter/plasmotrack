@@ -4,6 +4,7 @@
 
 
 #include "GammaLogPDF.h"
+#include "core/abstract/observables/Dependency.h"
 
 #include <utility>
 
@@ -12,15 +13,7 @@ namespace transmission_nets::core::distributions {
 
 
     GammaLogPDF::GammaLogPDF(p_Parameterdouble target, p_Parameterdouble shape, p_Parameterdouble scale) : target_(std::move(target)), shape_(std::move(shape)), scale_(std::move(scale)) {
-        target_->registerCacheableCheckpointTarget(this);
-        target_->add_post_change_listener([=, this]() { this->setDirty(); });
-
-        shape_->registerCacheableCheckpointTarget(this);
-        shape_->add_post_change_listener([=, this]() { this->setDirty(); });
-
-        scale_->registerCacheableCheckpointTarget(this);
-        scale_->add_post_change_listener([=, this]() { this->setDirty(); });
-
+        abstract::dependsOn(this, target_, shape_, scale_);
         this->setDirty();
     }
 

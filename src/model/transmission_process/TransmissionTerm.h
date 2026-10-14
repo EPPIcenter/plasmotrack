@@ -9,6 +9,7 @@
 
 
 #include "core/computation/OrderDerivedParentSet.h"
+#include "core/abstract/observables/Dependency.h"
 #include "core/computation/PartialLikelihood.h"
 #include "core/config.h"
 #include "core/containers/Infection.h"
@@ -296,21 +297,17 @@ namespace transmission_nets::model::transmission_process {
           null_model_(null_model) {
 
         // The strain-count parameter enters every entry's strain-summed likelihood, through the memo's table of it.
-        memo_->meanStrainsTransmitted()->add_post_change_listener([=, this]() {
+        core::abstract::dependsOn(this, memo_->meanStrainsTransmitted(), [this]() {
             lastUpdated_ = "strain count parameter updated";
             degrade(SUMS_CHANGED, false);
-            setDirty();
         });
-        memo_->meanStrainsTransmitted()->registerCacheableCheckpointTarget(this);
 
         // The latent parent's COI distribution enters the latent entries' sum over its COI. Like the parent-set-size
         // prior below, it is read in every evaluation.
-        coiProb_->add_set_dirty_listener([=, this]() {
+        core::abstract::dependsOn(this, coiProb_, [this]() {
             lastUpdated_ = "coi distribution updated";
             degrade(SUMS_CHANGED, true);
-            setDirty();
         });
-        coiProb_->registerCacheableCheckpointTarget(this);
 
         // The allele frequencies at the child's loci enter the latent entries' locus tables. A change is found by
         // comparing frequency ids at the next evaluation.
@@ -318,67 +315,56 @@ namespace transmission_nets::model::transmission_process {
         for (size_t l = 0; l < child_->loci().size(); ++l) {
             const auto& locus = child_->loci()[l];
             auto frequencies  = memo_->alleleFrequencies()->alleleFrequencies(locus);
-            frequencies->add_post_change_listener([=, this]() {
+            core::abstract::dependsOn(this, frequencies, [this, l]() {
                 lastUpdated_               = "allele frequencies updated";
                 frequenciesMayHaveChanged_ = true;
                 if (not frequencyPending_[l]) {
                     frequencyPending_[l] = 1;
                     pendingFrequencyLoci_.push_back(l);
                 }
-                setDirty();
             });
-            frequencies->registerCacheableCheckpointTarget(this);
             locusIndex_[locus.get()] = l;
         }
 
         // The parent-set-size prior enters every entry's outer term. Its value is only recomputed when read, so
         // this process must be evaluated, reading it, before the change is accepted: an accept marks it clean.
-        psp_->add_set_dirty_listener([=, this]() {
+        core::abstract::dependsOn(this, psp_, [this]() {
             lastUpdated_ = "psp updated";
             degrade(OUTER_CHANGED, false);
-            setDirty();
         });
-        psp_->registerCacheableCheckpointTarget(this);
 
         // Genotype changes are recorded before they happen, with the genotype replaced, and applied to the sums
         // at the next evaluation.
         child_->add_latent_genotype_pre_change_listener([=, this](const auto& locus, const auto& previous) {
             recordChange(child_.get(), locus, previous);
         });
-        child_->add_post_change_listener([=, this]() {
-            lastUpdated_ = "child updated";
-            setDirty();
-        });
-        child_->registerCacheableCheckpointTarget(this);
+        core::abstract::dependsOn(this, child_, [this]() { lastUpdated_ = "child updated"; });
 
         // Saved, accepted and restored with every parent the parent set could hold, whose genotype changes the
-        // cache records.
+        // cache records; a parent's change reaches the term through the parent set, if it is a member.
         for (const auto& parent : parentSet_->allowedParents_) {
             parent->add_latent_genotype_pre_change_listener([=, this, parent = parent.get()](const auto& locus, const auto& previous) {
                 recordChange(parent, locus, previous);
             });
-            parent->registerCacheableCheckpointTarget(this);
+            core::abstract::savesWith(this, parent);
         }
 
+        // The parent set marks itself dirty before each of these events, which is what marks this term dirty.
+        core::abstract::dependsOn(this, parentSet_, [this]() { lastUpdated_ = "parent set updated"; });
         parentSet_->add_element_changed_listener([=, this]([[maybe_unused]] const auto& parent) {
             lastUpdated_ = "parent updated";
-            setDirty();
         });
 
         // Parents joining or leaving the parent set change the classes, which the next evaluation recomputes.
         parentSet_->add_element_added_listener([=, this]([[maybe_unused]] const auto& parent) {
             lastUpdated_           = "parent added";
             parentsMayHaveChanged_ = true;
-            setDirty();
         });
 
         parentSet_->add_element_removed_listener([=, this]([[maybe_unused]] const auto& parent) {
             lastUpdated_           = "parent removed";
             parentsMayHaveChanged_ = true;
-            setDirty();
         });
-
-        parentSet_->registerCacheableCheckpointTarget(this);
 
         this->addPostSaveHook([=, this](const auto savedStateID) { this->postSaveState(savedStateID); });
         this->addPostRestoreHook([=, this](const auto savedStateID) { this->postRestoreState(savedStateID); });

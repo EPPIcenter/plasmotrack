@@ -9,6 +9,7 @@
 #include <boost/random.hpp>
 
 #include "core/parameters/Parameter.h"
+#include "core/abstract/observables/Dependency.h"
 #include "core/samplers/general/ContinuousRandomWalk.h"
 
 //using namespace transmission_nets::core::parameters;
@@ -32,10 +33,7 @@ TEST(ContinuousRandomWalkTest, NormalTest) {
                 data_(i) = dist(r) * TEST_VARIANCE + TEST_MEAN;
             }
 
-            mean_->registerCacheableCheckpointTarget(this);
-            mean_->add_post_change_listener([=, this]() {
-                dirty = true;
-            });
+            core::abstract::dependsOn(this, mean_, [this]() { dirty = true; });
             value_ = calculateValue(data_, mean_->value());
         };
 
@@ -109,15 +107,8 @@ TEST(ContinuousRandomWalkTest, DoubleWellTest) {
                                   public core::abstract::Checkpointable<DoubleWellTestTarget, core::computation::Likelihood> {
 
         DoubleWellTestTarget(std::shared_ptr<core::parameters::Parameter<double>> x, std::shared_ptr<core::parameters::Parameter<double>> y) : x_(std::move(x)), y_(std::move(y)) {
-            x_->registerCacheableCheckpointTarget(this);
-            x_->add_post_change_listener([=, this]() {
-                this->dirty = true;
-            });
-
-            y_->registerCacheableCheckpointTarget(this);
-            y_->add_post_change_listener([=, this]() {
-                this->dirty = true;
-            });
+            core::abstract::dependsOn(this, x_, [this]() { dirty = true; });
+            core::abstract::dependsOn(this, y_, [this]() { dirty = true; });
 
             this->value_ = calculateValue(x_->value(), y_->value());
         };

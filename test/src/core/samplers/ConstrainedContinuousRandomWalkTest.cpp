@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "core/parameters/Parameter.h"
+#include "core/abstract/observables/Dependency.h"
 #include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
 
 using namespace transmission_nets;
@@ -33,10 +34,7 @@ TEST(ConstrainedRandomWalkMHTest, BernoulliTest) {
                 data_.push_back(dist(r));
             }
 
-            prob_->registerCacheableCheckpointTarget(this);
-            prob_->add_post_change_listener([=, this]() {
-                dirty = true;
-            });
+            core::abstract::dependsOn(this, prob_, [this]() { dirty = true; });
             value_ = calculateValue(data_, prob_->value());
         };
 

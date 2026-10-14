@@ -4,6 +4,7 @@
 
 #include "Model.h"
 
+#include "core/abstract/observables/Dependency.h"
 #include "core/distributions/pdfs/DiscretePDF.h"
 #include "core/distributions/pdfs/GammaLogPDF.h"
 #include "core/distributions/pdfs/BetaLogPDF.h"
@@ -13,15 +14,7 @@
 namespace transmission_nets::impl::Model {
 
     Model::Model(std::shared_ptr<State> state, double temperature) : state_(std::move(state)), temperature(temperature) {
-        likelihood.add_set_dirty_listener([=, this]() {
-            this->setDirty();
-        });
-        likelihood.registerCacheableCheckpointTarget(this);
-
-        prior.add_set_dirty_listener([=, this]() {
-            this->setDirty();
-        });
-        prior.registerCacheableCheckpointTarget(this);
+        core::abstract::dependsOn(this, likelihood, prior);
 
         transmissionMemo        = std::make_shared<TransmissionMemoImpl>(state_->meanStrainsTransmitted, state_->alleleFrequencies);
         parentSetSizeLikelihood = std::make_shared<ParentSetSizeLikelihoodImpl>(state_->parentSetSizeProb);

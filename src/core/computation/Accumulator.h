@@ -10,6 +10,7 @@
 #include "PartialLikelihood.h"
 
 #include "core/abstract/observables/Cacheable.h"
+#include "core/abstract/observables/Dependency.h"
 #include "core/abstract/observables/Checkpointable.h"
 #include "core/abstract/observables/Observable.h"
 
@@ -30,12 +31,7 @@ namespace transmission_nets::core::computation {
 
     public:
         Accumulator();
-        //        void addTarget(Input target);
         void addTarget(const std::shared_ptr<Input>& target);
-
-        void postSaveState(int savedStateId);
-        void postAcceptState();
-        void postRestoreState(int savedStateId);
 
         Output value() noexcept override;
 
@@ -46,15 +42,26 @@ namespace transmission_nets::core::computation {
 
         friend class abstract::Checkpointable<Accumulator, Output>;
 
-        // using TargetSet = boost::container::flat_set<std::shared_ptr<Input>>;
         using TargetSet = std::vector<std::shared_ptr<Input>>;
 
         TargetSet targets_{};
         TargetSet dirtyTargets_{};
 
-        // std::vector<TargetSet> targetsCache_{};
-        // std::vector<TargetSet> dirtyTargetsCache_{};
+        // Takes `target`'s contribution out of the running sum the first time it goes dirty, until value() adds its
+        // new one back.
+        void targetWentDirty(const std::shared_ptr<Input>& target);
     };
+
+    template<typename Input, typename Output>
+    void Accumulator<Input, Output>::targetWentDirty(const std::shared_ptr<Input>& target) {
+        for (auto& el : dirtyTargets_) {
+            if (el == target) {
+                return;
+            }
+        }
+        dirtyTargets_.emplace_back(target);
+        this->value_ -= target->peek();
+    }
 
 
     template<typename Input, typename Output>
@@ -62,22 +69,7 @@ namespace transmission_nets::core::computation {
         this->setDirty();
         targets_.emplace_back(target);
         dirtyTargets_.emplace_back(target);
-
-        target->add_set_dirty_listener([=, this]() {
-            bool alreadyDirty = false;
-            for (auto& el : dirtyTargets_) {
-                if (el == target) {
-                    alreadyDirty = true;
-                    break;
-                }
-            }
-            if (!alreadyDirty) {
-                dirtyTargets_.emplace_back(target);
-                this->setDirty();
-                this->value_ -= target->peek();
-            }
-        });
-        target->registerCacheableCheckpointTarget(this);
+        abstract::dependsOn(this, target, [=, this]() { targetWentDirty(target); });
     }
 
 
@@ -98,24 +90,7 @@ namespace transmission_nets::core::computation {
 #endif
         targets_.emplace_back(target);
         dirtyTargets_.emplace_back(target);
-
-        target->add_set_dirty_listener([=, this]() {
-            bool alreadyDirty = false;
-            for (auto& el : dirtyTargets_) {
-                if (el == target) {
-                    alreadyDirty = true;
-                    break;
-                }
-            }
-
-            if (!alreadyDirty) {
-                dirtyTargets_.emplace_back(target);
-                this->setDirty();
-                this->value_ -= target->peek();
-            }
-        });
-
-        target->registerCacheableCheckpointTarget(this);
+        abstract::dependsOn(this, target, [=, this]() { targetWentDirty(target); });
     }
 
 
@@ -128,32 +103,6 @@ namespace transmission_nets::core::computation {
         dirtyTargets_.resize(0);
 
         return this->value_;
-    }
-
-
-    template<typename Input, typename Output>
-    void Accumulator<Input, Output>::postSaveState([[maybe_unused]] int savedStateId) {
-        // fmt::print("Saving {} targets\n", targets_.size());
-        // fmt::print("Saving {} dirty targets\n", dirtyTargets_.size());
-        // targetsCache_.emplace_back(targets_);
-        // dirtyTargetsCache_.emplace_back(dirtyTargets_);
-    }
-
-
-    template<typename Input, typename Output>
-    void Accumulator<Input, Output>::postRestoreState([[maybe_unused]] int savedStateId) {
-        // targets_      = targetsCache_.back();
-        // dirtyTargets_ = dirtyTargetsCache_.back();
-
-        // targetsCache_.pop_back();
-        // dirtyTargetsCache_.pop_back();
-    }
-
-
-    template<typename Input, typename Output>
-    void Accumulator<Input, Output>::postAcceptState() {
-        // targetsCache_.resize(0);
-        // dirtyTargetsCache_.resize(0);
     }
 
 
@@ -185,11 +134,7 @@ namespace transmission_nets::core::computation {
 
 
     template<typename Input, typename Output>
-    Accumulator<Input, Output>::Accumulator() {
-        this->addPostSaveHook([=, this](const auto& savedStateId) { this->postSaveState(savedStateId); });
-        this->addPostRestoreHook([=, this](const auto& savedStateId) { this->postRestoreState(savedStateId); });
-        this->addPostAcceptHook([=, this]() { this->postAcceptState(); });
-    }
+    Accumulator<Input, Output>::Accumulator() = default;
 
 }// namespace transmission_nets::core::computation
 
