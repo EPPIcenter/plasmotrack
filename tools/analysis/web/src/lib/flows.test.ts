@@ -77,6 +77,18 @@ describe("attribution cells", () => {
   });
 });
 
+describe("cell strata", () => {
+  it("keep each cell's recipient and source values, so a cell selects its stratum", () => {
+    const { cells } = attributionCells(flows);
+    expect(cells.map((c) => [c.recipientValue, c.sourceValue])).toEqual([
+      ["North", "North"], ["North", null], ["North", null], [null, "North"], [null, null], [null, null],
+    ]);
+    expect(enrichmentCells(flows).map((c) => [c.sourceValue, c.recipientValue])).toEqual([
+      ["North", "North"], ["North", null], [null, "North"], [null, null],
+    ]);
+  });
+});
+
 describe("enrichment cells", () => {
   it("carry the expected edge count as the label and no fill without candidate pairs", () => {
     const cells = enrichmentCells(flows);

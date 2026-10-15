@@ -85,6 +85,11 @@ export const UNOBSERVED = "Unobserved source";
 export interface HeatCell {
   recipient: string;
   source: string;
+  /** The recipient stratum's value, null for the Infections with no value. */
+  recipientValue: string | null;
+  /** The source stratum's value; null for the Infections with no value and for the unobserved source. */
+  sourceValue: string | null;
+  unobserved: boolean;
   share: number | null;
   mass: number;
 }
@@ -97,6 +102,9 @@ export function attributionCells(f: Flows) {
   const cells: HeatCell[] = f.attribution.map((c) => ({
     recipient: label(c.recipient),
     source: c.unobserved ? UNOBSERVED : label(c.source),
+    recipientValue: c.recipient,
+    sourceValue: c.unobserved ? null : c.source,
+    unobserved: c.unobserved,
     share: c.share,
     mass: c.mass,
   }));
@@ -111,6 +119,8 @@ export const clipEnrichment = (x: number) => Math.min(ENRICHMENT_DOMAIN[1], Math
 export interface EnrichmentHeatCell extends EnrichmentCell {
   source: string;
   recipient: string;
+  sourceValue: string | null;
+  recipientValue: string | null;
   /** The clipped enrichment for the fill; null where the cell has no candidate pair. */
   fill: number | null;
   /** The expected edge count, the cell's label. */
@@ -122,6 +132,8 @@ const edgeCount = (x: number) => (x === 0 ? "0" : x >= 10 ? x.toFixed(1) : Strin
 export function enrichmentCells(f: Flows): EnrichmentHeatCell[] {
   return f.enrichment.map((c) => ({
     ...c,
+    sourceValue: c.source,
+    recipientValue: c.recipient,
     source: stratumLabel(f.column, c.source),
     recipient: stratumLabel(f.column, c.recipient),
     fill: c.enrichment === null ? null : clipEnrichment(c.enrichment),

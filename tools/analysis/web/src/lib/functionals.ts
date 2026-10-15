@@ -2,6 +2,7 @@
 // tables, and the trace parameters of a stratum's per-Draw functional. No DOM here.
 
 import { intervalColumns, intervalFields, recordsTable, type DataTable } from "./export";
+import type { Entity } from "./entity";
 import type { Params } from "./params";
 
 /** A functional's mean over Draws and its 95% MCMC interval (type-7 quantiles over every Draw of every Chain). */
@@ -52,6 +53,18 @@ export function stackOrder(classes: readonly string[]): string[] {
     const y = parseClass(b);
     return x.unobserved !== y.unobserved ? (x.unobserved ? -1 : 1) : x.count - y.count;
   });
+}
+
+/** The manuscript's three categories of a Parent set: observed parents only, observed parents and the unobserved
+ *  source (mixed), the unobserved source only. */
+export type ClassCategory = "observed_only" | "mixed" | "unobserved_only";
+
+/** A class's category, and its step within it: the observed-parent count less one (0 for unobserved only). The
+ *  composition colours a category by hue and a step by lightness. */
+export function classShade(label: string): { category: ClassCategory; step: number } {
+  const { count, unobserved } = parseClass(label);
+  if (count === 0) return { category: "unobserved_only", step: 0 };
+  return { category: unobserved ? "mixed" : "observed_only", step: count - 1 };
 }
 
 export function classLabel(label: string): string {
@@ -130,6 +143,77 @@ export function multiSourceRows(f: Functionals): MultiSourceRow[] {
     augmented: s.multi_source_augmented,
     observed: s.multi_source_observed,
   }));
+}
+
+/** What a functional's mark or cell selects: the stratum's per-Draw functional as a quantity, or for a point summary
+ *  with no per-Draw series (psi_MAP, the size range) the stratum itself; nothing for a point summary of every
+ *  Infection. */
+export function functionalEntity(column: string | null, value: string | null, functional: string | null): Entity | null {
+  if (functional) return { kind: "quantity", group: "functionals", name: functional, stratum: { column, value: column === null ? null : value } };
+  return column === null ? null : { kind: "stratum", column, value };
+}
+
+type QuantityEntity = Extract<Entity, { kind: "quantity" }>;
+
+/** The per-Draw functionals the trace small multiple draws; only psi_edge and mean q have a series per stratum. */
+export const TRACED = [
+  { name: "psi_edge", label: "ψ_edge", perStratum: true },
+  { name: "mean_q", label: "mean q", perStratum: true },
+  { name: "mean_entropy", label: "mean entropy", perStratum: false },
+] as const;
+
+export interface TraceGrid {
+  functionals: typeof TRACED;
+  /** Every Infection first (the convergence table's quantities), then the largest strata; a null cell has no series. */
+  rows: { stratum: string; cells: (QuantityEntity | null)[] }[];
+  /** Strata left out past the cap. */
+  hidden: number;
+}
+
+/** The trace small multiple: a row of per-Draw functional traces for every Infection, then for each of the `max`
+ *  largest strata of a column. */
+export function traceGrid(f: Functionals, max = 6): TraceGrid {
+  const overall = { stratum: stratumLabel(null, null), cells: TRACED.map((t): QuantityEntity => ({ kind: "quantity", group: "functionals", name: t.name })) };
+  if (f.column === null) return { functionals: TRACED, rows: [overall], hidden: 0 };
+  const shown = [...f.strata].sort((a, b) => b.n - a.n).slice(0, max);
+  const rows = shown.map((s) => ({
+    stratum: stratumLabel(f.column, s.value),
+    cells: TRACED.map((t) => (t.perStratum ? (functionalEntity(f.column, s.value, t.name) as QuantityEntity) : null)),
+  }));
+  return { functionals: TRACED, rows: [overall, ...rows], hidden: f.strata.length - shown.length };
+}
+
+/** Which way a stratum's Infections count (the manuscript's Zanzibar convention): out-degree as sources, everything
+ *  else as recipients, from their own Parent sets. */
+export type Role = "source" | "recipient";
+
+export interface SummaryRow {
+  label: string;
+  role: Role;
+  /** The estimate; null for the size range, which is only a range. */
+  estimate: number | null;
+  lower: number | null;
+  upper: number | null;
+  /** The per-Draw functional behind the row; null for a point summary. */
+  entity: QuantityEntity | null;
+}
+
+/** A stratum's functionals as the Stratum Inspector lists them; null when the column has no stratum of `value`. */
+export function stratumSummary(f: Functionals, value: string | null): SummaryRow[] | null {
+  const s = f.strata.find((x) => x.value === value);
+  if (!s) return null;
+  const q = (name: string) => functionalEntity(f.column, s.value, name) as QuantityEntity;
+  const interval = (label: string, role: Role, i: Interval | null, name: string): SummaryRow => ({
+    label, role, estimate: i?.mean ?? null, lower: i?.lower ?? null, upper: i?.upper ?? null, entity: q(name),
+  });
+  return [
+    { label: "ψ_MAP", role: "source", estimate: s.psi_map, lower: null, upper: null, entity: null },
+    { label: `Size range (${f.level})`, role: "recipient", estimate: null, lower: s.size_range?.[0] ?? null, upper: s.size_range?.[1] ?? null, entity: null },
+    interval("ψ_edge", "source", s.psi_edge, "psi_edge"),
+    interval("mean q", "recipient", s.mean_q, "mean_q"),
+    interval("Multi-source, augmented", "recipient", s.multi_source_augmented, "mean_multi_source_augmented"),
+    interval("Multi-source, observed", "recipient", s.multi_source_observed, "mean_multi_source_observed"),
+  ];
 }
 
 /** The trace panel's parameters for a stratum's per-Draw functional (see the backend's `/api/trace`). */

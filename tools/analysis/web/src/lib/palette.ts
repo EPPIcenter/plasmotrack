@@ -80,3 +80,29 @@ export const chainColour = (theme: ChartTheme, index: number) => theme.chains[in
 export function chainScale(theme: ChartTheme, chains: readonly string[]) {
   return { type: "categorical" as const, domain: [...chains], range: chains.map((_, i) => chainColour(theme, i)) };
 }
+
+/** The Parent-set composition's colours: the manuscript's three categories as three hues (slots 4, 7 and 3: amber
+ *  unobserved only, purple mixed, green observed only; these three pass the validator all-pairs in both themes, worst
+ *  CVD ΔE 9.1 light and 8.4 dark), and the observed-parent count within a category as a step towards the surface. */
+const CATEGORY_SLOT = { unobserved_only: 3, mixed: 6, observed_only: 2 } as const;
+
+function mix(a: string, b: string, t: number): string {
+  const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [rgb(a), rgb(b)];
+  return `#${x.map((v, i) => Math.round(v + (y[i]! - v) * t).toString(16).padStart(2, "0")).join("")}`;
+}
+
+export function compositionColour(theme: ChartTheme, shade: { category: keyof typeof CATEGORY_SLOT; step: number }): string {
+  const base = theme.chains[CATEGORY_SLOT[shade.category]]!;
+  return shade.step === 0 ? base : mix(base, theme.surface, Math.min(0.7, 0.42 + 0.14 * (shade.step - 1)));
+}
+
+/** Ink for a label drawn on `fill` (`#rrggbb` or `rgb(r, g, b)`): near-black on a light fill, white on a dark one. */
+export function inkOn(fill: string): string {
+  const channels = fill.startsWith("#") ? [1, 3, 5].map((i) => parseInt(fill.slice(i, i + 2), 16)) : (fill.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+  const [r, g, b] = channels.map((v) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b! > 0.3 ? "#0b0b0b" : "#ffffff";
+}

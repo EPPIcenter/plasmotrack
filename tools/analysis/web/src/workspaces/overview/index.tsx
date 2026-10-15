@@ -18,9 +18,9 @@ import { StatusChip } from "../../components/StatusChip";
 import { useSelection } from "../../app/selection";
 import { useTheme } from "../../app/theme";
 import { formatEss, formatNumber, formatProbability, formatRhat } from "../../lib/format";
-import type { Interval } from "../../lib/functionals";
+import { classShade, type Interval } from "../../lib/functionals";
 import { headlineComposition, mixingStrip, overviewTables, RHAT_CAP } from "../../lib/overview";
-import { chainColour } from "../../lib/palette";
+import { compositionColour, inkOn } from "../../lib/palette";
 import { ESS_CRITICAL, ESS_WARN, essLevel, RHAT_CRITICAL, RHAT_WARN, rhatLevel } from "../../lib/status";
 
 const LOG_POSTERIOR = { kind: "quantity" as const, group: "log posterior", name: "log posterior" };
@@ -239,10 +239,10 @@ function Headline({ o }: { o: Overview }) {
         style: plotStyle(theme),
         x: { domain: [0, 1], label: null, tickFormat: "%", ticks: 5 },
         y: { axis: null },
-        color: { domain: segments.map((s) => s.label), range: segments.map((_, i) => chainColour(theme, i + 2)) },
+        color: { domain: segments.map((s) => s.label), range: segments.map((s) => compositionColour(theme, classShade(s.class))) },
         marks: [
           Plot.barX(segments, { x1: "x1", x2: "x2", fill: "label", insetLeft: 1, insetRight: 1 }),
-          Plot.text(segments.filter((s) => s.share > 0.08), { x: (s) => (s.x1 + s.x2) / 2, text: (s) => `${Math.round(100 * s.share)}%`, fill: "white", fontWeight: 600 }),
+          Plot.text(segments.filter((s) => s.share > 0.08), { x: (s) => (s.x1 + s.x2) / 2, text: (s) => `${Math.round(100 * s.share)}%`, fill: (s) => inkOn(compositionColour(theme, classShade(s.class))), fontWeight: 600 }),
           Plot.tip(segments, Plot.pointerX({ x: (s) => (s.x1 + s.x2) / 2, title: (s) => `${s.label}: ${(100 * s.share).toFixed(1)}%` })),
         ],
       }),
@@ -313,10 +313,10 @@ function Headline({ o }: { o: Overview }) {
         <h3 className="text-axis font-semibold text-ink-2">Composition of Parent sets <span className="font-normal text-muted">mean share over Infections and Draws</span></h3>
         <PlotFigure plot={composition} height={64} label="Composition of Parent sets" />
         <ul className="flex flex-wrap gap-x-3 text-axis text-ink-2">
-          {segments.map((s, i) => (
+          {segments.map((s) => (
             <li key={s.class} className="flex items-center gap-1">
               <button type="button" className="flex items-center gap-1 hover:text-ink" onClick={() => select({ kind: "quantity", group: "functionals", name: s.functional, stratum: { column: null, value: null } })}>
-                <SegmentSwatch index={i} /> {s.label} <span className="text-muted tabular-nums">{(100 * s.share).toFixed(1)}%</span>
+                <SegmentSwatch label={s.class} /> {s.label} <span className="text-muted tabular-nums">{(100 * s.share).toFixed(1)}%</span>
               </button>
             </li>
           ))}
@@ -355,9 +355,9 @@ function Headline({ o }: { o: Overview }) {
   );
 }
 
-function SegmentSwatch({ index }: { index: number }) {
+function SegmentSwatch({ label }: { label: string }) {
   const { chart } = useTheme();
-  return <span aria-hidden className="inline-block h-2 w-2 rounded-[1px]" style={{ background: chainColour(chart, index + 2) }} />;
+  return <span aria-hidden className="inline-block h-2 w-2 rounded-[1px]" style={{ background: compositionColour(chart, classShade(label)) }} />;
 }
 
 export default function OverviewWorkspace() {

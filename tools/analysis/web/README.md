@@ -120,6 +120,30 @@ The route and the rail entry of every workspace in DESIGN.md exist; the ones not
    `pairwise_scores`, `analyses` likewise). An attention badge is a count under the workspace's id in
    `/api/status`'s `attention` (`pt_analysis/overview.py`, `status`).
 
+## Posterior workspaces
+
+- **Functionals** (`/functionals?column=<epi column>`): ψ_MAP, ψ_edge and mean q per stratum as a dot-and-range chart
+  (out-degree by source stratum on the left, mean q by recipient stratum on the right), composition classes as
+  stacked bars, the multi-source probabilities, a small multiple of the per-Draw functional traces per Chain
+  (ψ_edge, mean q and mean entropy for every Infection, ψ_edge and mean q for the six largest strata; mean entropy
+  has no per-stratum series), and a table of every number with its interval. A mark or cell selects its per-Draw
+  functional (`quantity:functionals/<name>@<column>=<value>`); a point summary (ψ_MAP, the size range) selects its
+  stratum. Logic in `src/lib/functionals.ts` (`functionalEntity`, `traceGrid`, `stratumSummary`, `classShade`).
+- **Flows** (`/flows?column=&min_infections=&max_lag=&unit=&parent=&spatial_lag=0`, in the rail only with epi
+  data): attribution and enrichment heatmaps labelled with shares and expected edge counts, net flow bars with the
+  minimum Infections per stratum, the lag histogram with the median fitted duration and the reassignment cutoff
+  (the moved mass and ψ_edge and mean q before and after, overall and per stratum), and the spatial-scale shares of a
+  unit column within a parent column. Without `column` it stratifies by the first categorical epi column. Cells and
+  bars select their recipient stratum; the strata list under the attribution matrix opens the Network filtered to a
+  stratum (`/network?stratum_column=&stratum=`). Logic in `src/lib/flows.ts`; hooks in `src/api/flows.ts`.
+- **Stratum Inspector** (`sel=stratum:<column>=<value>`): the stratum's functionals with intervals and their
+  source or recipient convention, its composition, its net flow, its Infections (from `/api/network`'s epi values)
+  and a link to the Network filtered to it.
+- The composition's colours are `compositionColour(theme, classShade(label))` in `src/lib/palette.ts`: the
+  manuscript's three categories (unobserved only, mixed, observed only) as three hues that pass the validator
+  all-pairs in both themes, the observed-parent count as a step towards the surface. The Overview uses them too.
+  `inkOn(fill)` picks the label ink on a fill.
+
 ## Add an Inspector entity
 
 Entity kinds are `infection`, `edge`, `pair`, `quantity` and `stratum`. Each is one line in
