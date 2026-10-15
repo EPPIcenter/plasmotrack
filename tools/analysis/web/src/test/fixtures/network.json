@@ -1,0 +1,95 @@
+{
+ "chains": [
+  "chain1",
+  "chain2"
+ ],
+ "edges": [
+  {
+   "chains": [
+    0.8913825298901814,
+    0.7756963399816275
+   ],
+   "child": "3",
+   "lag": 116.4263,
+   "marginal": 0.8335394349359044,
+   "parent": "1"
+  }
+ ],
+ "epi_columns": [
+  {
+   "name": "district",
+   "type": "categorical",
+   "values": [
+    "North",
+    "South"
+   ]
+  },
+  {
+   "name": "region",
+   "type": "categorical",
+   "values": [
+    "East"
+   ]
+  },
+  {
+   "name": "observed",
+   "type": "date",
+   "values": [
+    "2020-01-05",
+    "2020-02-01",
+    "2020-03-10"
+   ]
+  }
+ ],
+ "floor": 0.01,
+ "nodes": [
+  {
+   "epi": {
+    "district": "North",
+    "observed": "2020-01-05",
+    "region": "East"
+   },
+   "id": "1",
+   "infection_time": {
+    "lower": 210.56915854730534,
+    "median": 223.2783343437396,
+    "upper": 230.3022980395158
+   },
+   "observation_time": 234.0737,
+   "q": 1.0,
+   "symptomatic": true
+  },
+  {
+   "epi": {
+    "district": "South",
+    "observed": "2020-02-01",
+    "region": "East"
+   },
+   "id": "2",
+   "infection_time": {
+    "lower": 281.18984163787144,
+    "median": 292.3976433463141,
+    "upper": 301.20884910658725
+   },
+   "observation_time": 306.2297,
+   "q": 1.0,
+   "symptomatic": true
+  },
+  {
+   "epi": {
+    "district": "North",
+    "observed": "2020-03-10",
+    "region": "East"
+   },
+   "id": "3",
+   "infection_time": {
+    "lower": 300.5005629778064,
+    "median": 328.20063946023583,
+    "upper": 346.29913212204036
+   },
+   "observation_time": 350.5,
+   "q": 0.16933417135115839,
+   "symptomatic": false
+  }
+ ]
+}

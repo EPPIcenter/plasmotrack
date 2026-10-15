@@ -1,0 +1,83 @@
+{
+ "fits": [
+  {
+   "directed": {
+    "average_precision": 0.8333333333333333,
+    "curve": [
+     {
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 0.5,
+      "score": 0.8335394349,
+      "tp": 1
+     },
+     {
+      "fp": 1,
+      "precision": 0.5,
+      "recall": 0.5,
+      "score": 0.0029655739,
+      "tp": 1
+     },
+     {
+      "fp": 1,
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "score": 0.0029108084,
+      "tp": 2
+     },
+     {
+      "fp": 4,
+      "precision": 0.3333333333333333,
+      "recall": 1.0,
+      "score": 0.0,
+      "tp": 2
+     }
+    ],
+    "n_distinct_scores": 4,
+    "n_edge_universe": 6,
+    "n_true_edges": 2,
+    "pr_auc": 0.7916666666666666,
+    "top_k_precision": 0.5
+   },
+   "fit": "posterior",
+   "label": "golden",
+   "undirected": {
+    "average_precision": 0.8333333333333333,
+    "curve": [
+     {
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 0.5,
+      "score": 0.8335394349,
+      "tp": 1
+     },
+     {
+      "fp": 1,
+      "precision": 0.5,
+      "recall": 0.5,
+      "score": 0.0029655739,
+      "tp": 1
+     },
+     {
+      "fp": 1,
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "score": 0.0029108084,
+      "tp": 2
+     }
+    ],
+    "n_distinct_scores": 3,
+    "n_edge_universe": 3,
+    "n_true_edges": 2,
+    "pr_auc": 0.7916666666666666,
+    "top_k_precision": 0.5
+   }
+  }
+ ],
+ "truth": {
+  "n_observed_cases": 3,
+  "n_true_cases": 3,
+  "true_average_outdegree": 0.6666666666666666,
+  "true_unobserved_source_proportion": 0.3333333333333333
+ }
+}

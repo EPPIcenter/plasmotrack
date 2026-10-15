@@ -1,0 +1,20 @@
+{
+ "columns": [
+  {
+   "name": "district",
+   "type": "categorical"
+  },
+  {
+   "name": "region",
+   "type": "categorical"
+  },
+  {
+   "name": "observed",
+   "type": "date"
+  }
+ ],
+ "infections": 3,
+ "key": "infection",
+ "missing": [],
+ "unmatched": []
+}

@@ -1,0 +1,20 @@
+{
+ "chains": [
+  {
+   "chain": "chain1",
+   "draws": 10,
+   "ess": 10.0
+  },
+  {
+   "chain": "chain2",
+   "draws": 10,
+   "ess": 7.44641539328075
+  }
+ ],
+ "ess": 3.5838570587533853,
+ "first": null,
+ "group": "log posterior",
+ "last": null,
+ "name": "log posterior",
+ "rhat": 1.2643097719105674
+}

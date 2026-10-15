@@ -1,0 +1,115 @@
+{
+ "attribution": [
+  {
+   "mass": 0.8335394349359044,
+   "recipient": "North",
+   "share": 0.41555646294252874,
+   "source": "North",
+   "unobserved": false
+  },
+  {
+   "mass": 0.0029655738658940635,
+   "recipient": "North",
+   "share": 0.0014784704054229916,
+   "source": "South",
+   "unobserved": false
+  },
+  {
+   "mass": 1.1693341713511585,
+   "recipient": "North",
+   "share": 0.5829650666520483,
+   "source": null,
+   "unobserved": true
+  },
+  {
+   "mass": 0.0029108084446622644,
+   "recipient": "South",
+   "share": 0.002902360229995342,
+   "source": "North",
+   "unobserved": false
+  },
+  {
+   "mass": 0.0,
+   "recipient": "South",
+   "share": 0.0,
+   "source": "South",
+   "unobserved": false
+  },
+  {
+   "mass": 1.0,
+   "recipient": "South",
+   "share": 0.9970976397700047,
+   "source": null,
+   "unobserved": true
+  }
+ ],
+ "column": "district",
+ "enrichment": [
+  {
+   "candidate_share": 0.3333333333333333,
+   "candidates": 1,
+   "enrichment": 2.9789983145784675,
+   "expected_edges": 0.8335394349359044,
+   "recipient": "North",
+   "share": 0.9929994381928224,
+   "source": "North"
+  },
+  {
+   "candidate_share": 0.3333333333333333,
+   "candidates": 1,
+   "enrichment": 0.010402979256016173,
+   "expected_edges": 0.0029108084446622644,
+   "recipient": "South",
+   "share": 0.003467659752005391,
+   "source": "North"
+  },
+  {
+   "candidate_share": 0.3333333333333333,
+   "candidates": 1,
+   "enrichment": 0.010598706165516567,
+   "expected_edges": 0.0029655738658940635,
+   "recipient": "North",
+   "share": 0.0035329020551721885,
+   "source": "South"
+  },
+  {
+   "candidate_share": 0.0,
+   "candidates": 0,
+   "enrichment": null,
+   "expected_edges": 0.0,
+   "recipient": "South",
+   "share": 0.0,
+   "source": "South"
+  }
+ ],
+ "net_flow": {
+  "hidden": 0,
+  "min_infections": 1,
+  "strata": [
+   {
+    "in_edges": 0.0029655738658940635,
+    "n": 2,
+    "net": -5.476542123179903e-05,
+    "out_edges": 0.0029108084446622644,
+    "value": "North"
+   },
+   {
+    "in_edges": 0.0029108084446622644,
+    "n": 1,
+    "net": 5.476542123179903e-05,
+    "out_edges": 0.0029655738658940635,
+    "value": "South"
+   }
+  ]
+ },
+ "strata": [
+  {
+   "n": 2,
+   "value": "North"
+  },
+  {
+   "n": 1,
+   "value": "South"
+  }
+ ]
+}

@@ -1,0 +1,39 @@
+{
+ "fits": [
+  {
+   "fit": "posterior",
+   "label": "golden",
+   "summary": {
+    "credible_parent_set_coverage_80": 0.6666666666666666,
+    "mean_credible_parent_set_size_80": 1.0,
+    "mean_top_parent_set_probability": 0.9416762985991074,
+    "median_credible_parent_set_size_80": 1
+   }
+  }
+ ],
+ "level": 0.8,
+ "rows": [
+  {
+   "covered": true,
+   "credible_size": 1,
+   "effective_size": 1.0,
+   "infection": "1",
+   "top_probability": 1.0
+  },
+  {
+   "covered": false,
+   "credible_size": 1,
+   "effective_size": 1.0201031225847912,
+   "infection": "2",
+   "top_probability": 0.9970891915553377
+  },
+  {
+   "covered": true,
+   "credible_size": 1,
+   "effective_size": 1.6315178294799189,
+   "infection": "3",
+   "top_probability": 0.8279397042419845
+  }
+ ],
+ "truth": true
+}

@@ -1,0 +1,35 @@
+{
+ "floor": 0.01,
+ "sources": [
+  {
+   "directed": true,
+   "edges": [
+    {
+     "child": "3",
+     "lag": 116.4263,
+     "marginal": 0.8335394349,
+     "parent": "1",
+     "reverse_marginal": 0.0,
+     "reverse_true": false,
+     "true": true
+    },
+    {
+     "child": "2",
+     "lag": 72.15599999999998,
+     "marginal": 0.0029108084,
+     "parent": "1",
+     "reverse_marginal": 0.0,
+     "reverse_true": false,
+     "true": true
+    }
+   ],
+   "label": "golden",
+   "source": "posterior"
+  }
+ ],
+ "truth": {
+  "n_true_edges": 2,
+  "unmatched_infections": [],
+  "unobserved_truth_infections": []
+ }
+}

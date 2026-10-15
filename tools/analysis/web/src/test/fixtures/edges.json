@@ -1,0 +1,134 @@
+{
+ "chains": [
+  "chain1",
+  "chain2"
+ ],
+ "rows": [
+  {
+   "chains": {
+    "chain1": {
+     "mean": 1.0,
+     "switches": 0
+    },
+    "chain2": {
+     "mean": 1.0,
+     "switches": 0
+    }
+   },
+   "child": "1",
+   "ess": null,
+   "group": "unobserved-source inclusion",
+   "name": "1",
+   "parent": "1_copy",
+   "pooled": 1.0,
+   "spread": 0.0,
+   "switches": 0,
+   "unobserved": true
+  },
+  {
+   "chains": {
+    "chain1": {
+     "mean": 0.0026742122487983964,
+     "switches": 0
+    },
+    "chain2": {
+     "mean": 0.003147404640526133,
+     "switches": 0
+    }
+   },
+   "child": "2",
+   "ess": 26.020599913279625,
+   "group": "edge",
+   "name": "2<-1",
+   "parent": "1",
+   "pooled": 0.002910808444662265,
+   "spread": 0.0004731923917277365,
+   "switches": 0,
+   "unobserved": false
+  },
+  {
+   "chains": {
+    "chain1": {
+     "mean": 1.0,
+     "switches": 0
+    },
+    "chain2": {
+     "mean": 1.0,
+     "switches": 0
+    }
+   },
+   "child": "2",
+   "ess": null,
+   "group": "unobserved-source inclusion",
+   "name": "2",
+   "parent": "2_copy",
+   "pooled": 1.0,
+   "spread": 0.0,
+   "switches": 0,
+   "unobserved": true
+  },
+  {
+   "chains": {
+    "chain1": {
+     "mean": 0.8913825298901814,
+     "switches": 0
+    },
+    "chain2": {
+     "mean": 0.7756963399816275,
+     "switches": 1
+    }
+   },
+   "child": "3",
+   "ess": 12.484076791343616,
+   "group": "edge",
+   "name": "3<-1",
+   "parent": "1",
+   "pooled": 0.8335394349359045,
+   "spread": 0.11568618990855395,
+   "switches": 1,
+   "unobserved": false
+  },
+  {
+   "chains": {
+    "chain1": {
+     "mean": 0.0030153658931991473,
+     "switches": 0
+    },
+    "chain2": {
+     "mean": 0.0029157818385889796,
+     "switches": 0
+    }
+   },
+   "child": "3",
+   "ess": 26.020599913279625,
+   "group": "edge",
+   "name": "3<-2",
+   "parent": "2",
+   "pooled": 0.002965573865894063,
+   "spread": 9.958405461016773e-05,
+   "switches": 0,
+   "unobserved": false
+  },
+  {
+   "chains": {
+    "chain1": {
+     "mean": 0.11249873088682942,
+     "switches": 0
+    },
+    "chain2": {
+     "mean": 0.22616961181548736,
+     "switches": 1
+    }
+   },
+   "child": "3",
+   "ess": 12.538495925945337,
+   "group": "unobserved-source inclusion",
+   "name": "3",
+   "parent": "3_copy",
+   "pooled": 0.16933417135115839,
+   "spread": 0.11367088092865794,
+   "switches": 1,
+   "unobserved": true
+  }
+ ]
+}

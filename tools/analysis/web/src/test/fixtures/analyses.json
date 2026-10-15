@@ -1,0 +1,23 @@
+{
+ "analyses": [
+  {
+   "chains": [
+    {
+     "chain": "chain1",
+     "draws": 10
+    },
+    {
+     "chain": "chain2",
+     "draws": 10
+    }
+   ],
+   "draws": 20,
+   "instructions_retired": null,
+   "label": "golden",
+   "path": "golden/analysis.json",
+   "primary": true,
+   "sampling_seconds": null
+  }
+ ],
+ "input_sha256": "cd84e24b6713ef19bc3e27d4a45b9d579634262c808ee3530375e1ac409774ca"
+}

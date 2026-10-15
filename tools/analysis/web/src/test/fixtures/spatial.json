@@ -1,0 +1,23 @@
+{
+ "max_lag": null,
+ "parent": "region",
+ "shares": [
+  {
+   "mass": 0.8335394349359044,
+   "relation": "same_unit",
+   "share": 0.9929994381928224
+  },
+  {
+   "mass": 0.005876382310556328,
+   "relation": "same_parent",
+   "share": 0.00700056180717758
+  },
+  {
+   "mass": 0.0,
+   "relation": "other",
+   "share": 0.0
+  }
+ ],
+ "total": 0.8394158172464607,
+ "unit": "district"
+}

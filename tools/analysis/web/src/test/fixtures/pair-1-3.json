@@ -1,0 +1,133 @@
+{
+ "a": "1",
+ "b": "3",
+ "co_inclusion": [],
+ "edges": {
+  "a_to_b": 0.8335394349359045,
+  "b_to_a": 0.0,
+  "chains": [
+   {
+    "a_to_b": 0.8913825298901814,
+    "b_to_a": 0.0,
+    "chain": "chain1"
+   },
+   {
+    "a_to_b": 0.7756963399816275,
+    "b_to_a": 0.0,
+    "chain": "chain2"
+   }
+  ]
+ },
+ "genotypes": {
+  "differing": 0,
+  "rows": [
+   {
+    "agreement_a": 1.0,
+    "agreement_b": 1.0,
+    "differs": false,
+    "latent_a": "00001000",
+    "latent_b": "00001000",
+    "locus": "AS1",
+    "observed_a": "00001000",
+    "observed_b": "00001000",
+    "true_a": null,
+    "true_b": null
+   },
+   {
+    "agreement_a": 1.0,
+    "agreement_b": 0.9,
+    "differs": false,
+    "latent_a": "000000010000",
+    "latent_b": "000000010000",
+    "locus": "AS11",
+    "observed_a": "000000010000",
+    "observed_b": null,
+    "true_a": null,
+    "true_b": null
+   }
+  ],
+  "truth": true
+ },
+ "order": {
+  "chains": [
+   {
+    "before": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "before_count": 10,
+    "chain": "chain1",
+    "draws": 10,
+    "iteration": [
+     25,
+     30,
+     35,
+     40,
+     45,
+     50,
+     55,
+     60,
+     65,
+     70
+    ],
+    "probability": 1.0,
+    "switches": 0
+   },
+   {
+    "before": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "before_count": 10,
+    "chain": "chain2",
+    "draws": 10,
+    "iteration": [
+     25,
+     30,
+     35,
+     40,
+     45,
+     50,
+     55,
+     60,
+     65,
+     70
+    ],
+    "probability": 1.0,
+    "switches": 0
+   }
+  ],
+  "probability": 1.0
+ },
+ "times": {
+  "a": {
+   "lower": 210.56915854730534,
+   "median": 223.2783343437396,
+   "observation_time": 234.0737,
+   "upper": 230.3022980395158
+  },
+  "b": {
+   "lower": 300.5005629778064,
+   "median": 328.20063946023583,
+   "observation_time": 350.5,
+   "upper": 346.29913212204036
+  },
+  "lag": 116.4263
+ }
+}

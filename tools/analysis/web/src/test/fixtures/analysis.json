@@ -1,0 +1,16 @@
+{
+ "chains": [
+  {
+   "chain": "chain1",
+   "draws": 10
+  },
+  {
+   "chain": "chain2",
+   "draws": 10
+  }
+ ],
+ "draws": 20,
+ "infections": 3,
+ "label": "golden",
+ "loci": 2
+}

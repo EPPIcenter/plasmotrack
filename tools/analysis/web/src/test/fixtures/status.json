@@ -1,0 +1,44 @@
+{
+ "attention": {
+  "convergence": 20,
+  "samplers": 6
+ },
+ "capabilities": {
+  "analyses": 1,
+  "cohort": false,
+  "epi": true,
+  "pairwise_scores": false,
+  "truth": true
+ },
+ "derive": {
+  "chains": {
+   "chain1": {
+    "burn_in": [
+     0
+    ],
+    "sampling": [
+     1,
+     2
+    ]
+   },
+   "chain2": {
+    "burn_in": [
+     0
+    ],
+    "sampling": [
+     1,
+     2
+    ]
+   }
+  },
+  "current": true
+ },
+ "events": [],
+ "mixing": {
+  "ess_below_100": 40,
+  "ess_below_20": 22,
+  "quantities": 42,
+  "rhat_above_1_1": 20,
+  "rhat_above_1_2": 11
+ }
+}
