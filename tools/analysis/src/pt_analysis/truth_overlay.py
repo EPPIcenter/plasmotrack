@@ -14,7 +14,7 @@ edge, the score for a false one.
 
 from dataclasses import dataclass
 
-from pt_analysis import inputs, metrics
+from pt_analysis import inputs, metrics, times
 
 SOURCES = ("posterior", "null", "ibd")
 DEFAULT_FLOOR = 0.01
@@ -64,7 +64,7 @@ def match(analysis):
             "unobserved_truth_infections": [i for i in simulated if i not in inside]}
 
 
-def _edges(edge_set, ids, true_edges, observation_time):
+def _edges(edge_set, ids, true_edges, observed):
     """Every true edge and every scored pair of the set, both ends among `ids`, as rows {parent, child, marginal, true,
     reverse_true, reverse_marginal, lag}. `true_edges` None marks no edge true or false."""
     inside = set(ids)
@@ -82,27 +82,24 @@ def _edges(edge_set, ids, true_edges, observation_time):
             true_pairs.setdefault(metrics.pair(p, c), (p, c))
         keys = scores.keys() | true_pairs.keys()
         rows = [(*true_pairs.get(k, k), scores.get(k, 0.0), k in true_pairs, None, None) for k in keys]
-    lag = lambda p, c: (observation_time[c] - observation_time[p]  # noqa: E731
-                        if p in observation_time and c in observation_time else None)
     return [{"parent": p, "child": c, "marginal": m, "true": t if known else None,
-             "reverse_true": r if known else None, "reverse_marginal": rm, "lag": lag(p, c)}
+             "reverse_true": r if known else None, "reverse_marginal": rm, "lag": times.lag(observed, p, c)}
             for p, c, m, t, r, rm in rows]
 
 
 def _context(analysis):
     ids = [str(i) for i in metrics.infections(analysis)]
-    times = {i: n["observation_time"] for i, n in inputs.nodes(analysis.input).items()}
     truth = metrics.load_truth(analysis.truth, ids) if analysis.truth else None
-    return ids, times, truth
+    return ids, times.observation_times(analysis), truth
 
 
 def overlay(analysis, floor=DEFAULT_FLOOR):
     """{floor, truth, sources}: per edge set its true edges whatever their score and its other edges scoring at least
     `floor`, by score descending. `truth` is `match` without a truth file None, and then no edge is marked."""
-    ids, times, truth = _context(analysis)
+    ids, observed, truth = _context(analysis)
     sources = []
     for s in edge_sets(analysis):
-        rows = [r for r in _edges(s, ids, truth and truth.edges, times) if r["true"] or r["marginal"] >= floor]
+        rows = [r for r in _edges(s, ids, truth and truth.edges, observed) if r["true"] or r["marginal"] >= floor]
         rows.sort(key=lambda r: (-r["marginal"], r["parent"], r["child"]))
         sources.append({"source": s.source, "label": s.label, "directed": s.directed, "edges": rows})
     return {"floor": floor, "truth": match(analysis) if truth else None, "sources": sources}
@@ -119,9 +116,9 @@ def errors(analysis, source="posterior", threshold=DEFAULT_THRESHOLD):
     if edge_set is None:
         missing = "null-model Analysis" if source == "null" else "pairwise scores"
         raise UnknownSource(f"the Analysis manifest names no {missing}")
-    ids, times, truth = _context(analysis)
+    ids, observed, truth = _context(analysis)
     rows = []
-    for r in _edges(edge_set, ids, truth.edges, times):
+    for r in _edges(edge_set, ids, truth.edges, observed):
         if r["true"] and r["marginal"] < threshold:
             rows.append({"kind": "missed", **r, "confidence": 1 - r["marginal"]})
         elif not r["true"] and r["marginal"] >= threshold:
