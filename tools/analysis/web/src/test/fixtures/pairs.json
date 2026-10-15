@@ -1,0 +1,86 @@
+{
+ "chains": [
+  "chain1",
+  "chain2"
+ ],
+ "disagree": null,
+ "edge_min": 0.0,
+ "limit": 200,
+ "max": 1.0,
+ "min": 0.0,
+ "rows": [
+  {
+   "a": "1",
+   "a_to_b": 0.8335394349359045,
+   "b": "3",
+   "b_to_a": 0.0,
+   "chains": [
+    {
+     "chain": "chain1",
+     "draws": 10,
+     "probability": 1.0,
+     "switches": 0
+    },
+    {
+     "chain": "chain2",
+     "draws": 10,
+     "probability": 1.0,
+     "switches": 0
+    }
+   ],
+   "draws": 20,
+   "probability": 1.0,
+   "spread": 0.0,
+   "switches": 0
+  },
+  {
+   "a": "2",
+   "a_to_b": 0.002965573865894063,
+   "b": "3",
+   "b_to_a": 0.0,
+   "chains": [
+    {
+     "chain": "chain1",
+     "draws": 10,
+     "probability": 1.0,
+     "switches": 0
+    },
+    {
+     "chain": "chain2",
+     "draws": 10,
+     "probability": 1.0,
+     "switches": 0
+    }
+   ],
+   "draws": 20,
+   "probability": 1.0,
+   "spread": 0.0,
+   "switches": 0
+  },
+  {
+   "a": "1",
+   "a_to_b": 0.002910808444662265,
+   "b": "2",
+   "b_to_a": 0.0,
+   "chains": [
+    {
+     "chain": "chain1",
+     "draws": 10,
+     "probability": 1.0,
+     "switches": 0
+    },
+    {
+     "chain": "chain2",
+     "draws": 10,
+     "probability": 1.0,
+     "switches": 0
+    }
+   ],
+   "draws": 20,
+   "probability": 1.0,
+   "spread": 0.0,
+   "switches": 0
+  }
+ ],
+ "total": 3
+}

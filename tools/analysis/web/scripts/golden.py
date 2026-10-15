@@ -51,6 +51,8 @@ ENDPOINTS = {
     "ranking": "/api/ranking",
     "parent-sets": "/api/parent-sets",
     "compare-convergence": "/api/compare/convergence",
+    "pairs": "/api/pairs?min=0&max=1",
+    "edge-series": "/api/edge-series?edges=1%3C-1_copy,2%3C-1,2%3C-2_copy,3%3C-1,3%3C-2,3%3C-3_copy&points=40",
 }
 
 
