@@ -7,6 +7,8 @@ Parent sets per Chain and pooled, with members, composition class and the credib
 Edge marginals; and its q, entropy and effective parent-set size. Pooled values weight each Chain by its Draws.
 """
 
+import math
+
 from pt_analysis import functionals, inputs, times
 from pt_analysis.chains import infection_ids, pooled_mean
 from pt_analysis.derive import derived, derived_analysis, table
@@ -69,16 +71,21 @@ def coi(analysis, infection):
 
 def genotype(analysis, infection):
     """Per Locus in the input's order, the number of Alleles (from `structure/loci`), the Observed genotype from the
-    input (None where unobserved) and the posterior presence of each Allele pooled over Chains (from
-    `genotype_summary`; 0 where no Draw has it)."""
+    input (None where unobserved), the posterior presence of each Allele pooled over Chains (from
+    `genotype_summary`; 0 where no Draw has it), and the Latent genotype's posterior mode at the Locus pooled over
+    Chains with the fraction of Draws that have it (from `genotype_mode`; ties to the smaller bitstring)."""
     store = next(iter(analysis.runs.values()))
     n_alleles = dict(store.structure("loci").aggregate("locus, max(allele) + 1").fetchall())
-    presence, draws = {}, {}
+    presence, draws, modes = {}, {}, {}
     for label, store in analysis.runs.items():
         draws[label] = store.draws()
         for locus, allele, p in derived(store, "genotype_summary").filter(f"infection = {literal(infection)}").project(
                 "locus, allele, presence").fetchall():
             presence.setdefault((locus, allele), {})[label] = p
+        for locus, alleles, n in derived(store, "genotype_mode").filter(f"infection = {literal(infection)}").project(
+                "locus, alleles, draws").fetchall():
+            counts = modes.setdefault(locus, {})
+            counts[alleles] = counts.get(alleles, 0) + n
     total = sum(draws.values())
     observed = inputs.genotypes(inputs.nodes(analysis.input)[infection].get("observed_genotype"))
     order = inputs.loci(analysis.input)
@@ -86,8 +93,11 @@ def genotype(analysis, infection):
     for locus in order + sorted(set(n_alleles) - set(order)):
         pooled_presence = [sum(p * draws[label] for label, p in presence.get((locus, a), {}).items()) / total
                            if total else 0.0 for a in range(n_alleles.get(locus, 0))]
+        counts = modes.get(locus, {})
+        mode = min(counts, key=lambda bits: (-counts[bits], bits)) if counts else None
         loci.append({"locus": locus, "alleles": n_alleles.get(locus, 0), "observed": observed.get(locus),
-                     "presence": pooled_presence})
+                     "presence": pooled_presence, "mode": mode,
+                     "mode_fraction": counts[mode] / total if mode is not None and total else None})
     return {"loci": loci}
 
 
@@ -157,6 +167,24 @@ def summary(analysis, infection):
     return {"chains": chains, **{c: pooled_mean(with_draws, c, draws) for c in SUMMARY}}
 
 
+def posterior_spread(weights):
+    """{posterior_entropy, posterior_effective_size}: the entropy of mean Parent-set weights and its exponential, the
+    effective number of Parent sets of the posterior. Unlike the per-Draw entropy's mean, it counts the disagreement
+    between Draws: Draws each sure of a different set have per-Draw entropy 0 but a posterior entropy above it. None
+    without weights."""
+    if not weights:
+        return {"posterior_entropy": None, "posterior_effective_size": None}
+    entropy = -sum(w * math.log(w) for w in weights if w > 0)
+    return {"posterior_entropy": entropy, "posterior_effective_size": math.exp(entropy)}
+
+
+def with_posterior_spread(summary, sets):
+    """`summary` with each Chain's and the pooled `posterior_spread`, from the Parent sets of `parent_sets`."""
+    by_chain = {c["chain"]: [r["weight"] for r in c["sets"]] for c in sets["chains"]}
+    return {**summary, **posterior_spread([r["weight"] for r in sets["pooled"]]),
+            "chains": [{**c, **posterior_spread(by_chain.get(c["chain"], []))} for c in summary["chains"]]}
+
+
 def card(analysis, infection, level=LEVEL):
     """Everything the infection card shows for `infection`, as a dict:
 
@@ -164,18 +192,22 @@ def card(analysis, infection, level=LEVEL):
         quantities   {false_positives, false_negatives, duration, infection_time}: each {group, name, chains:
                      [{chain, iteration, value}], lower, median, upper}
         coi          {chains: [{chain, iteration, coi}], distribution: [{coi, draws, fraction}]}
-        genotype     {loci: [{locus, alleles, observed, presence}]}
+        genotype     {loci: [{locus, alleles, observed, presence, mode, mode_fraction}]}
         parent_sets  {level, pooled: [set row + chains: [{chain, weight}]], chains: [{chain, sets: [set row]}]}, a
                      set row being {set_id, members, n_observed, class, weight, rank, cumulative_mass, credible}
         parents      [{child, parent, unobserved, group, name, pooled, spread, ess, chains: [{chain, mean}]}]
         children     likewise, with the Infection as parent
-        summary      {chains: [{chain, q, expected_observed_parents, entropy, effective_size}], and each pooled}
+        summary      {chains: [{chain, q, expected_observed_parents, entropy, effective_size, posterior_entropy,
+                     posterior_effective_size}], and each pooled}: entropy and effective_size are means over Draws of
+                     each Draw's, the posterior ones of the mean weights (`posterior_spread`)
     """
     if infection not in infection_ids(analysis):
         raise UnknownInfection(f"no Infection {infection} in the Analysis")
     observation_time = inputs.nodes(analysis.input)[infection]["observation_time"]
     parents, children = edge_marginals(analysis, infection)
+    sets = parent_sets(analysis, infection, level)
     return {"infection": infection, "observation_time": observation_time,
             "quantities": quantities(analysis, infection, observation_time), "coi": coi(analysis, infection),
-            "genotype": genotype(analysis, infection), "parent_sets": parent_sets(analysis, infection, level),
-            "parents": parents, "children": children, "summary": summary(analysis, infection)}
+            "genotype": genotype(analysis, infection), "parent_sets": sets,
+            "parents": parents, "children": children,
+            "summary": with_posterior_spread(summary(analysis, infection), sets)}

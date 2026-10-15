@@ -1,0 +1,185 @@
+{
+ "chains": [
+  "chain1",
+  "chain2"
+ ],
+ "columns": {
+  "coi_median": [
+   1,
+   1,
+   1
+  ],
+  "effective_size": [
+   1.0,
+   1.0194150395726613,
+   1.30686154649396
+  ],
+  "entropy": [
+   0.0,
+   0.019154087084714774,
+   0.2554314429545587
+  ],
+  "epi:district": [
+   "North",
+   "South",
+   "North"
+  ],
+  "epi:observed": [
+   "2020-01-05",
+   "2020-02-01",
+   "2020-03-10"
+  ],
+  "epi:region": [
+   "East",
+   "East",
+   "East"
+  ],
+  "expected_observed_parents": [
+   0.0,
+   0.002910808444662265,
+   0.8365050088017985
+  ],
+  "infection": [
+   "1",
+   "2",
+   "3"
+  ],
+  "infection_time_lower": [
+   210.56915854730534,
+   281.18984163787144,
+   300.5005629778064
+  ],
+  "infection_time_median": [
+   223.2783343437396,
+   292.3976433463141,
+   328.20063946023583
+  ],
+  "infection_time_upper": [
+   230.3022980395158,
+   301.20884910658725,
+   346.29913212204036
+  ],
+  "multi_source": [
+   0.0,
+   0.002910808444662265,
+   0.005827754048572382
+  ],
+  "multi_source_observed": [
+   0.0,
+   0.0,
+   0.0027375505112415743
+  ],
+  "observation_time": [
+   234.0737,
+   306.2297,
+   350.5
+  ],
+  "out_degree": [
+   0.8364502433805667,
+   0.002965573865894063,
+   0.0
+  ],
+  "posterior_effective_size": [
+   1.0,
+   1.0201031225847912,
+   1.6315178294799189
+  ],
+  "posterior_entropy": [
+   -0.0,
+   0.019903722759185817,
+   0.4895107652660693
+  ],
+  "q": [
+   1.0,
+   1.0,
+   0.16933417135115839
+  ],
+  "q_ess": [
+   null,
+   null,
+   12.538495925945337
+  ],
+  "q_rhat": [
+   null,
+   null,
+   1.1037676245278554
+  ],
+  "symptomatic": [
+   true,
+   true,
+   false
+  ],
+  "top_parent": [
+   null,
+   "1",
+   "1"
+  ],
+  "top_parent_marginal": [
+   null,
+   0.002910808444662265,
+   0.8335394349359045
+  ],
+  "top_set": [
+   [
+    "1_copy"
+   ],
+   [
+    "2_copy"
+   ],
+   [
+    "1"
+   ]
+  ],
+  "top_set_class": [
+   "unobserved_only",
+   "unobserved_only",
+   "observed_1"
+  ],
+  "top_set_probability": [
+   1.0,
+   0.9970891915553377,
+   0.8279397042419845
+  ],
+  "worst_rhat": [
+   1.1052805789949292,
+   1.009733496737567,
+   1.1044701085052933
+  ],
+  "worst_rhat_group": [
+   "false negative rate",
+   "infection duration",
+   "edge"
+  ],
+  "worst_rhat_name": [
+   "1",
+   "2",
+   "3<-1"
+  ]
+ },
+ "epi_columns": [
+  {
+   "name": "district",
+   "type": "categorical"
+  },
+  {
+   "name": "region",
+   "type": "categorical"
+  },
+  {
+   "name": "observed",
+   "type": "date"
+  }
+ ],
+ "q_chains": {
+  "chain1": [
+   1.0,
+   1.0,
+   0.11249873088682942
+  ],
+  "chain2": [
+   1.0,
+   1.0,
+   0.22616961181548736
+  ]
+ }
+}

@@ -70,6 +70,8 @@
    {
     "alleles": 8,
     "locus": "AS1",
+    "mode": "00001000",
+    "mode_fraction": 1.0,
     "observed": "00001000",
     "presence": [
      0.0,
@@ -85,6 +87,8 @@
    {
     "alleles": 12,
     "locus": "AS11",
+    "mode": "000000010000",
+    "mode_fraction": 0.9,
     "observed": null,
     "presence": [
      0.0,
@@ -736,6 +740,8 @@
     "effective_size": 1.4591889430815885,
     "entropy": 0.3696900389573895,
     "expected_observed_parents": 0.8943978957833805,
+    "posterior_effective_size": 1.475643748924897,
+    "posterior_entropy": 0.3890943345286532,
     "q": 0.11249873088682942
    },
    {
@@ -743,12 +749,16 @@
     "effective_size": 1.1545341499063313,
     "entropy": 0.14117284695172794,
     "expected_observed_parents": 0.7786121218202164,
+    "posterior_effective_size": 1.7595708673571644,
+    "posterior_entropy": 0.5650699539545758,
     "q": 0.22616961181548736
    }
   ],
   "effective_size": 1.30686154649396,
   "entropy": 0.2554314429545587,
   "expected_observed_parents": 0.8365050088017985,
+  "posterior_effective_size": 1.6315178294799189,
+  "posterior_entropy": 0.4895107652660693,
   "q": 0.16933417135115839
  }
 }

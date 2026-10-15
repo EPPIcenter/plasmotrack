@@ -57,6 +57,7 @@ ENDPOINTS = [
 
     # React app (web/DESIGN.md): Overview workspace, status bar
     "pt_analysis.endpoints.overview",  # status bar and rail badges; Overview's health check and headline
+    "pt_analysis.endpoints.infections",  # Infections workspace: one row per Infection
 
 ]
 

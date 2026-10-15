@@ -36,6 +36,8 @@ ENDPOINTS = {
     "trace-edge": "/api/trace?group=edge&name=3%3C-1",
     "range-log-posterior": "/api/range?group=log+posterior&name=log+posterior",
     "infection-3": "/api/infection?id=3",
+    "infection-1": "/api/infection?id=1",
+    "infections": "/api/infections",
     "edges": "/api/edges",
     "network": "/api/network",
     "pair-1-3": "/api/pair?a=1&b=3",
