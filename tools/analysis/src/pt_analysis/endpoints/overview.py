@@ -8,8 +8,15 @@
                         threshold (as `/api/errors` lists them)
     GET /api/overview[?band_lo=L&band_hi=H]
                         {groups: [{group, n, ess, rhat, ess_min, ess_median, rhat_max, rhat_above}], worst, edge_spread,
-                         disagreement, band, samplers, events, headline: {psi_edge, mean_q, classes, q, effective_size,
-                         top_edges}, thumbnail: {threshold, nodes, edges}}
+                         disagreement, set_disagreement: [{infection, tvd, top, p_top}],
+                         edge_counts: {between_infections, from_unobserved_source}, band, samplers, events,
+                         headline: {psi_edge, mean_q, classes, q, effective_size, top_edges},
+                         thumbnail: {threshold, nodes, edges}}
+
+`set_disagreement` lists the ten Infections whose Parent-set distributions differ most between Chains: `tvd` is the
+largest total variation distance between two Chains' set weights, `top` the pooled MAP set's observed parents and
+`p_top` its pooled weight. `edge_counts` counts the edge table's rows (every edge with weight) by whether the parent is
+an Infection or the unobserved source.
 
 `band_lo` and `band_hi` set the acceptance band sampler types are checked against (default 0.15 to 0.5). The overview
 is remembered until a Chain closes another Window.

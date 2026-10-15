@@ -114,6 +114,33 @@ def test_infections_whose_parents_disagree_most_between_chains_come_first(client
     assert disagreement[0]["infection"] == "3" and disagreement[0]["top"] == "1"
 
 
+def test_infections_whose_parent_set_distributions_differ_most_between_chains_by_tvd_come_first(client):
+    got = client.get("/api/overview").json()["set_disagreement"]
+    # Per-Chain set weights (chain1, chain2): Infection 3 {1}: 0.88477, 0.77111; {3_copy}: 0.10835, 0.22412;
+    # {1, 3_copy}: 0.00387, 0.00186; {1, 2}: 0.00273, 0.00272; {2, 3_copy}: 0.00027, 0.00019; {1, 2, 3_copy}: 0.00002,
+    # 0.00001, so TVD = (0.11366 + 0.11577 + 0.00201 + 0.00001 + 0.00008 + 0.00001) / 2 = 0.11577. Infection 2
+    # {2_copy}: 0.99733, 0.99685 and {1, 2_copy}: 0.00267, 0.00315: 0.00048. Infection 1 has one set: 0.
+    assert [(r["infection"], r["top"]) for r in got] == [("3", ["1"]), ("2", []), ("1", [])]
+    assert [r["tvd"] for r in got] == [pytest.approx(0.11577, abs=2e-5), pytest.approx(0.00048, abs=2e-5), 0.0]
+    assert [r["p_top"] for r in got] == [pytest.approx(0.82794, abs=1e-5), pytest.approx(0.99709, abs=1e-5), 1.0]
+
+
+def test_set_disagreement_takes_the_largest_tvd_over_pairs_of_chains(tmp_path):
+    three = client_of(open_golden(tmp_path, runs={"a": "single-chain", "b": "replica-exchange",
+                                                  "c": "single-chain"}, label="three"))
+    got = {r["infection"]: r["tvd"] for r in three.get("/api/overview").json()["set_disagreement"]}
+    # a and c are the same store, so a-c is 0 and the largest pair is a-b (or b-c) as with two Chains.
+    assert got["3"] == pytest.approx(0.11577, abs=2e-5)
+
+
+def test_edge_counts_split_every_edge_with_weight_by_whether_its_parent_is_the_unobserved_source(client):
+    edges = client.get("/api/edges").json()["rows"]
+    counts = client.get("/api/overview").json()["edge_counts"]
+    # Edges 1->2, 1->3 and 2->3 between Infections; each Infection's Latent parent as the unobserved source.
+    assert counts == {"between_infections": 3, "from_unobserved_source": 3}
+    assert sum(counts.values()) == len(edges)
+
+
 def test_sampler_types_outside_the_acceptance_band_are_listed_per_chain(client):
     assert client.get("/api/overview?band_lo=0&band_hi=1").json()["samplers"] == []
     out = client.get("/api/overview?band_lo=0.999&band_hi=1").json()["samplers"]

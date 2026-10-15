@@ -1,14 +1,16 @@
 """The Overview workspace's health check and headline posterior, and the status bar's summary, each in one payload.
 
 `status` is cheap: closed Windows, what the manifest has, mixing counts from the convergence table and Run events of
-note. `overview` reads the derived tables once: mixing by group, the attention lists, the headline functionals (ψ_edge,
-mean q and composition, from `strata.per_draw`; ψ_MAP needs the pooled Parent sets and stays with
+note. `overview` reads the derived tables once: mixing by group, the attention lists (edge spread, per-Infection
+disagreement of parent probabilities, and of Parent-set distributions by total variation distance between Chains),
+edge counts, the headline functionals (ψ_edge, mean q and composition, from `strata.per_draw`; ψ_MAP stays with
 `/api/functionals`), per-Infection q and effective parent-set size, the top edges and a network thumbnail.
 """
 
 import json
+from itertools import combinations
 
-from pt_analysis import sampler, summary
+from pt_analysis import parent_sets, sampler, summary
 from pt_analysis.derive import GROUPS, analysis_dir, analysis_source, derived, derived_analysis, source
 from pt_analysis.edge_stats import edge_table
 from pt_analysis.quantiles import interval
@@ -171,6 +173,20 @@ def _disagreement(analysis):
              "spread": a.spread} for a in summary.agreement(chains)[:LIST_LENGTH]]
 
 
+def _set_disagreement(analysis):
+    """The Infections whose Parent-set distributions differ most between Chains: per Infection the largest total
+    variation distance, 0.5 * sum over sets |w1 - w2|, between two Chains' set weights (over Chains with Draws), with
+    the pooled MAP set's observed parents and pooled weight. Largest first, ties by Infection id."""
+    chains = [label for label, store in analysis.runs.items() if store.draws()]
+    rows = []
+    for infection, sets in parent_sets.pooled_sets(analysis).items():
+        tvd = max((0.5 * sum(abs(s.chains[a] - s.chains[b]) for s in sets) for a, b in combinations(chains, 2)),
+                  default=0.0)
+        rows.append({"infection": infection, "tvd": tvd, "top": list(sets[0].parents), "p_top": sets[0].weight})
+    rows.sort(key=lambda r: (-r["tvd"], r["infection"]))
+    return rows[:LIST_LENGTH]
+
+
 def overview(analysis, band=BAND):
     """Everything the Overview workspace draws but ψ_MAP. See the module docstring."""
     rows = _pooled(analysis)
@@ -183,6 +199,8 @@ def overview(analysis, band=BAND):
         "edge_spread": [{"parent": e.parent, "child": e.child, "pooled": e.pooled, "spread": e.spread,
                          "switches": e.switches, "chains": {c: s.mean for c, s in e.chains.items()}} for e in spread],
         "disagreement": _disagreement(analysis),
+        "set_disagreement": _set_disagreement(analysis),
+        "edge_counts": {"between_infections": len(observed), "from_unobserved_source": len(edges) - len(observed)},
         "band": list(band),
         "samplers": _samplers(analysis, band),
         "events": _events(analysis),
