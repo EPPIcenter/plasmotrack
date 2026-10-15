@@ -58,7 +58,7 @@ prints, for each Run, its closed Windows per Phase and its Draw count.
 
 ```sh
 uv run pt-analysis derive RUN_DIR          # one Run
-uv run pt-analysis derive analysis.json    # every Run of an Analysis, then the Analysis's convergence table
+uv run pt-analysis derive analysis.json    # every Run of an Analysis, then the Analysis's convergence and edge statistics tables
 ```
 
 writes Parquet tables under `RUN_DIR/derived/`. `edges`, `set_summary`, `infection_draws` and `functional_draws`
@@ -136,6 +136,24 @@ the benchmark scripts used:
 - `split_rhat`: each chain's two halves, every half truncated to the shortest half's length n; sqrt(((n-1)/n W +
   B/n) / W) over the halves; infinite when every half is constant but the halves differ.
 
+### The edge statistics table
+
+`edge_stats.parquet`, beside `convergence.parquet`, has columns child, parent, unobserved, chain, mean, switches,
+spread, ess: for every (child, parent) with a row in some Chain's `edges`, one row per Chain with Draws and a pooled
+row (`chain` null). `unobserved` marks the unobserved source as parent (the child's Latent parent id).
+
+- A Chain row's `mean` is the edge's weight summed over the Chain's Draws and divided by their number (0 at Draws
+  without a row); its `switches` is the number of adjacent Draws at which the weight crossed one half, one Draw above
+  0.5 and the other at or below it. A Chain with no row of the edge has mean 0 and no switches.
+- The pooled row's `mean` is the pooled Edge marginal, the mean over every Draw of every Chain; `switches` sums the
+  Chains' switch counts; `spread` is the largest Chain mean minus the smallest; `ess` is the pooled ESS the
+  convergence table gives the edge (group `edge`, or `unobserved-source inclusion` for the unobserved source, whose
+  edge marginal is the child's q). `spread` and `ess` are null on Chain rows.
+
+From Python, `pt_analysis.edge_stats.edge_table(analysis)` gives the rows as `EdgeStats` (child, parent,
+unobserved, pooled, spread, switches, ess, and per Chain a `ChainEdge(mean, switches)`), with the edge's trace
+quantity as `group` and `name`.
+
 ## Serve the analysis GUI
 
 ```sh
@@ -149,12 +167,18 @@ Chain's ESS, sorted by clicking the ESS or R-hat header and filtered by group an
 trace panel: one line per Chain over Sampling iterations, burn-in greyed on request, a rank-normalised histogram per
 Chain, and ESS and R-hat for the Draws in the range brushed on the trace.
 
+The edge table (`#/edges`) has one row per (child, parent) of the `edge_stats` table: pooled Edge marginal,
+between-Chain spread, summed switch count, ESS, and each Chain's mean and switch count. Every column sorts; sort by
+spread for Chains that disagree and by switch count for edges locked within each Chain. It filters by child id and
+parent id (exact) and shows or hides the unobserved source. Clicking a row opens the edge's trace panel.
+
 | Endpoint | Returns |
 |---|---|
 | `GET /api/analysis` | label, Draws per Chain and in all, Infections, Loci |
 | `GET /api/convergence` | `{rows}`: the convergence table's rows |
 | `GET /api/trace?group=&name=[&burn_in=true]` | per Chain, `iteration`, `phase` and `value` lists of a quantity |
 | `GET /api/range?group=&name=[&first=][&last=]` | ESS per Chain, pooled ESS and split R-hat over the Draws with Sampling iteration in [first, last] |
+| `GET /api/edges` | `{chains, rows}`: per edge, child, parent, unobserved, its trace quantity (group, name), pooled, spread, switches, ess and per Chain `{mean, switches}` |
 
 A quantity is a group and name of the convergence table. Burn-in rows come only on request and only for the groups
 read from the store's Traces (log posterior to allele frequency); edges, unobserved-source inclusion and functionals

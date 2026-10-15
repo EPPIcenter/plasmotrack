@@ -26,6 +26,7 @@ ENDPOINTS = [
     "pt_analysis.endpoints.analysis",  # U1: Analysis summary, convergence table
     "pt_analysis.endpoints.traces",  # U1: trace panel, ESS and R-hat over a Draw range
     # #83 U2 edge table
+    "pt_analysis.endpoints.edges",  # U2: edge table
 
     # #84 U8 network view
 

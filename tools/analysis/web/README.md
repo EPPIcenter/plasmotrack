@@ -34,6 +34,15 @@ pnpm dev                                              # here: the page with hot 
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
+| `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
+
+## Views
+
+| Route | View |
+|---|---|
+| `#/convergence` | U1 convergence table: one row per quantity, sorted by ESS or R-hat, filtered by group and name |
+| `#/trace?group=&name=` | U1 trace panel of one quantity |
+| `#/edges[?child=][&parent=][&unobserved=0][&sort=][&desc=1]` | U2 edge table: pooled Edge marginal, spread, switch count, ESS and per-Chain mean and switch count; sorts by every column (`sort` is a column, or `mean:<chain>` and `switches:<chain>`), filters by exact child and parent id, hides the unobserved source with `unobserved=0`; a row opens its trace panel |
 
 ## Add a view
 
