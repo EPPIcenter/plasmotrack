@@ -9,11 +9,9 @@ Hand computation from the pooled weights in the exploration notes (sum over 20 D
 
 import gzip
 import json
-import shutil
 
 import pytest
-from conftest import GOLDEN
-from test_analysis import write_manifest
+from conftest import copy_golden, write_manifest
 
 from pt_analysis import metrics
 from pt_analysis.analysis import Analysis
@@ -32,9 +30,7 @@ def write_truth(path, edges, ids=("1", "2", "3"), gzipped=False):
 
 @pytest.fixture
 def stores(tmp_path):
-    for name in ("single-chain", "replica-exchange"):
-        shutil.copytree(GOLDEN / name, tmp_path / name)
-    return {"chain1": "single-chain", "chain2": "replica-exchange"}
+    return copy_golden(tmp_path)
 
 
 def open_analysis(tmp_path, stores, edges=(("1", "3"), ("1", "2")), name="analysis.json", **sections):

@@ -1,12 +1,9 @@
 """`pt-analysis summary`: the chain summary of an Analysis, from its derived tables and the Ordering."""
 
 import re
-import shutil
 
 import duckdb
 import pytest
-from conftest import GOLDEN
-from test_analysis import write_manifest
 
 from pt_analysis.analysis import Analysis
 from pt_analysis.cli import main
@@ -42,10 +39,8 @@ def test_spread_quantiles_take_the_upper_median_and_the_90th_percentile_by_index
 
 
 @pytest.fixture
-def analysis_path(tmp_path):
-    for name in ("single-chain", "replica-exchange"):
-        shutil.copytree(GOLDEN / name, tmp_path / name)
-    return write_manifest(tmp_path / "analysis.json", runs={"chain1": "single-chain", "chain2": "replica-exchange"})
+def analysis_path(golden_analysis):
+    return golden_analysis.path
 
 
 def columns(line):

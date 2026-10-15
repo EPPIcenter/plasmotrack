@@ -1,24 +1,12 @@
 """The network view's payload (U8) on the golden Analysis: the two golden stores as Chains chain1 and chain2 of the
 example input, whose three Infections are observed at 234.0737, 306.2297 and 350.5."""
 
-import shutil
 
 import pytest
-from conftest import GOLDEN
 from starlette.testclient import TestClient
-from test_analysis import write_manifest
 
-from pt_analysis.analysis import Analysis
 from pt_analysis.network import network
 from pt_analysis.server import create_app
-
-
-@pytest.fixture
-def analysis(tmp_path):
-    for name in ("single-chain", "replica-exchange"):
-        shutil.copytree(GOLDEN / name, tmp_path / name)
-    return Analysis.open(write_manifest(tmp_path / "analysis.json",
-                                        runs={"chain1": "single-chain", "chain2": "replica-exchange"}))
 
 
 # Per-Draw Edge marginal 1 -> 3 and pooled q, computed with R arrow from the golden stores (exploration notes).
@@ -37,8 +25,8 @@ def mean(values):
     return sum(values) / len(values)
 
 
-def test_nodes_are_the_input_infections_with_observation_time_symptomatic_flag_and_pooled_q(analysis):
-    nodes = network(analysis)["nodes"]
+def test_nodes_are_the_input_infections_with_observation_time_symptomatic_flag_and_pooled_q(golden_analysis):
+    nodes = network(golden_analysis)["nodes"]
     assert [n["id"] for n in nodes] == ["1", "2", "3"]
     assert [n["observation_time"] for n in nodes] == [234.0737, 306.2297, 350.5]
     assert [n["symptomatic"] for n in nodes] == [True, True, False]
@@ -46,15 +34,15 @@ def test_nodes_are_the_input_infections_with_observation_time_symptomatic_flag_a
         assert n["q"] == pytest.approx(mean(Q[n["id"]]), abs=1e-4)
 
 
-def test_infection_time_is_observation_time_minus_pooled_duration_quantiles(analysis):
-    for n in network(analysis)["nodes"]:
+def test_infection_time_is_observation_time_minus_pooled_duration_quantiles(golden_analysis):
+    for n in network(golden_analysis)["nodes"]:
         lower, median, upper = INFECTION_TIME[n["id"]]
         assert n["infection_time"] == {"lower": pytest.approx(lower), "median": pytest.approx(median),
                                        "upper": pytest.approx(upper)}
 
 
-def test_at_the_default_floor_the_only_edge_is_1_to_3_with_its_pooled_and_per_chain_marginals_and_lag(analysis):
-    payload = network(analysis)
+def test_at_the_default_floor_the_only_edge_is_1_to_3_with_its_pooled_and_per_chain_marginals_and_lag(golden_analysis):
+    payload = network(golden_analysis)
     assert payload["chains"] == ["chain1", "chain2"]
     assert payload["floor"] == 0.01
     [edge] = payload["edges"]
@@ -65,8 +53,8 @@ def test_at_the_default_floor_the_only_edge_is_1_to_3_with_its_pooled_and_per_ch
     assert edge["lag"] == pytest.approx(350.5 - 234.0737)
 
 
-def test_a_lower_floor_admits_the_weak_edges_but_never_the_unobserved_source(analysis):
-    edges = network(analysis, floor=0.001)["edges"]
+def test_a_lower_floor_admits_the_weak_edges_but_never_the_unobserved_source(golden_analysis):
+    edges = network(golden_analysis, floor=0.001)["edges"]
     # Pooled 2 -> 3 is about 0.003 and 1 -> 2 about 0.0029 (exploration notes); both are below the default floor.
     assert {(e["child"], e["parent"]) for e in edges} == {("3", "1"), ("3", "2"), ("2", "1")}
     edge = next(e for e in edges if (e["child"], e["parent"]) == ("2", "1"))
@@ -76,12 +64,12 @@ def test_a_lower_floor_admits_the_weak_edges_but_never_the_unobserved_source(ana
 
 
 @pytest.fixture
-def client(analysis, tmp_path):
-    return TestClient(create_app(analysis, static_dir=tmp_path / "no-dist"))
+def client(golden_analysis, tmp_path):
+    return TestClient(create_app(golden_analysis, static_dir=tmp_path / "no-dist"))
 
 
-def test_the_endpoint_serves_the_payload_with_the_floor_as_a_query_parameter(client, analysis):
-    assert client.get("/api/network").json() == network(analysis)
+def test_the_endpoint_serves_the_payload_with_the_floor_as_a_query_parameter(client, golden_analysis):
+    assert client.get("/api/network").json() == network(golden_analysis)
     got = client.get("/api/network", params={"floor": "0.001"}).json()
     assert got["floor"] == 0.001
     assert len(got["edges"]) == 3

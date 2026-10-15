@@ -1,15 +1,11 @@
 """Edge statistics (U2): per (child, parent), the pooled Edge marginal, each Chain's mean, the between-Chain spread,
 each Chain's switch count (adjacent Draws on either side of one half) and the multi-chain ESS."""
 
-import shutil
 
 import duckdb
 import pytest
-from conftest import GOLDEN
 from starlette.testclient import TestClient
-from test_analysis import write_manifest
 
-from pt_analysis.analysis import Analysis
 from pt_analysis.derive import derived_analysis
 from pt_analysis.edge_stats import ChainEdge, EdgeStats, chain_edge_stats, edge_stats, edge_table
 from pt_analysis.server import create_app
@@ -77,17 +73,8 @@ def test_edges_are_in_child_then_parent_order_and_chains_without_draws_are_left_
     assert (got[1].pooled, got[1].spread) == (pytest.approx(0.5), 0.0)
 
 
-@pytest.fixture
-def analysis(tmp_path):
-    """The two golden stores (same input) as Chains chain1 and chain2 of one Analysis."""
-    for name in ("single-chain", "replica-exchange"):
-        shutil.copytree(GOLDEN / name, tmp_path / name)
-    return Analysis.open(write_manifest(tmp_path / "analysis.json",
-                                        runs={"chain1": "single-chain", "chain2": "replica-exchange"}))
-
-
-def test_golden_edge_3_from_1_sits_high_in_chain1_and_crosses_one_half_once_in_chain2(analysis):
-    got = {(e.child, e.parent): e for e in edge_table(analysis)}
+def test_golden_edge_3_from_1_sits_high_in_chain1_and_crosses_one_half_once_in_chain2(golden_analysis):
+    got = {(e.child, e.parent): e for e in edge_table(golden_analysis)}
     edge = got[("3", "1")]
     # Per-Draw values from R arrow (exploration notes): chain1 means 0.89138, chain2 0.7757; chain2 starts at 0.0031,
     # 0.0039 then stays above 0.97.
@@ -97,13 +84,13 @@ def test_golden_edge_3_from_1_sits_high_in_chain1_and_crosses_one_half_once_in_c
     assert edge.pooled == pytest.approx(0.83354, abs=1e-4)
     assert edge.spread == pytest.approx(0.11568, abs=1e-4)
     assert not edge.unobserved
-    pooled_ess = derived_analysis(analysis, "convergence").filter(
+    pooled_ess = derived_analysis(golden_analysis, "convergence").filter(
         "\"group\" = 'edge' AND name = '3<-1' AND chain IS NULL").project("ess").fetchone()[0]
     assert edge.ess == pytest.approx(pooled_ess)
 
 
-def test_golden_unobserved_source_edges_are_flagged_and_carry_q(analysis):
-    got = {(e.child, e.parent): e for e in edge_table(analysis)}
+def test_golden_unobserved_source_edges_are_flagged_and_carry_q(golden_analysis):
+    got = {(e.child, e.parent): e for e in edge_table(golden_analysis)}
     assert {key for key, e in got.items() if e.unobserved} == {("1", "1_copy"), ("2", "2_copy"), ("3", "3_copy")}
     # Pooled q of Infection 3: 0.1125 in chain1 and 0.2262 in chain2 (exploration notes).
     assert got[("3", "3_copy")].pooled == pytest.approx((0.1125 + 0.2262) / 2, abs=1e-3)
@@ -112,13 +99,13 @@ def test_golden_unobserved_source_edges_are_flagged_and_carry_q(analysis):
     assert (got[("3", "3_copy")].group, got[("3", "3_copy")].name) == ("unobserved-source inclusion", "3")
 
 
-def test_the_edge_stats_table_is_derived_beside_the_convergence_table(analysis):
-    edge_table(analysis)
-    assert (analysis.path.parent / "analysis.derived" / "edge_stats.parquet").is_file()
+def test_the_edge_stats_table_is_derived_beside_the_convergence_table(golden_analysis):
+    edge_table(golden_analysis)
+    assert (golden_analysis.path.parent / "analysis.derived" / "edge_stats.parquet").is_file()
 
 
-def test_the_edges_endpoint_gives_a_row_per_edge_with_its_trace_quantity(analysis, tmp_path):
-    client = TestClient(create_app(analysis, static_dir=tmp_path / "no-dist"))
+def test_the_edges_endpoint_gives_a_row_per_edge_with_its_trace_quantity(golden_analysis, tmp_path):
+    client = TestClient(create_app(golden_analysis, static_dir=tmp_path / "no-dist"))
     body = client.get("/api/edges").json()
     assert body["chains"] == ["chain1", "chain2"]
     rows = {(r["child"], r["parent"]): r for r in body["rows"]}

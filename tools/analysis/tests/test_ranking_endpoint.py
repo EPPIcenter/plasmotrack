@@ -2,7 +2,7 @@
 
 import pytest
 from starlette.testclient import TestClient
-from test_analysis import write_manifest
+from conftest import write_manifest
 from test_metrics import open_analysis, stores  # noqa: F401 (fixture)
 
 from pt_analysis import metrics

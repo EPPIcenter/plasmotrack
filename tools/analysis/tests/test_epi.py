@@ -1,13 +1,10 @@
 """Epi data: a CSV keyed by Infection id, read with DuckDB, typed by inspection and checked against the Infections
 of the Analysis's Runs."""
 
-import shutil
 
 import pytest
-from conftest import GOLDEN
-from test_analysis import write_manifest
+from conftest import open_golden
 
-from pt_analysis.analysis import Analysis
 from pt_analysis.epi import EpiError, load_epi
 
 CSV = """infection,district,observed,age
@@ -19,13 +16,9 @@ CSV = """infection,district,observed,age
 
 
 def open_analysis(tmp_path, csv=CSV, name="epi.csv", **sections):
-    for run in ("single-chain", "replica-exchange"):
-        if not (tmp_path / run).exists():
-            shutil.copytree(GOLDEN / run, tmp_path / run)
     if csv is not None:
         (tmp_path / name).write_text(csv)
-    return Analysis.open(write_manifest(tmp_path / "analysis.json", epi=name,
-                                        runs={"chain1": "single-chain", "chain2": "replica-exchange"}, **sections))
+    return open_golden(tmp_path, epi=name, **sections)
 
 
 def test_columns_are_typed_by_inspection(tmp_path):
@@ -65,12 +58,8 @@ def test_a_missing_column_is_a_named_error(tmp_path):
         epi.values("travel")
 
 
-def test_an_analysis_without_epi_data_has_none(tmp_path):
-    for run in ("single-chain", "replica-exchange"):
-        shutil.copytree(GOLDEN / run, tmp_path / run)
-    analysis = Analysis.open(write_manifest(tmp_path / "analysis.json",
-                                            runs={"chain1": "single-chain", "chain2": "replica-exchange"}))
-    assert load_epi(analysis) is None
+def test_an_analysis_without_epi_data_has_none(golden_analysis):
+    assert load_epi(golden_analysis) is None
 
 
 def test_a_missing_file_or_a_repeated_id_is_an_error(tmp_path):

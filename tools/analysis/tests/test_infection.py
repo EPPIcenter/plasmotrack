@@ -8,9 +8,7 @@ import shutil
 import duckdb
 import pytest
 from conftest import GOLDEN
-from test_analysis import write_manifest
 
-from pt_analysis.analysis import Analysis
 from pt_analysis.derive import derive
 from pt_analysis.infection import UnknownInfection, card
 from pt_analysis.store import Store
@@ -55,22 +53,14 @@ def test_coi_is_the_largest_allele_count_over_loci_at_each_draw(tmp_path):
     assert len(coi) == 30
 
 
-@pytest.fixture
-def analysis(tmp_path):
-    for name in ("single-chain", "replica-exchange"):
-        shutil.copytree(GOLDEN / name, tmp_path / name)
-    return Analysis.open(write_manifest(tmp_path / "analysis.json",
-                                        runs={"chain1": "single-chain", "chain2": "replica-exchange"}))
-
-
 def by_chain(rows, key):
     return {r["chain"]: r[key] for r in rows}
 
 
 # Infection 3 per Chain (exploration notes, R arrow): q and the expected observed-parent count, and the entropy, each
 # the mean over its 10 Draws of `infection_draws`.
-def test_q_entropy_and_effective_size_per_chain_and_pooled(analysis):
-    summary = card(analysis, "3")["summary"]
+def test_q_entropy_and_effective_size_per_chain_and_pooled(golden_analysis):
+    summary = card(golden_analysis, "3")["summary"]
     assert by_chain(summary["chains"], "q") == {"chain1": pytest.approx(0.1125, rel=5e-3),
                                                 "chain2": pytest.approx(0.2262, rel=5e-3)}
     assert by_chain(summary["chains"], "entropy") == {"chain1": pytest.approx(0.3697, rel=5e-3),
@@ -83,7 +73,7 @@ def test_q_entropy_and_effective_size_per_chain_and_pooled(analysis):
     for chain in summary["chains"]:
         assert 1 <= chain["effective_size"] <= 6
     assert summary["effective_size"] >= 2.718281828 ** summary["entropy"]
-    assert card(analysis, "1")["summary"]["chains"] == [
+    assert card(golden_analysis, "1")["summary"]["chains"] == [
         {"chain": c, "q": 1.0, "expected_observed_parents": 0.0, "entropy": 0.0, "effective_size": 1.0}
         for c in ("chain1", "chain2")]
 
@@ -96,8 +86,8 @@ CLASS = {4: "observed_1", 0: "unobserved_only", 1: "observed_1_unobserved", 5: "
 RANKING = {"chain1": [4, 0, 1, 5, 2, 3], "chain2": [4, 0, 5, 1, 2, 3]}
 
 
-def test_each_chains_parent_sets_are_ranked_with_members_class_and_the_credible_collection(analysis):
-    sets = card(analysis, "3")["parent_sets"]
+def test_each_chains_parent_sets_are_ranked_with_members_class_and_the_credible_collection(golden_analysis):
+    sets = card(golden_analysis, "3")["parent_sets"]
     assert sets["level"] == 0.8
     assert [c["chain"] for c in sets["chains"]] == ["chain1", "chain2"]
     for chain in sets["chains"]:
@@ -111,16 +101,16 @@ def test_each_chains_parent_sets_are_ranked_with_members_class_and_the_credible_
     assert [[r["set_id"] for r in c["sets"] if r["credible"]] for c in sets["chains"]] == [[4], [4, 0]]
 
 
-def test_the_credible_collection_matches_the_derive_commands(analysis):
+def test_the_credible_collection_matches_the_derive_commands(golden_analysis):
     from pt_analysis import functionals
 
-    for chain in card(analysis, "3")["parent_sets"]["chains"]:
-        expected = [s.set_id for s in functionals.credible_collection(analysis.runs[chain["chain"]], "3")]
+    for chain in card(golden_analysis, "3")["parent_sets"]["chains"]:
+        expected = [s.set_id for s in functionals.credible_collection(golden_analysis.runs[chain["chain"]], "3")]
         assert [r["set_id"] for r in chain["sets"] if r["credible"]] == expected
 
 
-def test_pooled_parent_sets_weight_each_chain_by_its_draws(analysis):
-    pooled = card(analysis, "3")["parent_sets"]["pooled"]
+def test_pooled_parent_sets_weight_each_chain_by_its_draws(golden_analysis):
+    pooled = card(golden_analysis, "3")["parent_sets"]["pooled"]
     assert [r["set_id"] for r in pooled] == [4, 0, 1, 5, 2, 3]
     weights = {r["set_id"]: r["weight"] for r in pooled}
     assert weights[4] == pytest.approx((0.885 + 0.771) / 2, rel=1e-2)
@@ -133,8 +123,8 @@ def test_pooled_parent_sets_weight_each_chain_by_its_draws(analysis):
 
 
 # Edge 1 -> 3 per Chain (see test_pair) and q of Infection 3 as the unobserved source's edge.
-def test_parent_marginals_hold_observed_parents_and_the_unobserved_source(analysis):
-    parents = {r["parent"]: r for r in card(analysis, "3")["parents"]}
+def test_parent_marginals_hold_observed_parents_and_the_unobserved_source(golden_analysis):
+    parents = {r["parent"]: r for r in card(golden_analysis, "3")["parents"]}
     assert set(parents) == {"1", "2", "3_copy"}
     assert by_chain(parents["1"]["chains"], "mean") == {"chain1": pytest.approx(0.89138, abs=1e-4),
                                                         "chain2": pytest.approx(0.77570, abs=1e-4)}
@@ -144,28 +134,28 @@ def test_parent_marginals_hold_observed_parents_and_the_unobserved_source(analys
     q = parents["3_copy"]
     assert (q["group"], q["name"], q["unobserved"]) == ("unobserved-source inclusion", "3", True)
     assert q["pooled"] == pytest.approx((0.1125 + 0.2262) / 2, rel=5e-3)
-    assert [r["parent"] for r in card(analysis, "3")["parents"]] == ["1", "3_copy", "2"]  # largest first
+    assert [r["parent"] for r in card(golden_analysis, "3")["parents"]] == ["1", "3_copy", "2"]  # largest first
 
 
-def test_child_marginals_hold_the_infections_it_may_have_infected(analysis):
-    children = card(analysis, "1")["children"]
+def test_child_marginals_hold_the_infections_it_may_have_infected(golden_analysis):
+    children = card(golden_analysis, "1")["children"]
     assert [r["child"] for r in children] == ["3", "2"]
     assert children[0]["pooled"] == pytest.approx((0.89138 + 0.77570) / 2, abs=1e-4)
     assert children[1]["pooled"] == pytest.approx(0.0029, abs=5e-4)
     assert (children[0]["group"], children[0]["name"]) == ("edge", "3<-1")
-    assert card(analysis, "3")["children"] == []
+    assert card(golden_analysis, "3")["children"] == []
 
 
 QUANTITIES = {"false_positives": "expected_false_positives", "false_negatives": "expected_false_negatives",
               "duration": "infection_duration"}
 
 
-def test_observation_process_and_duration_per_chain_and_pooled_quantiles(analysis):
+def test_observation_process_and_duration_per_chain_and_pooled_quantiles(golden_analysis):
     from test_derive import quantile_type_7
 
-    quantities = card(analysis, "3")["quantities"]
+    quantities = card(golden_analysis, "3")["quantities"]
     rows = {label: [r for r in store.rows("infections") if r["infection"] == "3"]
-            for label, store in analysis.runs.items()}
+            for label, store in golden_analysis.runs.items()}
     for key, column in QUANTITIES.items():
         q = quantities[key]
         assert [c["chain"] for c in q["chains"]] == ["chain1", "chain2"]
@@ -182,32 +172,32 @@ def test_observation_process_and_duration_per_chain_and_pooled_quantiles(analysi
     assert time["chains"][0]["value"] == pytest.approx([350.5 - d for d in duration["chains"][0]["value"]])
     assert (time["lower"], time["median"], time["upper"]) == pytest.approx(
         (350.5 - duration["upper"], 350.5 - duration["median"], 350.5 - duration["lower"]))
-    assert card(analysis, "3")["observation_time"] == 350.5
+    assert card(golden_analysis, "3")["observation_time"] == 350.5
 
 
-def test_coi_per_draw_per_chain_and_its_pooled_distribution(analysis):
-    coi = card(analysis, "3")["coi"]
+def test_coi_per_draw_per_chain_and_its_pooled_distribution(golden_analysis):
+    coi = card(golden_analysis, "3")["coi"]
     assert [(c["chain"], c["iteration"], c["coi"]) for c in coi["chains"]] == [
         ("chain1", DRAWS, [1] * 10), ("chain2", DRAWS, [1] * 10)]
     assert coi["distribution"] == [{"coi": 1, "draws": 20, "fraction": 1.0}]
 
 
-def test_the_latent_genotype_has_posterior_presence_per_allele_and_the_observed_bits(analysis):
+def test_the_latent_genotype_has_posterior_presence_per_allele_and_the_observed_bits(golden_analysis):
     """Infection 3 is observed 00001000 at AS1 and not at AS11; its Latent genotype is 00001000 at AS1 in all 20 Draws
     and at AS11 000000010000 in 18, 000100000000 in 2 (see test_derive)."""
-    loci = card(analysis, "3")["genotype"]["loci"]
+    loci = card(golden_analysis, "3")["genotype"]["loci"]
     assert [(locus["locus"], locus["observed"]) for locus in loci] == [("AS1", "00001000"), ("AS11", None)]
     assert loci[0]["presence"] == [0, 0, 0, 0, 1, 0, 0, 0]
     assert loci[1]["presence"] == pytest.approx([0, 0, 0, 0.1, 0, 0, 0, 0.9, 0, 0, 0, 0])
 
 
-def test_an_unknown_infection_is_refused(analysis):
+def test_an_unknown_infection_is_refused(golden_analysis):
     with pytest.raises(UnknownInfection, match="99"):
-        card(analysis, "99")
+        card(golden_analysis, "99")
 
 
 @pytest.fixture
-def client(analysis, tmp_path):
+def client(golden_analysis, tmp_path):
     from starlette.testclient import TestClient
 
     from pt_analysis.server import create_app
@@ -215,7 +205,7 @@ def client(analysis, tmp_path):
     static = tmp_path / "dist"
     static.mkdir()
     (static / "index.html").write_text("<!doctype html><title>pt-analysis</title>")
-    return TestClient(create_app(analysis, static_dir=static))
+    return TestClient(create_app(golden_analysis, static_dir=static))
 
 
 def test_the_endpoint_serves_every_panel_of_an_infection(client):

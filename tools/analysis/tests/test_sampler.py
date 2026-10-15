@@ -148,20 +148,12 @@ def test_a_resumed_run_marks_where_it_resumed(tmp_path):
 
 
 @pytest.fixture
-def client(tmp_path):
-    import shutil
-
+def client(golden_analysis, tmp_path):
     from starlette.testclient import TestClient
-    from test_analysis import write_manifest
 
-    from pt_analysis.analysis import Analysis
     from pt_analysis.server import create_app
 
-    for name in ("single-chain", "replica-exchange"):
-        shutil.copytree(GOLDEN / name, tmp_path / name)
-    analysis = Analysis.open(write_manifest(tmp_path / "analysis.json",
-                                            runs={"chain1": "single-chain", "chain2": "replica-exchange"}))
-    return TestClient(create_app(analysis, static_dir=tmp_path / "dist"))
+    return TestClient(create_app(golden_analysis, static_dir=tmp_path / "dist"))
 
 
 def test_the_endpoint_serves_one_chains_panel(client):

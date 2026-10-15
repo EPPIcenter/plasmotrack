@@ -1,27 +1,12 @@
 """An Analysis manifest names the input, the IDPs, the labelled Runs and optional truth, epi and score files."""
 
 import json
-import os
 
 import pytest
-from conftest import GOLDEN
+from conftest import GOLDEN, write_manifest
 
 from pt_analysis.analysis import Analysis, AnalysisError
 from pt_analysis.store import Store
-
-
-def write_manifest(path, **sections):
-    """Write a manifest whose paths are relative to it, so that resolution against the manifest is exercised."""
-    rel = lambda p: os.path.relpath(p, path.parent)  # noqa: E731
-    manifest = {
-        "input": rel(GOLDEN.parents[2] / "examples" / "example_input.json"),
-        "symptomatic_idp": rel(GOLDEN / "symptomatic_idp.txt"),
-        "asymptomatic_idp": rel(GOLDEN / "asymptomatic_idp.txt"),
-        "runs": {"single": rel(GOLDEN / "single-chain"), "replica": rel(GOLDEN / "replica-exchange")},
-        **sections,
-    }
-    path.write_text(json.dumps(manifest))
-    return path
 
 
 def test_runs_are_labelled_stores_in_manifest_order(tmp_path):

@@ -1,13 +1,10 @@
 """Functionals overall and per stratum of an epi column, on the golden stores as one-Chain and two-Chain Analyses,
 against values computed with R arrow (exploration notes)."""
 
-import shutil
 
 import pytest
-from conftest import GOLDEN
-from test_analysis import write_manifest
+from conftest import open_golden
 
-from pt_analysis.analysis import Analysis
 from pt_analysis.epi import EpiError
 from pt_analysis.strata import Interval, StrataError, interval, stratified_functionals, stratum_series
 
@@ -24,14 +21,11 @@ EPI = "infection,district,observed\n1,North,2020-01-05\n2,South,2020-02-01\n3,No
 
 
 def open_analysis(tmp_path, runs="both", epi=EPI):
-    for run in ("single-chain", "replica-exchange"):
-        if not (tmp_path / run).exists():
-            shutil.copytree(GOLDEN / run, tmp_path / run)
     sections = {}
     if epi is not None:
         (tmp_path / "epi.csv").write_text(epi)
         sections["epi"] = "epi.csv"
-    return Analysis.open(write_manifest(tmp_path / f"{runs}.json", runs=RUNS[runs], **sections))
+    return open_golden(tmp_path, f"{runs}.json", runs=RUNS[runs], **sections)
 
 
 def test_an_interval_is_the_mean_and_type_7_quantiles():

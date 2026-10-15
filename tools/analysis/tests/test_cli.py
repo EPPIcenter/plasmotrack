@@ -2,8 +2,7 @@
 
 import shutil
 
-from conftest import GOLDEN
-from test_analysis import write_manifest
+from conftest import GOLDEN, write_manifest
 
 from pt_analysis.cli import main
 

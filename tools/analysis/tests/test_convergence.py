@@ -2,29 +2,15 @@
 R-hat, written under `<manifest stem>.derived/` beside the Analysis manifest."""
 
 import json
-import shutil
 
 import duckdb
 import pytest
-from conftest import GOLDEN
-from test_analysis import write_manifest
 
 from pt_analysis import __version__
-from pt_analysis.analysis import Analysis
 from pt_analysis.derive import derive_analysis
 
 GROUPS = ["log posterior", "global scalars", "false positive rate", "false negative rate", "infection duration",
           "allele frequency", "edge", "unobserved-source inclusion", "functionals"]
-
-
-@pytest.fixture
-def analysis(tmp_path):
-    """The two golden stores (same input) as Chains chain1 and chain2 of one Analysis, copied so that `derived/` is
-    written outside the repository's test data."""
-    for name in ("single-chain", "replica-exchange"):
-        shutil.copytree(GOLDEN / name, tmp_path / name)
-    return Analysis.open(write_manifest(tmp_path / "analysis.json",
-                                        runs={"chain1": "single-chain", "chain2": "replica-exchange"}))
 
 
 def convergence(analysis):
@@ -34,8 +20,8 @@ def convergence(analysis):
     return [dict(zip(relation.columns, row)) for row in relation.fetchall()]
 
 
-def test_every_quantity_has_a_row_per_chain_and_a_pooled_row_in_group_order(analysis):
-    rows = convergence(analysis)
+def test_every_quantity_has_a_row_per_chain_and_a_pooled_row_in_group_order(golden_analysis):
+    rows = convergence(golden_analysis)
     assert list(rows[0]) == ["group", "name", "chain", "ess", "rhat"]
     groups = list(dict.fromkeys(r["group"] for r in rows))
     assert groups == GROUPS
@@ -68,8 +54,8 @@ BASELINE = {
 }
 
 
-def test_ess_and_rhat_reproduce_the_benchmark_series(analysis):
-    rows = convergence(analysis)
+def test_ess_and_rhat_reproduce_the_benchmark_series(golden_analysis):
+    rows = convergence(golden_analysis)
     for (group, name), expected in BASELINE.items():
         got = by_name(rows, group, name)
         assert got["chain1"] == pytest.approx((expected["chain1"], None), rel=1e-9), (group, name)
@@ -77,8 +63,8 @@ def test_ess_and_rhat_reproduce_the_benchmark_series(analysis):
         assert got[None] == pytest.approx(expected[None], rel=1e-9), (group, name)
 
 
-def test_quantities_constant_in_every_chain_have_no_ess(analysis):
-    rows = convergence(analysis)
+def test_quantities_constant_in_every_chain_have_no_ess(golden_analysis):
+    rows = convergence(golden_analysis)
     # Infection 1 has one set, {1_copy}; every set of Infection 2 contains 2_copy, so its q is 1 up to rounding.
     for infection in ("1", "2"):
         assert by_name(rows, "unobserved-source inclusion", infection) == {
@@ -87,34 +73,34 @@ def test_quantities_constant_in_every_chain_have_no_ess(analysis):
     assert q_3[None][0] is not None and q_3[None][1] is not None
 
 
-def test_the_convergence_manifest_records_each_runs_windows_and_a_second_derive_writes_nothing(analysis):
-    assert derive_analysis(analysis) is True
-    out = analysis.path.parent / "analysis.derived"
+def test_the_convergence_manifest_records_each_runs_windows_and_a_second_derive_writes_nothing(golden_analysis):
+    assert derive_analysis(golden_analysis) is True
+    out = golden_analysis.path.parent / "analysis.derived"
     assert json.loads((out / "manifest.json").read_text()) == {
         "runs": {label: {"path": str(store.path), "windows": {"burn_in": [0], "sampling": [1, 2]}}
-                 for label, store in analysis.runs.items()},
+                 for label, store in golden_analysis.runs.items()},
         "package_version": __version__}
     before = {p.name: p.stat().st_mtime_ns for p in out.iterdir()}
-    assert derive_analysis(analysis) is False
+    assert derive_analysis(golden_analysis) is False
     assert {p.name: p.stat().st_mtime_ns for p in out.iterdir()} == before
 
 
-def test_a_chain_that_gained_a_window_rederives_the_convergence_table(analysis):
-    store = analysis.runs["chain2"]
+def test_a_chain_that_gained_a_window_rederives_the_convergence_table(golden_analysis):
+    store = golden_analysis.runs["chain2"]
     marker = store.path / "_closed" / "window-000002"
     aside = store.path / "window-000002.aside"
     marker.rename(aside)
-    rows = convergence(analysis)
+    rows = convergence(golden_analysis)
     assert by_name(rows, "log posterior", "log posterior")["chain2"][0] is not None
     aside.rename(marker)
-    assert by_name(convergence(analysis), "log posterior", "log posterior")[None] == pytest.approx(
+    assert by_name(convergence(golden_analysis), "log posterior", "log posterior")[None] == pytest.approx(
         BASELINE[("log posterior", "log posterior")][None], rel=1e-9)
 
 
-def test_a_chain_still_in_burn_in_has_no_ess_and_is_left_out_of_the_pooled_row(analysis):
+def test_a_chain_still_in_burn_in_has_no_ess_and_is_left_out_of_the_pooled_row(golden_analysis):
     for w in (1, 2):
-        (analysis.runs["chain2"].path / "_closed" / f"window-{w:06d}").unlink()
-    rows = convergence(analysis)
+        (golden_analysis.runs["chain2"].path / "_closed" / f"window-{w:06d}").unlink()
+    rows = convergence(golden_analysis)
     log_posterior = by_name(rows, "log posterior", "log posterior")
     assert log_posterior["chain2"] == (None, None)
     assert log_posterior[None] == pytest.approx((10.0, None))

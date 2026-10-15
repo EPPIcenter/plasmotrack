@@ -1,32 +1,20 @@
 """The HTTP backend of `pt-analysis serve`: the Analysis summary, the convergence table, per-Chain traces and ESS and
 R-hat over a Draw range, on the two golden stores as Chains chain1 and chain2 of one Analysis."""
 
-import shutil
 
 import pytest
-from conftest import GOLDEN
 from starlette.testclient import TestClient
-from test_analysis import write_manifest
 
-from pt_analysis.analysis import Analysis
 from pt_analysis.diagnostics import multichain_ess, split_rhat
 from pt_analysis.server import create_app
 
 
 @pytest.fixture
-def analysis(tmp_path):
-    for name in ("single-chain", "replica-exchange"):
-        shutil.copytree(GOLDEN / name, tmp_path / name)
-    return Analysis.open(write_manifest(tmp_path / "analysis.json", label="golden",
-                                        runs={"chain1": "single-chain", "chain2": "replica-exchange"}))
-
-
-@pytest.fixture
-def client(analysis, tmp_path):
+def client(golden_analysis, tmp_path):
     static = tmp_path / "dist"
     static.mkdir()
     (static / "index.html").write_text("<!doctype html><title>pt-analysis</title>")
-    return TestClient(create_app(analysis, static_dir=static))
+    return TestClient(create_app(golden_analysis, static_dir=static))
 
 
 def test_the_summary_names_the_analysis_and_counts_chains_draws_infections_and_loci(client):
@@ -36,8 +24,8 @@ def test_the_summary_names_the_analysis_and_counts_chains_draws_infections_and_l
         "draws": 20, "infections": 3, "loci": 2}
 
 
-def test_serving_derives_the_convergence_table_and_returns_its_rows(client, analysis):
-    assert (analysis.path.parent / "analysis.derived" / "convergence.parquet").is_file()
+def test_serving_derives_the_convergence_table_and_returns_its_rows(client, golden_analysis):
+    assert (golden_analysis.path.parent / "analysis.derived" / "convergence.parquet").is_file()
     rows = client.get("/api/convergence").json()["rows"]
     # 1 + 3 + 3 + 3 + 3 + 20 + 3 + 3 + 3 quantities (test_convergence), each with two Chain rows and a pooled row.
     assert len(rows) == 42 * 3
@@ -161,6 +149,6 @@ def test_the_built_frontend_is_served_at_the_root(client):
     assert response.status_code == 200 and "<title>pt-analysis</title>" in response.text
 
 
-def test_without_a_built_frontend_the_root_says_how_to_build_it(analysis, tmp_path):
-    response = TestClient(create_app(analysis, static_dir=tmp_path / "missing")).get("/")
+def test_without_a_built_frontend_the_root_says_how_to_build_it(golden_analysis, tmp_path):
+    response = TestClient(create_app(golden_analysis, static_dir=tmp_path / "missing")).get("/")
     assert response.status_code == 404 and "pnpm build" in response.text

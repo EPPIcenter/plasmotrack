@@ -6,7 +6,7 @@ Pooled Edge marginals of the golden Analysis (see test_metrics): 1->3 0.83354, 2
 
 import pytest
 from starlette.testclient import TestClient
-from test_analysis import write_manifest
+from conftest import write_manifest
 from test_metrics import open_analysis, stores, write_truth  # noqa: F401 (fixture)
 
 from pt_analysis import truth_overlay
