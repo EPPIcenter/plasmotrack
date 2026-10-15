@@ -12,11 +12,11 @@ child). `switches` sums the Chains' switch counts.
 from starlette.routing import Route
 
 from pt_analysis.edge_stats import edge_table
-from pt_analysis.endpoints import json
+from pt_analysis.endpoints import json, requested_analysis
 
 
 async def edges(request):
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     rows = [{"child": e.child, "parent": e.parent, "unobserved": e.unobserved, "group": e.group, "name": e.name,
              "pooled": e.pooled, "spread": e.spread, "switches": e.switches, "ess": e.ess,
              "chains": {label: {"mean": c.mean, "switches": c.switches} for label, c in e.chains.items()}}

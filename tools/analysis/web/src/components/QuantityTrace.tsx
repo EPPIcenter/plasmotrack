@@ -57,13 +57,15 @@ export interface QuantityTraceProps {
   height?: number;
   /** Leave out the summary table (the Overview's compact form). */
   compact?: boolean;
+  /** Read this open Analysis rather than the active one (Compare shows each Analysis's trace). */
+  analysis?: string | null;
 }
 
-export function QuantityTrace({ entity, height = 220, compact = false }: QuantityTraceProps) {
+export function QuantityTrace({ entity, height = 220, compact = false, analysis }: QuantityTraceProps) {
   const [burnIn, setBurnIn] = useState(false);
   const [range, setRange] = useState<[number, number] | null>(null);
-  const { data: trace, error, isLoading } = useTrace(entity, burnIn);
-  const { data: diag } = useRange(entity, range);
+  const { data: trace, error, isLoading } = useTrace(entity, burnIn, analysis);
+  const { data: diag } = useRange(entity, range, analysis);
   const analysisChains = useChains();
   const chains = trace?.chains.map((c) => c.chain) ?? analysisChains;
 

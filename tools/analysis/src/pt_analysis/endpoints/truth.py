@@ -21,7 +21,7 @@ from starlette.routing import Route
 
 from pt_analysis import metrics, truth_overlay
 from pt_analysis.analysis import AnalysisError
-from pt_analysis.endpoints import error, json, memo
+from pt_analysis.endpoints import error, json, memo, requested_analysis
 
 FAILURES = (OSError, KeyError, ValueError, AnalysisError, metrics.MetricsError)
 
@@ -40,7 +40,7 @@ async def truth_network(request):
     floor = probability(request, "floor", truth_overlay.DEFAULT_FLOOR)
     if floor is None:
         return error(f"floor is a score in [0, 1], not '{request.query_params['floor']}'")
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     try:
         return json(memo(request, ("truth-network", floor), lambda: truth_overlay.overlay(analysis, floor)))
     except FAILURES as e:
@@ -54,7 +54,7 @@ async def errors(request):
     source = request.query_params.get("source", "posterior")
     if source not in truth_overlay.SOURCES:
         return error(f"source is one of {', '.join(truth_overlay.SOURCES)}, not '{source}'")
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     if analysis.truth is None:
         return error("the Analysis manifest names no truth file, so there are no errors to list", 404)
     try:

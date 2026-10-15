@@ -1,0 +1,686 @@
+{
+ "analyses": [
+  "single",
+  "replica"
+ ],
+ "instructions": [
+  "single"
+ ],
+ "rows": [
+  {
+   "analyses": {
+    "replica": {
+     "ess": 7.44641539328075,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "log posterior",
+   "name": "log posterior"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "global scalars",
+   "name": "mean_coi"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "global scalars",
+   "name": "mean_strains_tx"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "global scalars",
+   "name": "parent_set_size_prob"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 9.89047282940513,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "false positive rate",
+   "name": "1"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "false positive rate",
+   "name": "2"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "false positive rate",
+   "name": "3"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "false negative rate",
+   "name": "1"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "false negative rate",
+   "name": "2"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "false negative rate",
+   "name": "3"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "infection duration",
+   "name": "1"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "infection duration",
+   "name": "2"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "infection duration",
+   "name": "3"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 6.9977874513009155,
+     "ess_per_instruction": 3.4988937256504577e-09,
+     "ess_per_second": 1.7494468628252289,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[0]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 6.397005918163762,
+     "ess_per_instruction": 3.198502959081881e-09,
+     "ess_per_second": 1.5992514795409405,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[10]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 9.317029390424162,
+     "ess_per_instruction": 4.6585146952120815e-09,
+     "ess_per_second": 2.3292573476060405,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[11]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 6.182796941217153,
+     "ess_per_instruction": 3.0913984706085765e-09,
+     "ess_per_second": 1.5456992353042882,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[1]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 6.613473746093009,
+     "rhat": null
+    },
+    "single": {
+     "ess": 5.124737811688305,
+     "ess_per_instruction": 2.5623689058441524e-09,
+     "ess_per_second": 1.2811844529220762,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[2]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 9.51763969866722,
+     "rhat": null
+    },
+    "single": {
+     "ess": 9.491857004653001,
+     "ess_per_instruction": 4.7459285023265e-09,
+     "ess_per_second": 2.3729642511632503,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[3]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[4]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 7.998328428748788,
+     "rhat": null
+    },
+    "single": {
+     "ess": 4.895046538421393,
+     "ess_per_instruction": 2.447523269210696e-09,
+     "ess_per_second": 1.2237616346053481,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[5]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[6]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 6.317624957765736,
+     "ess_per_instruction": 3.1588124788828682e-09,
+     "ess_per_second": 1.579406239441434,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[7]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 5.104700703555261,
+     "ess_per_instruction": 2.552350351777631e-09,
+     "ess_per_second": 1.2761751758888153,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[8]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[9]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[0]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[1]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 9.228544999216009,
+     "ess_per_instruction": 4.614272499608004e-09,
+     "ess_per_second": 2.3071362498040022,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[2]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 6.493931772122144,
+     "ess_per_instruction": 3.246965886061072e-09,
+     "ess_per_second": 1.623482943030536,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[3]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[4]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 7.270321552936528,
+     "rhat": null
+    },
+    "single": {
+     "ess": 6.42076507060179,
+     "ess_per_instruction": 3.210382535300895e-09,
+     "ess_per_second": 1.6051912676504474,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[5]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 5.559862159247301,
+     "rhat": null
+    },
+    "single": {
+     "ess": 5.290325220518743,
+     "ess_per_instruction": 2.6451626102593714e-09,
+     "ess_per_second": 1.3225813051296857,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[6]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[7]"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "edge",
+   "name": "2<-1"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 6.702635780124613,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "edge",
+   "name": "3<-1"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 10.0,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "edge",
+   "name": "3<-2"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": null,
+     "rhat": null
+    },
+    "single": {
+     "ess": null,
+     "ess_per_instruction": null,
+     "ess_per_second": null,
+     "rhat": null
+    }
+   },
+   "group": "unobserved-source inclusion",
+   "name": "1"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": null,
+     "rhat": null
+    },
+    "single": {
+     "ess": null,
+     "ess_per_instruction": null,
+     "ess_per_second": null,
+     "rhat": null
+    }
+   },
+   "group": "unobserved-source inclusion",
+   "name": "2"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 6.709826923569373,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "unobserved-source inclusion",
+   "name": "3"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 8.026620021326679,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "functionals",
+   "name": "mean_entropy"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 6.709826923569375,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "functionals",
+   "name": "mean_q"
+  },
+  {
+   "analyses": {
+    "replica": {
+     "ess": 6.678242868908823,
+     "rhat": null
+    },
+    "single": {
+     "ess": 10.0,
+     "ess_per_instruction": 5e-09,
+     "ess_per_second": 2.5,
+     "rhat": null
+    }
+   },
+   "group": "functionals",
+   "name": "psi_edge"
+  }
+ ],
+ "timed": [
+  "single"
+ ]
+}
