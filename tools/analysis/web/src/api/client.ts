@@ -42,3 +42,8 @@ export async function getJson<T>(path: string, params: Params = {}): Promise<T> 
   if (!response.ok) throw new ApiError(body?.error ?? `${response.status} ${response.statusText}`, response.status);
   return body as T;
 }
+
+/** `params` with `analysis=` naming the active Analysis (`useActiveAnalysis`); unchanged for the primary (null). */
+export function scoped(params: Params, analysis: string | null): Params {
+  return analysis ? { ...params, analysis } : params;
+}

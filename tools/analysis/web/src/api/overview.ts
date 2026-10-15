@@ -3,7 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Interval } from "../lib/functionals";
 import type { NotableEvent } from "./analysis";
-import { getJson, num } from "./client";
+import { useActiveAnalysis } from "./active";
+import { getJson, num, scoped } from "./client";
 
 export interface GroupMixing {
   group: string;
@@ -39,8 +40,8 @@ export interface Overview {
   };
 }
 
-export async function getOverview(): Promise<Overview> {
-  const o = await getJson<Overview>("/api/overview");
+export async function getOverview(analysis: string | null = null): Promise<Overview> {
+  const o = await getJson<Overview>("/api/overview", scoped({}, analysis));
   const nums = (xs: (number | string)[]) => xs.map((x) => num(x) as number);
   return {
     ...o,
@@ -49,4 +50,7 @@ export async function getOverview(): Promise<Overview> {
   };
 }
 
-export const useOverview = () => useQuery({ queryKey: ["overview"], queryFn: getOverview, staleTime: 60_000 });
+export const useOverview = () => {
+  const analysis = useActiveAnalysis();
+  return useQuery({ queryKey: ["overview", analysis], queryFn: () => getOverview(analysis), staleTime: 60_000 });
+};

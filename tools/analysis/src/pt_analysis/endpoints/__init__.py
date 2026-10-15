@@ -25,13 +25,16 @@ def json(value, status_code=200):
 
 
 def memo(request, key, compute):
-    """`compute()`, remembered per app under `key` for the primary Analysis while its Chains' closed Windows stay
-    the same: a Chain that closes another Window makes every remembered result stale."""
-    analysis = request.app.state.analysis
+    """`compute()`, remembered per app under `key` for the request's Analysis (`requested_analysis`) while its Chains'
+    closed Windows stay the same: a Chain that closes another Window makes every result remembered for it stale."""
+    analysis = requested_analysis(request)
     source = json_text(analysis_source(analysis))
-    cache = getattr(request.app.state, "memo", None)
+    caches = getattr(request.app.state, "memo", None)
+    if caches is None:
+        caches = request.app.state.memo = {}
+    cache = caches.get(analysis.label)
     if cache is None or cache["source"] != source:
-        cache = request.app.state.memo = {"source": source, "results": {}}
+        cache = caches[analysis.label] = {"source": source, "results": {}}
     if key not in cache["results"]:
         cache["results"][key] = compute()
     return cache["results"][key]
@@ -42,11 +45,18 @@ def error(message, status_code=400):
 
 
 class UnknownAnalysis(Exception):
-    """The request names an Analysis the server was not started with."""
+    """The request names an Analysis the server was not started with: a 404 naming it (`unknown_analysis`)."""
+
+
+async def unknown_analysis(request, exc):
+    """The app's handler of `UnknownAnalysis`, raised from any endpoint."""
+    return error(str(exc), 404)
 
 
 def requested_analysis(request):
-    """The Analysis named by the request's `analysis` parameter (a label, U5), or the primary Analysis without one."""
+    """The Analysis named by the request's `analysis` parameter (a label, U5), or the primary Analysis without one.
+    Every endpoint that reads one Analysis reads it here, so each takes `analysis=LABEL`; an unknown label raises
+    `UnknownAnalysis`, which the app answers with a 404."""
     label = request.query_params.get("analysis")
     if label in (None, ""):
         return request.app.state.analysis

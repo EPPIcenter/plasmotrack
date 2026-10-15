@@ -36,6 +36,8 @@ export interface Column<T extends RowData> {
   sortable?: boolean;
   /** Sort descending on the first click (largest first). */
   descFirst?: boolean;
+  /** A column group: consecutive columns of one group share a header above theirs (Compare's column per Analysis). */
+  group?: string;
   /** Shown under the header in a second sticky header row, e.g. a distribution strip or a filter box. */
   below?: ReactNode;
 }
@@ -98,7 +100,7 @@ export function DataTable<T extends RowData>({
         enableSorting: c.sortable ?? true,
         sortDescFirst: c.descFirst ?? false,
         sortUndefined: "last" as const,
-        meta: { numeric: c.numeric ?? false, title: c.title },
+        meta: { numeric: c.numeric ?? false, title: c.title, group: c.group },
       })) as ColumnDef<Features, T>[],
     [columns],
   );
@@ -136,6 +138,15 @@ export function DataTable<T extends RowData>({
   for (const h of headers) (widths as Record<string, string>)[slot.get(h.column.id)!] = `${h.getSize()}px`;
   const total = table.getTotalSize();
   const numeric = (meta: unknown) => (meta as { numeric?: boolean } | undefined)?.numeric ?? false;
+  // Runs of consecutive columns with one group, for the group header row; none when no column has a group.
+  const groupOf = (i: number) => (headers[i]!.column.columnDef.meta as { group?: string } | undefined)?.group;
+  const spans: { group: string | undefined; slots: string[]; first: number }[] = [];
+  headers.forEach((h, i) => {
+    const last = spans.at(-1);
+    if (last && last.group !== undefined && last.group === groupOf(i)) last.slots.push(slot.get(h.column.id)!);
+    else spans.push({ group: groupOf(i), slots: [slot.get(h.column.id)!], first: i });
+  });
+  const grouped = spans.some((g) => g.group !== undefined);
 
   return (
     <div
@@ -148,7 +159,29 @@ export function DataTable<T extends RowData>({
       onMouseLeave={() => onRowHover?.(null)}
     >
       <div role="rowgroup" className="sticky top-0 z-10 border-b border-line bg-surface" style={{ minWidth: total }}>
-      <div className="flex">
+        {grouped && (
+          <div className="flex border-b border-line/60">
+            {spans.map((g) => {
+              const width = g.slots.length === 1 ? `var(${g.slots[0]})` : `calc(${g.slots.map((v) => `var(${v})`).join(" + ")})`;
+              return g.group === undefined ? (
+                <div key={`blank${g.first}`} aria-hidden className="shrink-0" style={{ width }} />
+              ) : (
+                <div
+                  key={`group${g.first}`}
+                  role="columnheader"
+                  data-group={g.group}
+                  aria-colspan={g.slots.length}
+                  title={g.group}
+                  className="flex h-6 shrink-0 items-center truncate border-l border-line px-2 font-semibold text-ink"
+                  style={{ width }}
+                >
+                  {g.group}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="flex">
         {headers.map((h) => {
           const sorted = h.column.getIsSorted();
           const meta = h.column.columnDef.meta as { numeric?: boolean; title?: string } | undefined;
@@ -181,16 +214,16 @@ export function DataTable<T extends RowData>({
           );
         })}
         <div className="flex-1" />
-      </div>
-      {columns.some((c) => c.below !== undefined) && (
-        <div className="flex">
-          {headers.map((h) => (
-            <div key={h.id} className="shrink-0 px-1 pb-1" style={{ width: `var(${slot.get(h.column.id)})` }}>
-              {columns.find((c) => c.id === h.column.id)?.below}
-            </div>
-          ))}
         </div>
-      )}
+        {columns.some((c) => c.below !== undefined) && (
+          <div className="flex">
+            {headers.map((h) => (
+              <div key={h.id} className="shrink-0 px-1 pb-1" style={{ width: `var(${slot.get(h.column.id)})` }}>
+                {columns.find((c) => c.id === h.column.id)?.below}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       {model.length === 0 ? (
         <p className="p-3 text-muted">{emptyText}</p>

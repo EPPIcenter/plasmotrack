@@ -22,7 +22,7 @@ from dataclasses import asdict
 
 from starlette.routing import Route
 
-from pt_analysis.endpoints import error, json
+from pt_analysis.endpoints import error, json, requested_analysis
 from pt_analysis.epi import EpiError
 from pt_analysis.flows import (FlowsError, attribution, enrichment, lag_histogram, median_duration, nice_width,
                                net_flow, reassign, spatial_scale)
@@ -40,7 +40,7 @@ def _number(request, name, default=None):
 
 
 async def flows(request):
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     column = request.query_params.get("column") or None
     try:
         minimum = int(_number(request, "min_infections", 1))
@@ -55,7 +55,7 @@ async def flows(request):
 
 
 async def lags(request):
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     column = request.query_params.get("column") or None
     try:
         max_lag = _number(request, "max_lag")
@@ -70,7 +70,7 @@ async def lags(request):
 
 
 async def spatial(request):
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     unit, parent = request.query_params.get("unit"), request.query_params.get("parent")
     if not unit or not parent:
         return error("spatial scale needs a unit column and its parent unit column: ?unit=...&parent=...")

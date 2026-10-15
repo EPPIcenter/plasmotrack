@@ -24,7 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.routing import Route
 
 from pt_analysis import cohort
-from pt_analysis.endpoints import error, json
+from pt_analysis.endpoints import error, json, requested_analysis
 
 ADDRESS = re.compile(r" at (http://127\.0\.0\.1:[0-9]+/)")
 
@@ -72,7 +72,7 @@ class Servers:
 
 def cohort_file(request):
     """The cohort file of the request (`file`, relative to the manifest's directory) or the manifest's; None."""
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     given = request.query_params.get("file")
     if given:
         return (analysis.path.parent / given).resolve()

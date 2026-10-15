@@ -8,7 +8,7 @@
 
 from starlette.routing import Route
 
-from pt_analysis.endpoints import error, json
+from pt_analysis.endpoints import error, json, requested_analysis
 from pt_analysis.pair import PairError, UnknownInfection, inspect_pair
 
 
@@ -17,7 +17,7 @@ async def pair(request):
     if not a or not b:
         return error("a pair needs two Infection ids, a and b")
     try:
-        return json(inspect_pair(request.app.state.analysis, a, b))
+        return json(inspect_pair(requested_analysis(request), a, b))
     except UnknownInfection as e:
         return error(str(e), 404)
     except PairError as e:

@@ -1,8 +1,9 @@
-// The Infections table (`/api/infections`), unpacked once into rows.
+// The Infections table (`/api/infections`) of the active Analysis, unpacked once into rows.
 
 import { useQuery } from "@tanstack/react-query";
 import { infectionRows, type InfectionRow, type InfectionsPayload } from "../lib/infections";
-import { getJson } from "./client";
+import { useActiveAnalysis } from "./active";
+import { getJson, scoped } from "./client";
 
 export interface Infections {
   chains: string[];
@@ -10,12 +11,14 @@ export interface Infections {
   epiColumns: InfectionsPayload["epi_columns"];
 }
 
-export const useInfections = () =>
-  useQuery({
-    queryKey: ["infections"],
+export const useInfections = () => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["infections", analysis],
     queryFn: async (): Promise<Infections> => {
-      const p = await getJson<InfectionsPayload>("/api/infections");
+      const p = await getJson<InfectionsPayload>("/api/infections", scoped({}, analysis));
       return { chains: p.chains, rows: infectionRows(p), epiColumns: p.epi_columns };
     },
     staleTime: 60_000,
   });
+};

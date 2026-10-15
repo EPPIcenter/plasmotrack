@@ -50,9 +50,9 @@ of `/convergence?sel=...` opens the app there.
 | `src/inspector/<kind>/` | One module per entity kind; `Inspector.tsx` is the frame |
 | `src/workspaces/<id>/` | One module per workspace; the default export is the component |
 | `src/lib/` | Pure logic with tests, no DOM: the payloads' types and chart data per workspace, `entity.ts` (the Inspector's entities and their URL form), `search.ts` (command palette), `status.ts` (mixing thresholds), `palette.ts` (chart colours), `export.ts` (CSV and SVG), `format.ts`, `ids.ts` |
-| `src/test/` | Vitest setup, `render.tsx` (`renderApp`, `renderWithProviders`, `mockApi`, `fixture`), `fixtures/` |
+| `src/test/` | Vitest setup, `render.tsx` (`renderApp(url, overrides)`, `renderWithProviders`, `mockApi`, `fixture`), `fixtures/` |
 | `e2e/` | The Playwright smoke test |
-| `scripts/golden.py` | Captures the fixtures from, or serves, the golden Analysis with epi data and truth |
+| `scripts/golden.py` | Captures the fixtures from, or serves, the golden Analysis with epi data, truth and a cohort of three fits of it (full, partial, null) |
 
 ## Design system
 
@@ -69,10 +69,12 @@ of `/convergence?sel=...` opens the app there.
   - `PlotFigure`: Observable Plot wrapper; `plot({ width, height, theme })` is called again when the container
     resizes or the theme changes. Pass a stable function (`useCallback`). `plotStyle(theme)` for the shared style.
   - `DataTable`: virtualised table with sticky header, sort, column resize, numeric alignment, row hover and click,
-    the active row. Columns are `{ id, header, value, cell?, numeric?, width?, descFirst? }`.
+    the active row. Columns are `{ id, header, value, cell?, numeric?, width?, descFirst?, group? }`; consecutive
+    columns of one `group` share a header above theirs.
   - `Sparkline`, `StatusChip` (R-hat above 1.1 amber and 1.2 red, ESS under 100 amber and 20 red; icon and title
     as well as colour), `EntityLink`, `KpiStrip`, `ExportMenu`, `QuantityTrace` (trace per Chain with a brushable
-    range, rank histograms, ESS and R-hat over the range), `CommandPalette`, `Placeholder`.
+    range, rank histograms, ESS and R-hat over the range), `CommandPalette`, `Placeholder`, `AnalysisSwitch` (the open Analyses as a segmented switch; nothing with one open).
+    `QuantityTrace` takes `analysis` to read a given open Analysis rather than the active one.
 - **Exports**: every `Panel` exports its figures (SVG and canvases in its body) as SVG and PNG on the theme's surface,
   and its `data` as CSV through `src/lib/export.ts`: the payload's numbers under the package's names, never display
   strings. A `NamedTable[]` writes one file per part.
@@ -87,7 +89,11 @@ The URL is the state: workspace path, its filters and sort, and the selection.
   Inspector's tab.
 - `ids` is the multi-selection of Infections, comma-separated (`useMultiSelection`). The Infections workspace shows
   only these while it is set.
-- `analysis` names another open Analysis than the primary (compare mode; the top bar's switcher sets it).
+- `analysis` names another open Analysis than the primary (compare mode). The top bar's switcher and the Quantity
+  Inspector's `AnalysisSwitch` set it. Every hook of an endpoint about one Analysis reads it with
+  `useActiveAnalysis()` (`src/api/active.ts`), keys its cache by it and sends it with `scoped(params, analysis)`;
+  the backend reads that Analysis on every endpoint. Only `/api/analyses` and `/api/compare/*` (about every open
+  Analysis) do not. A new hook follows the same pattern.
 - A workspace's own parameters are read with `useWorkspaceSearch(parse)`, which returns the typed values and a setter
   that replaces the history entry. Selection pushes a history entry, so Back restores the previous selection.
 
@@ -99,6 +105,21 @@ column's distribution strip (every Infection grey, the filtered ones in the acce
 
 Select with `useSelection().select(entity, tab?)` or render an `<EntityLink entity={...} />`; never navigate away
 from the workspace to show an entity.
+
+## Assess workspaces
+
+- **Samplers** (`src/workspaces/samplers/`, logic in `src/lib/sampler.ts`, hooks in `src/api/sampler.ts`): per Chain
+  (`chain=`), a small multiple per sampler type of the pooled acceptance over Windows with the band from its lowest to
+  its highest target and the target band (`band_lo`, `band_hi`) shaded; a type's status pools the sampling Windows as
+  the Overview does (`acceptanceStatus`). Clicking a type (`type=`) loads its targets (`/api/sampler?type=`, lowest
+  acceptance first, at most 500) as grey lines and a table: each target's status, its Infection, and the ESS in the
+  Chain of the quantity its parameter is (`targetSubject`, `worstQuantity`). Swap acceptance per temperature pair and
+  the ladder use ordinal steps of the sequential ramp (`slotColours`); Run events are rules on every time axis and a
+  list.
+- **Compare** (`src/workspaces/compare/`, logic in `src/lib/compare.ts`, hook in `src/api/compare.ts`): with several
+  Analyses open, the convergence table with a column group per Analysis, the scatter of ESS (or ESS per instruction
+  retired or per second, `metric=`) of `x=` against `y=` on log axes, and the trace of the quantity clicked (`q=`) in
+  both. With one Analysis open it says how to open several.
 
 ## Add a workspace
 
@@ -127,6 +148,27 @@ The route and the rail entry of every workspace in DESIGN.md exist; the ones not
    `pairwise_scores`, `analyses` likewise). An attention badge is a count under the workspace's id in
    `/api/status`'s `attention` (`pt_analysis/overview.py`, `status`).
 
+## Accuracy workspaces
+
+Shown when the manifest names a truth file (Errors, Ranking, Parent sets) or a truth file or a cohort (Cohort).
+
+| Workspace | Endpoints | URL |
+|---|---|---|
+| Errors | `/api/errors`, `/api/truth-network`, `/api/network` | `source` (posterior, null, ibd), `threshold`, `kinds` (missed, false, direction) |
+| Ranking | `/api/ranking` | none |
+| Parent sets | `/api/parent-sets` | `level`, `sort`, `desc` |
+| Cohort | `/api/cohort`, `POST /api/cohort/open` | `file`, `fit` (full, partial, null), `metric`, `factor`, `x`, `y`, `colour`, `brush` (`x0,x1,y0,y1` on `x` and `y`), `row` |
+
+- Errors: the KPI strip counts the calls at the threshold (`thresholdSummary` in `src/lib/truth.ts`, from the overlay's
+  edges); the thumbnail is an arc diagram over observation time (`callArcs`). A row selects its `edge:` (its `pair:`
+  for the pairwise scores); the Edge Inspector shows truth status. The rail's Errors badge is `/api/status`'s
+  `attention.errors`: the posterior's error rows at threshold 0.5.
+- Ranking: the metrics table names each row by its fit-summary column (`metricsByName` in `src/lib/ranking.ts`), a
+  column per fit and a random ranking's expected precision.
+- Cohort: the fit selector and the brush filter every panel; brushing any facet of the scatter selects the fits inside
+  the rectangle in every facet. A fit's "Open its Analysis" serves its manifest and opens its Ranking in a new tab
+  (needs `pnpm build`: the child server serves `dist/`).
+
 ## Add an Inspector entity
 
 Entity kinds are `infection`, `edge`, `pair`, `quantity` and `stratum`. Each is one line in
@@ -152,7 +194,8 @@ A new kind also needs its URL form in `src/lib/entity.ts` (`parseEntity`, `forma
 An endpoint is a module in `src/pt_analysis/endpoints/<name>.py` exporting `ROUTES`, and its line under its use
 case's comment in `ENDPOINTS` in `src/pt_analysis/server.py`, with pytest tests. Change no existing endpoint's
 payload without updating every consumer. The app's own endpoints are `/api/status` and `/api/overview`
-(`endpoints/overview.py`) and `/api/infections` (`endpoints/infections.py`, the Infections workspace's table).
+(`endpoints/overview.py`); with a truth file, `/api/status` adds `attention.errors`. `/api/infections`
+(`endpoints/infections.py`) is the Infections workspace's table.
 
 ## JSON conventions
 

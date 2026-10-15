@@ -589,8 +589,9 @@ Analysis with neither, or with a Chain missing the field, has no such column.
 | `GET /api/analyses` | `{input_sha256, analyses}`: per Analysis, primary first, label, primary, path, chains `[{chain, draws}]`, draws, sampling_seconds and instructions_retired (each null unless every Chain's timings have it) |
 | `GET /api/compare/convergence` | `{analyses, timed, instructions, rows}`: per quantity (group, name, in table order) and per Analysis `{ess, rhat}`, with `ess_per_second` for the Analyses in `timed` and `ess_per_instruction` for those in `instructions` |
 
-`/api/trace` and `/api/range` take `analysis=LABEL` to read another open Analysis than the primary (404 for a label
-not open), and echo it. The comparison logic is `pt_analysis.compare` (`open_comparison`, `compare_convergence`,
+Every other endpoint takes `analysis=LABEL` to read another open Analysis than the primary (404 for a label not
+open; `pt_analysis.endpoints.requested_analysis`); `/api/trace` and `/api/range` also echo it. The app's Analysis
+switcher sends it on every request. The comparison logic is `pt_analysis.compare` (`open_comparison`, `compare_convergence`,
 `sampling_seconds`, `instructions_retired`).
 
 ## Use from Python

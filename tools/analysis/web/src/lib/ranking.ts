@@ -1,6 +1,8 @@
 // The ranking panel's data: /api/ranking's payload, the curves to draw and the metrics table. No DOM here.
 
+import type { DataTable } from "./export";
 import { CHAIN_COLOURS } from "./format";
+import { chainColour, type ChartTheme } from "./palette";
 
 export interface CurvePoint {
   score: number;
@@ -89,4 +91,53 @@ export function metricsTable(fits: readonly RankingFit[]): MetricsRow[] {
       return [{ fit: FIT_NAMES[f.fit], label: f.label, direction, ...metrics }];
     }),
   );
+}
+
+/** A fit's colour in a theme: categorical slots 1 to 3 (validated together), fixed whatever fits are present. */
+export const fitColour = (theme: ChartTheme, fit: FitKind) => chainColour(theme, { posterior: 0, null: 1, ibd: 2 }[fit]);
+
+/** A random ranking's precision at any recall: the share of true edges among the pairs the direction ranks, from the
+ *  first fit with that ranking; null when no fit has it. */
+export function randomPrecision(fits: readonly RankingFit[], direction: Direction): number | null {
+  const r = fits.find((f) => f[direction])?.[direction];
+  return r && r.n_edge_universe ? r.n_true_edges / r.n_edge_universe : null;
+}
+
+export const RANKING_METRICS = ["n_edge_universe", "n_true_edges", "n_distinct_scores", "average_precision", "pr_auc",
+  "top_k_precision"] as const;
+export type RankingMetric = (typeof RANKING_METRICS)[number];
+/** The metrics a random ranking has an expected value for: its precision, at every recall. */
+const PRECISIONS: readonly RankingMetric[] = ["average_precision", "pr_auc", "top_k_precision"];
+
+export interface MetricsByNameRow {
+  /** The fit summary's column, `<direction>_<metric>`. */
+  column: string;
+  direction: Direction;
+  metric: RankingMetric;
+  /** By fit kind, null where the fit has no ranking of that direction. */
+  values: Partial<Record<FitKind, number | null>>;
+  /** A random ranking's expected value: the true-edge share for the precisions, else null. */
+  random: number | null;
+}
+
+/** A row per ranking column of the fit summary (directed, then undirected), a value per fit. */
+export function metricsByName(fits: readonly RankingFit[]): MetricsByNameRow[] {
+  return (["directed", "undirected"] as const).flatMap((direction) => {
+    const random = randomPrecision(fits, direction);
+    return RANKING_METRICS.map((metric) => ({
+      column: `${direction}_${metric}`,
+      direction,
+      metric,
+      values: Object.fromEntries(fits.map((f) => [f.fit, f[direction]?.[metric] ?? null])),
+      random: PRECISIONS.includes(metric) ? random : null,
+    }));
+  });
+}
+
+/** The metrics by fit-summary column, a column per fit kind and the random baseline: what the panel exports as CSV. */
+export function rankingTable(fits: readonly RankingFit[]): DataTable {
+  return {
+    columns: ["column", ...fits.map((f) => f.fit), "random"],
+    rows: metricsByName(fits).map((r) => [r.column, ...fits.map((f) => r.values[f.fit] ?? null), r.random]),
+  };
 }

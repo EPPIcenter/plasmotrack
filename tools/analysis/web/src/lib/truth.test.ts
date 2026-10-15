@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { EDGE_COLOUR } from "./network";
 import {
+  callArcs,
+  edgeCall,
   errorCounts,
+  errorEntity,
   errorsTable,
   FALSE_COLOUR,
   filterErrors,
@@ -11,6 +14,7 @@ import {
   overlayTooltip,
   pairLink,
   shownCount,
+  thresholdSummary,
   TRUE_RAMP,
   trueEdgeColour,
   type ErrorRow,
@@ -122,5 +126,58 @@ describe("errorsTable", () => {
     expect(t.columns).toEqual(["source", "threshold", "kind", "parent", "child", "marginal", "confidence", "reverse_marginal", "reverse_true",
       "lag", "parent_true_infection_time", "child_true_infection_time"]);
     expect(t.rows).toEqual([["null", 0.5, "missed", "3", "9", 0.5, 0.5, 0, false, 1, null, null]]);
+  });
+});
+
+describe("edgeCall", () => {
+  it("calls an edge at the threshold as the error table does: hit, missed, false or direction", () => {
+    expect(edgeCall(edge("1", "3", 0.9, true), 0.5)).toBe("hit");
+    expect(edgeCall(edge("1", "3", 0.5, true), 0.5)).toBe("hit");
+    expect(edgeCall(edge("1", "3", 0.49, true), 0.5)).toBe("missed");
+    expect(edgeCall(edge("1", "3", 0.7, false, false), 0.5)).toBe("false");
+    expect(edgeCall(edge("3", "1", 0.7, false, true), 0.5)).toBe("direction");
+    expect(edgeCall(edge("3", "1", 0.2, false, true), 0.5)).toBeNull();
+    expect(edgeCall(edge("1", "3", 0.9, null), 0.5)).toBeNull();
+  });
+});
+
+describe("thresholdSummary", () => {
+  it("counts the calls at the threshold and their precision and recall against the true edges", () => {
+    const edges = [
+      edge("1", "2", 0.95, true), edge("2", "3", 0.6, true), edge("1", "4", 0.1, true),
+      edge("4", "1", 0.55, false, true), edge("3", "4", 0.8, false), edge("4", "5", 0.2, false),
+    ];
+    // Called at 0.5: 1>2, 2>3 (hits), 4>1 (direction), 3>4 (false); 1>4 missed.
+    expect(thresholdSummary(edges, 0.5)).toEqual({
+      called: 4, hit: 2, missed: 1, false: 1, direction: 1, n_true: 3, precision: 0.5, recall: 2 / 3,
+    });
+  });
+
+  it("has no precision when nothing is called and no recall without true edges", () => {
+    expect(thresholdSummary([edge("1", "2", 0.1, false)], 0.5)).toMatchObject({ called: 0, precision: null, recall: null });
+  });
+});
+
+describe("errorEntity", () => {
+  it("selects a directed set's row as its edge and an undirected set's as its pair", () => {
+    const row = { parent: "a", child: "b" };
+    expect(errorEntity(row, true)).toEqual({ kind: "edge", parent: "a", child: "b" });
+    expect(errorEntity(row, false)).toEqual({ kind: "pair", a: "a", b: "b" });
+  });
+});
+
+describe("callArcs", () => {
+  const time = new Map([["1", 0], ["2", 50], ["3", 100], ["4", 10]]);
+  const edges = [edge("1", "3", 0.9, true), edge("3", "2", 0.1, true), edge("2", "4", 0.05, false), edge("9", "1", 0.9, true)];
+
+  it("draws each call as an arc over observation time, from parent to child, as high as it is long over the widest", () => {
+    const arcs = callArcs(edges, time, 0.5, 5);
+    // 2 -> 4 is neither true nor called; 9 has no observation time.
+    expect(arcs.map((a) => [a.edge.parent, a.edge.child, a.call])).toEqual([["1", "3", "hit"], ["3", "2", "missed"]]);
+    expect(arcs[0]!.points.map((p) => p.x)).toEqual([0, 25, 50, 75, 100]);
+    expect(arcs[0]!.points[2]!.y).toBeCloseTo(1);
+    expect(arcs[0]!.points[0]!.y).toBeCloseTo(0);
+    expect(arcs[1]!.points.map((p) => p.x)).toEqual([100, 87.5, 75, 62.5, 50]);
+    expect(arcs[1]!.apex).toEqual({ x: 75, y: expect.closeTo(0.5) });
   });
 });

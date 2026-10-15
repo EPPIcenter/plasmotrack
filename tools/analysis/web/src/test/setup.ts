@@ -1,7 +1,12 @@
 // Vitest setup for component tests in jsdom.
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+
+// findBy* and waitFor give up after 1 s by default. The shell and Overview tests mount the whole app and take about
+// that long on an idle machine, so on a loaded one they failed by timing out, not by rendering wrong. 10 s keeps a
+// real failure visible while tolerating load.
+configure({ asyncUtilTimeout: 10_000 });
 
 afterEach(() => {
   cleanup();

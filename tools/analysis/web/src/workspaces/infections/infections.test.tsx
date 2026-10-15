@@ -79,3 +79,12 @@ describe("Infections", () => {
     expect(await screen.findByRole("complementary", { name: /Infection 3/ })).toBeInTheDocument();
   });
 });
+
+describe("Infections in compare mode", () => {
+  it("reads the active Analysis's table", async () => {
+    const { fetch } = renderApp("/infections?analysis=replica");
+    await table();
+    const asked = fetch.mock.calls.map(([input]) => new URL(String(input), "http://test")).filter((u) => u.pathname === "/api/infections");
+    expect(asked.map((u) => u.searchParams.get("analysis"))).toEqual(["replica"]);
+  });
+});

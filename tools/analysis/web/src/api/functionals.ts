@@ -2,7 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { Functionals } from "../lib/functionals";
-import { getJson } from "./client";
+import { useActiveAnalysis } from "./active";
+import { getJson, scoped } from "./client";
 
 export interface EpiColumns {
   key: string | null;
@@ -12,12 +13,20 @@ export interface EpiColumns {
   infections: number;
 }
 
-export const useFunctionals = (column: string | null = null) =>
-  useQuery({
-    queryKey: ["functionals", column],
-    queryFn: () => getJson<Functionals>("/api/functionals", column ? { column } : {}),
+export const useFunctionals = (column: string | null = null) => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["functionals", column, analysis],
+    queryFn: () => getJson<Functionals>("/api/functionals", scoped(column ? { column } : {}, analysis)),
     staleTime: Infinity,
   });
+};
 
-export const useEpi = () =>
-  useQuery({ queryKey: ["epi"], queryFn: () => getJson<EpiColumns>("/api/epi"), staleTime: Infinity });
+export const useEpi = () => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["epi", analysis],
+    queryFn: () => getJson<EpiColumns>("/api/epi", scoped({}, analysis)),
+    staleTime: Infinity,
+  });
+};

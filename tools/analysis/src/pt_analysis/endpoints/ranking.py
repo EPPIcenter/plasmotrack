@@ -24,7 +24,7 @@ from starlette.routing import Route
 
 from pt_analysis import metrics
 from pt_analysis.analysis import AnalysisError
-from pt_analysis.endpoints import error, json, memo
+from pt_analysis.endpoints import error, json, memo, requested_analysis
 
 
 def ranking_json(ranking):
@@ -58,7 +58,7 @@ def parent_sets_payload(analysis, level):
 
 
 async def ranking(request):
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     if analysis.truth is None:
         return error("the Analysis manifest names no truth file, so there is nothing to rank against", 404)
     try:
@@ -74,7 +74,7 @@ async def parent_sets(request):
         return error(f"level is a probability, not '{request.query_params['level']}'")
     if not 0 < level <= 1:
         return error(f"level must be in (0, 1], not {level}")
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     try:
         return json(memo(request, ("parent-sets", level), lambda: parent_sets_payload(analysis, level)))
     except (OSError, KeyError, ValueError, AnalysisError, metrics.MetricsError) as e:
