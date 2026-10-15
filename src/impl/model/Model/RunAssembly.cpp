@@ -60,7 +60,7 @@ namespace transmission_nets::impl::Model {
 
         run.recorder = std::make_unique<RunRecorder>(*run.ensemble->hotChain().state, run.ensemble->samplerIds(), std::move(sink), recipe.recorder, manifest, clock);
         const checkpoint::Identity identity{.runId = manifest.runId, .inputHash = manifest.inputSha256.at(input_names::INPUT), .engineVersion = manifest.engineVersion};
-        run.driver = std::make_unique<RunDriver>(*run.ensemble, *run.rng, *run.recorder, recipe.store, identity, progress, std::move(clock));
+        run.driver = std::make_unique<RunDriver>(*run.ensemble, *run.recorder, recipe.store, identity, progress, std::move(clock));
 
         run.start = FreshRun{};
         if (resuming) {

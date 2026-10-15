@@ -75,7 +75,7 @@ TEST(CheckpointTest, EveryRngEngineContinuesWithTheSameDraws) {
     const auto file = dir.path / "checkpoint.cbor";
     auto original = burnedIn(3, 11);
 
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), position(), {}), file);
     auto restored = restoredFrom(file);
 
     ASSERT_EQ(restored.ensemble->chains.size(), 3u);
@@ -93,14 +93,14 @@ TEST(CheckpointTest, RestoredChainsHaveTheSameStateAndLikelihood) {
     TempDir dir;
     const auto file = dir.path / "checkpoint.cbor";
     auto original = burnedIn(3, 12);
-    const auto saved = checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {});
+    const auto saved = checkpoint::capture(*original.ensemble, identity(), position(), {});
 
     checkpoint::save(saved, file);
     auto restored = restoredFrom(file);
 
-    const auto again = checkpoint::capture(*restored.ensemble, *restored.rng, identity(), position(), {});
+    const auto again = checkpoint::capture(*restored.ensemble, identity(), position(), {});
     for (size_t replica = 0; replica < 3; ++replica) {
-        EXPECT_EQ(again.replicas[replica].state, saved.replicas[replica].state) << "replica " << replica;
+        EXPECT_EQ(again.ensemble.replicas[replica].state, saved.ensemble.replicas[replica].state) << "replica " << replica;
     }
     for (size_t replica = 0; replica < 3; ++replica) {
         auto& was = *original.ensemble->chains[replica].model;
@@ -121,7 +121,7 @@ TEST(CheckpointTest, EachTemperatureSlotKeepsItsReplicaTemperatureAndSwapBarrier
     auto at      = position();
     at.iteration = 75;// the burn-in iterations run, which restore takes the ladder's schedule from
 
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), at, {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), at, {}), file);
     auto restored = restoredFrom(file);
 
     EXPECT_EQ(restored.ensemble->exchangeState(), original.ensemble->exchangeState());
@@ -135,7 +135,7 @@ TEST(CheckpointTest, EverySamplerKeepsItsCountsAndAdaptationState) {
     const auto file = dir.path / "checkpoint.cbor";
     auto original = burnedIn(2, 14, 60);
 
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), position(), {}), file);
     auto restored = restoredFrom(file);
 
     for (size_t replica = 0; replica < 2; ++replica) {
@@ -175,7 +175,7 @@ TEST(CheckpointTest, EachSamplerIsNamedOnceWhateverTheChainCount) {
     const auto& ids = original.ensemble->chains[0].sampler->ids();
     ASSERT_FALSE(ids.empty());
 
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), position(), {}), file);
 
     std::ifstream in(file, std::ios::binary);
     std::map<std::string, size_t> counts;
@@ -203,7 +203,7 @@ TEST(CheckpointTest, EachInfectionLatentParentAndLocusIsNamedOnceWhateverTheChai
         names.push_back(label);
     }
 
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), position(), {}), file);
 
     std::ifstream in(file, std::ios::binary);
     std::map<std::string, size_t> counts;
@@ -223,7 +223,7 @@ TEST(CheckpointTest, IdentityRunPositionAndParentSetIdsSurvive) {
             {"3", {.ids = {{{"1", "2"}, 0}, {{"2"}, 4}}, .nextId = 7}},
     };
 
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), sampling, parentSetIds), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), sampling, parentSetIds), file);
     const auto loaded = checkpoint::load(file);
 
     EXPECT_EQ(loaded.identity, identity());
@@ -238,8 +238,8 @@ TEST(CheckpointTest, SavingAgainReplacesTheCheckpointAndLeavesNoOtherFile) {
     checkpoint::RunPosition later = position();
     later.iteration = 41;
 
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), later, {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), position(), {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), later, {}), file);
 
     EXPECT_EQ(checkpoint::load(file).position, later);
     EXPECT_EQ(std::distance(fs::directory_iterator(dir.path), fs::directory_iterator()), 1);
@@ -249,7 +249,7 @@ TEST(CheckpointTest, LoadRefusesAnotherFormatVersion) {
     TempDir dir;
     const auto file = dir.path / "checkpoint.cbor";
     auto original = burnedIn(1, 17, 5);
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), position(), {}), file);
     std::ifstream in(file, std::ios::binary);
     auto saved = nlohmann::json::from_cbor(in);
     in.close();
@@ -274,88 +274,13 @@ TEST(CheckpointTest, RestoreRefusesAnInputWithOtherLoci) {
     TempDir dir;
     const auto file = dir.path / "checkpoint.cbor";
     auto original = burnedIn(1, 19, 5);
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), position(), {}), file);
     std::string renamed = exampleInput().dump();
     for (size_t at = renamed.find("AS11"); at != std::string::npos; at = renamed.find("AS11", at)) {
         renamed.replace(at, 4, "AS99");
     }
 
     EXPECT_THROW(checkpoint::restore(checkpoint::load(file), std::make_shared<Engine>(1), nlohmann::json::parse(renamed), idp, idp, false, 1), Refused);
-}
-
-TEST(CheckpointTest, SamplersAdaptOnTheSameSamplingIterationsAfterRestore) {
-    TempDir dir;
-    const auto file = dir.path / "checkpoint.cbor";
-    // Samplers adapt from Sampling iteration 20 to 200 of their chain; at 199 they adapt once more, then stop.
-    auto original = burnedIn(1, 15, 199);
-
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
-    auto restored = restoredFrom(file);
-    const auto& samplers = *restored.ensemble->chains[0].sampler;
-    const auto proposalScales = [&] {
-        std::vector<double> variances;
-        for (const auto& id : samplers.ids()) {
-            for (const auto& scale : samplers.sampler(id).adaptationState().scales) {
-                variances.push_back(scale.variance);
-            }
-        }
-        return variances;
-    };
-    const auto atSave = proposalScales();
-
-    restored.ensemble->burnin();
-    const auto afterIteration199 = proposalScales();
-    restored.ensemble->burnin();
-
-    EXPECT_NE(afterIteration199, atSave);
-    EXPECT_EQ(proposalScales(), afterIteration199);
-}
-
-TEST(CheckpointTest, ARunRestoredMidBurnInAdaptsItsLadderOnTheSameIterations) {
-    TempDir dir;
-    const auto file = dir.path / "checkpoint.cbor";
-    auto original = burnedIn(4, 19, 17);
-    auto at       = position();
-    at.iteration  = 17;
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), at, {}), file);
-    auto restored = restoredFrom(file);
-
-    for (int ii = 17; ii < 31; ++ii) {
-        const bool adapted = original.ensemble->burnin().has_value();
-        EXPECT_EQ(restored.ensemble->burnin().has_value(), adapted) << "burn-in iteration " << ii;
-        EXPECT_EQ(adapted, ii == 20 or ii == 25 or ii == 30) << "burn-in iteration " << ii;
-    }
-}
-
-TEST(CheckpointTest, ARunRestoredMidBurnInAdaptsItsLadderIdentically) {
-    TempDir dir;
-    const auto file = dir.path / "checkpoint.cbor";
-    // Three iterations past the adaptation at 15, so the next one's window straddles the save, with an odd count.
-    auto original = burnedIn(4, 21, 18);
-    auto at       = position();
-    at.iteration  = 18;
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), at, {}), file);
-
-    auto restored = restoredFrom(file);
-
-    for (int ii = 18; ii < 31; ++ii) {
-        const auto expected = original.ensemble->burnin();
-        const auto actual   = restored.ensemble->burnin();
-        ASSERT_EQ(actual.has_value(), expected.has_value()) << "burn-in iteration " << ii;
-        if (!expected) {
-            continue;
-        }
-        // Restore recomputes each likelihood from its State, which can differ from the running sum in the last bits.
-        EXPECT_EQ(actual->applied, expected->applied) << "burn-in iteration " << ii;
-        ASSERT_EQ(actual->temperatures.size(), expected->temperatures.size());
-        for (size_t slot = 0; slot < expected->temperatures.size(); ++slot) {
-            EXPECT_NEAR(actual->temperatures[slot], expected->temperatures[slot], 1e-12) << "burn-in iteration " << ii << ", slot " << slot;
-        }
-        ASSERT_EQ(actual->barriers.size(), expected->barriers.size());
-        for (size_t pair = 0; pair < expected->barriers.size(); ++pair) {
-            EXPECT_NEAR(actual->barriers[pair], expected->barriers[pair], 1e-12) << "burn-in iteration " << ii << ", pair " << pair;
-        }
-    }
 }
 
 TEST(CheckpointTest, ACheckpointSavedWhileSamplingRestoresNoPendingLadderBarriers) {
@@ -368,7 +293,7 @@ TEST(CheckpointTest, ACheckpointSavedWhileSamplingRestoresNoPendingLadderBarrier
     }
     ASSERT_GT(original.ensemble->exchangeState().barrierIterations, 0);
     const checkpoint::RunPosition sampling{.iteration = 23, .phase = checkpoint::Phase::Sampling, .lastClosedWindow = 0, .burnInRemaining = 0, .samplingRemaining = 10};
-    checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), sampling, {}), file);
+    checkpoint::save(checkpoint::capture(*original.ensemble, identity(), sampling, {}), file);
 
     const auto exchange = restoredFrom(file).ensemble->exchangeState();
 

@@ -31,17 +31,6 @@ namespace transmission_nets::impl::Model::checkpoint {
             throw Refused({.kind = RefusalKind::UnusableCheckpoint, .message = std::move(message)});
         }
 
-        std::string engineState(const Engine& engine) {
-            std::ostringstream out;
-            out << engine;
-            return out.str();
-        }
-
-        void setEngineState(Engine& engine, const std::string& state) {
-            std::istringstream in(state);
-            in >> engine;
-        }
-
         // The saved value for `key`; a missing key means the checkpoint was made from another input.
         template<typename Value>
         const Value& savedFor(const std::map<std::string, Value>& saved, const std::string& key, const std::string& what) {
@@ -121,10 +110,6 @@ namespace transmission_nets::impl::Model::checkpoint {
             size_t bits_ = 0;
         };
 
-        Layout stateLayout(const State& state) {
-            return {.infections = infectionIds(state.infections), .latentParents = infectionIds(state.latentParents), .loci = locusLabels(state)};
-        }
-
         // Visits a State's Quantities into a ChainState.
         struct Capturing {
             const State& state;
@@ -160,12 +145,6 @@ namespace transmission_nets::impl::Model::checkpoint {
                 return std::move(saved);
             }
         };
-
-        ChainState captureState(const State& state) {
-            Capturing capturing{.state = state};
-            state.quantities(capturing);
-            return capturing.take();
-        }
 
         // Visits a ChainState into a State no Model has been built on yet.
         struct Restoring {
@@ -206,17 +185,6 @@ namespace transmission_nets::impl::Model::checkpoint {
                 ordering->restoreOrder(std::move(order));
             }
         };
-
-        // Fills a State no Model has been built on yet, from the same input as `layout`.
-        void restoreState(const Layout& layout, const ChainState& saved, State& state) {
-            requireSameNames(layout.infections, infectionIds(state.infections), "Infections");
-            requireSameNames(layout.latentParents, infectionIds(state.latentParents), "Latent parents");
-            requireSameNames(layout.loci, locusLabels(state), "Loci");
-            requireLength(saved.alleleFrequencies, state.loci.size(), "Allele frequencies");
-            requireLength(saved.ordering, state.infections.size(), "Infections in the Ordering");
-            Restoring restoring{.state = state, .saved = saved, .genotypes = BitReader(saved.latentGenotypes)};
-            state.quantities(restoring);
-        }
 
         std::vector<std::uint8_t> bytesFrom(const json& j) {
             const auto& bytes = j.get_binary();
@@ -288,11 +256,14 @@ namespace transmission_nets::impl::Model::checkpoint {
         }
 
         Replica replicaFromJson(const json& j) {
-            return {.state               = chainStateFromJson(j.at("state")),
-                    .rng                 = j.at("rng"),
-                    .samplerCounts       = countsFromJson(j.at("sampler_counts")),
-                    .adaptation          = adaptationFromJson(j.at("adaptation")),
-                    .schedulerIterations = j.at("scheduler_iterations")};
+            // The Sampler set counts in int.
+            const auto iterations = j.at("scheduler_iterations").get<std::int64_t>();
+            if (iterations < 0 or iterations > std::numeric_limits<int>::max()) {
+                refuse(fmt::format("checkpoint has a replica at scheduler iteration {}, out of range", iterations));
+            }
+            return {.state    = chainStateFromJson(j.at("state")),
+                    .rng      = j.at("rng"),
+                    .samplers = {.iterations = static_cast<int>(iterations), .counts = countsFromJson(j.at("sampler_counts")), .adaptation = adaptationFromJson(j.at("adaptation"))}};
         }
 
         json toJson(const Identity& identity) {
@@ -477,7 +448,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             std::string buffer_;
         };
 
-        void write(CborFile& out, const Layout& layout) {
+        void write(CborFile& out, const Layout& layout, const std::vector<std::string>& samplerIds) {
             out.map(4);
             out.text("infections");
             out.texts(layout.infections);
@@ -486,7 +457,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             out.text("loci");
             out.texts(layout.loci);
             out.text("samplers");
-            out.texts(layout.samplers);
+            out.texts(samplerIds);
         }
 
         void write(CborFile& out, const ChainState& state) {
@@ -568,11 +539,11 @@ namespace transmission_nets::impl::Model::checkpoint {
             out.text("rng");
             out.text(replica.rng);
             out.text("sampler_counts");
-            write(out, replica.samplerCounts);
+            write(out, replica.samplers.counts);
             out.text("adaptation");
-            write(out, replica.adaptation);
+            write(out, replica.samplers.adaptation);
             out.text("scheduler_iterations");
-            out.number(replica.schedulerIterations);
+            out.number(std::int64_t{replica.samplers.iterations});
         }
 
         void write(CborFile& out, const Checkpoint& checkpoint) {
@@ -586,16 +557,16 @@ namespace transmission_nets::impl::Model::checkpoint {
             out.text("parent_set_ids");
             out.value(toJson(checkpoint.parentSetIds));
             out.text("layout");
-            write(out, checkpoint.layout);
+            write(out, checkpoint.layout, checkpoint.ensemble.samplerIds);
             out.text("run_rng");
-            out.text(checkpoint.runRng);
+            out.text(checkpoint.ensemble.runRng);
             out.text("replicas");
-            out.array(checkpoint.replicas.size());
-            for (const auto& replica : checkpoint.replicas) {
+            out.array(checkpoint.ensemble.replicas.size());
+            for (const auto& replica : checkpoint.ensemble.replicas) {
                 write(out, replica);
             }
             out.text("exchange");
-            out.value(toJson(checkpoint.exchange));
+            out.value(toJson(checkpoint.ensemble.exchange));
         }
 
         Checkpoint fromJson(const json& j) {
@@ -604,39 +575,48 @@ namespace transmission_nets::impl::Model::checkpoint {
                                   .parentSetIds = parentSetIdsFromJson(j.at("parent_set_ids")),
                                   .layout       = {.infections    = j.at("layout").at("infections"),
                                                    .latentParents = j.at("layout").at("latent_parents"),
-                                                   .loci          = j.at("layout").at("loci"),
-                                                   .samplers      = j.at("layout").at("samplers")}};
-            checkpoint.runRng = j.at("run_rng").get<std::string>();
+                                                   .loci          = j.at("layout").at("loci")}};
+            checkpoint.ensemble.samplerIds = j.at("layout").at("samplers").get<std::vector<std::string>>();
+            checkpoint.ensemble.runRng     = j.at("run_rng").get<std::string>();
             for (const auto& replica : j.at("replicas")) {
-                checkpoint.replicas.push_back(replicaFromJson(replica));
+                checkpoint.ensemble.replicas.push_back(replicaFromJson(replica));
             }
-            checkpoint.exchange = exchangeFromJson(j.at("exchange"));
+            checkpoint.ensemble.exchange = exchangeFromJson(j.at("exchange"));
             return checkpoint;
         }
 
     }// namespace
 
-    Checkpoint capture(const Ensemble& ensemble, const Engine& runRng, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds) {
-        Checkpoint checkpoint{.identity = std::move(identity), .position = position, .parentSetIds = std::move(parentSetIds), .runRng = engineState(runRng), .exchange = ensemble.exchangeState()};
-        checkpoint.layout          = stateLayout(*ensemble.chains.front().state);
-        checkpoint.layout.samplers = ensemble.chains.front().sampler->ids();
-        const auto& ids = checkpoint.layout.samplers;
-        for (const auto& chain : ensemble.chains) {
-            const auto& samplers = *chain.sampler;
-            if (samplers.ids() != ids or infectionIds(chain.state->infections) != checkpoint.layout.infections) {
-                throw std::logic_error("chains of one ensemble have different samplers or Infections");
+    Layout stateLayout(const State& state) {
+        return {.infections = infectionIds(state.infections), .latentParents = infectionIds(state.latentParents), .loci = locusLabels(state)};
+    }
+
+    ChainState captureState(const State& state) {
+        Capturing capturing{.state = state};
+        state.quantities(capturing);
+        return capturing.take();
+    }
+
+    // Fills a State no Model has been built on yet, from the same input as `layout`.
+    void restoreState(const Layout& layout, const ChainState& saved, State& state) {
+        requireSameNames(layout.infections, infectionIds(state.infections), "Infections");
+        requireSameNames(layout.latentParents, infectionIds(state.latentParents), "Latent parents");
+        requireSameNames(layout.loci, locusLabels(state), "Loci");
+        requireLength(saved.alleleFrequencies, state.loci.size(), "Allele frequencies");
+        requireLength(saved.ordering, state.infections.size(), "Infections in the Ordering");
+        Restoring restoring{.state = state, .saved = saved, .genotypes = BitReader(saved.latentGenotypes)};
+        state.quantities(restoring);
+    }
+
+
+    Checkpoint capture(const Ensemble& ensemble, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds) {
+        Checkpoint checkpoint{.identity = std::move(identity), .position = position, .parentSetIds = std::move(parentSetIds), .layout = stateLayout(*ensemble.chains.front().state)};
+        checkpoint.ensemble = ensemble.record([&](const State& state) {
+            if (infectionIds(state.infections) != checkpoint.layout.infections) {
+                throw std::logic_error("chains of one ensemble have different Infections");
             }
-            Replica replica{.state = captureState(*chain.state), .rng = engineState(*chain.r), .schedulerIterations = samplers.iterations()};
-            replica.samplerCounts.reserve(ids.size());
-            for (std::uint32_t ii = 0; ii < ids.size(); ++ii) {
-                const auto& sampler = samplers.sampler(ids[ii]);
-                replica.samplerCounts.push_back(sampler.counts());
-                if (auto adaptation = sampler.adaptationState(); !adaptation.scales.empty() or adaptation.updates != 0) {
-                    replica.adaptation.emplace(ii, std::move(adaptation));
-                }
-            }
-            checkpoint.replicas.push_back(std::move(replica));
-        }
+            return captureState(state);
+        });
         return checkpoint;
     }
 
@@ -673,16 +653,20 @@ namespace transmission_nets::impl::Model::checkpoint {
                                       const std::vector<core::computation::Probability>& asymptomaticIDPDist,
                                       const bool nullModel,
                                       const unsigned int numCores) {
-        const auto numChains = static_cast<int>(checkpoint.replicas.size());
-        auto ensemble = std::make_unique<Ensemble>(numChains, 0.5, runRng, numCores, [&](const size_t replica, std::shared_ptr<Engine> chainRng) {
-            auto state = std::make_shared<State>(input, symptomaticIDPDist, asymptomaticIDPDist, chainRng, nullModel);
-            restoreState(checkpoint.layout, checkpoint.replicas[replica].state, *state);
-            return state;
-        });
+        std::unique_ptr<Ensemble> ensemble;
+        try {
+            ensemble = std::make_unique<Ensemble>(checkpoint.ensemble, runRng, numCores, [&](const size_t, const ChainState& saved, std::shared_ptr<Engine> chainRng) {
+                auto state = std::make_shared<State>(input, symptomaticIDPDist, asymptomaticIDPDist, std::move(chainRng), nullModel);
+                restoreState(checkpoint.layout, saved, *state);
+                return state;
+            });
+        } catch (const std::invalid_argument& e) {
+            refuse(fmt::format("checkpoint of Run {} does not fit this input: {}", checkpoint.identity.runId, e.what()));
+        }
 
         // The burn-in iteration count isn't saved: in burn-in it is the position's iteration. Once burn-in has ended
         // it is never read.
-        auto exchange             = checkpoint.exchange;
+        auto exchange             = ensemble->exchangeState();
         exchange.burnInIterations = static_cast<int>(checkpoint.position.iteration);
         // Once burn-in has ended, barriers still pending can't be told apart by pair: the ladder works out each pair's
         // attempts from burn-in iterations that run back to back, and Sampling iterations have alternated the pairs
@@ -692,33 +676,6 @@ namespace transmission_nets::impl::Model::checkpoint {
             exchange.barrierIterations = 0;
         }
         ensemble->restoreExchangeState(exchange);
-        std::map<std::string, std::uint32_t> samplerAt;// position of each sampler id in the checkpoint's Layout
-        for (std::uint32_t ii = 0; ii < checkpoint.layout.samplers.size(); ++ii) {
-            samplerAt.emplace(checkpoint.layout.samplers[ii], ii);
-        }
-        for (size_t replica = 0; replica < ensemble->chains.size(); ++replica) {
-            const auto& saved = checkpoint.replicas[replica];
-            auto& chain = ensemble->chains[replica];
-            setEngineState(*chain.r, saved.rng);
-            auto& samplers = *chain.sampler;
-            // The Sampler set counts in int.
-            if (saved.schedulerIterations < 0 or saved.schedulerIterations > std::numeric_limits<int>::max()) {
-                refuse(fmt::format("checkpoint of Run {} has replica {} at scheduler iteration {}, out of range", checkpoint.identity.runId, replica, saved.schedulerIterations));
-            }
-            samplers.restoreIterations(static_cast<int>(saved.schedulerIterations));
-            if (saved.samplerCounts.size() != samplerAt.size()) {
-                refuse(fmt::format("checkpoint of Run {} has counts for {} samplers in replica {}, not {}", checkpoint.identity.runId, saved.samplerCounts.size(), replica, samplerAt.size()));
-            }
-            for (const auto& id : samplers.ids()) {
-                const auto at = savedFor(samplerAt, id, "sampler");
-                auto& sampler = samplers.sampler(id);
-                sampler.restoreCounts(saved.samplerCounts[at]);
-                if (const auto adaptation = saved.adaptation.find(at); adaptation != saved.adaptation.end()) {
-                    sampler.restoreAdaptationState(adaptation->second);
-                }
-            }
-        }
-        setEngineState(*runRng, checkpoint.runRng);
         return ensemble;
     }
 }// namespace transmission_nets::impl::Model::checkpoint

@@ -5,6 +5,8 @@
 #ifndef TRANSMISSION_NETWORKS_APP_SCHEDULER_H
 #define TRANSMISSION_NETWORKS_APP_SCHEDULER_H
 
+#include <cstdint>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <vector>
@@ -13,6 +15,17 @@
 #include "core/samplers/scheduler/SamplerIndex.h"
 
 namespace transmission_nets::core::samplers {
+
+    // What a Sampler set carries between Sampling iterations, beside the State: the iterations it has stepped, which
+    // decide when each sampler updates and adapts, and each sampler's counts and adaptation state, by position in the
+    // set's ids; adaptation only for the samplers that adapt.
+    struct SamplerSetRecord {
+        int iterations = 0;
+        std::vector<SamplerCounts> counts;
+        std::map<std::uint32_t, AdaptationState> adaptation;
+
+        bool operator==(const SamplerSetRecord&) const = default;
+    };
 
     struct ScheduledSampler {
         std::unique_ptr<AbstractSampler> sampler;
@@ -58,11 +71,12 @@ namespace transmission_nets::core::samplers {
         // Throws std::out_of_range for an id that isn't registered.
         [[nodiscard]] AbstractSampler& sampler(const std::string& id) const;
 
-        // Sampling iterations run so far, which decide when each sampler updates and adapts.
-        [[nodiscard]] int iterations() const noexcept { return totalSteps; }
+        // What this set carries between Sampling iterations, by sampler in samplerIds() order.
+        [[nodiscard]] SamplerSetRecord record() const;
 
-        // Continue from `iterations`, as when resuming from a checkpoint.
-        void restoreIterations(const int iterations) noexcept { totalSteps = iterations; }
+        // Continues from `saved`, as when resuming from a checkpoint. Throws std::invalid_argument for a record of
+        // another set: other sampler counts than this set has samplers, or adaptation for a sampler it has not.
+        void restore(const SamplerSetRecord& saved);
 
     protected:
         std::vector<ScheduledSampler> samplers_{};

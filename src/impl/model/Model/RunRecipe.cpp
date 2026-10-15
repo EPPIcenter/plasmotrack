@@ -49,8 +49,8 @@ namespace transmission_nets::impl::Model {
             if (id.inputHash != inputHash) {
                 return refuse(RefusalKind::InputChanged, fmt::format("checkpoint of Run {} was made from input {}, not {}", id.runId, id.inputHash, inputHash));
             }
-            if (saved.replicas.size() != chains) {
-                return refuse(RefusalKind::ChainCountChanged, fmt::format("checkpoint of Run {} has {} chains, not {}", id.runId, saved.replicas.size(), chains));
+            if (saved.ensemble.replicas.size() != chains) {
+                return refuse(RefusalKind::ChainCountChanged, fmt::format("checkpoint of Run {} has {} chains, not {}", id.runId, saved.ensemble.replicas.size(), chains));
             }
             if (mode == Mode::Resume and id.engineVersion != core::version::getVersionString()) {
                 return refuse(RefusalKind::EngineVersionChanged, fmt::format("checkpoint of Run {} was made by engine version {}; resuming needs the same version, not {}", id.runId, id.engineVersion, core::version::getVersionString()));
@@ -141,14 +141,14 @@ namespace transmission_nets::impl::Model {
         // records the hashes of those given.
         RecipeOrRefusal startedRun(const GivenOptions& given, const checkpoint::Checkpoint& saved) {
             auto withChains = given;
-            withChains.chains = given.chains.value_or(static_cast<int>(saved.replicas.size()));
+            withChains.chains = given.chains.value_or(static_cast<int>(saved.ensemble.replicas.size()));
             auto recipe       = newRun(withChains);
             if (auto refusal = compatibilityRefusal(saved, Mode::StartFrom, given.inputSha256.at(input_names::INPUT), recipe.manifest.chains)) {
                 return *refusal;
             }
             recipe.mode                 = Mode::StartFrom;
             recipe.manifest.gradient    = std::nullopt;
-            recipe.manifest.startedFrom = nlohmann::json{{"run_id", saved.identity.runId}, {"engine_version", saved.identity.engineVersion}, {"temperatures", saved.exchange.temperatures}};
+            recipe.manifest.startedFrom = nlohmann::json{{"run_id", saved.identity.runId}, {"engine_version", saved.identity.engineVersion}, {"temperatures", saved.ensemble.exchange.temperatures}};
             if (given.gradient) {
                 recipe.notices.emplace_back("Ignoring -g: the temperature ladder comes from the checkpoint.");
             }

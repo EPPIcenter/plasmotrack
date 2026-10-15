@@ -1,12 +1,13 @@
 //
 // ReplicaExchange reports its ensemble through queries and return values: what occupies each temperature slot, how
-// often neighbouring slots swapped, and what temperature adaptation decided. A checkpoint saves and restores the same
-// view.
+// often neighbouring slots swapped, and what temperature adaptation decided. It records everything it carries between
+// Sampling iterations and restores from that record; a Checkpoint is that record on disk.
 //
 
 #include "gtest/gtest.h"
 
 #include "core/samplers/meta/ReplicaExchange.h"
+#include "impl/model/Model/Checkpoint.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/SamplerSet.h"
 #include "impl/model/Model/State.h"
@@ -398,4 +399,133 @@ TEST(ReplicaExchangeTest, APairWithNoSwapAttemptsLeavesTheLadderWhereItIs) {
     EXPECT_FALSE(adaptation->applied);
     EXPECT_EQ(adaptation->temperatures, ladder);
     EXPECT_EQ(repex->exchangeState().temperatures, ladder);
+}
+
+// The ensemble record: what replica exchange carries between Sampling iterations, restored into a new ensemble.
+namespace {
+    using ChainState = checkpoint::ChainState;
+    using Record     = transmission_nets::core::samplers::EnsembleRecord<ChainState>;
+
+    Record recordOf(const Exchange& repex) {
+        return repex.record([](const State& state) { return checkpoint::captureState(state); });
+    }
+
+    // The ensemble `saved` records, its States rebuilt from the example input.
+    std::unique_ptr<Exchange> restoredFrom(const Record& saved, const unsigned int seed = 99) {
+        const std::vector<double> idp(60, 1.0 / 60);
+        auto rng = std::make_shared<boost::random::mt19937>(seed);
+        return std::make_unique<Exchange>(saved, rng, 1, [&](const size_t, const ChainState& state, std::shared_ptr<boost::random::mt19937> chainRng) {
+            auto fresh = std::make_shared<State>(exampleInput(), idp, idp, std::move(chainRng), false);
+            checkpoint::restoreState(checkpoint::stateLayout(*fresh), state, *fresh);
+            return fresh;
+        });
+    }
+
+    // Every proposal scale of every sampler of chain 0.
+    std::vector<double> proposalScales(const Exchange& repex) {
+        const auto& samplers = *repex.chains[0].sampler;
+        std::vector<double> variances;
+        for (const auto& id : samplers.ids()) {
+            for (const auto& scale : samplers.sampler(id).adaptationState().scales) {
+                variances.push_back(scale.variance);
+            }
+        }
+        return variances;
+    }
+}// namespace
+
+// A restored ensemble records the same: every engine continues where it was, each sampler keeps its counts and
+// adaptation state, each temperature slot its replica and temperature, and each chain its State.
+TEST(ReplicaExchangeTest, ARecordRestoresEnginesSamplersSlotsAndStates) {
+    auto source = makeExchange(3, 23);
+    adaptingIterations(*source, 0, 40);
+    const auto saved = recordOf(*source);
+
+    auto restored = restoredFrom(saved);
+
+    EXPECT_EQ(recordOf(*restored), saved);
+    EXPECT_EQ(restored->exchangeState(), source->exchangeState());
+    for (size_t replica = 0; replica < 3; ++replica) {
+        for (int draw = 0; draw < 5; ++draw) {
+            EXPECT_EQ((*restored->chains[replica].r)(), (*source->chains[replica].r)()) << "replica " << replica;
+        }
+        EXPECT_NEAR(restored->chains[replica].model->getLikelihood(), source->chains[replica].model->getLikelihood(), 1e-8 * std::abs(source->chains[replica].model->getLikelihood()));
+    }
+}
+
+TEST(ReplicaExchangeTest, ARecordOfAnotherEnsembleIsRefused) {
+    const auto saved = recordOf(*makeExchange(2, 24));
+
+    auto otherSamplers = saved;
+    otherSamplers.samplerIds.pop_back();
+    EXPECT_THROW(restoredFrom(otherSamplers), std::invalid_argument);
+
+    auto fewerCounts = saved;
+    fewerCounts.replicas[0].samplers.counts.pop_back();
+    EXPECT_THROW(restoredFrom(fewerCounts), std::invalid_argument);
+
+    auto noReplicas = saved;
+    noReplicas.replicas.clear();
+    EXPECT_THROW(restoredFrom(noReplicas), std::invalid_argument);
+}
+
+// Samplers adapt from Sampling iteration 20 to 200 of their chain; restored at 199 they adapt once more, then stop.
+TEST(ReplicaExchangeTest, RestoredSamplersAdaptOnTheSameSamplingIterations) {
+    auto source = makeExchange(1, 15);
+    adaptingIterations(*source, 0, 199);
+    auto restored     = restoredFrom(recordOf(*source));
+    const auto atSave = proposalScales(*restored);
+
+    restored->burnin();
+    const auto afterIteration199 = proposalScales(*restored);
+    restored->burnin();
+
+    EXPECT_NE(afterIteration199, atSave);
+    EXPECT_EQ(proposalScales(*restored), afterIteration199);
+}
+
+TEST(ReplicaExchangeTest, ARestoredEnsembleAdaptsItsLadderIdentically) {
+    // Three iterations past the adaptation at 15, so the next one's window straddles the record, with an odd count.
+    auto source = makeExchange(4, 21);
+    adaptingIterations(*source, 0, 18);
+    auto restored = restoredFrom(recordOf(*source));
+
+    for (int ii = 18; ii < 31; ++ii) {
+        const auto expected = source->burnin();
+        const auto actual   = restored->burnin();
+        ASSERT_EQ(actual.has_value(), expected.has_value()) << "burn-in iteration " << ii;
+        if (!expected) {
+            continue;
+        }
+        // Restore recomputes each likelihood from its State, which can differ from the running sum in the last bits.
+        EXPECT_EQ(actual->applied, expected->applied) << "burn-in iteration " << ii;
+        ASSERT_EQ(actual->temperatures.size(), expected->temperatures.size());
+        for (size_t slot = 0; slot < expected->temperatures.size(); ++slot) {
+            EXPECT_NEAR(actual->temperatures[slot], expected->temperatures[slot], 1e-12) << "burn-in iteration " << ii << ", slot " << slot;
+        }
+        ASSERT_EQ(actual->barriers.size(), expected->barriers.size());
+        for (size_t pair = 0; pair < expected->barriers.size(); ++pair) {
+            EXPECT_NEAR(actual->barriers[pair], expected->barriers[pair], 1e-12) << "burn-in iteration " << ii << ", pair " << pair;
+        }
+    }
+}
+
+// A restarted burn-in keeps the State, the ladder, the slots and the swap counts, counts burn-in from 0 and has no
+// pending barriers, so the ladder adapts on the iterations a fresh Run's does.
+TEST(ReplicaExchangeTest, ARestartedBurnInCountsFromZeroWithNoPendingBarriers) {
+    auto repex = makeExchange(4, 22);
+    adaptingIterations(*repex, 0, 18);
+    const auto before = repex->exchangeState();
+    ASSERT_GT(before.barrierIterations, 0);
+
+    repex->restartBurnIn();
+
+    const auto after = repex->exchangeState();
+    EXPECT_EQ(after.burnInIterations, 0);
+    EXPECT_EQ(after.barrierIterations, 0);
+    EXPECT_EQ(after.swapBarriers, (std::vector<double>{0.0, 0.0, 0.0}));
+    EXPECT_EQ(after.temperatures, before.temperatures);
+    EXPECT_EQ(after.replicas, before.replicas);
+    EXPECT_EQ(after.swapCounts, before.swapCounts);
+    EXPECT_EQ(adaptingIterations(*repex, 0, 31), (std::vector<int>{15, 20, 25, 30}));
 }
