@@ -28,6 +28,7 @@
      "switches": 0
     }
    ],
+   "differing_loci": 0,
    "draws": 20,
    "probability": 1.0,
    "spread": 0.0,
@@ -52,6 +53,7 @@
      "switches": 0
     }
    ],
+   "differing_loci": 1,
    "draws": 20,
    "probability": 1.0,
    "spread": 0.0,
@@ -76,6 +78,7 @@
      "switches": 0
     }
    ],
+   "differing_loci": 1,
    "draws": 20,
    "probability": 1.0,
    "spread": 0.0,
