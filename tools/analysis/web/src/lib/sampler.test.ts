@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { columnRows, eventRules, ladderPoints, parseBand, samplerTables, targetSeries, timeDomain, typeSeries, varianceRows, windowX, type RunEvent, type SamplerPanel, type TypeAcceptance, type TypeDetail } from "./sampler";
+import { acceptanceStatus, slotColours, targetRows, targetSubject, worstQuantity, columnRows, eventRules, ladderPoints, parseBand, samplerTables, targetSeries, timeDomain, typeSeries, varianceRows, windowX, type RunEvent, type SamplerPanel, type TypeAcceptance, type TypeDetail } from "./sampler";
 
 const windows = [
   { window: 0, phase: "burn_in", first_iteration: 0, last_iteration: 20 },
@@ -246,5 +246,99 @@ describe("samplerTables", () => {
       { chain: "A", iteration: 20, sampler: "ParentRelinkSampler/infection/10", scale: 0, variance: 0.5 },
       { chain: "A", iteration: 20, sampler: "ParentRelinkSampler/infection/10", scale: 1, variance: 2 },
     ]);
+  });
+});
+
+describe("acceptanceStatus", () => {
+  const band: [number, number] = [0.15, 0.5];
+
+  it("pools the sampling Windows' counts, leaving burn-in out", () => {
+    const rows = [
+      { phase: "burn_in", accepted: 0, proposed: 100 },
+      { phase: "sampling", accepted: 10, proposed: 40 },
+      { phase: "sampling", accepted: 20, proposed: 60 },
+    ];
+    expect(acceptanceStatus(rows, band)).toEqual({ rate: 0.3, level: "ok", label: "in the band" });
+  });
+
+  it("uses burn-in until a sampling Window has closed", () => {
+    expect(acceptanceStatus([{ phase: "burn_in", accepted: 5, proposed: 100 }], band)).toEqual({ rate: 0.05, level: "low", label: "below the band" });
+  });
+
+  it("flags a rate above the band, one with nothing accepted, and one with nothing proposed", () => {
+    expect(acceptanceStatus([{ phase: "sampling", accepted: 9, proposed: 10 }], band).level).toBe("high");
+    expect(acceptanceStatus([{ phase: "sampling", accepted: 0, proposed: 50 }], band)).toEqual({ rate: 0, level: "stuck", label: "nothing accepted" });
+    expect(acceptanceStatus([{ phase: "sampling", accepted: 0, proposed: 0 }], band)).toEqual({ rate: null, level: "none", label: "nothing proposed" });
+  });
+});
+
+describe("targetRows", () => {
+  const detail: TypeDetail = {
+    chain: "A", type: "ConstrainedContinuousRandomWalk", targets: 3, shown: 2,
+    acceptance: {
+      target: ["mean_coi", "mean_coi", "infection_duration/7", "infection_duration/7"],
+      sampler: ["C/mean_coi", "C/mean_coi", "C/infection_duration/7", "C/infection_duration/7"],
+      window: [0, 1, 0, 1],
+      accepted: [1, 2, 6, 5],
+      proposed: [10, 25, 10, 25],
+      rate: [0.1, 0.08, 0.6, 0.2],
+    },
+    proposal_variances: { target: ["infection_duration/7"], sampler: ["C/infection_duration/7"], variances: [[0.5, 2]] },
+  };
+
+  it("gives a row per target in the payload's order with its sampling-Window status, lowest rate and variances", () => {
+    expect(targetRows(detail, [...windows], [0.15, 0.5])).toEqual([
+      { target: "mean_coi", sampler: "C/mean_coi", accepted: 2, proposed: 25, lowest: 0.08, variances: [],
+        status: { rate: 0.08, level: "low", label: "below the band" } },
+      { target: "infection_duration/7", sampler: "C/infection_duration/7", accepted: 5, proposed: 25, lowest: 0.2, variances: [0.5, 2],
+        status: { rate: 0.2, level: "ok", label: "in the band" } },
+    ]);
+  });
+});
+
+describe("targetSubject", () => {
+  it("names the Infection a per-Infection target is about", () => {
+    expect(targetSubject("infection/pf0097").entity).toEqual({ kind: "infection", id: "pf0097" });
+    expect(targetSubject("ordering/pf0189").entity).toEqual({ kind: "infection", id: "pf0189" });
+    expect(targetSubject("latent_genotypes/pf0134/Pf3D7_13_v3-2545091-2545258").entity).toEqual({ kind: "infection", id: "pf0134" });
+  });
+
+  it("names the convergence quantity a target's parameter is, where it has one", () => {
+    expect(targetSubject("expected_false_positives/pf0346").quantity).toEqual({ group: "false positive rate", name: "pf0346" });
+    expect(targetSubject("expected_false_negatives/pf0346").quantity).toEqual({ group: "false negative rate", name: "pf0346" });
+    expect(targetSubject("infection_duration/7").quantity).toEqual({ group: "infection duration", name: "7" });
+    expect(targetSubject("mean_coi")).toEqual({ entity: null, quantity: { group: "global scalars", name: "mean_coi" } });
+    // A Locus's Allele frequencies are one target: its quantities are the names `<locus>[k]`.
+    expect(targetSubject("allele_frequencies/Pf3D7_02_v3-0503071-0503260").quantity).toEqual({ group: "allele frequency", prefix: "Pf3D7_02_v3-0503071-0503260[" });
+    expect(targetSubject("infection/pf0097").quantity).toEqual({ group: "unobserved-source inclusion", name: "pf0097" });
+    expect(targetSubject("ordering/pf0189").quantity).toBeNull();
+  });
+});
+
+describe("worstQuantity", () => {
+  const qs = [
+    { index: 0, group: "allele frequency", name: "L1[0]", ess: 50, rhat: 1.01, chains: { A: 30 } },
+    { index: 1, group: "allele frequency", name: "L1[1]", ess: 80, rhat: 1.3, chains: { A: 12 } },
+    { index: 2, group: "allele frequency", name: "L10[0]", ess: 5, rhat: 2, chains: { A: 2 } },
+    { index: 3, group: "global scalars", name: "mean_coi", ess: 400, rhat: 1, chains: { A: 210 } },
+  ];
+
+  it("finds a named quantity", () => {
+    expect(worstQuantity(qs, { group: "global scalars", name: "mean_coi" }, "A")?.name).toBe("mean_coi");
+  });
+
+  it("takes the quantity with the lowest ESS in the Chain among a Locus's Alleles", () => {
+    expect(worstQuantity(qs, { group: "allele frequency", prefix: "L1[" }, "A")?.name).toBe("L1[1]");
+    expect(worstQuantity(qs, { group: "allele frequency", prefix: "L2[" }, "A")).toBeNull();
+  });
+});
+
+describe("slotColours", () => {
+  const ramp = Array.from({ length: 13 }, (_, i) => `s${i}`);
+
+  it("gives temperature slot 0 (the posterior) the strongest step, hotter slots lighter, evenly spaced", () => {
+    expect(slotColours(ramp, 1)).toEqual(["s12"]);
+    expect(slotColours(ramp, 3)).toEqual(["s12", "s8", "s4"]);
+    expect(slotColours(ramp, 4)).toEqual(["s12", "s9", "s7", "s4"]);
   });
 });

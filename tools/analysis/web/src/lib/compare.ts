@@ -165,3 +165,16 @@ export function compareTable(
     })),
   };
 }
+
+/** What the scatter can compare: ESS, then ESS per instruction retired (the mixing benchmark's measure) and ESS per
+ *  second where some Analysis has those timings. */
+export function scatterMetrics(r: CompareResponse): Metric[] {
+  return ["ess", ...((r.instructions ?? []).length ? ["essPerInstruction" as const] : []), ...(r.timed.length ? ["essPerSecond" as const] : [])];
+}
+
+/** What an Analysis's efficiency column is per: its instructions retired, else its sampling seconds. */
+export function timingText(a: AnalysisListing): string {
+  if (a.instructions_retired != null) return `${a.instructions_retired.toLocaleString("en")} instructions retired`;
+  if (a.sampling_seconds != null) return `${Number(a.sampling_seconds.toPrecision(4)).toLocaleString("en")} sampling seconds`;
+  return "no timings";
+}

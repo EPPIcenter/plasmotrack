@@ -69,10 +69,12 @@ of `/convergence?sel=...` opens the app there.
   - `PlotFigure`: Observable Plot wrapper; `plot({ width, height, theme })` is called again when the container
     resizes or the theme changes. Pass a stable function (`useCallback`). `plotStyle(theme)` for the shared style.
   - `DataTable`: virtualised table with sticky header, sort, column resize, numeric alignment, row hover and click,
-    the active row. Columns are `{ id, header, value, cell?, numeric?, width?, descFirst? }`.
+    the active row. Columns are `{ id, header, value, cell?, numeric?, width?, descFirst?, group? }`; consecutive
+    columns of one `group` share a header above theirs.
   - `Sparkline`, `StatusChip` (R-hat above 1.1 amber and 1.2 red, ESS under 100 amber and 20 red; icon and title
     as well as colour), `EntityLink`, `KpiStrip`, `ExportMenu`, `QuantityTrace` (trace per Chain with a brushable
-    range, rank histograms, ESS and R-hat over the range), `CommandPalette`, `Placeholder`.
+    range, rank histograms, ESS and R-hat over the range), `CommandPalette`, `Placeholder`, `AnalysisSwitch` (the open Analyses as a segmented switch; nothing with one open).
+    `QuantityTrace` takes `analysis` to read a given open Analysis rather than the active one.
 - **Exports**: every `Panel` exports its figures (SVG and canvases in its body) as SVG and PNG on the theme's surface,
   and its `data` as CSV through `src/lib/export.ts`: the payload's numbers under the package's names, never display
   strings. A `NamedTable[]` writes one file per part.
@@ -86,12 +88,31 @@ The URL is the state: workspace path, its filters and sort, and the selection.
   (`@district` for the Infections with no value, `@` for every Infection), `stratum:<column>=<value>`. `tab` is the
   Inspector's tab.
 - `ids` is the multi-selection of Infections, comma-separated (`useMultiSelection`).
-- `analysis` names another open Analysis than the primary (compare mode; the top bar's switcher sets it).
+- `analysis` names another open Analysis than the primary (compare mode). The top bar's switcher and the Quantity
+  Inspector's `AnalysisSwitch` set it. Every hook of an endpoint about one Analysis reads it with
+  `useActiveAnalysis()` (`src/api/active.ts`), keys its cache by it and sends it with `scoped(params, analysis)`;
+  the backend reads that Analysis on every endpoint. Only `/api/analyses` and `/api/compare/*` (about every open
+  Analysis) do not. A new hook follows the same pattern.
 - A workspace's own parameters are read with `useWorkspaceSearch(parse)`, which returns the typed values and a setter
   that replaces the history entry. Selection pushes a history entry, so Back restores the previous selection.
 
 Select with `useSelection().select(entity, tab?)` or render an `<EntityLink entity={...} />`; never navigate away
 from the workspace to show an entity.
+
+## Assess workspaces
+
+- **Samplers** (`src/workspaces/samplers/`, logic in `src/lib/sampler.ts`, hooks in `src/api/sampler.ts`): per Chain
+  (`chain=`), a small multiple per sampler type of the pooled acceptance over Windows with the band from its lowest to
+  its highest target and the target band (`band_lo`, `band_hi`) shaded; a type's status pools the sampling Windows as
+  the Overview does (`acceptanceStatus`). Clicking a type (`type=`) loads its targets (`/api/sampler?type=`, lowest
+  acceptance first, at most 500) as grey lines and a table: each target's status, its Infection, and the ESS in the
+  Chain of the quantity its parameter is (`targetSubject`, `worstQuantity`). Swap acceptance per temperature pair and
+  the ladder use ordinal steps of the sequential ramp (`slotColours`); Run events are rules on every time axis and a
+  list.
+- **Compare** (`src/workspaces/compare/`, logic in `src/lib/compare.ts`, hook in `src/api/compare.ts`): with several
+  Analyses open, the convergence table with a column group per Analysis, the scatter of ESS (or ESS per instruction
+  retired or per second, `metric=`) of `x=` against `y=` on log axes, and the trace of the quantity clicked (`q=`) in
+  both. With one Analysis open it says how to open several.
 
 ## Add a workspace
 
