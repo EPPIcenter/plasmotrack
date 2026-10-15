@@ -58,6 +58,14 @@ describe("DataTable", () => {
     expect(cellsOf(0)).toEqual(["c", "a", "b"]);
   });
 
+  it("heads consecutive columns of one group with the group's name, spanning them", () => {
+    const grouped: Column<Row>[] = [columns[0]!, { ...columns[1]!, group: "single" }, { ...columns[1]!, id: "ess2", group: "replica" }];
+    render(<DataTable rows={rows} columns={grouped} getRowId={(r) => r.id} />);
+    const groups = screen.getAllByRole("columnheader", { name: /single|replica/ }).filter((h) => h.dataset.group !== undefined);
+    expect(groups.map((g) => [g.textContent, g.getAttribute("aria-colspan")])).toEqual([["single", "1"], ["replica", "1"]]);
+    expect(groups[0]!.style.width).toBe("var(--col-1)");
+  });
+
   it("calls back on row click and hover, and reports a controlled sort", async () => {
     const onRowClick = vi.fn();
     const onRowHover = vi.fn();

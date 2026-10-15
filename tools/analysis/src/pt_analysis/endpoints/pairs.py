@@ -11,7 +11,7 @@
 (left out: no pair for disagreement alone), and whose larger Edge marginal is at least `edge_min`; `total` counts
 them all, `rows` holds the first `limit`; the list is remembered until a Chain closes another Window. See
 `pt_analysis.pairs`. `/api/edge-series` gives at most 500 edges' weights per Draw, binned to `points` means per Chain
-when given; see `pt_analysis.edge_series`.
+when given; see `pt_analysis.edge_series`. Both read the Analysis named by `analysis=` (the primary without it).
 """
 
 import math
@@ -20,7 +20,7 @@ from starlette.routing import Route
 
 from pt_analysis import pairs as compute
 from pt_analysis.edge_series import edge_series
-from pt_analysis.endpoints import error, json, memo
+from pt_analysis.endpoints import error, json, memo, requested_analysis
 
 MAX_EDGES = 500
 
@@ -48,7 +48,7 @@ async def pairs(request):
         return error("min, max, disagree and edge_min are probabilities in [0, 1] and limit a count of rows")
     if lo > hi:
         return error(f"min ({lo}) is above max ({hi})")
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     found = memo(request, ("pairs", lo, hi, disagree, edge_min, limit),
                  lambda: compute.uncertain_pairs(analysis, lo, hi, disagree, edge_min, limit))
     return json({"min": lo, "max": hi, "disagree": disagree, "edge_min": edge_min, "limit": limit, **found})
@@ -76,7 +76,7 @@ async def series(request):
         return error(f"at most {MAX_EDGES} edges per request, not {len(keys)}")
     if points is not None and points < 1:
         return error("points is at least 1")
-    return json({"points": points, **edge_series(request.app.state.analysis, keys, points)})
+    return json({"points": points, **edge_series(requested_analysis(request), keys, points)})
 
 
 ROUTES = [Route("/api/pairs", pairs), Route("/api/edge-series", series)]

@@ -9,8 +9,8 @@
 
 The primary Analysis comes first. `sampling_seconds` is null, and `ess_per_second` is absent, for an Analysis
 without `sampling_seconds` timings for every Chain; `timed` lists the Analyses with them. Likewise
-`instructions_retired`, `ess_per_instruction` and `instructions` for `instructions_retired` timings. The trace
-endpoints take `analysis=LABEL` to read any of them.
+`instructions_retired`, `ess_per_instruction` and `instructions` for `instructions_retired` timings. Every other
+endpoint takes `analysis=LABEL` to read any of them (`pt_analysis.endpoints.requested_analysis`).
 """
 
 from starlette.routing import Route

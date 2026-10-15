@@ -4,21 +4,26 @@
 import { useQuery } from "@tanstack/react-query";
 import type { NetworkPayload } from "../lib/network";
 import type { TruthNetworkPayload } from "../lib/truth";
-import { getJson } from "./client";
+import { useActiveAnalysis } from "./active";
+import { getJson, scoped } from "./client";
 
-export const useNetwork = (enabled = true) =>
-  useQuery({
-    queryKey: ["network"],
-    queryFn: () => getJson<NetworkPayload>("/api/network"),
+export const useNetwork = (enabled = true) => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["network", analysis],
+    queryFn: () => getJson<NetworkPayload>("/api/network", scoped({}, analysis)),
     staleTime: Infinity,
     enabled,
   });
+};
 
-export const useTruthNetwork = (enabled = true) =>
-  useQuery({
-    queryKey: ["truth-network"],
-    queryFn: () => getJson<TruthNetworkPayload>("/api/truth-network"),
+export const useTruthNetwork = (enabled = true) => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["truth-network", analysis],
+    queryFn: () => getJson<TruthNetworkPayload>("/api/truth-network", scoped({}, analysis)),
     staleTime: Infinity,
     enabled,
     retry: false,
   });
+};

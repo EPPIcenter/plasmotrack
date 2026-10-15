@@ -55,3 +55,14 @@ describe("Edges", () => {
     expect(search().sel).toBe("edge:1>3");
   });
 });
+
+describe("the Explore workspaces with another Analysis active", () => {
+  it.each(["/edges", "/pairs", "/network"])("ask %s's endpoints about the active Analysis", async (path) => {
+    const { fetch } = renderApp(`${path}?analysis=replica&sel=edge:1>3`);
+    await screen.findByRole("complementary", { name: /Inspector/ });
+    await screen.findByRole("table", { name: path === "/edges" ? "Edge table" : path === "/pairs" ? "Pairs" : "Edges shown" });
+    await waitFor(() => expect(fetch.mock.calls.length).toBeGreaterThan(5));
+    const own = fetch.mock.calls.map(([u]) => new URL(String(u), "http://test")).filter((u) => !["/api/analyses", "/api/compare/convergence"].includes(u.pathname));
+    for (const u of own) expect(u.searchParams.get("analysis"), u.pathname).toBe("replica");
+  });
+});

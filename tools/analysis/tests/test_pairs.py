@@ -95,3 +95,12 @@ def test_the_series_endpoint_takes_edges_as_child_from_parent_keys(golden_analys
     assert all(len(c) == 4 for s in body["series"] for c in s["chains"])
     assert client.get("/api/edge-series", params={"edges": "3"}).status_code == 400
     assert client.get("/api/edge-series").json()["series"] == []
+
+
+@pytest.mark.parametrize("path", ["/api/pairs", "/api/edge-series"])
+def test_both_read_the_named_analysis_and_404_an_unknown_one(golden_analysis, path):
+    client = client_of(golden_analysis)
+    response = client.get(path, params={"analysis": "nope"})
+    assert response.status_code == 404
+    assert "nope" in response.json()["error"]
+    assert client.get(path, params={"analysis": "golden"}).status_code == 200

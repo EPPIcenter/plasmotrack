@@ -17,7 +17,7 @@ import math
 
 from starlette.routing import Route
 
-from pt_analysis.endpoints import error, json
+from pt_analysis.endpoints import error, json, requested_analysis
 from pt_analysis.epi import EpiError
 from pt_analysis.network import DEFAULT_FLOOR, network
 
@@ -31,7 +31,7 @@ async def network_payload(request):
     if not 0 <= floor <= 1:
         return error(f"floor is an Edge marginal in [0, 1], not '{value}'")
     try:
-        return json(network(request.app.state.analysis, floor))
+        return json(network(requested_analysis(request), floor))
     except EpiError as e:
         return error(str(e))
 

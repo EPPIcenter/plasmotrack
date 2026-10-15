@@ -3,12 +3,12 @@
 from starlette.routing import Route
 
 from pt_analysis.derive import derived_analysis
-from pt_analysis.endpoints import json
+from pt_analysis.endpoints import json, requested_analysis
 
 
 async def summary(request):
     """Label, Draws per Chain and in all, and the number of Infections and Loci (from the first Chain's structure)."""
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     chains = [{"chain": label, "draws": store.draws()} for label, store in analysis.runs.items()]
     store = next(iter(analysis.runs.values()))
     infections = store.structure("infections").aggregate("count(*)").fetchone()[0]
@@ -21,7 +21,7 @@ async def convergence(request):
     """The convergence table as rows {group, name, chain, ess, rhat}, in its stored order (groups in display order,
     names sorted, each quantity's Chain rows then its pooled row with chain null), derived again first when a Chain
     has closed another Window."""
-    table = derived_analysis(request.app.state.analysis, "convergence").to_arrow_table()
+    table = derived_analysis(requested_analysis(request), "convergence").to_arrow_table()
     return json({"rows": table.to_pylist()})
 
 

@@ -38,6 +38,9 @@ export function fixtureFor(url: string): unknown {
       return fixture("flows-district");
     case "/api/compare/convergence":
       return fixture("compare-convergence");
+    case "/api/sampler":
+      if (p.get("type")) return { ...fixture<object>("sampler-type"), chain: p.get("chain") ?? "chain1", type: p.get("type") };
+      return fixture(p.get("chain") === "chain2" ? "sampler-chain2" : "sampler");
     default:
       return fixture(pathname.replace(/^\/api\//, ""));
   }
@@ -56,12 +59,13 @@ export function mockApi(overrides: Record<string, unknown> = {}) {
   return mock;
 }
 
-/** The whole app at `url`, on fixtures. Returns the history, to read the URL. */
-export function renderApp(url = "/overview") {
-  mockApi();
+/** The whole app at `url`, on fixtures (`overrides` as in `mockApi`). Returns the history, to read the URL, and the
+ *  fetch mock. */
+export function renderApp(url = "/overview", overrides: Record<string, unknown> = {}) {
+  const fetch = mockApi(overrides);
   const history = createMemoryHistory({ initialEntries: [url] });
   const view = render(<App history={history} theme="light" />);
-  return { ...view, history, search: () => parseSearch(history.location.search) };
+  return { ...view, history, fetch, search: () => parseSearch(history.location.search) };
 }
 
 /** `ui` inside the providers and a one-route router at `url`. */

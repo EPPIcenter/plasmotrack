@@ -1,6 +1,8 @@
 // The sampler panel's data (GET /api/sampler) and the logic its view draws with: acceptance per sampler type and, for
 // one type, per target; the Run events placed on the panel's time axes. No DOM here.
 
+import type { Quantity } from "./convergence";
+import type { Entity } from "./entity";
 import { recordsTable, type NamedTable } from "./export";
 import { compareInfectionIds } from "./ids";
 
@@ -314,4 +316,125 @@ export function samplerTables(p: SamplerPanel, detail: TypeDetail | null = null)
     );
   }
   return tables;
+}
+
+/** Where an acceptance rate sits against the target band: in it, below or above it, nothing accepted although
+ *  something was proposed, or nothing proposed. */
+export type AcceptanceLevel = "ok" | "low" | "high" | "stuck" | "none";
+
+export interface AcceptanceStatus {
+  /** Accepted over proposed, pooled over the sampling Windows (over every Window until one has closed). */
+  rate: number | null;
+  level: AcceptanceLevel;
+  label: string;
+}
+
+const LEVEL_LABELS: Record<AcceptanceLevel, string> = {
+  ok: "in the band", low: "below the band", high: "above the band", stuck: "nothing accepted", none: "nothing proposed",
+};
+
+/** A type's or a target's acceptance status from its rows per Window: counts pooled over the sampling Windows, as the
+ *  Overview's attention list pools them (pt_analysis/overview.py), or over burn-in while no sampling Window has
+ *  closed. */
+export function acceptanceStatus(rows: readonly { phase: string; accepted: number; proposed: number }[], band: [number, number]): AcceptanceStatus {
+  const sampling = rows.filter((r) => r.phase === "sampling");
+  const pooled = sampling.length ? sampling : rows;
+  const accepted = pooled.reduce((s, r) => s + r.accepted, 0);
+  const proposed = pooled.reduce((s, r) => s + r.proposed, 0);
+  const rate = proposed ? accepted / proposed : null;
+  const level: AcceptanceLevel =
+    rate === null ? "none" : accepted === 0 ? "stuck" : rate < band[0] ? "low" : rate > band[1] ? "high" : "ok";
+  return { rate, level, label: LEVEL_LABELS[level] };
+}
+
+/** One target of an open type: its counts over the Windows its status pools, its lowest rate in any Window, and its
+ *  burn-in-end proposal variances (none for a sampler without a scale). */
+export interface TargetRow {
+  target: string;
+  sampler: string;
+  accepted: number;
+  proposed: number;
+  lowest: number | null;
+  variances: number[];
+  status: AcceptanceStatus;
+}
+
+/** A row per target of `d`, in the payload's order (lowest mean acceptance first). */
+export function targetRows(d: TypeDetail, windows: PanelWindow[], band: [number, number]): TargetRow[] {
+  const phase = new Map(windows.map((w) => [w.window, w.phase]));
+  const variances = new Map(columnRows(d.proposal_variances).map((r) => [r.target, r.variances]));
+  const byTarget = new Map<string, { sampler: string; rows: { phase: string; accepted: number; proposed: number; rate: number | null }[] }>();
+  for (const r of columnRows(d.acceptance)) {
+    const row = { phase: phase.get(r.window) ?? "", accepted: r.accepted, proposed: r.proposed, rate: r.rate };
+    const t = byTarget.get(r.target);
+    if (t) t.rows.push(row);
+    else byTarget.set(r.target, { sampler: r.sampler, rows: [row] });
+  }
+  return [...byTarget].map(([target, { sampler, rows }]) => {
+    const status = acceptanceStatus(rows, band);
+    const pooled = rows.filter((r) => r.phase === "sampling").length ? rows.filter((r) => r.phase === "sampling") : rows;
+    const rates = rows.map((r) => r.rate).filter((x): x is number => x !== null);
+    return {
+      target,
+      sampler,
+      accepted: pooled.reduce((s, r) => s + r.accepted, 0),
+      proposed: pooled.reduce((s, r) => s + r.proposed, 0),
+      lowest: rates.length ? Math.min(...rates) : null,
+      variances: variances.get(target) ?? [],
+      status,
+    };
+  });
+}
+
+/** A convergence quantity by name, or a Locus's Allele frequencies by the prefix of their names. */
+export type QuantityRef = { group: string; name: string } | { group: string; prefix: string };
+
+/** What a sampler's target is about: the Infection it belongs to, and the convergence quantity of its parameter. */
+export interface TargetSubject {
+  entity: Entity | null;
+  quantity: QuantityRef | null;
+}
+
+/** Target kinds (the first part of a target's name) whose second part is an Infection id. */
+const PER_INFECTION = new Set(["infection", "ordering", "latent_genotypes", "expected_false_positives", "expected_false_negatives", "infection_duration"]);
+
+/** Target kinds whose parameter is a quantity of the convergence table, by group. A ParentRelinkSampler's target is an
+ *  Infection's Parent set, whose quantity is its unobserved-source inclusion. */
+const QUANTITY_GROUP: Record<string, string> = {
+  expected_false_positives: "false positive rate",
+  expected_false_negatives: "false negative rate",
+  infection_duration: "infection duration",
+  infection: "unobserved-source inclusion",
+};
+
+const GLOBAL_SCALARS = new Set(["mean_coi", "mean_strains_tx", "parent_set_size_prob"]);
+
+/** The Infection and quantity a target is about, from its name (`<kind>/<infection>[/<locus>]`,
+ *  `allele_frequencies/<locus>`, or a global scalar's name). */
+export function targetSubject(target: string): TargetSubject {
+  const [kind = "", id, ...rest] = target.split("/");
+  if (id === undefined) return { entity: null, quantity: GLOBAL_SCALARS.has(kind) ? { group: "global scalars", name: kind } : null };
+  if (kind === "allele_frequencies") return { entity: null, quantity: { group: "allele frequency", prefix: `${[id, ...rest].join("/")}[` } };
+  const entity: Entity | null = PER_INFECTION.has(kind) && id ? { kind: "infection", id } : null;
+  const group = QUANTITY_GROUP[kind];
+  return { entity, quantity: group && rest.length === 0 ? { group, name: id } : null };
+}
+
+/** The quantity `ref` names, or among a Locus's Allele frequencies the one with the lowest ESS in `chain`; null when
+ *  the table has none. */
+export function worstQuantity(qs: readonly Quantity[], ref: QuantityRef, chain: string): Quantity | null {
+  if ("name" in ref) return qs.find((q) => q.group === ref.group && q.name === ref.name) ?? null;
+  let worst: Quantity | null = null;
+  const ess = (q: Quantity) => q.chains[chain] ?? Infinity;
+  for (const q of qs) if (q.group === ref.group && q.name.startsWith(ref.prefix) && (!worst || ess(q) < ess(worst))) worst = q;
+  return worst;
+}
+
+/** Colours of `n` temperature slots (or the pairs between them) from a sequential ramp, strongest first: slot 0, the
+ *  posterior, takes the ramp's strongest step, hotter slots evenly lighter, never the four faintest steps, which
+ *  recede into the surface. The ramp runs from faint to strong on the theme's surface. */
+export function slotColours(ramp: readonly string[], n: number): string[] {
+  const strongest = ramp.length - 1;
+  const span = strongest - 4;
+  return Array.from({ length: n }, (_, k) => ramp[n === 1 ? strongest : strongest - Math.round((k * span) / (n - 1))]!);
 }

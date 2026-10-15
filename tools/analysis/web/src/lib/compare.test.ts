@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   columnGroups,
+  scatterMetrics,
+  timingText,
   comparedQuantities,
   filterCompared,
   scatterPoints,
@@ -155,5 +157,22 @@ describe("compareTable", () => {
 
   it("leaves out ESS per second when no Analysis has timings", () => {
     expect(compareTable([], ["a", "b"], []).columns).toEqual(["analysis", "group", "name", "ess", "rhat"]);
+  });
+});
+
+describe("scatterMetrics", () => {
+  it("offers ESS, then ESS per instruction retired and per second where some Analysis has those timings", () => {
+    expect(scatterMetrics({ analyses: ["a", "b"], timed: [], instructions: [], rows: [] })).toEqual(["ess"]);
+    expect(scatterMetrics({ analyses: ["a", "b"], timed: ["a"], instructions: ["b"], rows: [] })).toEqual(["ess", "essPerInstruction", "essPerSecond"]);
+    expect(scatterMetrics({ analyses: ["a", "b"], timed: ["a"], rows: [] })).toEqual(["ess", "essPerSecond"]);
+  });
+});
+
+describe("timingText", () => {
+  it("names what an Analysis's efficiency is per: instructions retired first, then sampling seconds", () => {
+    const listing = { label: "a", primary: true, path: "a.json", chains: [], draws: 10 };
+    expect(timingText({ ...listing, sampling_seconds: 4, instructions_retired: 2e9 })).toBe("2,000,000,000 instructions retired");
+    expect(timingText({ ...listing, sampling_seconds: 77.0775, instructions_retired: null })).toBe("77.08 sampling seconds");
+    expect(timingText({ ...listing, sampling_seconds: null })).toBe("no timings");
   });
 });
