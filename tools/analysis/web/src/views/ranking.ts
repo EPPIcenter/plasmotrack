@@ -4,6 +4,7 @@
 
 import * as Plot from "@observablehq/plot";
 import { getJson } from "../api";
+import { el, table } from "../dom";
 import { curveSeries, FIT_COLOURS, FIT_NAMES, metricsTable, type Direction, type RankingPayload } from "../ranking";
 import type { RenderView } from "../view";
 
@@ -14,7 +15,7 @@ const fmt = (x: number | null, digits = 3) => (x === null ? "–" : x.toFixed(di
 
 /** A legend entry: a short stroke in the fit's colour and dash pattern, then its name. */
 function legendKey(fit: string) {
-  const key = document.createElement("span");
+  const key = el("span");
   key.className = "legend-key";
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("width", "28");
@@ -86,27 +87,12 @@ const render: RenderView = (root) => {
     $(".pr-curves").replaceChildren(curve("directed"), curve("undirected"));
   }
 
-  function table() {
-    const rows = metricsTable(payload!.fits);
-    const t = document.createElement("table");
-    t.className = "metrics-table";
+  function metrics() {
     const head = ["Fit", "Ranking", "Average precision", "PR-AUC", "Top-k precision", "True edges", "Pairs", "Distinct scores"];
-    const tr = (cells: string[], tag: "th" | "td") => {
-      const row = document.createElement("tr");
-      cells.forEach((c, i) => row.append(Object.assign(document.createElement(tag), { textContent: c, className: i > 1 ? "num" : "" })));
-      return row;
-    };
-    t.append(tr(head, "th"));
-    for (const r of rows) {
-      t.append(
-        tr(
-          [`${r.fit} (${r.label})`, r.direction, fmt(r.average_precision), fmt(r.pr_auc), fmt(r.top_k_precision),
-            r.n_true_edges.toLocaleString(), r.n_edge_universe.toLocaleString(), r.n_distinct_scores.toLocaleString()],
-          "td",
-        ),
-      );
-    }
-    return t;
+    return table(head, metricsTable(payload!.fits).map((r) => [
+      `${r.fit} (${r.label})`, r.direction, fmt(r.average_precision), fmt(r.pr_auc), fmt(r.top_k_precision),
+      r.n_true_edges.toLocaleString(), r.n_edge_universe.toLocaleString(), r.n_distinct_scores.toLocaleString(),
+    ]), { className: "metrics-table", numeric: [2, 3, 4, 5, 6, 7] });
   }
 
   getJson<RankingPayload>("/api/ranking")
@@ -119,7 +105,7 @@ const render: RenderView = (root) => {
       $(".note").textContent = p.fits.length === 1 ? "No baseline: the manifest names no null-model Analysis or pairwise scores." : "";
       const fits = [...new Set(curveSeries(p.fits, "undirected").map((s) => s.fit))];
       $(".legend").replaceChildren(...fits.map(legendKey));
-      $(".metrics").replaceChildren(table());
+      $(".metrics").replaceChildren(metrics());
       draw();
     })
     .catch((e: Error) => ($(".note").textContent = `No ranking: ${e.message}`));

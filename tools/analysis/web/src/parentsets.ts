@@ -1,6 +1,7 @@
 // The parent-set panel's data: /api/parent-sets' payload, sorting its rows and the summary line. No DOM here.
 
 import { recordsTable, type DataTable } from "./export";
+import { compareInfectionIds as compareIds } from "./ids";
 
 export interface ParentSetRow {
   infection: string;
@@ -41,13 +42,7 @@ export function levelSuffix(level: number): string {
   return Math.abs(level - 0.8) < 1e-9 ? "_80" : `_a${String(Math.round(100 * level)).padStart(3, "0")}`;
 }
 
-const numeric = (s: string) => /^-?\d+(\.\d+)?$/.test(s);
-
-function compareIds(a: string, b: string): number {
-  return numeric(a) && numeric(b) ? Number(a) - Number(b) : a.localeCompare(b);
-}
-
-/** A sorted copy. Infection ids sort as numbers when they all are; booleans sort false before true; rows without a
+/** A sorted copy. Infection ids sort in natural order (digit runs as numbers); booleans sort false before true; rows without a
  *  value go last either way; ties keep Infection order. */
 export function sortRows(rows: readonly ParentSetRow[], key: ParentSetKey, descending: boolean): ParentSetRow[] {
   const sign = descending ? -1 : 1;

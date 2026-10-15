@@ -3,6 +3,7 @@
 // Sortable by any column; a summary line per fit.
 
 import { getJson } from "../api";
+import { el } from "../dom";
 import { parentSetTable, sortRows, summaryLine, type ParentSetKey, type ParentSetRow, type ParentSetsPayload } from "../parentsets";
 import type { RenderView } from "../view";
 import { virtualList } from "../virtual-list";
@@ -70,12 +71,12 @@ const render: RenderView = (root, ctx) => {
   let template = "";
 
   function renderRow(r: ParentSetRow) {
-    const row = document.createElement("div");
+    const row = el("div");
     row.className = "table-row ruled";
     row.style.gridTemplateColumns = template;
     for (const c of cols) {
       const missed = (c.key === "covered" || c.key === "null_covered") && r[c.key] === false;
-      row.append(Object.assign(document.createElement("span"), {
+      row.append(el("span", {
         className: `cell${c.key === "infection" ? "" : " num"}${missed ? " flag" : ""}`,
         textContent: c.format(r),
       }));
@@ -89,7 +90,7 @@ const render: RenderView = (root, ctx) => {
     header.style.gridTemplateColumns = template;
     header.replaceChildren(
       ...cols.map((c) => {
-        const cell = Object.assign(document.createElement("button"), {
+        const cell = el("button", {
           className: "cell sortable", type: "button", title: `${c.title}; click to sort`, textContent: c.label,
         });
         if (sortKey === c.key) cell.append(descending ? " ▼" : " ▲");
@@ -113,7 +114,7 @@ const render: RenderView = (root, ctx) => {
       template = cols.map((c) => (c.key === "infection" ? "minmax(6em, 1fr)" : "minmax(7em, 1fr)")).join(" ");
       if (!cols.some((c) => c.key === sortKey)) sortKey = "infection";
       $(".count").textContent = `${p.rows.length.toLocaleString()} Infections` + (p.truth ? "" : "; no truth, so no coverage");
-      $(".summary").replaceChildren(...p.fits.map((f) => Object.assign(document.createElement("li"), { textContent: summaryLine(f, p.level) })));
+      $(".summary").replaceChildren(...p.fits.map((f) => el("li", { textContent: summaryLine(f, p.level) })));
       update();
     })
     .catch((e: Error) => ($(".count").textContent = `Could not load the parent sets: ${e.message}`));

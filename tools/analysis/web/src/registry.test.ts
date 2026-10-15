@@ -30,7 +30,8 @@ describe("every registered view exports", () => {
     (await import(`./views/${route}.ts?raw`).catch(() => ({ default: "" }))).default;
   const hasHook = (src: string) => /\btable: \(\) =>/.test(src);
   const drawsGraphics = (src: string) => /\bPlot\.\w+\(|new Sigma\b|createElementNS\([^)]*"svg"|createElement\("canvas"\)/.test(src);
-  const rendersTables = (src: string) => /createElement\("table"\)|\bel\(\s*"table"|<table\b/.test(src);
+  const rendersTables = (src: string) =>
+    /createElement\("table"\)|\bel\(\s*"table"|<table\b/.test(src) || (/import \{[^}]*\btable\b[^}]*\} from "\.\.\/dom"/.test(src) && /\btable\(/.test(src));
 
   it.each(views.map((v) => v.route))("%s, as src/views/<route>.ts", async (route) => {
     const src = await source(route);

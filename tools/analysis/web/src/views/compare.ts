@@ -4,6 +4,7 @@
 
 import * as Plot from "@observablehq/plot";
 import { getJson, getTrace, type Trace } from "../api";
+import { el } from "../dom";
 import {
   columnGroups,
   compareTable,
@@ -25,12 +26,6 @@ import { virtualList } from "../virtual-list";
 const ROW_HEIGHT = 28;
 const DOT = CHAIN_COLOURS[0]!;
 const GUIDE = "#a3a29d";
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]) {
-  const node: HTMLElementTagNameMap[K] = Object.assign(document.createElement(tag), props);
-  node.append(...children);
-  return node;
-}
 
 const formatPerSecond = (x: number | null) => (x === null || Number.isNaN(x) ? "–" : x.toPrecision(3));
 const format = (key: Metric, x: number | null) =>

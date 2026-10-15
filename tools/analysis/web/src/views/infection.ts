@@ -6,6 +6,7 @@
 
 import * as Plot from "@observablehq/plot";
 import { getJson, num } from "../api";
+import { el, table } from "../dom";
 import { CHAIN_COLOURS, formatEss } from "../format";
 import {
   coiBars, density, heatmapCells, infectionParams, readInfection, setLabel,
@@ -22,24 +23,9 @@ const PRESENCE = { type: "linear" as const, domain: [0, 0.5, 1], range: ["#f1f0e
 const CREDIBLE = "#2a78d6";
 const OUTSIDE = "#b8b7b1";
 
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]) {
-  const node: HTMLElementTagNameMap[K] = Object.assign(document.createElement(tag), props);
-  node.append(...children);
-  return node;
-}
-
 /** A probability to three decimals, or to two significant digits below 0.01 so small weights are not rounded away. */
 const prob = (x: number | null) => (x === null ? "–" : x > 0 && x < 0.01 ? x.toPrecision(2) : x.toFixed(3));
 const fixed = (x: number | null, digits = 3) => (x === null ? "–" : x.toFixed(digits));
-
-function table(head: string[], rows: (string | Node)[][]) {
-  return el(
-    "table",
-    { className: "data" },
-    el("thead", {}, el("tr", {}, ...head.map((h) => el("th", {}, h)))),
-    el("tbody", {}, ...rows.map((cells) => el("tr", {}, ...cells.map((c) => el("td", {}, c))))),
-  );
-}
 
 const QUANTITIES: { key: keyof InfectionResponse["quantities"]; title: string; digits: number }[] = [
   { key: "false_positives", title: "Expected false positives", digits: 4 },

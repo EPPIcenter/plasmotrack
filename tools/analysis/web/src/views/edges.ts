@@ -3,6 +3,7 @@
 // unobserved source shown or hidden. Clicking a row opens the edge's trace panel.
 
 import { getJson } from "../api";
+import { el } from "../dom";
 import { edgeRows, edgeStatsTable, filterEdges, sortEdges, type EdgeJson, type EdgeRow, type SortKey } from "../edges";
 import { formatEss } from "../format";
 import { getSelection, subscribeSelection } from "../selection";
@@ -10,12 +11,6 @@ import type { RenderView } from "../view";
 import { virtualList } from "../virtual-list";
 
 const ROW_HEIGHT = 28;
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]) {
-  const node: HTMLElementTagNameMap[K] = Object.assign(document.createElement(tag), props);
-  node.append(...children);
-  return node;
-}
 
 const formatProb = (x: number | undefined) => (x === undefined ? "–" : x.toFixed(3));
 

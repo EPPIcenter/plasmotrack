@@ -4,6 +4,7 @@
 
 import * as Plot from "@observablehq/plot";
 import { getJson } from "../api";
+import { el } from "../dom";
 import { CHAIN_COLOURS } from "../format";
 import {
   classLabel,
@@ -33,12 +34,6 @@ const SURFACE = "#fcfcfb";
 
 const fmt = (x: number | null | undefined) => (x === null || x === undefined ? "–" : x.toFixed(3));
 const fmtInterval = (i: Interval | null) => (i ? `${fmt(i.mean)} [${fmt(i.lower)}, ${fmt(i.upper)}]` : "–");
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]) {
-  const node: HTMLElementTagNameMap[K] = Object.assign(document.createElement(tag), props);
-  node.append(...children);
-  return node;
-}
 
 const render: RenderView = (root, ctx) => {
   const select = el("select", { title: "Stratify by an epi column" }, el("option", { value: "", textContent: "Overall" }));

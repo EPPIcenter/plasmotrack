@@ -5,6 +5,7 @@ import * as Plot from "@observablehq/plot";
 import { brushX, type D3BrushEvent } from "d3-brush";
 import { select } from "d3-selection";
 import { getRange, getTrace, type RangeDiagnostics, type Trace } from "../api";
+import { el } from "../dom";
 import { CHAIN_COLOURS, formatEss, formatRhat, RHAT_LIMIT } from "../format";
 import { rankFractions } from "../ranks";
 import { formatRoute } from "../router";
@@ -161,9 +162,9 @@ const render: RenderView = (root, ctx) => {
     const stats = $(".stats");
     stats.replaceChildren(
       `Over ${span}: ESS `,
-      Object.assign(document.createElement("strong"), { textContent: formatEss(r.ess) }),
+      el("strong", { textContent: formatEss(r.ess) }),
       ", R-hat ",
-      Object.assign(document.createElement("strong"), {
+      el("strong", {
         textContent: formatRhat(r.rhat) + (flagged ? " !" : ""),
         className: flagged ? "flag" : "",
         title: flagged ? `R-hat above ${RHAT_LIMIT}: not converged` : "",

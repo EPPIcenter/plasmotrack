@@ -3,6 +3,7 @@
 // filter by kind and open the pair inspector, which shows the true Latent genotypes beside the posterior.
 
 import { getJson } from "../api";
+import { el, table } from "../dom";
 import { formatRoute } from "../router";
 import {
   ERROR_KINDS,
@@ -12,7 +13,6 @@ import {
   pairLink,
   SOURCE_NAMES,
   type ErrorKind,
-  type ErrorRow,
   type ErrorsPayload,
 } from "../truth";
 import type { RenderView } from "../view";
@@ -54,66 +54,48 @@ const render: RenderView = (root, ctx) => {
     const counts = payload ? errorCounts(payload.rows) : null;
     $(".kinds").replaceChildren(
       ...ERROR_KINDS.map(({ kind, label, title }) => {
-        const box = Object.assign(document.createElement("input"), { type: "checkbox", checked: kinds.has(kind) });
+        const box = el("input", { type: "checkbox", checked: kinds.has(kind) });
         box.addEventListener("change", () => {
           if (box.checked) kinds.add(kind);
           else kinds.delete(kind);
           saveParams();
           drawTable();
         });
-        const l = Object.assign(document.createElement("label"), { title });
-        l.append(box, ` ${label}${counts ? ` (${counts[kind].toLocaleString()})` : ""}`);
-        return l;
+        return el("label", { title }, box, ` ${label}${counts ? ` (${counts[kind].toLocaleString()})` : ""}`);
       }),
     );
-  }
-
-  function cell(tag: "td" | "th", text: string, className = "") {
-    return Object.assign(document.createElement(tag), { textContent: text, className });
   }
 
   function drawTable() {
     if (!payload) return;
     const rows = filterErrors(payload.rows, kinds);
     const arrow = payload.directed ? "→" : "–";
+    const directed = payload.directed;
     $(".status").textContent =
       `${rows.length.toLocaleString()} of ${payload.rows.length.toLocaleString()} errors of ${SOURCE_NAMES[payload.source]} ` +
       `(${payload.label}) at ${payload.threshold}, most confidently wrong first. Click a row to open the pair inspector.`;
-    const table = document.createElement("table");
-    table.className = "data";
-    const head = document.createElement("tr");
-    const columns: [string, string][] = [
-      ["Kind", ""], ["Edge", ""], ["Score", "num"], ["Wrong by", "num"],
-      ...(payload.directed ? ([["Reverse score", "num"], ["Reverse true", ""]] as [string, string][]) : []),
-      ["Lag", "num"], ["True infection, parent", "num"], ["True infection, child", "num"],
-    ];
-    head.append(...columns.map(([c, k]) => cell("th", c, k)));
-    table.append(head);
-    for (const r of rows) table.append(errorRow(r, arrow, payload.directed));
-    $(".errors").replaceChildren(table);
-  }
-
-  function errorRow(r: ErrorRow, arrow: string, directed: boolean) {
-    const tr = document.createElement("tr");
-    const link = Object.assign(document.createElement("a"), { href: pairLink(r), textContent: `${r.parent} ${arrow} ${r.child}` });
-    const edge = cell("td", "");
-    edge.append(link);
-    tr.append(
-      cell("td", KIND_LABEL[r.kind], r.kind === "direction" ? "flag" : ""),
-      edge,
-      cell("td", fixed(r.marginal, 3), "num"),
-      cell("td", fixed(r.confidence, 3), "num"),
-      ...(directed ? [cell("td", fixed(r.reverse_marginal, 3), "num"), cell("td", r.reverse_true ? "yes" : "no")] : []),
-      cell("td", fixed(r.lag, 1), "num"),
-      cell("td", fixed(r.parent_true_infection_time, 1), "num"),
-      cell("td", fixed(r.child_true_infection_time, 1), "num"),
-    );
-    for (const td of tr.children) td.classList.add("clickable");
-    tr.addEventListener("click", (event) => {
-      if ((event.target as Element).closest("a")) return;
-      ctx.navigate("pair", { a: r.parent, b: r.child });
+    const head = ["Kind", "Edge", "Score", "Wrong by", ...(directed ? ["Reverse score", "Reverse true"] : []),
+      "Lag", "True infection, parent", "True infection, child"];
+    const numeric = head.flatMap((h, i) => (["Kind", "Edge", "Reverse true"].includes(h) ? [] : [i]));
+    const t = table(head, rows.map((r) => [
+      { content: KIND_LABEL[r.kind], className: r.kind === "direction" ? "flag" : "" },
+      el("a", { href: pairLink(r) }, `${r.parent} ${arrow} ${r.child}`),
+      fixed(r.marginal, 3),
+      fixed(r.confidence, 3),
+      ...(directed ? [fixed(r.reverse_marginal, 3), r.reverse_true ? "yes" : "no"] : []),
+      fixed(r.lag, 1),
+      fixed(r.parent_true_infection_time, 1),
+      fixed(r.child_true_infection_time, 1),
+    ]), { numeric });
+    t.tBodies[0]!.querySelectorAll("tr").forEach((tr, i) => {
+      for (const td of tr.children) td.classList.add("clickable");
+      const r = rows[i]!;
+      tr.addEventListener("click", (event) => {
+        if ((event.target as Element).closest("a")) return;
+        ctx.navigate("pair", { a: r.parent, b: r.child });
+      });
     });
-    return tr;
+    $(".errors").replaceChildren(t);
   }
 
   function load() {
@@ -123,8 +105,7 @@ const render: RenderView = (root, ctx) => {
       .then((p) => {
         if (mine !== request) return;
         payload = p;
-        sourceSelect.replaceChildren(...p.sources.map((s) =>
-          Object.assign(document.createElement("option"), { value: s, textContent: SOURCE_NAMES[s] })));
+        sourceSelect.replaceChildren(...p.sources.map((s) => el("option", { value: s, textContent: SOURCE_NAMES[s] })));
         sourceSelect.value = p.source;
         $(".truth").textContent = `${matchText(p.truth)}.`;
         drawKinds();
@@ -136,9 +117,7 @@ const render: RenderView = (root, ctx) => {
         $(".errors").replaceChildren();
         const status = $(".status");
         status.textContent = `No error table: ${e.message}. `;
-        if (source !== "posterior") status.append(Object.assign(document.createElement("a"), {
-          href: formatRoute("errors"), textContent: "Show the posterior's",
-        }));
+        if (source !== "posterior") status.append(el("a", { href: formatRoute("errors") }, "Show the posterior's"));
       });
   }
 

@@ -38,6 +38,8 @@ pnpm dev                                              # here: the page with hot 
 | `src/infection.ts` | The infection card's URL state (`#/infection?id=`), response types, heatmap cells, Parent-set labels, COI histogram bars and kernel densities |
 | `src/pair.ts` | The pair inspector's URL state (`#/pair?a=&b=`), response types and differing-Loci count |
 | `src/export.ts`, `src/export-dom.ts` | Exports (U11): CSV, the composed SVG and file names (no DOM, tested); the header's SVG, PNG and CSV buttons, which read the shown view's SVG elements, canvases and `<table>` elements |
+| `src/dom.ts` | `el` and `table`, the DOM helpers every view builds its elements and tables with |
+| `src/ids.ts` | `compareInfectionIds`, the natural order of Infection ids (`inf2` before `inf10`) every sort by id uses |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
 | `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
 | `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
@@ -104,7 +106,8 @@ A view is one file plus one registry line. Other views' files and the shared fil
 
    `src/registry.test.ts` checks every registered view either renders SVG, canvases or tables or has the hook.
 
-4. Put the view's own logic and types in the view file, or in a module beside it with its own `*.test.ts`. Call
+4. Build elements with `el` and tables with `table` from `src/dom.ts`, and sort Infection ids with
+   `compareInfectionIds` from `src/ids.ts`, rather than writing local copies. Put the view's own logic and types in the view file, or in a module beside it with its own `*.test.ts`. Call
    your endpoints with `getJson` from the view file rather than adding functions to `src/api.ts`.
 
 The backend side is the same pattern: an endpoint module in `src/pt_analysis/endpoints/<name>.py` exporting

@@ -4,6 +4,7 @@
 
 import * as Plot from "@observablehq/plot";
 import { getJson } from "../api";
+import { el, table } from "../dom";
 import { CHAIN_COLOURS } from "../format";
 import {
   describeEvent,
@@ -46,22 +47,6 @@ const STYLE = `
 const fmt = (x: number) => Number(x.toPrecision(3)).toString();
 const range = (w: PanelWindow) => `Window ${w.window} (${w.phase.replace("_", "-")}, iterations ${w.first_iteration}–${w.last_iteration})`;
 
-function cell(tag: "td" | "th", text: string, className = "") {
-  return Object.assign(document.createElement(tag), { textContent: text, className });
-}
-
-function table(header: string[], rows: string[][], numeric: number[] = []) {
-  const t = document.createElement("table");
-  t.append(Object.assign(document.createElement("tr"), {}));
-  t.firstElementChild!.append(...header.map((h) => cell("th", h)));
-  for (const r of rows) {
-    const tr = document.createElement("tr");
-    tr.append(...r.map((text, i) => cell("td", text, numeric.includes(i) ? "num" : "")));
-    t.append(tr);
-  }
-  return t;
-}
-
 const render: RenderView = (root, ctx) => {
   const chains = ctx.analysis.chains.map((c) => c.chain);
   let chain = ctx.params.get("chain") ?? chains[0] ?? "";
@@ -94,7 +79,7 @@ const render: RenderView = (root, ctx) => {
   const $ = <T extends Element>(selector: string) => root.querySelector<T>(selector)!;
 
   const select = $<HTMLSelectElement>(".chain");
-  select.append(...chains.map((c) => Object.assign(document.createElement("option"), { value: c, textContent: c })));
+  select.append(...chains.map((c) => el("option", { value: c, textContent: c })));
   select.value = chain;
   const [loInput, hiInput] = [$<HTMLInputElement>(".band-lo"), $<HTMLInputElement>(".band-hi")];
   const showBand = () => ([loInput.value, hiInput.value] = [String(band[0]), String(band[1])]);
@@ -110,8 +95,7 @@ const render: RenderView = (root, ctx) => {
   for (const input of [loInput, hiInput]) {
     input.addEventListener("change", () => {
       band = parseBand(loInput.value, hiInput.value);
-      const showBand = () => ([loInput.value, hiInput.value] = [String(band[0]), String(band[1])]);
-  showBand();
+      showBand();
       keepParams();
       drawAcceptance();
     });
@@ -272,9 +256,7 @@ const render: RenderView = (root, ctx) => {
           })),
         ],
       }),
-      Object.assign(document.createElement("p"), {
-        textContent: (final.length ? `Final ladder: ${final.map(fmt).join(", ")}.` : "") + note,
-      }),
+      el("p", {}, (final.length ? `Final ladder: ${final.map(fmt).join(", ")}.` : "") + note),
     );
   }
 
@@ -292,7 +274,7 @@ const render: RenderView = (root, ctx) => {
           : table(
               ["Sampler type", "Target", "Scales", "Proposal variances"],
               rows.map((r) => [r.type, r.target, String(r.variances.length), r.variances.map(fmt).join(", ")]),
-              [2],
+              { numeric: [2] },
             ),
     );
   }
@@ -301,11 +283,11 @@ const render: RenderView = (root, ctx) => {
     const key = $(".events-key");
     const types = [...new Set(p.events.map((e) => e.type))];
     key.replaceChildren(
-      Object.assign(document.createElement("span"), { textContent: "Run events, a rule on every time axis (hover for details): ", className: "muted" }),
+      el("span", { className: "muted" }, "Run events, a rule on every time axis (hover for details): "),
       ...types.map((type) => {
         const severity = severityOf(type);
-        const span = Object.assign(document.createElement("span"), { className: "event-key" });
-        const swatch = Object.assign(document.createElement("i"), { className: severity });
+        const span = el("span", { className: "event-key" });
+        const swatch = el("i", { className: severity });
         swatch.style.borderColor = SEVERITY_COLOUR[severity];
         span.append(swatch, `${EVENT_NAMES[type] ?? type} (${p.events.filter((e) => e.type === type).length})`);
         return span;
@@ -316,7 +298,7 @@ const render: RenderView = (root, ctx) => {
         ? table(
             ["Iteration", "Phase", "Window", "Event", "Wall time (UTC)"],
             p.events.map((e) => [String(e.iteration), e.phase.replace("_", "-"), String(e.window), describeEvent(e), e.wall_time]),
-            [0, 2],
+            { numeric: [0, 2] },
           )
         : "No non-finite values, interrupts, burn-in end, resumes or Run end in the closed Windows.",
     );

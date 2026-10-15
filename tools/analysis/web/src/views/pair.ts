@@ -4,6 +4,7 @@
 
 import * as Plot from "@observablehq/plot";
 import { getJson } from "../api";
+import { el, table } from "../dom";
 import { CHAIN_COLOURS } from "../format";
 import { differingLoci, pairParams, readPair, type GenotypeRow, type PairResponse } from "../pair";
 import { formatRoute } from "../router";
@@ -11,25 +12,9 @@ import type { RenderView } from "../view";
 
 const INK = "#52514e";
 
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]) {
-  const node: HTMLElementTagNameMap[K] = Object.assign(document.createElement(tag), props);
-  node.append(...children);
-  return node;
-}
-
 /** A probability to three decimals, or to two significant digits below 0.01 so small weights are not rounded away. */
 const prob = (x: number | null) => (x === null ? "–" : x > 0 && x < 0.01 ? x.toPrecision(2) : x.toFixed(3));
 const time = (x: number | null) => (x === null ? "–" : x.toFixed(1));
-
-/** A table from a header row and body rows; a cell is text or a node. */
-function table(head: string[], rows: (string | Node)[][], rowClass: (i: number) => string = () => "") {
-  return el(
-    "table",
-    { className: "data" },
-    el("thead", {}, el("tr", {}, ...head.map((h) => el("th", {}, h)))),
-    el("tbody", {}, ...rows.map((cells, i) => el("tr", { className: rowClass(i) }, ...cells.map((c) => el("td", {}, c))))),
-  );
-}
 
 function genotype(bits: string | null | undefined) {
   return bits ? el("code", {}, bits) : el("span", { className: "muted" }, "unobserved");
@@ -131,7 +116,7 @@ const render: RenderView = (root, ctx) => {
         ], rows.map((r) => [
           r.locus, genotype(r.observed_a), genotype(r.latent_a), prob(r.agreement_a), genotype(r.latent_b), prob(r.agreement_b),
           genotype(r.observed_b), ...(truth ? [genotype(r.true_a), genotype(r.true_b)] : []),
-        ]), (i) => (rows[i]!.differs ? "differs" : "")));
+        ]), { rowClass: (i) => (rows[i]!.differs ? "differs" : "") }));
 
       // Infection times
       const times = [{ infection: a, ...p.times.a }, { infection: b, ...p.times.b }];

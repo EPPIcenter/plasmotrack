@@ -6,6 +6,7 @@
 
 import * as Plot from "@observablehq/plot";
 import { getJson } from "../api";
+import { el } from "../dom";
 import {
   attributionCells,
   cutoffDomain,
@@ -39,12 +40,6 @@ const SURFACE = "#fcfcfb";
 
 const fmt = (x: number | null | undefined, digits = 3) => (x === null || x === undefined ? "–" : x.toFixed(digits));
 const fmtInterval = (i: Interval | null) => (i ? `${fmt(i.mean)} [${fmt(i.lower)}, ${fmt(i.upper)}]` : "–");
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]) {
-  const node: HTMLElementTagNameMap[K] = Object.assign(document.createElement(tag), props);
-  node.append(...children);
-  return node;
-}
 
 const render: RenderView = (root, ctx) => {
   const column = el("select", { title: "Stratify by an epi column" }, el("option", { value: "", textContent: "Overall" }));

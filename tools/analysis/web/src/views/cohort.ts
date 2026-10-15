@@ -7,6 +7,7 @@ import * as Plot from "@observablehq/plot";
 import { brush as brush2d, type D3BrushEvent } from "d3-brush";
 import { select } from "d3-selection";
 import { getJson } from "../api";
+import { el } from "../dom";
 import {
   calibrationCurve,
   FACTORS,
@@ -28,7 +29,7 @@ const MUTED = "#c9c8c3";
 const fmt = (v: unknown) => (typeof v === "number" ? v.toPrecision(4).replace(/\.?0+$/, "") : String(v ?? "–"));
 
 function option(select: HTMLSelectElement, values: string[], chosen: string) {
-  select.replaceChildren(...values.map((v) => Object.assign(document.createElement("option"), { value: v, textContent: v })));
+  select.replaceChildren(...values.map((v) => el("option", { value: v, textContent: v })));
   select.value = values.includes(chosen) ? chosen : values[0] ?? "";
 }
 
@@ -85,7 +86,7 @@ const render: RenderView = (root, ctx) => {
     detail.querySelector("strong")!.textContent = String(p.data.run_key?.[row] ?? `row ${row}`);
     detail.querySelector("span")!.textContent = `${fitLabel(p, row)} fit; directed AP ${fmt(p.data.directed_average_precision?.[row])}`;
     if (typeof manifest === "string") {
-      const button = Object.assign(document.createElement("button"), { textContent: "Open its Analysis" });
+      const button = el("button", { textContent: "Open its Analysis" });
       button.addEventListener("click", async () => {
         button.disabled = true;
         button.textContent = "Starting…";
@@ -101,9 +102,9 @@ const render: RenderView = (root, ctx) => {
         }
         button.disabled = false;
       });
-      detail.append(button, Object.assign(document.createElement("code"), { textContent: ` ${manifest}`, className: "muted" }));
+      detail.append(button, el("code", { textContent: ` ${manifest}`, className: "muted" }));
     } else {
-      detail.append(Object.assign(document.createElement("span"), { textContent: "(the cohort names no manifest for it)", className: "muted" }));
+      detail.append(el("span", { textContent: "(the cohort names no manifest for it)", className: "muted" }));
     }
   }
 
@@ -121,7 +122,7 @@ const render: RenderView = (root, ctx) => {
   function drawCalibration() {
     const p = payload!;
     if (!p.calibration) {
-      $(".calibration").replaceChildren(Object.assign(document.createElement("p"), {
+      $(".calibration").replaceChildren(el("p", {
         className: "muted", textContent: "No per-edge rows: summarize with --edges, then cohort, to draw it." }));
       return;
     }
@@ -263,8 +264,8 @@ const render: RenderView = (root, ctx) => {
         brush = null;
         $(".note").textContent = `${p.file}: ${p.n.toLocaleString()} fits`;
         const fits = FITS.filter((f) => Array.from({ length: p.n }, (_, r) => fitLabel(p, r)).includes(f));
-        fitSelect.replaceChildren(Object.assign(document.createElement("option"), { value: "", textContent: "every fit" }),
-          ...fits.map((f) => Object.assign(document.createElement("option"), { value: f, textContent: f })));
+        fitSelect.replaceChildren(el("option", { value: "", textContent: "every fit" }),
+          ...fits.map((f) => el("option", { value: f, textContent: f })));
         fitSelect.value = fits.includes(params.get("fit") as never) ? params.get("fit")! : "";
         const numeric = numericColumns(p);
         const all = p.columns.map((c) => c.name).filter((c) => c !== "manifest");

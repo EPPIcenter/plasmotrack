@@ -15,6 +15,7 @@ import FA2Layout from "graphology-layout-forceatlas2/worker";
 // sigma reads WebGL globals when imported, so it is loaded with the payload, not with this module.
 import type SigmaRenderer from "sigma";
 import { getJson } from "../api";
+import { el } from "../dom";
 import {
   EdgeThreshold,
   edgeKey,
@@ -130,7 +131,7 @@ const render: RenderView = (root, ctx) => {
     const dashColours = new Map<string, string>();
     let alive = true;
     const ids = payload.nodes.map((n) => n.id);
-    $("#network-ids").replaceChildren(...ids.map((id) => Object.assign(document.createElement("option"), { value: id })));
+    $("#network-ids").replaceChildren(...ids.map((id) => el("option", { value: id })));
 
     slider.min = String(payload.floor);
     threshold = Math.max(threshold, payload.floor);
@@ -409,10 +410,10 @@ const render: RenderView = (root, ctx) => {
 
     function showTooltip(content: Tooltip, x: number, y: number) {
       tooltip.replaceChildren(
-        Object.assign(document.createElement("strong"), { textContent: content.title }),
+        el("strong", { textContent: content.title }),
         ...content.rows.map(([label, value]) => {
-          const row = document.createElement("div");
-          row.append(Object.assign(document.createElement("span"), { textContent: label, className: "muted" }), ` ${value}`);
+          const row = el("div");
+          row.append(el("span", { textContent: label, className: "muted" }), ` ${value}`);
           return row;
         }),
       );
@@ -461,8 +462,8 @@ const render: RenderView = (root, ctx) => {
       const names = [...selected].slice(0, 5).join(", ") + (selected.size > 5 ? ", …" : "");
       info.append(`Selected: ${names} `);
       // The edge table (#83) reads the shared selection and keeps only edges touching it.
-      info.append(Object.assign(document.createElement("a"), { href: formatRoute("edges"), textContent: "Their edges" }), " ");
-      const clear = Object.assign(document.createElement("button"), { type: "button", textContent: "Clear" });
+      info.append(el("a", { href: formatRoute("edges"), textContent: "Their edges" }), " ");
+      const clear = el("button", { type: "button", textContent: "Clear" });
       clear.addEventListener("click", () => clearSelection());
       info.append(clear);
     }
@@ -504,7 +505,7 @@ const render: RenderView = (root, ctx) => {
         truthBox.checked = truthShown;
         $<HTMLLabelElement>(".truth-control").hidden = !o.truth;
         sourceSelect.replaceChildren(...o.sources.map((s) =>
-          Object.assign(document.createElement("option"), { value: s.source, textContent: `${SOURCE_NAMES[s.source]} (${s.label})` })));
+          el("option", { value: s.source, textContent: `${SOURCE_NAMES[s.source]} (${s.label})` })));
         sourceSelect.value = source;
         $<HTMLLabelElement>(".source-control").hidden = o.sources.length < 2;
         drawLegend();

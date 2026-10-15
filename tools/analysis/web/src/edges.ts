@@ -2,6 +2,7 @@
 
 import { num } from "./api";
 import type { DataTable } from "./export";
+import { compareInfectionIds } from "./ids";
 
 /** One Chain's view of an edge: its mean weight over the Chain's Draws and how often it crossed one half. */
 export interface ChainEdge {
@@ -55,8 +56,6 @@ export function edgeRows(json: readonly EdgeJson[]): EdgeRow[] {
   return json.map((r, index) => ({ ...r, index, ess: num(r.ess) }));
 }
 
-const ids = new Intl.Collator(undefined, { numeric: true });
-
 function value(row: EdgeRow, key: Exclude<SortKey, "table" | "child" | "parent">): number | null {
   const colon = key.indexOf(":");
   if (colon < 0) {
@@ -74,7 +73,7 @@ export function sortEdges(rows: readonly EdgeRow[], sort: Sort): EdgeRow[] {
   const sign = sort.descending ? -1 : 1;
   if (key === "table") return [...rows].sort((a, b) => a.index - b.index);
   if (key === "child" || key === "parent")
-    return [...rows].sort((a, b) => sign * ids.compare(a[key], b[key]) || a.index - b.index);
+    return [...rows].sort((a, b) => sign * compareInfectionIds(a[key], b[key]) || a.index - b.index);
   return [...rows].sort((a, b) => {
     const x = value(a, key);
     const y = value(b, key);

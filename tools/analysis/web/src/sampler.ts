@@ -1,6 +1,8 @@
 // The sampler panel's data (GET /api/sampler) and the logic its view draws with: samplers grouped by type, and the
 // Run events placed on the panel's time axes. No DOM here.
 
+import { compareInfectionIds } from "./ids";
+
 /** A closed Window: its Phase and the Sampling iterations it covers, inclusive. */
 export interface PanelWindow {
   window: number;
@@ -62,7 +64,7 @@ export interface SamplerPanel {
 }
 
 /** Ids and targets compare with numbers in numeric order, so `infection/2` precedes `infection/10`. */
-const byName = new Intl.Collator("en", { numeric: true }).compare;
+const byName = compareInfectionIds;
 
 /** One sampler type's rows: its targets in name order, and its rows by target, then Window. */
 export interface SamplerType {

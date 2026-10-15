@@ -2,18 +2,13 @@
 // or R-hat, filterable by group and name. Clicking a row opens the trace panel.
 
 import { getConvergence } from "../api";
+import { el } from "../dom";
 import { convergenceTable, filterQuantities, groups, quantities, sortQuantities, type Quantity, type SortKey } from "../convergence";
 import { formatEss, formatRhat, RHAT_LIMIT } from "../format";
 import type { RenderView } from "../view";
 import { virtualList } from "../virtual-list";
 
 const ROW_HEIGHT = 28;
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, unknown> = {}, ...children: (Node | string)[]) {
-  const node: HTMLElementTagNameMap[K] = Object.assign(document.createElement(tag), props);
-  node.append(...children);
-  return node;
-}
 
 const render: RenderView = (root, ctx) => {
   const chains = ctx.analysis.chains.map((c) => c.chain);
