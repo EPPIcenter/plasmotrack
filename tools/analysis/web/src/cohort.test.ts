@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calibrationCurve,
+  scatterFacets,
   cohortTable,
   columnValues,
   fitLabel,
@@ -125,5 +126,19 @@ describe("cohortTable", () => {
       ["partial", "a", "missing_50", "posterior", 0, 0.4, 0.4, 0.45, "partial/a.json"],
       ["null", "a", "full", "null_prior", 0, null, 0.9, 0.45, null],
     ]);
+  });
+});
+
+describe("scatterFacets", () => {
+  it("split the scatter by fit type in full, partial, null order over one shared domain, leaving out rows missing x or y", () => {
+    const { facets, x, y } = scatterFacets(payload, [0, 1, 2, 3], "true_average_outdegree", "directed_pr_auc");
+    expect(facets.map((f) => [f.fit, f.points.map((p) => p.row)])).toEqual([["full", [0, 1]], ["partial", [2]]]);
+    expect(facets[0]!.points[0]).toEqual({ row: 0, x: 0.45, y: 0.6 });
+    expect(x).toEqual([0.45, 0.6]);
+    expect(y).toEqual([0.2, 0.6]);
+  });
+
+  it("keep only the facets of the rows given", () => {
+    expect(scatterFacets(payload, [3], "true_average_outdegree", "estimated_average_outdegree").facets.map((f) => f.fit)).toEqual(["null"]);
   });
 });

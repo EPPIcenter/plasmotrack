@@ -57,6 +57,7 @@ table.data td.clickable { cursor: pointer; }
 table.data td.clickable:hover { background: var(--hover); }
 .cohort-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.2em; }
 .cohort-grid section > div, .boxes, .scatter { min-width: 0; }
+.cohort-facets { display: flex; flex-wrap: wrap; gap: 12px; }
 .fit-detail:empty { display: none; }
 .fit-detail { margin: 0.4em 0; display: flex; gap: 0.6em; align-items: baseline; flex-wrap: wrap; }
 .bar-track { display: inline-block; width: 8em; height: 0.7em; background: var(--hover); vertical-align: middle; }

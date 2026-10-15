@@ -143,6 +143,33 @@ export function calibrationCurve(p: CohortPayload, c: Calibration, rows: readonl
     }));
 }
 
+export interface ScatterFacet {
+  fit: string;
+  points: { row: number; x: number; y: number }[];
+}
+
+/** The scatter of column `x` against column `y` as one facet per fit type (U7), in `FITS` order then any other label,
+ * facets without a point left out, and the domains every facet shares (so a brush means the same in each). */
+export function scatterFacets(p: CohortPayload, rows: readonly number[], x: string, y: string) {
+  const byFit = new Map<string, ScatterFacet["points"]>();
+  for (const row of rows) {
+    const [vx, vy] = [p.data[x]?.[row], p.data[y]?.[row]];
+    if (!isNumber(vx) || !isNumber(vy)) continue;
+    const fit = fitLabel(p, row);
+    const points = byFit.get(fit) ?? [];
+    points.push({ row, x: vx, y: vy });
+    byFit.set(fit, points);
+  }
+  const order = (fit: string) => {
+    const k = (FITS as readonly string[]).indexOf(fit);
+    return k < 0 ? FITS.length : k;
+  };
+  const facets = [...byFit].map(([fit, points]) => ({ fit, points })).sort((a, b) => order(a.fit) - order(b.fit) || a.fit.localeCompare(b.fit));
+  const all = facets.flatMap((f) => f.points);
+  const extent = (k: "x" | "y"): [number, number] => [Math.min(...all.map((d) => d[k])), Math.max(...all.map((d) => d[k]))];
+  return { facets, x: extent("x"), y: extent("y") };
+}
+
 /** The row of the point nearest (px, py) in pixels, if within `radius`: a click on a brushable scatter, whose
  * overlay takes the pointer. */
 export function nearestRow(points: readonly { row: number; px: number; py: number }[], px: number, py: number, radius: number): number | null {

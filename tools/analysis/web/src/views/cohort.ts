@@ -1,7 +1,9 @@
 // U7 cohort view: fit summaries of many Analyses. A calibration curve of the pooled Edge marginals, estimated against
 // realised average out-degree and unobserved-source proportion on the identity line, a metric by simulation factor
-// as box plots faceted by fit, and a scatter of any two columns coloured by a third. Brushing the scatter, and the
-// fit selector, filter every panel; clicking a fit shows its run_key and opens its Analysis.
+// as box plots faceted by fit, and a scatter of any two columns coloured by a third, faceted by fit type (full,
+// partial, null) on shared axes. Brushing any facet of the scatter, and the fit selector, filter every panel; clicking
+// a fit shows its run_key and opens its Analysis. The fit summary has no ψ_MAP column, so the identity panels show
+// the two functionals it has: average out-degree (ψ_edge) and unobserved-source proportion (mean q).
 
 import * as Plot from "@observablehq/plot";
 import { brush as brush2d, type D3BrushEvent } from "d3-brush";
@@ -18,6 +20,7 @@ import {
   identityPoints,
   nearestRow,
   numericColumns,
+  scatterFacets,
   selectedRows,
   type Brush,
   type CohortPayload,
@@ -53,7 +56,7 @@ const render: RenderView = (root, ctx) => {
     <h3>By simulation factor</h3>
     <div class="toolbar"><label>Metric <select class="metric"></select></label><label>Factor <select class="factor"></select></label></div>
     <div class="boxes"></div>
-    <h3>Any two columns <span class="muted">(brush to select fits; click a point for its fit)</span></h3>
+    <h3>Any two columns, by fit type <span class="muted">(brush any facet to select fits; click a point for its fit)</span></h3>
     <div class="toolbar">
       <label>x <select class="x"></select></label><label>y <select class="y"></select></label>
       <label>Colour <select class="colour"></select></label>
@@ -185,30 +188,46 @@ const render: RenderView = (root, ctx) => {
     }));
   }
 
+  /** The scatter of any two columns, one facet per fit type (full, partial, null) on shared axes. Brushing any facet
+   * selects the fits inside the rectangle in every facet and every panel. */
   function drawScatter() {
     const p = payload!;
     const [x, y, colour] = [pickers.x.value, pickers.y.value, pickers.colour.value];
     // Rows of the fit selector without the brush: the brush draws its own selection over them.
     const fitRows = selectedRows(p, { fit: fitSelect.value || null, brushes: [] });
     const chosen = new Set(rows);
-    const data = fitRows.flatMap((row) => {
-      const [vx, vy] = [p.data[x]?.[row], p.data[y]?.[row]];
-      return typeof vx === "number" && typeof vy === "number"
-        ? [{ row, x: vx, y: vy, c: p.data[colour]?.[row] ?? null, on: chosen.has(row), fit: fitLabel(p, row) }] : [];
-    });
+    const { facets, x: xDomain, y: yDomain } = scatterFacets(p, fitRows, x, y);
+    if (!facets.length) {
+      $(".scatter").replaceChildren(el("p", { className: "muted" }, `No fit has both ${x} and ${y}.`));
+      return;
+    }
     const kind = p.columns.find((c) => c.name === colour)?.kind;
-    const categories = kind === "string" ? [...new Set(data.map((d) => String(d.c)))].sort() : [];
+    const categories = kind === "string"
+      ? [...new Set(facets.flatMap((f) => f.points.map((d) => String(p.data[colour]?.[d.row] ?? null))))].sort() : [];
     const color: Plot.ScaleOptions = kind === "string"
-      ? { type: "ordinal", domain: categories, range: categories.map((_, i) => CHAIN_COLOURS[i] ?? MUTED), legend: true, label: colour }
-      : { type: "linear", range: [Q_RAMP[0]!, Q_RAMP[Q_RAMP.length - 1]!], legend: true, label: colour };
-    const plot = Plot.plot({
-      width: Math.max(480, $(".scatter").clientWidth), height: 420, marginLeft: 56,
-      x: { label: x, grid: true }, y: { label: y, grid: true }, color,
-      marks: [
-        Plot.dot(data.filter((d) => !d.on), { x: "x", y: "y", r: 3, fill: MUTED }),
-        Plot.dot(data.filter((d) => d.on), { x: "x", y: "y", r: 3.5, fill: (d: { c: unknown }) => (kind === "string" ? String(d.c) : d.c), stroke: "white", strokeWidth: 0.5 }),
-      ],
+      ? { type: "ordinal", domain: categories, range: categories.map((_, i) => CHAIN_COLOURS[i] ?? MUTED), label: colour }
+      : { type: "linear", range: [Q_RAMP[0]!, Q_RAMP[Q_RAMP.length - 1]!], label: colour };
+    const width = Math.max(300, Math.floor(($(".scatter").clientWidth || 960) / facets.length) - 12);
+    const plots = facets.map((facet, k) => {
+      const data = facet.points.map((d) => ({ ...d, c: p.data[colour]?.[d.row] ?? null, on: chosen.has(d.row) }));
+      const plot = Plot.plot({
+        width, height: 380, marginLeft: 56, inset: 6,
+        title: `${facet.fit} fit${facet.points.length === 1 ? "" : "s"} (${facet.points.length.toLocaleString()})`,
+        x: { domain: xDomain, label: x, grid: true }, y: { domain: yDomain, label: y, grid: true },
+        color: { ...color, legend: k === 0 },
+        marks: [
+          Plot.dot(data.filter((d) => !d.on), { x: "x", y: "y", r: 3, fill: MUTED }),
+          Plot.dot(data.filter((d) => d.on), { x: "x", y: "y", r: 3.5, fill: (d: { c: unknown }) => (kind === "string" ? String(d.c) : d.c), stroke: "white", strokeWidth: 0.5 }),
+        ],
+      });
+      attachBrush(plot, data, x, y);
+      return plot;
     });
+    $(".scatter").replaceChildren(el("div", { className: "cohort-facets" }, ...plots));
+  }
+
+  /** A d3 brush over one facet's plot area: the rectangle, in data units, selects fits in every facet. */
+  function attachBrush(plot: ReturnType<typeof Plot.plot>, data: { row: number; x: number; y: number }[], x: string, y: string) {
     const sx = plot.scale("x")!;
     const sy = plot.scale("y")!;
     const [left, right] = sx.range as [number, number];
@@ -221,7 +240,7 @@ const render: RenderView = (root, ctx) => {
         if (!event.sourceEvent) return; // moved programmatically
         const s = event.selection as [[number, number], [number, number]] | null;
         if (s === null) {
-          // A click without a drag: show the fit under it, keep the brush as it was.
+          // A click without a drag: show the fit under it, and clear the brush.
           const [mx, my] = (event.sourceEvent as MouseEvent).offsetX !== undefined
             ? [(event.sourceEvent as MouseEvent).offsetX, (event.sourceEvent as MouseEvent).offsetY] : [NaN, NaN];
           const row = nearestRow(pixels, mx, my, 6);
@@ -239,7 +258,6 @@ const render: RenderView = (root, ctx) => {
     if (brush && brush.x === x && brush.y === y) {
       g.call(b.move, [[sx.apply(brush.x0) as number, sy.apply(brush.y1) as number], [sx.apply(brush.x1) as number, sy.apply(brush.y0) as number]]);
     }
-    $(".scatter").replaceChildren(plot);
   }
 
   function update() {
