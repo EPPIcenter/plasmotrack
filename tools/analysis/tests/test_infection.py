@@ -74,8 +74,28 @@ def test_q_entropy_and_effective_size_per_chain_and_pooled(golden_analysis):
         assert 1 <= chain["effective_size"] <= 6
     assert summary["effective_size"] >= 2.718281828 ** summary["entropy"]
     assert card(golden_analysis, "1")["summary"]["chains"] == [
-        {"chain": c, "q": 1.0, "expected_observed_parents": 0.0, "entropy": 0.0, "effective_size": 1.0}
+        {"chain": c, "q": 1.0, "expected_observed_parents": 0.0, "entropy": 0.0, "effective_size": 1.0,
+         "posterior_entropy": 0.0, "posterior_effective_size": 1.0}
         for c in ("chain1", "chain2")]
+
+
+def test_posterior_entropy_and_effective_size_are_of_the_mean_parent_set_weights(golden_analysis):
+    """Per-Draw entropy averages each Draw's spread over Parent sets; the posterior entropy is the spread of the mean
+    weights, per Chain and pooled. They differ when Draws are each sure of a set but disagree on which."""
+    import math
+
+    infection = card(golden_analysis, "3")
+    entropy = lambda ws: -sum(w * math.log(w) for w in ws if w > 0)  # noqa: E731
+    sets = {c["chain"]: [r["weight"] for r in c["sets"]] for c in infection["parent_sets"]["chains"]}
+    summary = infection["summary"]
+    for chain in summary["chains"]:
+        assert chain["posterior_entropy"] == pytest.approx(entropy(sets[chain["chain"]]))
+        assert chain["posterior_effective_size"] == pytest.approx(math.exp(entropy(sets[chain["chain"]])))
+    pooled = [r["weight"] for r in infection["parent_sets"]["pooled"]]
+    assert summary["posterior_entropy"] == pytest.approx(entropy(pooled))
+    assert summary["posterior_effective_size"] == pytest.approx(math.exp(entropy(pooled)))
+    # The mean weights of Infection 3 (0.828, 0.166, ...) are more spread than the average Draw's.
+    assert summary["posterior_entropy"] > summary["entropy"]
 
 
 # Infection 3's Parent sets by member, and their composition classes (see test_derive), with each Chain's ranking by
@@ -190,6 +210,13 @@ def test_the_latent_genotype_has_posterior_presence_per_allele_and_the_observed_
     assert [(locus["locus"], locus["observed"]) for locus in loci] == [("AS1", "00001000"), ("AS11", None)]
     assert loci[0]["presence"] == [0, 0, 0, 0, 1, 0, 0, 0]
     assert loci[1]["presence"] == pytest.approx([0, 0, 0, 0.1, 0, 0, 0, 0.9, 0, 0, 0, 0])
+
+
+def test_each_locus_has_the_latent_genotypes_posterior_mode_pooled_over_chains(golden_analysis):
+    """Infection 3's Latent genotype is 00001000 at AS1 in all 20 Draws and 000000010000 at AS11 in 18 of them."""
+    loci = card(golden_analysis, "3")["genotype"]["loci"]
+    assert [(locus["mode"], locus["mode_fraction"]) for locus in loci] == [
+        ("00001000", pytest.approx(1.0)), ("000000010000", pytest.approx(0.9))]
 
 
 def test_an_unknown_infection_is_refused(golden_analysis):

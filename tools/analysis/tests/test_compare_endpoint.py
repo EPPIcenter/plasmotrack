@@ -86,7 +86,7 @@ def test_a_single_analysis_server_lists_itself(tmp_path):
 
 # Every endpoint that reads one Analysis takes `analysis=LABEL` (the app's Analysis switcher), the primary without it.
 ONE_ANALYSIS_ENDPOINTS = ["/api/analysis", "/api/convergence", "/api/edges", "/api/network", "/api/status",
-                          "/api/overview", "/api/sampler", "/api/functionals", "/api/epi"]
+                          "/api/overview", "/api/sampler", "/api/functionals", "/api/epi", "/api/infections"]
 
 
 @pytest.mark.parametrize("path", ONE_ANALYSIS_ENDPOINTS)
@@ -117,3 +117,11 @@ def test_remembered_results_are_kept_per_analysis(client):
     replica = client.get("/api/overview", params={"analysis": "replica"}).json()
     assert client.get("/api/overview").json() == single
     assert replica["headline"] != single["headline"]
+
+
+def test_the_infections_table_reads_the_named_analysis(client):
+    single = client.get("/api/infections").json()
+    replica = client.get("/api/infections", params={"analysis": "replica"}).json()
+    assert replica["columns"]["infection"] == single["columns"]["infection"]
+    assert replica["columns"]["q"] != single["columns"]["q"]
+    assert replica["columns"]["q"] == client.get("/api/infections", params={"analysis": "replica"}).json()["columns"]["q"]

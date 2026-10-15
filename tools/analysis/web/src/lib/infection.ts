@@ -27,6 +27,9 @@ export interface GenotypeLocus {
   observed: string | null;
   /** Posterior presence of each Allele of the Latent genotype, pooled over Chains. */
   presence: number[];
+  /** The Latent genotype's posterior mode at the Locus, pooled over Chains, and the fraction of Draws that have it. */
+  mode?: string | null;
+  mode_fraction?: number | null;
 }
 
 export interface SetRow {
@@ -61,8 +64,12 @@ export interface ChainCoi {
 export interface SummaryValues {
   q: number | null;
   expected_observed_parents: number | null;
+  /** Means over Draws of each Draw's Parent-set entropy and its exponential. */
   entropy: number | null;
   effective_size: number | null;
+  /** Of the mean Parent-set weights: the spread of the posterior over Parent sets, Draws' disagreement included. */
+  posterior_entropy?: number | null;
+  posterior_effective_size?: number | null;
 }
 
 export interface InfectionResponse {
@@ -99,6 +106,41 @@ export function heatmapCells(loci: GenotypeLocus[]): HeatmapCell[] {
       observed: l.observed?.[allele] === "1",
     })),
   );
+}
+
+/** The observed Loci whose Latent genotype's posterior mode is not the Observed genotype. */
+export function differingLoci(loci: GenotypeLocus[]): GenotypeLocus[] {
+  return loci.filter((l) => l.observed !== null && l.mode != null && l.mode !== l.observed);
+}
+
+export interface SetBar {
+  label: string;
+  class: string;
+  weight: number;
+  credible: boolean;
+  rank: number;
+  cumulative_mass: number;
+  chains: { chain: string; weight: number }[];
+  /** The largest Chain weight minus the smallest. */
+  spread: number;
+}
+
+/** The pooled Parent sets as bars, the `cap` largest (they come ranked), with each Chain's weight and their spread;
+ *  `rest` counts the sets left out and their summed weight. */
+export function setBars(
+  pooled: (Pick<SetRow, "members" | "class" | "weight" | "credible" | "rank" | "cumulative_mass"> & { chains: { chain: string; weight: number }[] })[],
+  infection: string,
+  cap: number,
+): { bars: SetBar[]; rest: { count: number; mass: number } } {
+  const bars = pooled.slice(0, cap).map((s) => {
+    const ws = s.chains.map((c) => c.weight);
+    return {
+      label: setLabel(s.members, infection), class: s.class, weight: s.weight, credible: s.credible, rank: s.rank,
+      cumulative_mass: s.cumulative_mass, chains: s.chains, spread: ws.length ? Math.max(...ws) - Math.min(...ws) : 0,
+    };
+  });
+  const left = pooled.slice(cap);
+  return { bars, rest: { count: left.length, mass: left.reduce((m, s) => m + s.weight, 0) } };
 }
 
 /** A Parent set's members as text, the Infection's Latent parent (`<id>_copy`) as the unobserved source. */
@@ -152,7 +194,7 @@ const EDGE_COLUMNS = ["child", "parent", "unobserved", "chain", "mean", "spread"
 export function infectionTables(p: InfectionResponse): NamedTable[] {
   const summary = [...p.summary.chains, { ...p.summary, chain: null }].map((s) => ({ infection: p.infection, ...s }));
   const quantities = Object.entries(p.quantities).map(([quantity, q]) => ({ quantity, ...q }));
-  const genotype = p.genotype.loci.flatMap((l) => l.presence.map((presence, allele) => ({ locus: l.locus, observed: l.observed, allele, presence })));
+  const genotype = p.genotype.loci.flatMap((l) => l.presence.map((presence, allele) => ({ locus: l.locus, observed: l.observed, mode: l.mode ?? null, allele, presence })));
   const set = (chain: string | null) => (r: SetRow) => ({ ...r, chain, members: r.members.join(" ") });
   const sets = [...p.parent_sets.pooled.map(set(null)), ...p.parent_sets.chains.flatMap((c) => c.sets.map(set(c.chain)))];
   const edges = (rows: EdgeMarginal[]) => rows.flatMap((e) => [
@@ -160,10 +202,10 @@ export function infectionTables(p: InfectionResponse): NamedTable[] {
     { child: e.child, parent: e.parent, unobserved: e.unobserved, chain: null, mean: e.pooled, spread: e.spread, ess: num(e.ess) },
   ]);
   return [
-    { part: "summary", table: recordsTable(["infection", "chain", "q", "expected_observed_parents", "entropy", "effective_size"], summary) },
+    { part: "summary", table: recordsTable(["infection", "chain", "q", "expected_observed_parents", "entropy", "effective_size", "posterior_entropy", "posterior_effective_size"], summary) },
     { part: "quantities", table: recordsTable(["quantity", "group", "name", "lower", "median", "upper"], quantities) },
     { part: "coi", table: recordsTable(["coi", "draws", "fraction"], p.coi.distribution) },
-    { part: "genotype", table: recordsTable(["locus", "observed", "allele", "presence"], genotype) },
+    { part: "genotype", table: recordsTable(["locus", "observed", "mode", "allele", "presence"], genotype) },
     { part: "parent_sets", table: recordsTable(SET_COLUMNS, sets) },
     { part: "parents", table: recordsTable(EDGE_COLUMNS, edges(p.parents)) },
     { part: "children", table: recordsTable(EDGE_COLUMNS, edges(p.children)) },

@@ -105,7 +105,8 @@ The URL is the state: workspace path, its filters and sort, and the selection.
   `pair:<a>,<b>`, `quantity:<group>/<name>`, a functional of a stratum `quantity:functionals/psi_edge@district=North`
   (`@district` for the Infections with no value, `@` for every Infection), `stratum:<column>=<value>`. `tab` is the
   Inspector's tab.
-- `ids` is the multi-selection of Infections, comma-separated (`useMultiSelection`).
+- `ids` is the multi-selection of Infections, comma-separated (`useMultiSelection`). The Infections workspace shows
+  only these while it is set.
 - `analysis` names another open Analysis than the primary (compare mode). The top bar's switcher and the Quantity
   Inspector's `AnalysisSwitch` set it. Every hook of an endpoint about one Analysis reads it with
   `useActiveAnalysis()` (`src/api/active.ts`), keys its cache by it and sends it with `scoped(params, analysis)`;
@@ -113,6 +114,12 @@ The URL is the state: workspace path, its filters and sort, and the selection.
   Analysis) do not. A new hook follows the same pattern.
 - A workspace's own parameters are read with `useWorkspaceSearch(parse)`, which returns the typed values and a setter
   that replaces the history entry. Selection pushes a history entry, so Back restores the previous selection.
+
+The Infections workspace (`src/workspaces/infections/`, logic in `src/lib/infections.ts`) keeps `quick` (quick
+filters: `multi`, `uncertain`, `spread`, `mixing`, `prolific`, combined with AND), `f.<column>` (a column's typed
+filter: `>x`, `>=x`, `<x`, `<=x`, `=x`, `a..b` on numbers, a substring otherwise), `hide` (hidden columns; `none` for
+none, absent for the default) and `sort`/`desc`. Its header's second row (`Column.below` of `DataTable`) holds each
+column's distribution strip (every Infection grey, the filtered ones in the accent) and filter box.
 
 Select with `useSelection().select(entity, tab?)` or render an `<EntityLink entity={...} />`; never navigate away
 from the workspace to show an entity.
@@ -215,8 +222,12 @@ edge: { title: "Edge", tabs: tabs("Summary", "Trace"), load: () => import("./edg
 
 Replace the placeholder `src/inspector/<kind>/index.tsx`; its default export renders `{ entity, tab }`
 (`InspectorProps<"edge">`). Change the line's `tabs` to the kind's tabs; the frame renders the tab bar and puts the
-tab in the URL. The Infection's tabs are one module each in `src/inspector/infection/`; Summary is built, Parents,
-Children, Genotype and Traces are placeholders.
+tab in the URL. The Infection's tabs are one module each in `src/inspector/infection/`: Summary; Parents (the pooled
+Parent-set distribution as bars with members, class, the credible collection and each Chain's weight as a tick, then
+the parent Edge marginals); Children (child Edge marginals); Genotype (the Locus × Allele heatmap of posterior
+presence, Observed Alleles ringed; `?loci=differ` keeps the Loci where the Latent mode differs from the Observed
+genotype); Traces (per-Chain densities of the four per-Infection quantities, the COI histogram). Parents and Children
+share `EdgeMarginals.tsx`; `ProbabilityBar.tsx` draws a probability with per-Chain ticks for table cells.
 
 A new kind also needs its URL form in `src/lib/entity.ts` (`parseEntity`, `formatEntity`, `entityLabel`, tested).
 
@@ -225,7 +236,8 @@ A new kind also needs its URL form in `src/lib/entity.ts` (`parseEntity`, `forma
 An endpoint is a module in `src/pt_analysis/endpoints/<name>.py` exporting `ROUTES`, and its line under its use
 case's comment in `ENDPOINTS` in `src/pt_analysis/server.py`, with pytest tests. Change no existing endpoint's
 payload without updating every consumer. The app's own endpoints are `/api/status` and `/api/overview`
-(`endpoints/overview.py`); with a truth file, `/api/status` adds `attention.errors`.
+(`endpoints/overview.py`); with a truth file, `/api/status` adds `attention.errors`. `/api/infections`
+(`endpoints/infections.py`) is the Infections workspace's table.
 
 ## JSON conventions
 

@@ -29,7 +29,7 @@ export function fixtureFor(url: string): unknown {
     case "/api/range":
       return { ...fixture<object>("range-log-posterior"), first: p.get("first"), last: p.get("last") };
     case "/api/infection":
-      return fixture("infection-3");
+      return fixture(p.get("id") === "1" ? "infection-1" : "infection-3");
     case "/api/pair":
       return fixture("pair-1-3");
     case "/api/functionals":

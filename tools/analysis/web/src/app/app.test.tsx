@@ -71,7 +71,7 @@ describe("the Inspector", () => {
     const inspector = await screen.findByRole("complementary");
     await userEvent.click(within(inspector).getByRole("tab", { name: "Genotype" }));
     await waitFor(() => expect(history.location.search).toBe("?sel=infection:3&tab=genotype"));
-    expect(await within(inspector).findByText(/Locus × Allele presence heatmap/)).toBeInTheDocument();
+    expect(await within(inspector).findByRole("img", { name: /Latent genotype of 3/ })).toBeInTheDocument();
   });
 
   it("shows a quantity's trace per Chain, its ESS and R-hat and summary", async () => {
