@@ -451,14 +451,20 @@ derives what is not current, then prints three sections:
 
 ## The sampler panel
 
-The page's Samplers view (U4) shows, for one Chain at a time: acceptance rate per sampler over Windows, one small
-multiple per sampler type with a line per target and a target band shaded (0.15 to 0.5 unless set on the page); swap
-acceptance per temperature pair over Windows; the temperature ladder at each adaptation and the final ladder; the
-proposal variances at burn-in end; and the Run events below as rules on every time axis, with a table of them.
+The page's Samplers view (U4) shows, for one Chain at a time: acceptance rate per sampler type over Windows, one small
+multiple per type with its pooled rate, the band from its lowest to its highest target's rate and a target band
+shaded (0.15 to 0.5 unless set on the page); clicking a type draws a line per target, at most 500, lowest mean
+acceptance first, with how many were left out; swap acceptance per temperature pair over Windows; the temperature
+ladder at each adaptation and the final ladder; the proposal variances at burn-in end per type; and the Run events
+below as rules on every time axis, with a table of them. A Run has a sampler per target (He01: 28,335; Zanzibar about
+257k), so the panel never sends one row per sampler per Window.
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/sampler[?chain=]` | one Chain's (default the first) `windows`, `acceptance`, `swaps`, `ladder`, `burn_in_ended` and `events` |
+| `GET /api/sampler[?chain=]` | one Chain's (default the first) `windows`, `acceptance` (per type), `swaps`, `ladder`, `burn_in_ended` (proposal variances per type) and `events` |
+| `GET /api/sampler?type=T[&chain=][&limit=500]` | one type's `targets` (count), `shown`, `acceptance` per shown target per Window and the shown targets' `proposal_variances`; 404 for a type the Chain has no sampler of |
+
+`acceptance` and `proposal_variances` are columnar: an array per field.
 
 `pt_analysis.sampler` reads them from one store. Blocks hold counts per Window, not per Draw, so they are read over
 both Phases; every row carries its Window's Phase and Sampling-iteration range.
@@ -468,9 +474,13 @@ both Phases; every row carries its Window's Phase and Sampling-iteration range.
 | `acceptance(store)` | per sampler per Window: window, phase, first_iteration, last_iteration, sampler, type, target, accepted, proposed, rate |
 | `swaps(store)` | per temperature pair per Window: the Window fields, temperature_pair, accepted, attempted, rate; `[]` for one chain |
 | `ladder(store)` | per `temperatures_adapted` event: iteration, phase, applied, temperatures (by slot), barriers (by pair) |
+| `acceptance_by_type(store)` | per type per Window, columnar: type, window, targets, accepted and proposed summed over the targets, rate, rate_min, rate_median, rate_max over the targets' rates |
+| `acceptance_targets(store, type, limit=500)` | one type: targets, shown, and acceptance per shown target per Window, columnar (target, sampler, window, accepted, proposed, rate); targets by mean rate over Windows, lowest first |
 | `burn_in_end(store)` | the `burn_in_ended` event: iteration, proposal_variances (sampler id to one variance per proposal scale), temperatures; None before burn-in ends |
 | `marked_events(store)` | `non_finite_value`, `interrupted`, `burn_in_ended`, `run_resumed` and `run_ended` events: iteration, phase, window, wall_time, type, payload (parsed) |
-| `panel(store)` | all of the above and the closed Windows, as the endpoint returns them |
+| `variance_summary(variances)` | burn-in-end proposal variances per type, columnar: type, samplers, scales, min, median, max |
+| `panel(store)` | the closed Windows, `acceptance_by_type`, swaps, ladder, burn-in end with `variance_summary`, marked events: the endpoint's default |
+| `type_panel(store, type, limit=500)` | `acceptance_targets` and the shown targets' proposal variances: the endpoint with `type` |
 
 - `type` and `target` come from `structure/samplers`. `rate` is accepted over proposed (or attempted), null when
   there were none; acceptance counts only the Hot chain.

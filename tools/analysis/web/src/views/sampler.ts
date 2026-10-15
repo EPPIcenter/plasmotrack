@@ -1,26 +1,30 @@
-// U4 sampler panel, per Chain: acceptance rate per sampler over Windows (a small multiple per sampler type, a line per
-// target, the target band shaded), swap acceptance per temperature pair, the temperature ladder over adaptation, the
-// burn-in-end proposal variances, and the Run events as rules on every time axis.
+// U4 sampler panel, per Chain: acceptance rate per sampler type over Windows (a small multiple per type, its pooled
+// rate with the band from its lowest to its highest target, the target band shaded; clicking a type draws its targets,
+// the lowest acceptance first and capped), swap acceptance per temperature pair, the temperature ladder over
+// adaptation, the burn-in-end proposal variances per type, and the Run events as rules on every time axis.
 
 import * as Plot from "@observablehq/plot";
 import { getJson } from "../api";
 import { el, table } from "../dom";
 import { CHAIN_COLOURS } from "../format";
 import {
+  columnRows,
   describeEvent,
   EVENT_NAMES,
   eventRules,
-  groupByType,
   ladderPoints,
   parseBand,
   samplerTables,
+  targetSeries,
   severityOf,
   timeDomain,
+  typeSeries,
   varianceRows,
   windowX,
   type EventRule,
   type PanelWindow,
   type SamplerPanel,
+  type TypeDetail,
   type Severity,
 } from "../sampler";
 import type { RenderView } from "../view";
@@ -35,7 +39,9 @@ const MAX_COLOURED = CHAIN_COLOURS.length;
 
 const STYLE = `
   .sampler-panel .multiples { display: flex; flex-wrap: wrap; gap: 1.2em; }
-  .sampler-panel .multiples figure { margin: 0; }
+  .sampler-panel .multiples figure { margin: 0; cursor: pointer; border: 1px solid transparent; }
+  .sampler-panel .multiples figure:hover { border-color: var(--rule); }
+  .sampler-panel .multiples figure.open { border-color: #2a78d6; }
   .sampler-panel input[type="number"] { width: 4.5em; }
   .sampler-panel table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
   .sampler-panel th, .sampler-panel td { text-align: left; padding: 0.2em 0.8em 0.2em 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
@@ -52,8 +58,11 @@ const render: RenderView = (root, ctx) => {
   const chains = ctx.analysis.chains.map((c) => c.chain);
   let chain = ctx.params.get("chain") ?? chains[0] ?? "";
   let band = parseBand(ctx.params.get("band_lo"), ctx.params.get("band_hi"));
+  let open = ctx.params.get("type") ?? "";
   let panel: SamplerPanel | null = null;
+  let detail: TypeDetail | null = null;
   let request = 0;
+  let detailRequest = 0;
 
   root.innerHTML = `
     <style>${STYLE}</style>
@@ -66,8 +75,10 @@ const render: RenderView = (root, ctx) => {
       </div>
       <p class="events-key"></p>
       <h3>Acceptance rate per Window <span class="muted">(accepted over proposed, Hot chain; a small multiple per
-        sampler type, a line per target; shaded: the target band; grey: burn-in)</span></h3>
+        sampler type: its targets' counts pooled, the band from its lowest to its highest target's rate; shaded blue:
+        the target band; grey: burn-in. Click a type for its targets.)</span></h3>
       <div class="multiples acceptance"></div>
+      <div class="type-detail"></div>
       <h3>Swap acceptance per temperature pair</h3>
       <div class="swaps"></div>
       <h3>Temperature ladder <span class="muted">(at each adaptation during burn-in, then the final ladder)</span></h3>
@@ -87,7 +98,7 @@ const render: RenderView = (root, ctx) => {
   showBand();
 
   const keepParams = () =>
-    ctx.replaceParams({ chain, band_lo: String(band[0]), band_hi: String(band[1]) });
+    ctx.replaceParams({ chain, band_lo: String(band[0]), band_hi: String(band[1]), ...(open ? { type: open } : {}) });
   select.addEventListener("change", () => {
     chain = select.value;
     keepParams();
@@ -99,6 +110,7 @@ const render: RenderView = (root, ctx) => {
       showBand();
       keepParams();
       drawAcceptance();
+      drawDetail();
     });
   }
 
@@ -146,44 +158,124 @@ const render: RenderView = (root, ctx) => {
     const p = panel;
     const domain = timeDomain(p.windows);
     const rules = eventRules(p.events);
-    const groups = groupByType(p.acceptance);
+    const groups = typeSeries(p);
     if (!groups.length) {
       $(".acceptance").textContent = "No acceptance rows in the closed Windows.";
       return;
     }
     $(".acceptance").replaceChildren(
       ...groups.map((g) => {
-        const data = g.rows.map((r) => ({ ...r, x: windowX(r) }));
-        const colour = colours(g.targets);
-        const stroke = colour ? "target" : MUTED;
-        return Plot.plot({
+        const figure = Plot.plot({
           width: 380,
           height: 200,
           marginLeft: 44,
           marginTop: 24,
           title: g.type,
           subtitle:
-            `${g.targets.length} target${g.targets.length === 1 ? "" : "s"}` +
-            (g.rows.every((r) => r.rate === null) ? ", nothing proposed" : ""),
-          color: colour ?? undefined,
+            `${g.targets.toLocaleString("en")} target${g.targets === 1 ? "" : "s"}` + (g.nothingProposed ? ", nothing proposed" : ""),
           x: { domain, label: "Sampling iteration" },
           y: { domain: [0, 1], label: "acceptance", grid: true },
           marks: [
             Plot.frame({ stroke: "#d6d5d0" }),
             ...timeMarks(p, rules),
             Plot.rect([{ y1: band[0], y2: band[1] }], { x1: domain[0], x2: domain[1], y1: "y1", y2: "y2", fill: BAND, fillOpacity: 0.1 }),
-            Plot.line(data, { x: "x", y: "rate", z: "target", stroke, strokeWidth: 1.5, strokeOpacity: colour ? 1 : 0.35 }),
-            Plot.dot(data, { x: "x", y: "rate", fill: stroke, r: 2.5, fillOpacity: colour ? 1 : 0.5 }),
-            Plot.tip(data, Plot.pointer({
+            Plot.areaY(g.rows, { x: "x", y1: "rate_min", y2: "rate_max", fill: MUTED, fillOpacity: 0.2 }),
+            Plot.line(g.rows, { x: "x", y: "rate", stroke: CHAIN_COLOURS[0], strokeWidth: 1.5 }),
+            Plot.dot(g.rows, { x: "x", y: "rate", fill: CHAIN_COLOURS[0], r: 2.5 }),
+            Plot.tip(g.rows, Plot.pointer({
               x: "x",
               y: "rate",
-              title: (r: (typeof data)[number]) =>
-                `${r.target}\n${range(r)}\naccepted ${r.accepted} of ${r.proposed}` + (r.rate === null ? "" : ` (${fmt(r.rate)})`),
+              title: (r: (typeof g.rows)[number]) =>
+                `${g.type}, ${r.targets.toLocaleString("en")} targets\n${range(r)}\naccepted ${r.accepted} of ${r.proposed}` +
+                (r.rate === null ? "" : ` (${fmt(r.rate)})`) +
+                (r.rate_median === null ? "" : `\ntargets' rates: min ${fmt(r.rate_min!)}, median ${fmt(r.rate_median)}, max ${fmt(r.rate_max!)}`),
             })),
           ],
         });
+        if (g.type === open) figure.classList.add("open");
+        figure.addEventListener("click", () => openType(g.type === open ? "" : g.type));
+        return figure;
       }),
     );
+  }
+
+  function openType(type: string) {
+    open = type;
+    keepParams();
+    drawAcceptance();
+    loadDetail();
+  }
+
+  function drawDetail() {
+    const box = $(".type-detail");
+    if (!open) {
+      box.replaceChildren();
+      return;
+    }
+    if (!panel || !detail || detail.type !== open || detail.chain !== chain) {
+      box.replaceChildren(el("h3", {}, `${open}: per target`), el("p", { className: "muted" }, "Loading…"));
+      return;
+    }
+    const p = panel;
+    const d = detail;
+    const domain = timeDomain(p.windows);
+    const series = targetSeries(d, p.windows);
+    const colour = colours(series.targets);
+    const stroke = colour ? "target" : MUTED;
+    const close = el("button", { type: "button", textContent: "Close" });
+    close.addEventListener("click", () => openType(""));
+    const variances = columnRows(d.proposal_variances);
+    box.replaceChildren(
+      el("h3", {}, `${d.type}: acceptance per target `),
+      el("p", {}, `${series.note} `, close),
+      Plot.plot({
+        width: 760,
+        height: 280,
+        marginLeft: 44,
+        marginTop: 24,
+        color: colour ?? undefined,
+        x: { domain, label: "Sampling iteration" },
+        y: { domain: [0, 1], label: "acceptance", grid: true },
+        marks: [
+          Plot.frame({ stroke: "#d6d5d0" }),
+          ...timeMarks(p, eventRules(p.events)),
+          Plot.rect([{ y1: band[0], y2: band[1] }], { x1: domain[0], x2: domain[1], y1: "y1", y2: "y2", fill: BAND, fillOpacity: 0.1 }),
+          Plot.line(series.rows, { x: "x", y: "rate", z: "target", stroke, strokeWidth: 1, strokeOpacity: colour ? 1 : 0.3 }),
+          Plot.tip(series.rows, Plot.pointer({
+            x: "x",
+            y: "rate",
+            title: (r: (typeof series.rows)[number]) =>
+              `${r.target}\n${range(r)}\naccepted ${r.accepted} of ${r.proposed}` + (r.rate === null ? "" : ` (${fmt(r.rate)})`),
+          })),
+        ],
+      }),
+      ...(variances.length
+        ? [
+            el("h4", {}, "Final proposal variances of these targets"),
+            table(
+              ["Target", "Scales", "Proposal variances"],
+              variances.map((r) => [r.target, String(r.variances.length), r.variances.map(fmt).join(", ")]),
+              { numeric: [1] },
+            ),
+          ]
+        : []),
+    );
+  }
+
+  function loadDetail() {
+    detail = null;
+    drawDetail();
+    if (!open) return;
+    const mine = ++detailRequest;
+    getJson<TypeDetail>("/api/sampler", { chain, type: open })
+      .then((d) => {
+        if (mine !== detailRequest) return;
+        detail = d;
+        drawDetail();
+      })
+      .catch((e: Error) => {
+        if (mine === detailRequest) $(".type-detail").textContent = `Could not load ${open}'s targets: ${e.message}`;
+      });
   }
 
   function drawSwaps(p: SamplerPanel, rules: EventRule[]) {
@@ -273,9 +365,9 @@ const render: RenderView = (root, ctx) => {
         : !rows.length
           ? "No sampler has a proposal scale."
           : table(
-              ["Sampler type", "Target", "Scales", "Proposal variances"],
-              rows.map((r) => [r.type, r.target, String(r.variances.length), r.variances.map(fmt).join(", ")]),
-              { numeric: [2] },
+              ["Sampler type", "Samplers", "Scales", "Min", "Median", "Max"],
+              rows.map((r) => [r.type, r.samplers.toLocaleString("en"), r.scales.toLocaleString("en"), fmt(r.min), fmt(r.median), fmt(r.max)]),
+              { numeric: [1, 2, 3, 4, 5] },
             ),
     );
   }
@@ -322,6 +414,7 @@ const render: RenderView = (root, ctx) => {
         if (mine !== request) return;
         panel = p;
         draw();
+        loadDetail();
       })
       .catch((e: Error) => ($(".acceptance").textContent = `Could not load the sampler panel: ${e.message}`));
   }
@@ -329,7 +422,7 @@ const render: RenderView = (root, ctx) => {
   load();
 
   // CSV export: each panel's rows under the payload's field names, one file per panel.
-  return { tables: () => (panel ? samplerTables(panel) : null) };
+  return { tables: () => (panel ? samplerTables(panel, detail?.type === open ? detail : null) : null) };
 };
 
 export default render;

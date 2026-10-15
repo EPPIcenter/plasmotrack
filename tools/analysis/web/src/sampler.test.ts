@@ -1,55 +1,96 @@
 import { describe, expect, it } from "vitest";
-import { eventRules, groupByType, ladderPoints, parseBand, samplerTables, timeDomain, varianceRows, windowX, type AcceptanceRow, type RunEvent } from "./sampler";
+import { columnRows, eventRules, ladderPoints, parseBand, samplerTables, targetSeries, timeDomain, typeSeries, varianceRows, windowX, type RunEvent, type SamplerPanel, type TypeAcceptance, type TypeDetail } from "./sampler";
 
 const windows = [
   { window: 0, phase: "burn_in", first_iteration: 0, last_iteration: 20 },
   { window: 1, phase: "sampling", first_iteration: 21, last_iteration: 45 },
 ] as const;
 
-function row(sampler: string, window: 0 | 1, accepted: number, proposed: number): AcceptanceRow {
-  const slash = sampler.indexOf("/");
-  return {
-    ...windows[window],
-    sampler,
-    type: sampler.slice(0, slash),
-    target: sampler.slice(slash + 1),
-    accepted,
-    proposed,
-    rate: proposed ? accepted / proposed : null,
-  };
-}
+const panelOf = (acceptance: TypeAcceptance): SamplerPanel => ({
+  chain: "A", windows: [...windows], acceptance, swaps: [], ladder: [], burn_in_ended: null, events: [],
+});
 
-describe("groupByType", () => {
-  const rows = [
-    row("SALTSampler/allele_frequencies/AS1", 0, 3, 20),
-    row("ParentRelinkSampler/infection/10", 0, 1, 20),
-    row("ParentRelinkSampler/infection/2", 0, 5, 20),
-    row("ParentRelinkSampler/infection/2", 1, 6, 25),
-    row("ConstrainedContinuousRandomWalk/mean_coi", 0, 14, 20),
-    row("ParentRelinkSampler/infection/10", 1, 2, 25),
-  ];
+describe("typeSeries", () => {
+  // Columnar, as /api/sampler sends it: a row per sampler type per Window.
+  const acceptance: TypeAcceptance = {
+    type: ["SALTSampler", "SALTSampler", "ParentRelinkSampler", "ParentRelinkSampler"],
+    window: [0, 1, 0, 1],
+    targets: [152, 152, 167, 167],
+    accepted: [30, 0, 15, 10],
+    proposed: [100, 0, 40, 20],
+    rate: [0.3, null, 0.375, 0.5],
+    rate_min: [0.1, null, 0.2, 0.1],
+    rate_median: [0.25, null, 0.4, 0.5],
+    rate_max: [0.6, null, 0.5, 0.9],
+  };
 
   it("gives one small multiple per sampler type, types in name order", () => {
-    expect(groupByType(rows).map((g) => g.type)).toEqual([
-      "ConstrainedContinuousRandomWalk",
-      "ParentRelinkSampler",
-      "SALTSampler",
+    expect(typeSeries(panelOf(acceptance)).map((g) => [g.type, g.targets])).toEqual([
+      ["ParentRelinkSampler", 167],
+      ["SALTSampler", 152],
     ]);
   });
 
-  it("lists each type's targets once, numbers in numeric order, with every row of the type", () => {
-    const relink = groupByType(rows)[1]!;
-    expect(relink.targets).toEqual(["infection/2", "infection/10"]);
-    expect(relink.rows.map((r) => [r.target, r.window])).toEqual([
-      ["infection/2", 0],
-      ["infection/2", 1],
-      ["infection/10", 0],
-      ["infection/10", 1],
+  it("gives each type a point per Window at the Window's middle, with its rate and spread over targets", () => {
+    const relink = typeSeries(panelOf(acceptance))[0]!;
+    expect(relink.rows).toEqual([
+      { ...windows[0], x: 10, targets: 167, accepted: 15, proposed: 40, rate: 0.375, rate_min: 0.2, rate_median: 0.4, rate_max: 0.5 },
+      { ...windows[1], x: 33, targets: 167, accepted: 10, proposed: 20, rate: 0.5, rate_min: 0.1, rate_median: 0.5, rate_max: 0.9 },
     ]);
+  });
+
+  it("says when a type proposed nothing", () => {
+    const [relink, salt] = typeSeries(panelOf(acceptance));
+    expect([relink!.nothingProposed, salt!.nothingProposed]).toEqual([false, false]);
+    const idle = { ...acceptance, proposed: [0, 0, 40, 20], rate: [null, null, 0.375, 0.5] };
+    expect(typeSeries(panelOf(idle))[1]!.nothingProposed).toBe(true);
   });
 
   it("gives no groups for a Run without acceptance rows", () => {
-    expect(groupByType([])).toEqual([]);
+    expect(typeSeries(panelOf(fromRows([])))).toEqual([]);
+  });
+});
+
+const detail: TypeDetail = {
+  chain: "A",
+  type: "ParentRelinkSampler",
+  targets: 167,
+  shown: 2,
+  acceptance: {
+    target: ["infection/10", "infection/10", "infection/2", "infection/2"],
+    sampler: ["ParentRelinkSampler/infection/10", "ParentRelinkSampler/infection/10", "ParentRelinkSampler/infection/2", "ParentRelinkSampler/infection/2"],
+    window: [0, 1, 0, 1],
+    accepted: [1, 0, 5, 6],
+    proposed: [20, 25, 20, 25],
+    rate: [0.05, 0, 0.25, 0.24],
+  },
+  proposal_variances: { target: ["infection/10"], sampler: ["ParentRelinkSampler/infection/10"], variances: [[0.5, 2]] },
+};
+
+describe("targetSeries", () => {
+  it("keeps the payload's target order, problem targets first, each with its Windows", () => {
+    const series = targetSeries(detail, [...windows]);
+    expect(series.targets).toEqual(["infection/10", "infection/2"]);
+    expect(series.rows[1]).toEqual({
+      ...windows[1], x: 33, target: "infection/10", sampler: "ParentRelinkSampler/infection/10", accepted: 0, proposed: 25, rate: 0,
+    });
+  });
+
+  it("says how many targets were cut", () => {
+    expect(targetSeries(detail, [...windows]).note).toBe("The 2 targets with the lowest mean acceptance of 167; 165 not drawn.");
+    expect(targetSeries({ ...detail, targets: 2 }, [...windows]).note).toBe("All 2 targets.");
+  });
+});
+
+/** Acceptance rows as the columnar payload, for an empty one. */
+function fromRows(rows: never[]): TypeAcceptance {
+  return { type: rows, window: [], targets: [], accepted: [], proposed: [], rate: [], rate_min: [], rate_median: [], rate_max: [] };
+}
+
+describe("columnRows", () => {
+  it("turns a columnar payload into one object per row", () => {
+    expect(columnRows({ a: [1, 2], b: ["x", "y"] })).toEqual([{ a: 1, b: "x" }, { a: 2, b: "y" }]);
+    expect(columnRows({ a: [] })).toEqual([]);
   });
 });
 
@@ -117,12 +158,14 @@ describe("eventRules", () => {
   });
 });
 
+const noVariances = { type: [], samplers: [], scales: [], min: [], median: [], max: [] };
+
 describe("ladderPoints", () => {
   const ladder = [
     { iteration: 16, phase: "burn_in", applied: true, temperatures: [1, 0.8486, 0.7431, 0.625], barriers: [0.115, 0.172, 0.158] },
     { iteration: 21, phase: "burn_in", applied: false, temperatures: [1, 0.8, 0.7, 0.6], barriers: [0.1, 0.1, 0.1] },
   ];
-  const end = { iteration: 25, proposal_variances: {}, temperatures: [1, 0.85, 0.74, 0.62] };
+  const end = { iteration: 25, proposal_variances: noVariances, temperatures: [1, 0.85, 0.74, 0.62] };
 
   it("gives a point per temperature slot per applied adaptation, then the final ladder at burn-in end", () => {
     const points = ladderPoints(ladder, end);
@@ -134,24 +177,19 @@ describe("ladderPoints", () => {
   });
 
   it("is empty for a Run with one chain", () => {
-    expect(ladderPoints([], { iteration: 20, proposal_variances: {}, temperatures: [1] })).toEqual([]);
+    expect(ladderPoints([], { iteration: 20, proposal_variances: noVariances, temperatures: [1] })).toEqual([]);
   });
 });
 
 describe("varianceRows", () => {
-  it("gives a row per sampler with a proposal scale, by type then target, ids split at the first slash", () => {
+  it("gives a row per sampler type with its count of samplers and scales and the spread of their variances", () => {
     const rows = varianceRows({
       iteration: 20,
       temperatures: [1],
-      proposal_variances: {
-        "SALTSampler/allele_frequencies/AS1": [0.5, 2],
-        "ConstrainedContinuousRandomWalk/mean_coi": [1.5],
-      },
+      proposal_variances: { type: ["ConstrainedContinuousRandomWalk", "SALTSampler"], samplers: [504, 152], scales: [504, 900],
+        min: [0.5, 0.25], median: [1, 1.5], max: [2, 8] },
     });
-    expect(rows).toEqual([
-      { sampler: "ConstrainedContinuousRandomWalk/mean_coi", type: "ConstrainedContinuousRandomWalk", target: "mean_coi", variances: [1.5] },
-      { sampler: "SALTSampler/allele_frequencies/AS1", type: "SALTSampler", target: "allele_frequencies/AS1", variances: [0.5, 2] },
-    ]);
+    expect(rows[1]).toEqual({ type: "SALTSampler", samplers: 152, scales: 900, min: 0.25, median: 1.5, max: 8 });
     expect(varianceRows(null)).toEqual([]);
   });
 });
@@ -169,30 +207,44 @@ describe("parseBand", () => {
 });
 
 describe("samplerTables", () => {
-  const tables = Object.fromEntries(samplerTables({
+  const panel: SamplerPanel = {
     chain: "A",
     windows: [...windows],
-    acceptance: [row("ParentRelinkSampler/infection/2", 1, 6, 25)],
+    acceptance: { type: ["ParentRelinkSampler"], window: [1], targets: [167], accepted: [6], proposed: [25], rate: [0.24], rate_min: [0], rate_median: [0.2], rate_max: [0.9] },
     swaps: [{ ...windows[1], temperature_pair: 0, accepted: 3, attempted: 4, rate: 0.75 }],
     ladder: [{ iteration: 10, phase: "burn_in", applied: true, temperatures: [1, 0.5], barriers: [0.25] }],
-    burn_in_ended: { iteration: 20, proposal_variances: { "SALTSampler/allele_frequencies/AS1": [0.125, 0.5] }, temperatures: [1, 0.4] },
+    burn_in_ended: { iteration: 20, proposal_variances: { type: ["SALTSampler"], samplers: [2], scales: [5], min: [0.125], median: [0.5], max: [2] }, temperatures: [1, 0.4] },
     events: [{ iteration: 20, phase: "burn_in", window: 0, wall_time: "2026-10-15T00:00:00Z", type: "burn_in_ended", payload: { iteration: 20 } }],
-  }).map((t) => [t.part, t.table]));
-  const records = (part: string) => tables[part]!.rows.map((r) => Object.fromEntries(tables[part]!.columns.map((c, i) => [c, r[i]])));
+  };
+  const named = (p: SamplerPanel, d: TypeDetail | null = null) => Object.fromEntries(samplerTables(p, d).map((t) => [t.part, t.table]));
+  const records = (tables: ReturnType<typeof named>, part: string) =>
+    tables[part]!.rows.map((r) => Object.fromEntries(tables[part]!.columns.map((c, i) => [c, r[i]])));
 
   it("writes each panel's rows unrounded under the payload's field names, the Chain on every row", () => {
+    const tables = named(panel);
     expect(Object.keys(tables)).toEqual(["acceptance", "swaps", "ladder", "proposal_variances", "events"]);
-    expect(records("acceptance")[0]).toMatchObject({ chain: "A", sampler: "ParentRelinkSampler/infection/2", window: 1, accepted: 6, proposed: 25, rate: 0.24 });
-    expect(records("swaps")[0]).toMatchObject({ chain: "A", temperature_pair: 0, accepted: 3, attempted: 4, rate: 0.75 });
-    expect(records("ladder")).toEqual([
+    expect(records(tables, "acceptance")[0]).toEqual({ chain: "A", window: 1, phase: "sampling", first_iteration: 21, last_iteration: 45,
+      type: "ParentRelinkSampler", targets: 167, accepted: 6, proposed: 25, rate: 0.24, rate_min: 0, rate_median: 0.2, rate_max: 0.9 });
+    expect(records(tables, "swaps")[0]).toMatchObject({ chain: "A", temperature_pair: 0, accepted: 3, attempted: 4, rate: 0.75 });
+    expect(records(tables, "ladder")).toEqual([
       { chain: "A", iteration: 10, phase: "burn_in", applied: true, slot: 0, temperature: 1, barrier: 0.25 },
       { chain: "A", iteration: 10, phase: "burn_in", applied: true, slot: 1, temperature: 0.5, barrier: null },
     ]);
-    expect(records("proposal_variances")).toEqual([
-      { chain: "A", iteration: 20, sampler: "SALTSampler/allele_frequencies/AS1", scale: 0, variance: 0.125 },
-      { chain: "A", iteration: 20, sampler: "SALTSampler/allele_frequencies/AS1", scale: 1, variance: 0.5 },
+    expect(records(tables, "proposal_variances")).toEqual([
+      { chain: "A", iteration: 20, type: "SALTSampler", samplers: 2, scales: 5, min: 0.125, median: 0.5, max: 2 },
     ]);
-    expect(records("events")[0]).toEqual({ chain: "A", iteration: 20, phase: "burn_in", window: 0, wall_time: "2026-10-15T00:00:00Z",
+    expect(records(tables, "events")[0]).toEqual({ chain: "A", iteration: 20, phase: "burn_in", window: 0, wall_time: "2026-10-15T00:00:00Z",
       type: "burn_in_ended", payload: '{"iteration":20}' });
+  });
+
+  it("adds the open type's targets and their proposal variances, one row per scale", () => {
+    const tables = named(panel, detail);
+    expect(Object.keys(tables)).toContain("type_targets");
+    expect(records(tables, "type_targets")[1]).toEqual({ chain: "A", window: 1, phase: "sampling", first_iteration: 21, last_iteration: 45,
+      type: "ParentRelinkSampler", target: "infection/10", sampler: "ParentRelinkSampler/infection/10", accepted: 0, proposed: 25, rate: 0 });
+    expect(records(tables, "type_proposal_variances")).toEqual([
+      { chain: "A", iteration: 20, sampler: "ParentRelinkSampler/infection/10", scale: 0, variance: 0.5 },
+      { chain: "A", iteration: 20, sampler: "ParentRelinkSampler/infection/10", scale: 1, variance: 2 },
+    ]);
   });
 });

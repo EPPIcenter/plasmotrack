@@ -1,5 +1,5 @@
-// The sampler panel's data (GET /api/sampler) and the logic its view draws with: samplers grouped by type, and the
-// Run events placed on the panel's time axes. No DOM here.
+// The sampler panel's data (GET /api/sampler) and the logic its view draws with: acceptance per sampler type and, for
+// one type, per target; the Run events placed on the panel's time axes. No DOM here.
 
 import { recordsTable, type NamedTable } from "./export";
 import { compareInfectionIds } from "./ids";
@@ -12,14 +12,29 @@ export interface PanelWindow {
   last_iteration: number;
 }
 
-/** One sampler's counts in one Window (an `acceptance` Block row); `rate` is null when nothing was proposed. */
-export interface AcceptanceRow extends PanelWindow {
-  sampler: string;
-  type: string;
-  target: string;
-  accepted: number;
-  proposed: number;
-  rate: number | null;
+/** Acceptance per sampler type per Window, columnar (one array per field, a row per type per Window): counts summed
+ * over the type's targets, `rate` their ratio, and the min, median and max of the targets' own rates. A rate is null
+ * when nothing was proposed. */
+export interface TypeAcceptance {
+  type: string[];
+  window: number[];
+  targets: number[];
+  accepted: number[];
+  proposed: number[];
+  rate: (number | null)[];
+  rate_min: (number | null)[];
+  rate_median: (number | null)[];
+  rate_max: (number | null)[];
+}
+
+/** Burn-in-end proposal variances per sampler type, columnar: how many samplers and scales, and their spread. */
+export interface VarianceSummary {
+  type: string[];
+  samplers: number[];
+  scales: number[];
+  min: number[];
+  median: number[];
+  max: number[];
 }
 
 /** Swaps between temperature slots `temperature_pair` and `temperature_pair + 1` in one Window. */
@@ -41,7 +56,7 @@ export interface LadderAdaptation {
 
 export interface BurnInEnd {
   iteration: number;
-  proposal_variances: Record<string, number[]>;
+  proposal_variances: VarianceSummary;
   temperatures: number[];
 }
 
@@ -57,35 +72,90 @@ export interface RunEvent {
 export interface SamplerPanel {
   chain: string;
   windows: PanelWindow[];
-  acceptance: AcceptanceRow[];
+  acceptance: TypeAcceptance;
   swaps: SwapRow[];
   ladder: LadderAdaptation[];
   burn_in_ended: BurnInEnd | null;
   events: RunEvent[];
 }
 
+/** One sampler type's targets in detail (GET /api/sampler?type=): at most `shown` of its `targets`, lowest mean
+ * acceptance first, their rows by target then Window, and the shown targets' burn-in-end proposal variances. */
+export interface TypeDetail {
+  chain: string;
+  type: string;
+  targets: number;
+  shown: number;
+  acceptance: {
+    target: string[];
+    sampler: string[];
+    window: number[];
+    accepted: number[];
+    proposed: number[];
+    rate: (number | null)[];
+  };
+  proposal_variances: { target: string[]; sampler: string[]; variances: number[][] };
+}
+
+/** One row of a columnar payload. */
+export type Row<T extends { [K in keyof T]: readonly unknown[] }> = { [K in keyof T]: T[K][number] };
+
+/** A columnar payload ({field: [value per row]}) as one object per row. */
+export function columnRows<T extends { [K in keyof T]: readonly unknown[] }>(columns: T): Row<T>[] {
+  const fields = Object.keys(columns) as (keyof T)[];
+  const n = fields.length ? columns[fields[0]!].length : 0;
+  return Array.from({ length: n }, (_, i) => Object.fromEntries(fields.map((f) => [f, columns[f][i]])) as Row<T>);
+}
+
 /** Ids and targets compare with numbers in numeric order, so `infection/2` precedes `infection/10`. */
 const byName = compareInfectionIds;
 
-/** One sampler type's rows: its targets in name order, and its rows by target, then Window. */
-export interface SamplerType {
+/** A point of a small multiple: one Window of a type, at the middle of the Window's Sampling iterations. */
+export type TypePoint = PanelWindow & Omit<Row<TypeAcceptance>, "type" | "window"> & { x: number };
+
+/** One sampler type's small multiple: its number of targets and a point per Window. */
+export interface TypeSeries {
   type: string;
-  targets: string[];
-  rows: AcceptanceRow[];
+  targets: number;
+  nothingProposed: boolean;
+  rows: TypePoint[];
 }
 
-/** Acceptance rows grouped by sampler type, one group per small multiple, types in name order. */
-export function groupByType(rows: AcceptanceRow[]): SamplerType[] {
-  const groups = new Map<string, AcceptanceRow[]>();
-  for (const r of rows) {
-    const group = groups.get(r.type);
-    if (group) group.push(r);
-    else groups.set(r.type, [r]);
+const windowsOf = (windows: PanelWindow[]) => new Map(windows.map((w) => [w.window, w]));
+
+/** Acceptance per type as one small multiple per type, types in name order, each with a point per Window. */
+export function typeSeries(p: SamplerPanel): TypeSeries[] {
+  const at = windowsOf(p.windows);
+  const groups = new Map<string, TypePoint[]>();
+  for (const { type, window, ...rest } of columnRows(p.acceptance)) {
+    const w = at.get(window) ?? { window, phase: "", first_iteration: window, last_iteration: window };
+    const point = { ...w, x: windowX(w), ...rest };
+    const group = groups.get(type);
+    if (group) group.push(point);
+    else groups.set(type, [point]);
   }
   return [...groups.keys()].sort(byName).map((type) => {
-    const sorted = groups.get(type)!.slice().sort((a, b) => byName(a.target, b.target) || a.window - b.window);
-    return { type, targets: [...new Set(sorted.map((r) => r.target))], rows: sorted };
+    const rows = groups.get(type)!.sort((a, b) => a.window - b.window);
+    return { type, targets: Math.max(...rows.map((r) => r.targets)), nothingProposed: rows.every((r) => r.rate === null), rows };
   });
+}
+
+/** One target's acceptance in one Window, at the middle of the Window's Sampling iterations. */
+export type TargetPoint = PanelWindow & Omit<Row<TypeDetail["acceptance"]>, "window"> & { x: number };
+
+/** One type's targets as lines: targets in the payload's order (lowest mean acceptance first), and how many were
+ * left out. */
+export function targetSeries(d: TypeDetail, windows: PanelWindow[]): { targets: string[]; rows: TargetPoint[]; note: string } {
+  const at = windowsOf(windows);
+  const rows = columnRows(d.acceptance).map(({ window, ...rest }) => {
+    const w = at.get(window) ?? { window, phase: "", first_iteration: window, last_iteration: window };
+    return { ...w, x: windowX(w), ...rest };
+  });
+  const cut = d.targets - d.shown;
+  const note = cut > 0
+    ? `The ${d.shown.toLocaleString("en")} targets with the lowest mean acceptance of ${d.targets.toLocaleString("en")}; ${cut.toLocaleString("en")} not drawn.`
+    : `All ${d.shown.toLocaleString("en")} target${d.shown === 1 ? "" : "s"}.`;
+  return { targets: [...new Set(rows.map((r) => r.target))], rows, note };
 }
 
 // Every time axis of the panel is in Sampling iterations over one domain, so a Run event sits at the same x on each:
@@ -193,29 +263,9 @@ export function ladderPoints(ladder: LadderAdaptation[], end: BurnInEnd | null):
   return points.sort((a, b) => a.slot - b.slot || a.iteration - b.iteration);
 }
 
-/** A sampler's final proposal variances, one per proposal scale (a SALT sampler has one per Allele). */
-export interface VarianceRow {
-  sampler: string;
-  type: string;
-  target: string;
-  variances: number[];
-}
-
-/** The burn-in-end proposal variances as rows by type, then target. Sampler ids split at the first `/`, as in
- * `structure/samplers`. */
-export function varianceRows(end: BurnInEnd | null): VarianceRow[] {
-  if (!end) return [];
-  return Object.entries(end.proposal_variances)
-    .map(([sampler, variances]) => {
-      const slash = sampler.indexOf("/");
-      return {
-        sampler,
-        type: slash < 0 ? sampler : sampler.slice(0, slash),
-        target: slash < 0 ? "" : sampler.slice(slash + 1),
-        variances,
-      };
-    })
-    .sort((a, b) => byName(a.type, b.type) || byName(a.target, b.target));
+/** The burn-in-end proposal variances per sampler type, as rows. */
+export function varianceRows(end: BurnInEnd | null): Row<VarianceSummary>[] {
+  return end ? columnRows(end.proposal_variances) : [];
 }
 
 /** The target acceptance band shaded on every acceptance plot, unless the view's parameters set another. */
@@ -233,23 +283,35 @@ export function parseBand(lo: string | null, hi: string | null): [number, number
   return a <= b ? [a, b] : [b, a];
 }
 
-/** The panel's rows as one table per panel, unrounded, under /api/sampler's field names, the Chain on every row: the
- *  ladder one row per adaptation and slot, the burn-in-end proposal variances one row per sampler and scale, event
- *  payloads as JSON. What the view exports as CSV. */
-export function samplerTables(p: SamplerPanel): NamedTable[] {
+/** The panel's rows as one table per panel, unrounded, under /api/sampler's field names, the Chain on every row:
+ *  acceptance per type per Window, the ladder one row per adaptation and slot, the burn-in-end proposal variances per
+ *  type, event payloads as JSON; with an open type, its targets per Window and their proposal variances one row per
+ *  sampler and scale. What the view exports as CSV. */
+export function samplerTables(p: SamplerPanel, detail: TypeDetail | null = null): NamedTable[] {
   const { chain } = p;
   const win = ["window", "phase", "first_iteration", "last_iteration"];
   const end = p.burn_in_ended;
   const ladder = p.ladder.flatMap((s) => s.temperatures.map((temperature, slot) => ({
     chain, iteration: s.iteration, phase: s.phase, applied: s.applied, slot, temperature, barrier: s.barriers[slot] ?? null,
   })));
-  const variances = varianceRows(end).flatMap((r) => r.variances.map((variance, scale) => ({ chain, iteration: end!.iteration, sampler: r.sampler, scale, variance })));
-  return [
-    { part: "acceptance", table: recordsTable(["chain", ...win, "sampler", "type", "target", "accepted", "proposed", "rate"], p.acceptance.map((r) => ({ chain, ...r }))) },
+  const acceptance = typeSeries(p).flatMap((g) => g.rows.map((r) => ({ chain, type: g.type, ...r })));
+  const variances = varianceRows(end).map((r) => ({ chain, iteration: end!.iteration, ...r }));
+  const tables: NamedTable[] = [
+    { part: "acceptance", table: recordsTable(["chain", ...win, "type", "targets", "accepted", "proposed", "rate", "rate_min", "rate_median", "rate_max"], acceptance) },
     { part: "swaps", table: recordsTable(["chain", ...win, "temperature_pair", "accepted", "attempted", "rate"], p.swaps.map((r) => ({ chain, ...r }))) },
     { part: "ladder", table: recordsTable(["chain", "iteration", "phase", "applied", "slot", "temperature", "barrier"], ladder) },
-    { part: "proposal_variances", table: recordsTable(["chain", "iteration", "sampler", "scale", "variance"], variances) },
+    { part: "proposal_variances", table: recordsTable(["chain", "iteration", "type", "samplers", "scales", "min", "median", "max"], variances) },
     { part: "events", table: recordsTable(["chain", "iteration", "phase", "window", "wall_time", "type", "payload"],
       p.events.map((e) => ({ chain, ...e, payload: JSON.stringify(e.payload) }))) },
   ];
+  if (detail) {
+    const targets = targetSeries(detail, p.windows).rows.map((r) => ({ chain, type: detail.type, ...r }));
+    const scales = columnRows(detail.proposal_variances).flatMap((r) =>
+      r.variances.map((variance, scale) => ({ chain, iteration: end?.iteration ?? null, sampler: r.sampler, scale, variance })));
+    tables.push(
+      { part: "type_targets", table: recordsTable(["chain", ...win, "type", "target", "sampler", "accepted", "proposed", "rate"], targets) },
+      { part: "type_proposal_variances", table: recordsTable(["chain", "iteration", "sampler", "scale", "variance"], scales) },
+    );
+  }
+  return tables;
 }

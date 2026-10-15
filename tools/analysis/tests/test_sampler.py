@@ -163,7 +163,9 @@ def test_the_endpoint_serves_one_chains_panel(client):
         {"window": 0, "phase": "burn_in", "first_iteration": 0, "last_iteration": 20},
         {"window": 1, "phase": "sampling", "first_iteration": 21, "last_iteration": 45},
         {"window": 2, "phase": "sampling", "first_iteration": 46, "last_iteration": 70}]
-    assert len(got["acceptance"]) == 108
+    acceptance = got["acceptance"]
+    assert len(acceptance["type"]) == 3 * len(set(acceptance["type"]))  # a row per sampler type per Window
+    assert sum(acceptance["targets"]) == 108  # 36 samplers in each of 3 Windows
     assert got["swaps"][3]["accepted"] == 12 and got["swaps"][3]["attempted"] == 13
     assert got["ladder"][0]["iteration"] == 16
     assert got["burn_in_ended"]["temperatures"] == pytest.approx([1, 0.8486, 0.7431, 0.625], abs=1e-4)
@@ -176,3 +178,128 @@ def test_the_endpoint_defaults_to_the_first_chain_and_refuses_an_unknown_one(cli
     response = client.get("/api/sampler", params={"chain": "chain9"})
     assert response.status_code == 404
     assert "chain9" in response.json()["error"]
+
+
+# Per-type aggregation: the panel's default payload is one row per sampler type per Window, columnar, so a Run with
+# tens of thousands of samplers stays small. Expected values below are worked by hand from `ACCEPTANCE`.
+
+ACCEPTANCE = [  # (window, sampler, accepted, proposed)
+    (0, "Relink/a", 2, 10), (1, "Relink/a", 9, 10),   # rates 0.2, 0.9: mean 0.55
+    (0, "Relink/b", 5, 10), (1, "Relink/b", 0, 0),    # rates 0.5, none: mean 0.5
+    (0, "Relink/c", 8, 20), (1, "Relink/c", 1, 10),   # rates 0.4, 0.1: mean 0.25
+    (0, "Walk/x", 3, 4), (1, "Walk/x", 1, 4),
+]
+
+
+def acceptance_store(path, rows=ACCEPTANCE, variances=None):
+    """A store with Windows 0 (burn-in) and 1 (sampling), an `acceptance` table of `rows`, `structure/samplers` for
+    them and, with `variances`, a `burn_in_ended` event carrying them."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    windows = [(0, 0, 20, "burn_in"), (1, 21, 45, "sampling")]
+    store = write_store(path, windows, [event(20, "burn_in", 0, "burn_in_ended",
+                                              {"proposal_variances": variances or {}, "temperatures": [1.0]})])
+    phases = {n: phase for n, _, _, phase in windows}
+    (path / "acceptance").mkdir()
+    for number in phases:
+        pq.write_table(pa.Table.from_pylist(
+            [{"window": w, "phase": phases[w], "sampler": s, "accepted": a, "proposed": p}
+             for w, s, a, p in rows if w == number]), path / "acceptance" / f"window-{number:06d}.parquet")
+    (path / "structure").mkdir()
+    names = sorted({s for _, s, _, _ in rows})
+    pq.write_table(pa.table({"sampler": names, "type": [n.split("/")[0] for n in names],
+                             "target": [n.split("/", 1)[1] for n in names]}), path / "structure" / "samplers.parquet")
+    return store
+
+
+def test_acceptance_by_type_sums_each_types_counts_per_window_with_the_spread_of_target_rates(tmp_path):
+    got = sampler.acceptance_by_type(acceptance_store(tmp_path / "run"))
+    assert got["type"] == ["Relink", "Relink", "Walk", "Walk"]
+    assert got["window"] == [0, 1, 0, 1]
+    assert got["targets"] == [3, 3, 1, 1]
+    assert got["accepted"] == [15, 10, 3, 1]
+    assert got["proposed"] == [40, 20, 4, 4]
+    assert got["rate"] == pytest.approx([0.375, 0.5, 0.75, 0.25])
+    assert got["rate_min"] == pytest.approx([0.2, 0.1, 0.75, 0.25])
+    assert got["rate_median"] == pytest.approx([0.4, 0.5, 0.75, 0.25])  # Window 1: b proposed nothing, has no rate
+    assert got["rate_max"] == pytest.approx([0.5, 0.9, 0.75, 0.25])
+
+
+def test_a_types_targets_come_lowest_mean_rate_first_capped_with_the_number_cut(tmp_path):
+    got = sampler.acceptance_targets(acceptance_store(tmp_path / "run"), "Relink", limit=2)
+    assert (got["type"], got["targets"], got["shown"]) == ("Relink", 3, 2)
+    rows = got["acceptance"]
+    assert rows["target"] == ["c", "c", "b", "b"]  # mean rates: c 0.25, b 0.5; a (0.55) is cut
+    assert rows["sampler"] == ["Relink/c", "Relink/c", "Relink/b", "Relink/b"]
+    assert rows["window"] == [0, 1, 0, 1]
+    assert rows["accepted"] == [8, 1, 5, 0]
+    assert rows["proposed"] == [20, 10, 10, 0]
+    assert rows["rate"] == pytest.approx([0.4, 0.1, 0.5, None])
+
+
+def test_a_types_targets_default_to_a_cap_of_500(tmp_path):
+    rows = [(w, f"Relink/{i}", i % 7, 10) for i in range(600) for w in (0, 1)]
+    got = sampler.acceptance_targets(acceptance_store(tmp_path / "run", rows), "Relink")
+    assert (got["targets"], got["shown"], len(got["acceptance"]["target"])) == (600, 500, 1000)
+    assert set(got["acceptance"]["accepted"]) == {0, 1, 2, 3, 4, 5}  # every target accepting 6 of 10 is cut
+
+
+def test_a_type_with_no_samplers_has_no_targets(tmp_path):
+    got = sampler.acceptance_targets(acceptance_store(tmp_path / "run"), "Nope")
+    assert (got["targets"], got["shown"], got["acceptance"]["target"]) == (0, 0, [])
+
+
+VARIANCES = {"Walk/x": [1.0], "Walk/y": [0.5, 2.0], "Relink/b": [3.0], "Relink/c": [4.0, 0.25, 0.5]}
+
+
+def test_the_panel_summarises_burn_in_end_proposal_variances_by_type(tmp_path):
+    end = sampler.panel(acceptance_store(tmp_path / "run", variances=VARIANCES))["burn_in_ended"]
+    assert end["iteration"] == 20 and end["temperatures"] == [1.0]
+    assert end["proposal_variances"] == {"type": ["Relink", "Walk"], "samplers": [2, 2], "scales": [4, 3],
+                                         "min": [0.25, 0.5], "median": [1.75, 1.0], "max": [4.0, 2.0]}
+
+
+def test_the_panel_aggregates_acceptance_by_type(tmp_path):
+    panel = sampler.panel(acceptance_store(tmp_path / "run"))
+    assert panel["acceptance"]["type"] == ["Relink", "Relink", "Walk", "Walk"]
+    assert panel["burn_in_ended"]["proposal_variances"]["type"] == []
+
+
+def test_a_types_panel_gives_its_shown_targets_proposal_variances_in_their_order(tmp_path):
+    got = sampler.type_panel(acceptance_store(tmp_path / "run", variances=VARIANCES), "Relink", limit=2)
+    assert got["acceptance"]["target"] == ["c", "c", "b", "b"]
+    assert got["proposal_variances"] == {"target": ["c", "b"], "sampler": ["Relink/c", "Relink/b"],
+                                         "variances": [[4.0, 0.25, 0.5], [3.0]]}
+
+
+def test_the_endpoint_sums_a_types_targets_per_window(client, golden_analysis):
+    got = client.get("/api/sampler", params={"chain": "chain2"}).json()["acceptance"]
+    rows = sampler.acceptance(golden_analysis.runs["chain2"])
+    walk = [i for i, t in enumerate(got["type"]) if t == "ConstrainedContinuousRandomWalk"]
+    for i in walk:
+        mine = [r for r in rows if r["type"] == got["type"][i] and r["window"] == got["window"][i]]
+        assert got["accepted"][i] == sum(r["accepted"] for r in mine)
+        assert got["proposed"][i] == sum(r["proposed"] for r in mine)
+        assert got["targets"][i] == len(mine)
+
+
+def test_the_endpoint_serves_one_types_targets_capped(client):
+    got = client.get("/api/sampler", params={"chain": "chain2", "type": "ConstrainedContinuousRandomWalk",
+                                             "limit": "2"}).json()
+    assert got["chain"] == "chain2" and got["type"] == "ConstrainedContinuousRandomWalk"
+    assert got["shown"] == 2 and got["targets"] == 12  # 12 random walks in the golden Runs
+    assert len(got["acceptance"]["target"]) == 6  # 2 targets × 3 Windows
+    assert got["proposal_variances"]["target"] == list(dict.fromkeys(got["acceptance"]["target"]))
+
+
+def test_the_endpoint_refuses_an_unknown_type_and_a_bad_limit(client):
+    response = client.get("/api/sampler", params={"type": "NoSuchSampler"})
+    assert response.status_code == 404 and "NoSuchSampler" in response.json()["error"]
+    assert client.get("/api/sampler", params={"type": "SALTSampler", "limit": "x"}).status_code == 400
+    assert client.get("/api/sampler", params={"type": "SALTSampler", "limit": "0"}).status_code == 400
+
+
+def test_the_panels_burn_in_ended_event_leaves_out_the_per_sampler_variances(tmp_path):
+    events = sampler.panel(acceptance_store(tmp_path / "run", variances=VARIANCES))["events"]
+    assert [(e["type"], e["payload"]) for e in events] == [("burn_in_ended", {"temperatures": [1.0]})]

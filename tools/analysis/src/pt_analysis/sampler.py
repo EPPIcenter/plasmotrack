@@ -6,7 +6,9 @@ objects (`doc/store-layout.md`).
 """
 
 import json
+from statistics import median
 
+from pt_analysis.sql import Scope
 from pt_analysis.store import BOTH_PHASES
 
 # Run events marked on every time axis of the panel.
@@ -40,6 +42,69 @@ def acceptance(store):
                      "accepted": accepted, "proposed": proposed, "rate": _rate(accepted, proposed)})
     rows.sort(key=lambda r: (r["type"], r["target"], r["window"]))
     return rows
+
+
+def _columns(names, rows):
+    """`rows` as one list per field: {name: [value, ...]}, the payload shape for many rows."""
+    return {name: list(values) for name, values in zip(names, zip(*rows))} if rows else {name: [] for name in names}
+
+
+def _typed(s, store):
+    """SQL over the Run's acceptance rows (both Phases) with each sampler's type and target and its rate (null when
+    nothing was proposed), a sampler missing from `structure/samplers` split at its first `/`."""
+    return f"""
+        SELECT a."window", a.sampler, a.accepted, a.proposed,
+               coalesce(k."type", split_part(a.sampler, '/', 1)) AS "type",
+               coalesce(k.target, CASE WHEN contains(a.sampler, '/')
+                                       THEN a.sampler[strpos(a.sampler, '/') + 1:] ELSE '' END) AS target,
+               CASE WHEN a.proposed > 0 THEN a.accepted / a.proposed END AS rate
+        FROM {s.name(store.table("acceptance", BOTH_PHASES))} a
+             LEFT JOIN {s.name(store.structure("samplers"))} k USING (sampler)"""
+
+
+BY_TYPE = ("type", "window", "targets", "accepted", "proposed", "rate", "rate_min", "rate_median", "rate_max")
+
+
+def acceptance_by_type(store):
+    """Acceptance per sampler type per Window, columnar ({field: [value per row]}): type, window, targets (samplers
+    of the type with a row in the Window), accepted and proposed summed over them, rate (their ratio; None when
+    nothing was proposed), and rate_min, rate_median and rate_max over the targets' own rates (targets that proposed
+    nothing have none; None when no target has one). Ordered by type, then Window."""
+    if store.table("acceptance", BOTH_PHASES) is None:
+        return _columns(BY_TYPE, [])
+    with Scope(store.connection) as s:
+        rows = s.rows(f"""
+            SELECT "type", "window", count(*), sum(accepted)::BIGINT, sum(proposed)::BIGINT,
+                   CASE WHEN sum(proposed) > 0 THEN sum(accepted) / sum(proposed) END,
+                   min(rate), median(rate), max(rate)
+            FROM ({_typed(s, store)}) GROUP BY ALL ORDER BY "type", "window"
+            """)
+    return _columns(BY_TYPE, rows)
+
+
+LIMIT = 500
+PER_TARGET = ("target", "sampler", "window", "accepted", "proposed", "rate")
+
+
+def acceptance_targets(store, kind, limit=LIMIT):
+    """One sampler type's acceptance per target per Window, its problem targets first: type, targets (how many the
+    type has), shown (how many are given: at most `limit`) and acceptance, columnar: target, sampler, window,
+    accepted, proposed and rate (None when nothing was proposed). Targets are ordered by their mean rate over
+    Windows, lowest first (targets that never proposed anything last), then by target; rows by target, then Window."""
+    if store.table("acceptance", BOTH_PHASES) is None:
+        return {"type": kind, "targets": 0, "shown": 0, "acceptance": _columns(PER_TARGET, [])}
+    with Scope(store.connection) as s:
+        rows = s.rows(f"""
+            WITH typed AS (SELECT * FROM ({_typed(s, store)}) WHERE "type" = $kind),
+                 ranked AS (SELECT target, row_number() OVER (ORDER BY avg(rate) ASC NULLS LAST, target) AS place
+                            FROM typed GROUP BY target)
+            SELECT t.target, t.sampler, t."window", t.accepted, t.proposed, t.rate, (SELECT count(*) FROM ranked)
+            FROM typed t JOIN ranked r USING (target)
+            WHERE r.place <= $limit ORDER BY r.place, t."window"
+            """, {"kind": kind, "limit": limit})
+        total = rows[0][-1] if rows else 0
+    columns = _columns(PER_TARGET, [r[:-1] for r in rows])
+    return {"type": kind, "targets": total, "shown": len(set(columns["target"])), "acceptance": columns}
 
 
 def _split(name):
@@ -106,10 +171,41 @@ def burn_in_end(store):
             "temperatures": e["payload"].get("temperatures", [])}
 
 
+def variance_summary(variances):
+    """Burn-in-end proposal variances (sampler id to its variances) summarised per sampler type, columnar: type,
+    samplers, scales (variances over them), and the min, median and max variance. Ordered by type."""
+    by_type = {}
+    for name, values in variances.items():
+        entry = by_type.setdefault(_split(name)[0], [0, []])
+        entry[0] += 1
+        entry[1].extend(values)
+    rows = [(kind, n, len(v), min(v), median(v), max(v)) for kind, (n, v) in sorted(by_type.items()) if v]
+    return _columns(("type", "samplers", "scales", "min", "median", "max"), rows)
+
+
 def panel(store):
-    """Everything the sampler panel draws for one Run: its closed Windows, acceptance, swaps, ladder, burn-in end and
-    marked events."""
+    """Everything the sampler panel draws for one Run: its closed Windows, acceptance per sampler type
+    (`acceptance_by_type`), swaps, ladder, burn-in end with its proposal variances per type (`variance_summary`) and
+    marked events. The burn_in_ended event's payload leaves out its per-sampler proposal variances (one entry per
+    sampler: `burn_in_ended` has them per type)."""
     windows = [{"window": w.number, "phase": w.phase, "first_iteration": w.first_iteration,
                 "last_iteration": w.last_iteration} for w in store.closed_windows()]
-    return {"windows": windows, "acceptance": acceptance(store), "swaps": swaps(store), "ladder": ladder(store),
-            "burn_in_ended": burn_in_end(store), "events": marked_events(store)}
+    end = burn_in_end(store)
+    if end is not None:
+        end = {**end, "proposal_variances": variance_summary(end["proposal_variances"])}
+    return {"windows": windows, "acceptance": acceptance_by_type(store), "swaps": swaps(store),
+            "ladder": ladder(store), "burn_in_ended": end,
+            "events": [{**e, "payload": {k: v for k, v in e["payload"].items() if k != "proposal_variances"}}
+                       if e["type"] == "burn_in_ended" else e for e in marked_events(store)]}
+
+
+def type_panel(store, kind, limit=LIMIT):
+    """One sampler type in detail: its targets' acceptance (`acceptance_targets`, at most `limit` targets, problem
+    targets first) and the burn-in-end proposal variances of the targets shown, in their order, columnar: target,
+    sampler and variances (one per proposal scale). Targets without a proposal scale are left out."""
+    targets = acceptance_targets(store, kind, limit)
+    end = burn_in_end(store)
+    variances = end["proposal_variances"] if end else {}
+    order = dict.fromkeys(targets["acceptance"]["sampler"])
+    rows = [(_split(name)[1], name, variances[name]) for name in order if name in variances]
+    return {**targets, "proposal_variances": _columns(("target", "sampler", "variances"), rows)}
