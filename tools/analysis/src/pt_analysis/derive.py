@@ -11,12 +11,15 @@ and does nothing otherwise. Tables are computed from the sampling Phase, so ever
     infection_draws   iteration, infection, q, expected_observed_parents, entropy, effective_size, one column per
                       composition class present in the Run, multi_source_augmented, multi_source_observed
     functional_draws  iteration, psi_edge, mean_q, mean_entropy, mean_<class> per composition class
+    genotype_summary  infection, locus, allele, presence
+    genotype_mode     infection, locus, alleles, draws, fraction, rank
     out_degree_draws  iteration, infection, out_degree
 
 An Analysis's own derived tables go in `<manifest stem>.derived/` beside its manifest, with a manifest recording each
 Run's directory and closed Windows; `derive_analysis` derives every Run first, then rewrites them when that changes:
 
     convergence   group, name, chain, ess, rhat
+    edge_stats    child, parent, unobserved, chain, mean, switches, spread, ess   (see `pt_analysis.edge_stats`)
 """
 
 # The SQL below names DuckDB relations held in local variables (`FROM parent_sets`); DuckDB finds them by name in
@@ -43,6 +46,7 @@ COLUMNS = {
     "infections": {"iteration": "BIGINT", "infection": "VARCHAR", "expected_false_positives": "DOUBLE",
                    "expected_false_negatives": "DOUBLE", "infection_duration": "DOUBLE"},
     "allele_frequencies": {"iteration": "BIGINT", "locus": "VARCHAR", "allele": "BIGINT", "frequency": "DOUBLE"},
+    "latent_genotypes": {"iteration": "BIGINT", "infection": "VARCHAR", "locus": "VARCHAR", "alleles": "VARCHAR"},
 }
 
 
@@ -162,8 +166,35 @@ def out_degree_draws(store):
         GROUP BY ALL ORDER BY iteration, infection""")
 
 
+def genotype_summary(store):
+    """Per Infection, Locus and Allele (every Allele of `structure/loci`), the posterior presence: the fraction of
+    Draws whose Latent genotype has the Allele. Character k of a `latent_genotypes` bitstring is Allele k."""
+    latent = table(store, "latent_genotypes")
+    loci = store.structure("loci")
+    draws = store.draws()
+    return store.connection.sql(f"""
+        SELECT g.infection, g.locus, l.allele,
+               count(*) FILTER (WHERE substr(g.alleles, l.allele::INTEGER + 1, 1) = '1') / {max(draws, 1)} AS presence
+        FROM latent g JOIN loci l USING (locus)
+        GROUP BY ALL ORDER BY infection, locus, allele""")
+
+
+def genotype_mode(store):
+    """Per Infection and Locus, every Latent genotype bitstring a Draw had, with the number and fraction of Draws that
+    had it, ranked from 1 by Draws descending then bitstring. Rank 1 is the posterior mode and its fraction the
+    agreement; the other rows let Chains be pooled exactly by summing `draws`."""
+    latent = table(store, "latent_genotypes")
+    draws = store.draws()
+    return store.connection.sql(f"""
+        WITH counts AS (SELECT infection, locus, alleles, count(*) AS draws FROM latent GROUP BY ALL)
+        SELECT *, draws / {max(draws, 1)} AS fraction,
+               row_number() OVER (PARTITION BY infection, locus ORDER BY draws DESC, alleles) AS rank
+        FROM counts ORDER BY infection, locus, rank""")
+
+
 TABLES = {"set_classes": set_classes, "edges": edges, "set_summary": set_summary, "infection_draws": infection_draws,
-          "functional_draws": functional_draws, "out_degree_draws": out_degree_draws}
+          "functional_draws": functional_draws, "genotype_summary": genotype_summary, "genotype_mode": genotype_mode,
+          "out_degree_draws": out_degree_draws}
 
 
 def source(store):
@@ -287,6 +318,17 @@ def convergence(analysis):
 
 
 ANALYSIS_TABLES = {"convergence": convergence}
+
+
+def edge_stats(analysis):
+    """U2's per-edge statistics over the Chains, in `pt_analysis.edge_stats`; written after `convergence`, whose ESS
+    it reads."""
+    from pt_analysis import edge_stats
+
+    return edge_stats.compute(analysis)
+
+
+ANALYSIS_TABLES["edge_stats"] = edge_stats
 
 
 def analysis_dir(analysis):

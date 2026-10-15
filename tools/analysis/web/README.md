@@ -33,19 +33,25 @@ pnpm dev                                              # here: the page with hot 
 | `src/main.ts` | Page layout (Analysis header, navigation bar) and the hash router |
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
+| `src/pair.ts` | The pair inspector's URL state (`#/pair?a=&b=`), response types and differing-Loci count |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
+| `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
+| `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
 | `src/functionals.ts` | The functionals panel's chart data and trace parameters, tested without a DOM |
+| `src/sampler.ts` | The sampler panel's types and logic: samplers grouped by type, Run events placed on the time axes, the ladder, the target band |
 
 ## Views
 
-- `#/convergence`, `#/trace?group=&name=`: the convergence table and the trace panel (U1). The trace panel also
-  shows a functional of one stratum: `group=functionals&name=psi_edge&stratum_column=district&stratum=North`.
-- `#/functionals[?column=]`: the functionals panel (U9). A stratum selector (overall or any epi column); a
-  dot-and-range chart per stratum of ψ_MAP (square, its range the parent-set size range at 0.8), ψ_edge (triangle)
-  and mean q (circle) with 95% MCMC intervals; the composition classes as stacked bars, with the unobserved source
-  first; tables of every number, multi-source probabilities included. Clicking a triangle, circle, bar segment or
-  table cell opens the trace panel for that stratum's per-Draw functional. ψ_MAP and the size range are point
-  summaries without a per-Draw series, so they open nothing.
+| Route | View |
+|---|---|
+| `#/convergence` | U1 convergence table: one row per quantity, sorted by ESS or R-hat, filtered by group and name |
+| `#/trace?group=&name=` | U1 trace panel of one quantity; also a functional of one stratum (U9) with `group=functionals&name=psi_edge&stratum_column=district&stratum=North` (`stratum_column` empty for every Infection, `stratum` left out for the Infections with no value) |
+| `#/edges[?child=][&parent=][&unobserved=0][&sort=][&desc=1]` | U2 edge table: pooled Edge marginal, spread, switch count, ESS and per-Chain mean and switch count; sorts by every column (`sort` is a column, or `mean:<chain>` and `switches:<chain>`), filters by exact child and parent id, hides the unobserved source with `unobserved=0`; a row opens its trace panel |
+| `#/sampler[?chain=][&band_lo=&band_hi=]` | U4 sampler panel of one Chain: acceptance per sampler per Window by type with the target band, swap acceptance per temperature pair, the ladder, burn-in-end proposal variances, and Run events as rules on every time axis |
+| `#/pair?a=&b=` | U3 pair inspector: order per Chain with its trace, both Edge marginals, co-inclusion, genotypes per Locus with differing Loci highlighted, infection times and lag. Link to it with `ctx.navigate("pair", pairParams({ a, b }))` |
+| `#/ranking` | Ranking against truth (U6): directed and undirected precision-recall curves, posterior solid, null-model dashed, IBD dotted, a dotted grey line at the random ranking's precision; metrics table below |
+| `#/parentsets?level=0.8` | Parent sets (U6): per Infection effective size, credible size, whether the true set is in the credible collection, top probability, and the same for the null fit; sortable by any column; a summary line per fit |
+| `#/functionals[?column=]` | U9 functionals panel, overall or per stratum of an epi column: a dot-and-range chart of ψ_MAP (square, its range the parent-set size range at 0.8), ψ_edge (triangle) and mean q (circle) with 95% MCMC intervals; composition classes as stacked bars, the unobserved source first; tables of every number, multi-source probabilities included. A triangle, circle, bar segment or table cell opens the trace panel for that stratum's per-Draw functional; ψ_MAP and the size range are point summaries and open nothing |
 
 ## Add a view
 

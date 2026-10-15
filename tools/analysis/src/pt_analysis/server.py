@@ -26,10 +26,12 @@ ENDPOINTS = [
     "pt_analysis.endpoints.analysis",  # U1: Analysis summary, convergence table
     "pt_analysis.endpoints.traces",  # U1: trace panel, ESS and R-hat over a Draw range
     # #83 U2 edge table
+    "pt_analysis.endpoints.edges",  # U2: edge table
 
     # #84 U8 network view
 
     # #85 U3 pair inspector
+    "pt_analysis.endpoints.pair",  # U3: order, edges, co-inclusion, genotypes and infection times of a pair
 
     # #86 #87 U9 functionals panel
     "pt_analysis.endpoints.functionals",  # #86: epi columns, functionals overall and per stratum
@@ -37,10 +39,12 @@ ENDPOINTS = [
     # #88 U10 infection card
 
     # #89 #90 U6 truth overlay, ranking
+    "pt_analysis.endpoints.ranking",  # U6: ranking and parent-set metrics against truth
 
     # #91 U7 cohort view
 
     # #92 U4 sampler panel
+    "pt_analysis.endpoints.sampler",  # U4: acceptance, swaps, ladder, proposal variances, Run events
 
     # #94 U5 comparison of Analyses
 
