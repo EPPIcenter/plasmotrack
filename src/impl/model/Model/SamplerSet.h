@@ -88,40 +88,40 @@ namespace transmission_nets::impl::Model {
                                     .adaptationStart = 20,
                                     .adaptationEnd = 200});
 
-        int infection_idx_ = 0;
+        int infectionIndex = 0;
         for (const auto& infection : state->infections) {
 
             const bool isSymptomatic = infection->isSymptomatic();
             const std::string infection_id = infection->id();
-            const double upperBound = isSymptomatic ? state->symptomaticInfectionDurationDist->value().size() : state->asymptomaticInfectionDurationDist->value().size();
+            const auto durations = isSymptomatic ? state->symptomaticInfectionDurationDist->value() : state->asymptomaticInfectionDurationDist->value();
+            const double upperBound = durations.size();
 
             scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target, 1.0, upperBound, r, 1, .1, 2),
                                         .id = fmt::format("ConstrainedContinuousRandomWalk/infection_duration/{}", infection_id),
                                         .adaptationStart = 20,
                                         .adaptationEnd = 200});
-            if (!state->null_model_) {
-                scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler3<T, Engine, InfectionEvent, OrderingImpl, MAX_PARENTS, MAX_COI>>(infection, state->infectionEventOrdering, state->latentParents[infection_idx_], target, r),
+            if (!state->nullModel) {
+                scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler3<T, Engine, InfectionEvent, OrderingImpl, MAX_PARENTS, MAX_COI>>(infection, state->infectionEventOrdering, state->latentParents[infectionIndex], target, r),
                                             .id = fmt::format("RandomAllelesBitSetSampler3/latent_genotypes/{}", infection_id)});
                 // Move the infection to another source in one step (its latent parent stands for the Source, via its fixed anchor).
-                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infection_idx_], state->allowedRelationships->allowedParents(infection), target, r, 1.0, upperBound, isSymptomatic ? state->symptomaticInfectionDurationDist->value() : state->asymptomaticInfectionDurationDist->value(), 0.01, 0.01, RELINK_TRIES),
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, 1.0, upperBound, durations, 0.01, 0.01, RELINK_TRIES),
                                             .id = fmt::format("ParentRelinkSampler/infection/{}", infection_id)});
                 scheduler_.registerSampler({.sampler = std::make_unique<genetics::StrainCountSampler<T, Engine, InfectionEvent>>(infection, target, r, MAX_COI),
                                             .id = fmt::format("StrainCountSampler/latent_genotypes/{}", infection_id)});
                 // Move the infection to the other side of a clone in the ordering.
-                scheduler_.registerSampler({.sampler = std::make_unique<specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>>(infection, specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>::mutualPartners(state->infections, *state->allowedRelationships, infection_idx_), target, r, 1.0, upperBound, isSymptomatic ? state->symptomaticInfectionDurationDist->value() : state->asymptomaticInfectionDurationDist->value()),
-                                            .id = fmt::format("CloneOrderSwapSampler/ordering/{}", infection_id)});
-                {
-                    std::vector<std::shared_ptr<InfectionEvent>> partners;
-                    for (const auto& partner : specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>::mutualPartners(state->infections, *state->allowedRelationships, infection_idx_)) {
-                        partners.push_back(partner.infection);
-                    }
-                    scheduler_.registerSampler({.sampler = std::make_unique<specialized::InformedOrderJumpSampler<T, Engine, InfectionEvent>>(infection, std::move(partners), target, r, 1.0, upperBound, isSymptomatic ? state->symptomaticInfectionDurationDist->value() : state->asymptomaticInfectionDurationDist->value(), INFORMED_JUMP_MAX_TRIES),
-                                                .id = fmt::format("InformedOrderJumpSampler/ordering/{}", infection_id)});
+                using CloneOrderSwap = specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>;
+                auto mutualPartners  = CloneOrderSwap::mutualPartners(state->infections, *state->allowedRelationships, infectionIndex);
+                std::vector<std::shared_ptr<InfectionEvent>> partners;
+                for (const auto& partner : mutualPartners) {
+                    partners.push_back(partner.infection);
                 }
+                scheduler_.registerSampler({.sampler = std::make_unique<CloneOrderSwap>(infection, std::move(mutualPartners), target, r, 1.0, upperBound, durations),
+                                            .id = fmt::format("CloneOrderSwapSampler/ordering/{}", infection_id)});
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::InformedOrderJumpSampler<T, Engine, InfectionEvent>>(infection, std::move(partners), target, r, 1.0, upperBound, durations, INFORMED_JUMP_MAX_TRIES),
+                                            .id = fmt::format("InformedOrderJumpSampler/ordering/{}", infection_id)});
                 for (const auto& [locus_label, locus] : state->loci) {
                     if (infection->latentGenotype().contains(locus)) {
-                        auto latentGenotype = infection->latentGenotype(locus);
-                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler4<T, Engine, InfectionEvent, LocusImpl>>(infection, state->latentParents[infection_idx_], locus, state->allowedRelationships, target, r, MAX_COI),
+                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler4<T, Engine, InfectionEvent, LocusImpl>>(infection, state->latentParents[infectionIndex], locus, state->allowedRelationships, target, r, MAX_COI),
                                                     .id = fmt::format("RandomAllelesBitSetSampler4/latent_genotypes/{}/{}", infection_id, locus_label)});
                         // Swaps pay where the observation says little about which allele is present: every Sampling iteration at
                         // loci with no allele observed, every 10th at loci with several, and never at loci with exactly one.
@@ -134,27 +134,23 @@ namespace transmission_nets::impl::Model {
                     }
                 }
             }
-            infection_idx_++;
+            infectionIndex++;
         }
 
 
-        if (!state->null_model_) {
+        if (!state->nullModel) {
 
-            for (size_t i = 0; i < state->expectedFalseNegatives.size(); ++i) {
-                scheduler_.registerSampler({
-                        .sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state->expectedFalseNegatives[i], target, 1e-6, .5, r, 1, .1, 2),
-                        .id = fmt::format("ConstrainedContinuousRandomWalk/expected_false_negatives/{}", state->infections[i]->id()),
-                        .adaptationStart = 20,
-                        .adaptationEnd = 200
-                });
-            }
-
-            for (size_t i = 0; i < state->expectedFalsePositives.size(); ++i) {
-                scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state->expectedFalsePositives[i], target, 1e-6, .5, r, 1, .1, 2),
-                                            .id = fmt::format("ConstrainedContinuousRandomWalk/expected_false_positives/{}", state->infections[i]->id()),
-                                            .adaptationStart = 20,
-                                            .adaptationEnd = 200});
-            }
+            // One walk per Infection on each observation rate, registered rate by rate.
+            const auto walkEachRate = [&](const auto& rates, const std::string& name) {
+                for (size_t i = 0; i < rates.size(); ++i) {
+                    scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(rates[i], target, 1e-6, .5, r, 1, .1, 2),
+                                                .id = fmt::format("ConstrainedContinuousRandomWalk/{}/{}", name, state->infections[i]->id()),
+                                                .adaptationStart = 20,
+                                                .adaptationEnd = 200});
+                }
+            };
+            walkEachRate(state->expectedFalseNegatives, "expected_false_negatives");
+            walkEachRate(state->expectedFalsePositives, "expected_false_positives");
 
             for (const auto& [locus_label, locus] : state->loci) {
                 // A one-allele locus has a fixed frequency of 1 and nothing to sample.

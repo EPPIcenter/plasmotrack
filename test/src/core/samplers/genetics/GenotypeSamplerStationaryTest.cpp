@@ -184,7 +184,7 @@ TEST_P(ParentRelinkStationaryTest, LeavesTargetInvariant) {
         shape[day] = 1.0 + static_cast<double>(day);
     }
     transmission_nets::core::samplers::specialized::ParentRelinkSampler<WeightedAllelesTarget, Engine, InfectionEvent>
-            sampler(infection, f.state->latentParents[r], f.state->allowedRelationships->allowedParents(infection), target, f.rng, 1.0, 60.0, shape, 0.3, 0.3, GetParam());
+            sampler(infection, f.state->latentParents[r], f.state->allowedRelationships->permittedParents(infection), target, f.rng, 1.0, 60.0, shape, 0.3, 0.3, GetParam());
 
     // A genotype can be drawn from a source if it lies within the source's alleles and shares one of them, at the
     // durations for which the source came first: [1, 30) for p, infected on day 390, and for the latent parent any

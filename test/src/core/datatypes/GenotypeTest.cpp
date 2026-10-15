@@ -103,3 +103,18 @@ TEST_F(GenotypeTest, HandlesMutationMask) {
     ASSERT_EQ(g1.mutationMask(g2).mutationMask(g3).mutationMask(g4), Genotype("0000"));
     ASSERT_EQ(g1.mutationMask(g2).mutationMask(g3), g1.mutationMask(g3).mutationMask(g2));
 }
+
+TEST_F(GenotypeTest, AValueBuiltFromAnAlleleCountInvertsOverItsAlleles) {
+    Genotype last(4);// "0001"
+    ASSERT_EQ(last, Genotype("0001"));
+    EXPECT_EQ(Genotype::invert(last), Genotype("1110"));
+}
+
+TEST_F(GenotypeTest, SettingEveryAlleleStaysWithinTheAlleleCount) {
+    Genotype g("0000");
+    g.set();
+    EXPECT_EQ(g, Genotype("1111"));
+    EXPECT_EQ(g.totalPositiveCount(), 4u);
+    EXPECT_EQ(Genotype::trueNegativeCount(g, g), 0u);
+    EXPECT_EQ(g.allelesStr(), "1111");
+}

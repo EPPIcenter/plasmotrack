@@ -91,7 +91,7 @@ namespace transmission_nets::impl::Model::checkpoint {
     };
 
     // A checkpoint that can't be used is a refusal, which exits 1.
-    [[noreturn]] void refuse(std::string message);
+    [[noreturn]] void refuseCheckpoint(std::string message);
 
     // Writes `checkpoint` to `file` as CBOR, replacing any file there durably (see core/io/DurableFile.h). A failure
     // ends the process with OUTPUT_FAILURE, naming the path.

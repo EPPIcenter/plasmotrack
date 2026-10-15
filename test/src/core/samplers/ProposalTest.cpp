@@ -12,6 +12,7 @@
 
 #include <limits>
 #include <memory>
+#include <stdexcept>
 
 using transmission_nets::core::parameters::Parameter;
 using transmission_nets::core::samplers::Proposal;
@@ -193,4 +194,23 @@ TEST(ProposalTest, AChangeInsideANestedTryMakesTheMoveEvaluateAgainBeforeItSettl
     EXPECT_GT(afterTrial, evaluated);
     EXPECT_EQ(f.target.a->value(), 2.0);
     EXPECT_EQ(f.target.b->value(), 10.0);
+}
+
+TEST(ProposalTest, AnExceptionMidStepPutsEveryChangeBackWithoutCounting) {
+    Fixture f;
+    try {
+        auto proposal = f.propose();
+        proposal.change(*f.target.a, 2.0);
+        proposal.change(*f.target.b, 20.0);
+        throw std::runtime_error("the step failed");
+    } catch (const std::runtime_error&) {
+    }
+    EXPECT_EQ(f.target.a->value(), 1.0);
+    EXPECT_EQ(f.target.b->value(), 10.0);
+    EXPECT_EQ(f.counts, SamplerCounts{});
+    // The thread's open-step list is back to empty: a new step opens and settles normally.
+    auto next = f.propose();
+    next.change(*f.target.a, 3.0);
+    next.accept();
+    EXPECT_EQ(f.target.a->value(), 3.0);
 }
