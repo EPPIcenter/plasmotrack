@@ -1,8 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { PairResponse } from "../../lib/pair";
-import { fixture, mockApi, renderWithProviders } from "../../test/render";
-import { renderApp } from "../../test/render";
+import { fixture, mockApi, renderApp, renderWithProviders } from "../../test/render";
 import { PairView } from "./PairView";
 
 const inspector = () => screen.findByRole("complementary", { name: /^Inspector: Pair/ });
