@@ -69,9 +69,6 @@ namespace transmission_nets::core::datatypes {
         [[nodiscard]] constexpr unsigned int
         totalPositiveCount() const noexcept;
 
-        [[nodiscard]] constexpr unsigned int
-        totalNegativeCount() const noexcept;
-
         [[nodiscard]] constexpr static unsigned int
         truePositiveCount(const Genotype& parent, const Genotype& child) noexcept;
 
@@ -97,7 +94,6 @@ namespace transmission_nets::core::datatypes {
                 invert(const Genotype& alleles) noexcept;
 
         [[nodiscard]] std::string allelesStr() const noexcept;
-        [[nodiscard]] std::string compactAllelesStr() const noexcept;
 
         [[nodiscard]] constexpr unsigned int totalAlleles() const noexcept;
 
@@ -149,10 +145,6 @@ namespace transmission_nets::core::datatypes {
         return alleles_.count();
     }
 
-    constexpr unsigned int Genotype::totalNegativeCount() const noexcept {
-        return total_alleles_ - alleles_.count();
-    }
-
 
     constexpr unsigned int Genotype::truePositiveCount(const Genotype& parent,
                                                                         const Genotype& child) noexcept {
@@ -178,10 +170,6 @@ namespace transmission_nets::core::datatypes {
 
     inline std::string Genotype::allelesStr() const noexcept {
         return alleles_.to_string().substr(MAX_ALLELES - total_alleles_, total_alleles_);
-    }
-
-    inline std::string Genotype::compactAllelesStr() const noexcept {
-        return std::to_string(std::stoll(allelesStr()));
     }
 
     constexpr unsigned int Genotype::totalAlleles() const noexcept {
