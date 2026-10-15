@@ -61,9 +61,9 @@ uv run pt-analysis derive RUN_DIR          # one Run
 uv run pt-analysis derive analysis.json    # every Run of an Analysis, then the Analysis's convergence table
 ```
 
-writes Parquet tables under `RUN_DIR/derived/`. `edges`, `set_summary`, `infection_draws` and `functional_draws`
-come from the sampling Phase, so every weight is a Draw's; `set_classes` comes from `parent_set_members` over both
-Phases.
+writes Parquet tables under `RUN_DIR/derived/`. `edges`, `set_summary`, `infection_draws`, `functional_draws`,
+`genotype_summary` and `genotype_mode` come from the sampling Phase, so every row comes from Draws; `set_classes`
+comes from `parent_set_members` over both Phases.
 
 | Table | Columns | Rows |
 |---|---|---|
@@ -72,6 +72,8 @@ Phases.
 | `set_summary` | infection, set_id, weight, rank, cumulative_mass | one per Parent set with weight in some Draw |
 | `infection_draws` | iteration, infection, q, expected_observed_parents, entropy, effective_size, one column per class, multi_source_augmented, multi_source_observed | one per Draw and Infection |
 | `functional_draws` | iteration, psi_edge, mean_q, mean_entropy, `mean_<class>` per class | one per Draw |
+| `genotype_summary` | infection, locus, allele, presence | one per Infection and Allele of `structure/loci` |
+| `genotype_mode` | infection, locus, alleles, draws, fraction, rank | one per Infection, Locus and Latent genotype a Draw had |
 
 - `n_observed` counts a set's observed parents (members that are Infection ids). `has_unobserved` says whether the
   unobserved source, the Infection's Latent parent (`<id>_copy`), is a member.
@@ -98,6 +100,11 @@ Phases.
 - `functional_draws` averages `infection_draws` over Infections per Draw. `psi_edge`, the edge-sum, is the mean of
   `expected_observed_parents`; `mean_q`, `mean_entropy` and `mean_<class>` are the means of the others. The 95%
   interval of a functional is the 2.5% and 97.5% quantiles of its column over Draws.
+- `genotype_summary` and `genotype_mode` read the `latent_genotypes` Trace, whose bitstring has character k for
+  Allele k. `presence` is the fraction of Draws whose Latent genotype has the Allele. `genotype_mode` lists every
+  bitstring a Draw had at a Locus with the number (`draws`) and fraction of Draws that had it, ranked from 1 by
+  Draws then bitstring: rank 1 is the posterior mode and its `fraction` the agreement. The other rows are kept so
+  that Chains pool exactly, by summing `draws`.
 
 `derived/manifest.json` records the closed Windows per Phase the tables came from and the package version that wrote
 them. `derive` does nothing when both match the store and this package, and replaces every table otherwise, for
@@ -155,11 +162,31 @@ Chain, and ESS and R-hat for the Draws in the range brushed on the trace.
 | `GET /api/convergence` | `{rows}`: the convergence table's rows |
 | `GET /api/trace?group=&name=[&burn_in=true]` | per Chain, `iteration`, `phase` and `value` lists of a quantity |
 | `GET /api/range?group=&name=[&first=][&last=]` | ESS per Chain, pooled ESS and split R-hat over the Draws with Sampling iteration in [first, last] |
+| `GET /api/pair?a=&b=` | the pair inspector's panels for Infections A and B (below) |
 
 A quantity is a group and name of the convergence table. Burn-in rows come only on request and only for the groups
 read from the store's Traces (log posterior to allele frequency); edges, unobserved-source inclusion and functionals
 come from the derived tables, which hold Draws only. The trace and range queries are in `pt_analysis.traces`. The
 manifest's optional `label` names the Analysis on the page (default: the manifest's directory name).
+
+### The pair inspector
+
+`#/pair?a=A&b=B` shows why two Infections sit in one order. `/api/pair` returns, from `pt_analysis.pair.inspect_pair`:
+
+- `order`: per Chain, the per-Draw indicator that A precedes B in the `ordering` Trace, its mean P(A before B) and
+  the switches, adjacent Draws at which the order changes (as `summary --pairs` counts them); pooled over all Draws.
+- `edges`: per Chain and pooled, the Edge marginals B <- A (`a_to_b`) and A <- B (`b_to_a`), the mean over Draws of
+  `edges`; 0 where the edge never has a row.
+- `co_inclusion`: per third Infection with a Parent set holding both, the summed `set_summary` weight of those sets
+  per Chain and pooled.
+- `genotypes`: per Locus in the input's order, Observed A and B from the input (null where unobserved), each Latent
+  posterior mode and its agreement pooled over Chains from `genotype_mode`, whether the modes differ, and with a
+  truth file in the manifest the true Latent genotypes (`flat_latent_genotype`); the count of differing Loci.
+- `times`: for each, the observation time and the posterior infection time, observation time minus the median and
+  the 97.5% and 2.5% quantiles (R type 7) of `infection_duration` over all Draws; the lag, B's observation time minus
+  A's.
+
+Pooled values weight each Chain by its Draws. The input and truth files may be gzipped (`pt_analysis.inputs`).
 
 `web/README.md` says how to develop the frontend and how to add a view.
 

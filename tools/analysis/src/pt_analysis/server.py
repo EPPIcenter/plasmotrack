@@ -30,6 +30,7 @@ ENDPOINTS = [
     # #84 U8 network view
 
     # #85 U3 pair inspector
+    "pt_analysis.endpoints.pair",  # U3: order, edges, co-inclusion, genotypes and infection times of a pair
 
     # #86 #87 U9 functionals panel
 

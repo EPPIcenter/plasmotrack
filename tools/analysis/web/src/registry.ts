@@ -11,6 +11,7 @@ export const views: ViewEntry[] = [
   // #84 U8 network view
 
   // #85 U3 pair inspector
+  { route: "pair", title: "Pair", nav: true, load: () => import("./views/pair") },
 
   // #86 #87 U9 functionals panel
 

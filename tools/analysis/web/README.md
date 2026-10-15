@@ -33,7 +33,16 @@ pnpm dev                                              # here: the page with hot 
 | `src/main.ts` | Page layout (Analysis header, navigation bar) and the hash router |
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
+| `src/pair.ts` | The pair inspector's URL state (`#/pair?a=&b=`), response types and differing-Loci count |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
+
+## Views
+
+| Route | View |
+|---|---|
+| `convergence` | U1 convergence table |
+| `trace?group=&name=` | U1 trace panel |
+| `pair?a=&b=` | U3 pair inspector: order per Chain with its trace, both Edge marginals, co-inclusion, genotypes per Locus with differing Loci highlighted, infection times and lag. Link to it with `ctx.navigate("pair", pairParams({ a, b }))` |
 
 ## Add a view
 
