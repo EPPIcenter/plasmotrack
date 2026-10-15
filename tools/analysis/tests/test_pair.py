@@ -140,6 +140,17 @@ def test_with_truth_the_true_latent_genotypes_are_shown_too(tmp_path):
         ("00001100", "00001000"), ("000000110000", "000000110000")]
 
 
+def test_a_truth_without_latent_genotypes_for_the_pair_shows_no_truth_columns(tmp_path):
+    """A truth made for real data (edges and infection times only) has empty `flat_latent_genotype` lists: there is
+    no true genotype to show, which is not the same as an unobserved one."""
+    truth = tmp_path / "truth.json"
+    nodes = [{"id": id_, "infection_time": 0.0, "flat_latent_genotype": []} for id_ in ("1", "2", "3")]
+    truth.write_text(json.dumps({"network": [{"src": "1", "dest": "3"}], "nodes": nodes}))
+    genotypes = inspect_pair(open_golden(tmp_path, truth=truth.name), "1", "3")["genotypes"]
+    assert genotypes["truth"] is False
+    assert all("true_a" not in r and "true_b" not in r for r in genotypes["rows"])
+
+
 def test_infection_times_are_observation_time_minus_duration_quantiles_and_the_lag_is_observation_b_minus_a(
         golden_analysis):
     """examples/example_input.json observes Infection 1 at 234.0737 and 3 at 350.5. Durations are pooled over both

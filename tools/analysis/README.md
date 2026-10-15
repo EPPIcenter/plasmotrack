@@ -330,7 +330,9 @@ The pair Inspector (`?sel=pair:A,B`) shows why two Infections sit in one order. 
   per Chain and pooled.
 - `genotypes`: per Locus in the input's order, Observed A and B from the input (null where unobserved), each Latent
   posterior mode and its agreement pooled over Chains from `genotype_mode`, whether the modes differ, and with a
-  truth file in the manifest the true Latent genotypes (`flat_latent_genotype`); the count of differing Loci.
+  truth file in the manifest the true Latent genotypes (`flat_latent_genotype`; `truth` is false and the columns are
+  left out when the truth gives neither Infection one, as a truth made for real data does); the count of differing
+  Loci.
 - `times`: for each, the observation time and the posterior infection time, observation time minus the median and
   the 97.5% and 2.5% quantiles (R type 7) of `infection_duration` over all Draws (`times.infection_times`, as the
   network view and the infection card take it); the lag, B's observation time minus A's.

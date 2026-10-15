@@ -142,7 +142,8 @@ def differing_loci(modes_a, modes_b):
 def genotype_rows(analysis, a, b):
     """One row per Locus, in the input's order: Observed A (None where unobserved), Latent A's pooled mode and
     agreement, Latent B's, Observed B, whether the two modes differ, and with truth the true Latent genotypes.
-    Also the number of differing Loci and whether truth is shown."""
+    Also the number of differing Loci and whether truth is shown: only when the truth file gives a Latent genotype
+    (`flat_latent_genotype`) of A or B."""
     node = inputs.nodes(analysis.input)
     modes = {i: latent_modes(analysis, i) for i in (a, b)}
     observed = {i: inputs.genotypes(node.get(i, {}).get("observed_genotype")) for i in (a, b)}
@@ -150,6 +151,8 @@ def genotype_rows(analysis, a, b):
     if analysis.truth is not None:
         true_nodes = inputs.nodes(analysis.truth)
         truth = {i: inputs.genotypes(true_nodes.get(i, {}).get("flat_latent_genotype")) for i in (a, b)}
+        if not any(truth.values()):
+            truth = None  # a truth without Latent genotypes (made for real data) has none to show
     order = inputs.loci(analysis.input)
     names = order + sorted((set(modes[a]) | set(modes[b])) - set(order))
     rows = []
