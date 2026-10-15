@@ -24,5 +24,11 @@ export function getPairs(q: PairsQuery): Promise<PairsPayload> {
 export const usePairs = (q: PairsQuery) =>
   useQuery({ queryKey: ["pairs", q], queryFn: () => getPairs(q), staleTime: 60_000, placeholderData: keepPreviousData });
 
+/** One pair; nothing is asked for until both ids are given and differ. */
 export const usePair = (a: string, b: string) =>
-  useQuery({ queryKey: ["pair", a, b], queryFn: () => getJson<PairResponse>("/api/pair", { a, b }), staleTime: 60_000 });
+  useQuery({
+    queryKey: ["pair", a, b],
+    queryFn: () => getJson<PairResponse>("/api/pair", { a, b }),
+    staleTime: 60_000,
+    enabled: Boolean(a && b && a !== b),
+  });

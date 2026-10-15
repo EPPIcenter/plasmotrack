@@ -215,6 +215,8 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/spatial?unit=&parent=[&max_lag=]` | shares of edge mass by where the source lives relative to the recipient (below) |
 
 | `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
+| `GET /api/pairs[?min=0.1&max=0.9][&disagree=D][&edge_min=0][&limit=200]` | the pairs worth a look: pooled P(A before B) in [min, max], or Chains differing by at least `disagree`, with an Edge marginal of at least `edge_min` either way; per pair its order per Chain, switches, spread and both pooled Edge marginals, larger marginal first; `total` counts them all (`pt_analysis.pairs`) |
+| `GET /api/edge-series?edges=child<-parent,...[&points=N]` | up to 500 edges' weights per Draw per Chain (0 at a Draw without the edge), binned to `points` means when given: the edge table's sparklines (`pt_analysis.edge_series`) |
 
 A quantity is a group and name of the convergence table, or a functional of one stratum: group `functionals`,
 a per-Draw functional name (below), `stratum_column=C` (empty for every Infection) and `stratum=V` (left out for the

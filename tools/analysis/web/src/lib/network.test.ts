@@ -6,6 +6,7 @@ import {
   EdgeThreshold,
   edgeTooltip,
   findNode,
+  listedEdges,
   graphData,
   NO_Q,
   nodeColours,
@@ -341,5 +342,19 @@ describe("node colours in the dark theme", () => {
     const q = nodeColours(p, "q", dark).colours;
     expect([q.get("1"), q.get("2")]).toEqual([Q_RAMP_DARK[0], Q_RAMP_DARK[Q_RAMP_DARK.length - 1]]);
     expect([...nodeColours(p, "epi:district", dark).colours.values()]).toEqual(["#222222", "#111111"]);
+  });
+});
+
+describe("the edges beside the graph", () => {
+  const edges = [edge("3", "1", 0.8), edge("2", "1", 0.05), edge("3", "2", 0.3), edge("5", "4", 0.9)];
+  const atLeast = (t: number) => (e: NetworkEdge) => e.marginal >= t;
+
+  it("are the edges the graph shows, largest marginal first", () => {
+    expect(listedEdges(edges, atLeast(0.1)).map((e) => e.marginal)).toEqual([0.9, 0.8, 0.3]);
+  });
+
+  it("are only those touching the selected Infections when some are selected", () => {
+    expect(listedEdges(edges, atLeast(0.1), new Set(["2"])).map((e) => `${e.parent}>${e.child}`)).toEqual(["2>3"]);
+    expect(listedEdges(edges, atLeast(0.1), new Set()).length).toBe(3);
   });
 });

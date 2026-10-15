@@ -415,3 +415,14 @@ export function defaultThreshold(index: EdgeThreshold, budget = 3000, base = 0.1
   }
   return hi / 1000;
 }
+
+/** The edges listed beside the graph: those it shows (`shown`), only those touching the selected Infections when some
+ *  are selected, largest marginal first. */
+export function listedEdges<E extends { parent: string; child: string; marginal: number }>(
+  edges: readonly E[],
+  shown: (e: E) => boolean,
+  selection?: ReadonlySet<string>,
+): E[] {
+  const touching = selection?.size ? (e: E) => selection.has(e.parent) || selection.has(e.child) : () => true;
+  return edges.filter((e) => shown(e) && touching(e)).sort((x, y) => y.marginal - x.marginal);
+}

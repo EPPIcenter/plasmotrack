@@ -33,6 +33,13 @@ describe("the Edge Inspector", () => {
     expect(search().sel).toBe("pair:1,3");
   });
 
+  it("shows the edge in the Network at a threshold that draws it, both Infections selected", async () => {
+    const { history, search } = renderApp("/edges?sel=edge:1>3");
+    await userEvent.click(await within(await inspector()).findByRole("link", { name: "Show in the Network →" }));
+    expect(history.location.pathname).toBe("/network");
+    expect(search()).toMatchObject({ sel: "edge:1>3", ids: "1,3", threshold: "0.833" });
+  });
+
   it("draws the edge's trace per Chain", async () => {
     renderApp("/overview?sel=edge:1>3");
     expect(await within(await inspector()).findByRole("img", { name: "Trace of 3<-1 per Chain" })).toBeInTheDocument();

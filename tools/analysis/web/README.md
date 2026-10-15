@@ -77,6 +77,24 @@ of `/convergence?sel=...` opens the app there.
   and its `data` as CSV through `src/lib/export.ts`: the payload's numbers under the package's names, never display
   strings. A `NamedTable[]` writes one file per part.
 
+## Explore: Network, Edges, Pairs
+
+- **Network** (`src/workspaces/network/`): `NetworkGraph.tsx` wraps sigma.js (imported on mount; without WebGL it says
+  so) with ForceAtlas2 in a worker and the timeline layout, an underlay for interval bars and the time axis, and an
+  overlay for dashed edges and selection rings. The workspace decides each edge's look (`edgeLook`: threshold, truth
+  overlay) and passes the multi-selection, the Inspector's Infection and the focused edge (the Inspector's, or the row
+  under the pointer in the edge list beside the graph, which the container's `data-focus-edge` names for tests).
+  Without `threshold` in the URL it opens at `defaultThreshold` (0.1, or higher so at most 3,000 edges show). Click
+  selects into the Inspector, shift-click toggles the multi-selection (`ids`), a click on the stage clears it.
+- **Edges** (`src/workspaces/edges/`): `/api/edges` with lags from `/api/network`'s observation times; the per-Draw
+  sparklines come from `/api/edge-series`, asked for only by the cells on screen and batched (`src/api/edges.ts`).
+- **Pairs** (`src/workspaces/pairs/`): `/api/pairs` and the pair picker; the chosen pair (the top of the list until
+  one is picked) is `PairView` from the Pair Inspector, every section at once.
+- **Inspector**: Edge (`src/inspector/edge/`) reads `/api/edges`, `/api/network` and, with truth, `/api/truth-network`;
+  Pair (`src/inspector/pair/`) has Summary and Genotypes tabs over `/api/pair`. `src/inspector/layout.tsx` holds the
+  dense section and figure-row pieces they share.
+- These workspaces' roots set `contain: inline-size`, so a wide table never widens the page past the Inspector.
+
 ## URL state and selection
 
 The URL is the state: workspace path, its filters and sort, and the selection.

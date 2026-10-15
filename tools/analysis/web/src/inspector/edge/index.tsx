@@ -2,7 +2,8 @@
 // edge's marginal; truth status when the Analysis has truth; links to the pair and both Infections; and the edge's
 // trace per Chain (the child's q for an edge from the unobserved source).
 
-import { useMemo } from "react";
+import { useRouter } from "@tanstack/react-router";
+import { useMemo, type MouseEvent } from "react";
 import { useEdges } from "../../api/edges";
 import { useNetwork, useTruthNetwork } from "../../api/network";
 import { useStatus } from "../../api/analysis";
@@ -10,7 +11,9 @@ import { useTheme } from "../../app/theme";
 import { EntityLink } from "../../components/EntityLink";
 import { QuantityTrace } from "../../components/QuantityTrace";
 import { StatusChip } from "../../components/StatusChip";
+import { parseSearch, stringifySearch } from "../../app/search";
 import { edgeIndex, edgeLag, edgeQuantity } from "../../lib/edges";
+import { thresholdFor } from "../../lib/network";
 import { chainColour } from "../../lib/palette";
 import { edgeTruth } from "../../lib/truth";
 import { ChainLabel, Figure, Figures, Section } from "../layout";
@@ -25,6 +28,7 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
   const { data: status } = useStatus();
   const { data: overlay } = useTruthNetwork(Boolean(status?.capabilities.truth));
   const { chart } = useTheme();
+  const router = useRouter();
 
   const index = useMemo(() => edgeIndex(data?.rows ?? []), [data]);
   const times = useMemo(() => new Map((network?.nodes ?? []).map((n) => [n.id, n.observation_time])), [network]);
@@ -50,6 +54,14 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
   const reverse = row.unobserved ? undefined : index.get(child, parent);
   const truth = row.unobserved ? null : edgeTruth(overlay?.sources.find((s) => s.source === "posterior"), parent, child);
   const lag = edgeLag(row, times);
+  // The Network at a threshold that shows this edge, with both Infections selected and the edge still inspected.
+  const current = parseSearch(router.state.location.searchStr);
+  const networkHref = `/network${stringifySearch({ sel: current.sel, tab: current.tab, analysis: current.analysis, ids: `${parent},${child}`, threshold: String(thresholdFor(row.pooled)) })}`;
+  const toNetwork = (e: MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    router.history.push(networkHref);
+  };
 
   return (
     <div className="text-ui">
@@ -101,6 +113,9 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
             </Figure>
             <Figure label="Parent">{infection(parent)}</Figure>
             <Figure label="Child">{infection(child)}</Figure>
+            <Figure label="Network" title="The Network at a threshold that shows this edge, both Infections selected">
+              <a href={networkHref} onClick={toNetwork} className="text-accent hover:underline">Show in the Network →</a>
+            </Figure>
           </Figures>
         </Section>
       )}

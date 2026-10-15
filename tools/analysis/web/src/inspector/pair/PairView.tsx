@@ -47,8 +47,9 @@ function OrderSection({ p }: { p: PairResponse }) {
       return Plot.plot({
         width,
         height: 44 * chains.length + 28,
-        marginLeft: 64,
-        marginRight: 8,
+        // Room for "<id> first" at 11 px.
+        marginLeft: Math.max(64, 6.5 * Math.max(a.length, b.length) + 40),
+        marginRight: 16,
         marginTop: 4,
         marginBottom: 26,
         style: plotStyle(theme),
@@ -216,7 +217,7 @@ function GenotypesSection({ p }: { p: PairResponse }) {
           <thead className="text-ink-2">
             <tr className="border-b border-line">
               {head.map((h, i) => (
-                <th key={i} className={`py-0.5 pr-2 text-left font-medium ${h === "Agr." ? "text-right" : ""}`}>{h}</th>
+                <th key={i} className={`whitespace-nowrap py-0.5 pr-2 text-left font-medium ${h === "Agr." ? "text-right" : ""}`}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -228,7 +229,7 @@ function GenotypesSection({ p }: { p: PairResponse }) {
                 title={r.differs ? "The Latent modes differ" : undefined}
                 className={`border-b border-line/60 ${r.differs ? "bg-warning/15 font-medium shadow-[inset_2px_0_0_var(--warning)]" : ""}`}
               >
-                <td className="py-0.5 pl-1 pr-2">{r.locus}</td>
+                <td className="whitespace-nowrap py-0.5 pl-1 pr-2">{r.locus}</td>
                 <td className="pr-2"><Bits bits={r.observed_a} /></td>
                 <td className="pr-2"><Bits bits={r.latent_a} /></td>
                 <td className="num pr-2">{prob(r.agreement_a)}</td>

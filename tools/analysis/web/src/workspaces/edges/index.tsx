@@ -3,6 +3,7 @@
 // multi-selection and the unobserved source; the clicked row's per-Chain trace in a split panel beside the table.
 //
 // URL: ?child=&parent=&unobserved=0&all=1&sort=<column>&desc=1&e=<child><-<parent>   (`all=1`: ignore the selection)
+// Sorted by spread, largest first, until a column is chosen: the edges the Chains disagree on lead.
 
 import { useCallback, useMemo, useState } from "react";
 import { Group, Panel as Split, Separator } from "react-resizable-panels";
@@ -37,7 +38,7 @@ const parse = (s: SearchValues): EdgesSearch => ({
   parent: s.parent ?? "",
   unobserved: s.unobserved !== "0",
   all: s.all === "1",
-  sorting: s.sort ? [{ id: s.sort, desc: s.desc === "1" }] : [{ id: "pooled", desc: true }],
+  sorting: s.sort ? [{ id: s.sort, desc: s.desc === "1" }] : [{ id: "spread", desc: true }],
   e: s.e ?? null,
 });
 
@@ -89,10 +90,10 @@ export default function EdgesWorkspace() {
       { id: "parent", header: "Parent", title: "An observed parent, or the unobserved source (the child's Latent parent)", value: (r) => r.parent, width: 120, cell: (r) => <ParentCell row={r} /> },
       { id: "pooled", header: "Pooled", title: "Edge marginal: the mean over every Draw of every Chain", value: (r) => r.pooled, numeric: true, width: 70, descFirst: true, cell: (r) => marginal(r.pooled) },
       ...chains.map(
-        (c): Column<EdgeRow> => ({ id: `mean:${c}`, header: `Mean ${c}`, title: `${c}'s mean over its Draws`, value: (r) => r.chains[c]?.mean ?? null, numeric: true, width: 96, descFirst: true, cell: (r) => <span className="text-ink-2">{marginal(r.chains[c]?.mean)}</span> }),
+        (c): Column<EdgeRow> => ({ id: `mean:${c}`, header: `Mean ${c}`, title: `${c}'s mean over its Draws`, value: (r) => r.chains[c]?.mean ?? null, numeric: true, width: 108, descFirst: true, cell: (r) => <span className="text-ink-2">{marginal(r.chains[c]?.mean)}</span> }),
       ),
       { id: "spread", header: "Spread", title: "Largest minus smallest Chain mean; a Chain without the edge counts as 0", value: (r) => r.spread, numeric: true, width: 70, descFirst: true, cell: (r) => marginal(r.spread) },
-      { id: "switches", header: "Switches", title: "Adjacent Draws at which the marginal crossed one half, summed over Chains", value: (r) => r.switches, numeric: true, width: 76, descFirst: true },
+      { id: "switches", header: "Switches", title: "Adjacent Draws at which the marginal crossed one half, summed over Chains", value: (r) => r.switches, numeric: true, width: 86, descFirst: true },
       { id: "ess", header: "ESS", title: "Multi-chain effective sample size", value: (r) => r.ess, numeric: true, width: 64, cell: (r) => <StatusChip kind="ess" value={r.ess} compact /> },
       { id: "lag", header: "Lag", title: "The child's observation time minus the parent's", value: (r) => edgeLag(r, times), numeric: true, width: 64, cell: (r) => <span className="text-ink-2">{fixed1(edgeLag(r, times))}</span> },
       { id: "series", header: "Per Draw", title: "The edge's weight per Draw, one line per Chain, on [0, 1]", value: () => null, sortable: false, width: 104, cell: (r) => <EdgeSparkline row={r} /> },
@@ -105,7 +106,7 @@ export default function EdgesWorkspace() {
   const input = "h-5 w-24 rounded-[3px] border border-line bg-surface px-1.5 text-axis";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-2">
+    <div className="flex h-full min-h-0 flex-col gap-2 p-2 [contain:inline-size]">
       <Group orientation="horizontal" className="min-h-0 flex-1" id="edges">
         <Split id="table" minSize={420} defaultSize="62" className="flex min-w-0">
           <Panel
