@@ -16,7 +16,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve()
 sys.path.insert(0, str(HERE.parents[2] / "tests"))
 
-from conftest import open_golden  # noqa: E402
+from conftest import copy_golden, open_golden, write_manifest  # noqa: E402
 
 # Infections 1 to 3 in two districts of one region.
 EPI = "infection,district,region,observed\n1,North,East,2020-01-05\n2,South,East,2020-02-01\n3,North,East,2020-03-10\n"
@@ -46,6 +46,8 @@ ENDPOINTS = {
     "lags": "/api/lags?column=district&max_lag=30",
     "spatial": "/api/spatial?unit=district&parent=region",
     "sampler": "/api/sampler",
+    "sampler-chain2": "/api/sampler?chain=chain2",
+    "sampler-type": "/api/sampler?chain=chain1&type=ConstrainedContinuousRandomWalk&limit=5",
     "truth-network": "/api/truth-network",
     "errors": "/api/errors",
     "ranking": "/api/ranking",
@@ -54,12 +56,47 @@ ENDPOINTS = {
 }
 
 
+# Fixture name -> request, against two Analyses open side by side (`pt-analysis serve single.json replica.json`): the
+# golden single-chain store alone as "single" (primary, with timings) and the replica-exchange store alone as
+# "replica", as in tests/test_compare_endpoint.py.
+COMPARE_ENDPOINTS = {
+    "compare-analyses": "/api/analyses",
+    "compare-two": "/api/compare/convergence",
+}
+SINGLE_TIMINGS = {"chain1": {"sampling_seconds": 4.0, "instructions_retired": 2.0e9}}
+
+
 def golden(directory):
     """The golden Analysis with epi data and truth, its copies in `directory`."""
     directory = Path(directory).resolve()
     (directory / "epi.csv").write_text(EPI)
     (directory / "truth.json").write_text(json.dumps(TRUTH))
     return open_golden(directory, label="golden", epi="epi.csv", truth="truth.json")
+
+
+def comparison(directory):
+    """The golden stores as two one-Chain Analyses of one input, "single" (primary) and "replica"."""
+    from pt_analysis.compare import open_comparison
+
+    directory = Path(directory).resolve()
+    copy_golden(directory)
+    manifests = [write_manifest(directory / "single.json", label="single", runs={"chain1": "single-chain"},
+                                timings=SINGLE_TIMINGS),
+                 write_manifest(directory / "replica.json", label="replica", runs={"chain1": "replica-exchange"})]
+    return open_comparison(manifests)
+
+
+def capture(client, endpoints, out):
+    for name, path in endpoints.items():
+        response = client.get(path)
+        if response.status_code != 200:
+            raise SystemExit(f"{path}: {response.status_code} {response.text}")
+        body = response.json()
+        if "analyses" in body and isinstance(body["analyses"][0], dict):  # temporary paths change on every capture
+            for a in body["analyses"]:
+                a["path"] = f"golden/{a['label'] if a['label'] != 'golden' else 'analysis'}.json"
+        (out / f"{name}.json").write_text(json.dumps(body, indent=1, sort_keys=True) + "\n")
+        print(f"{name}.json  {path}")
 
 
 def fixtures(out):
@@ -71,17 +108,11 @@ def fixtures(out):
     out.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         analysis = golden(tmp)
-        client = TestClient(create_app(analysis, static_dir=Path(tmp) / "no-dist"))
-        for name, path in ENDPOINTS.items():
-            response = client.get(path)
-            if response.status_code != 200:
-                raise SystemExit(f"{path}: {response.status_code} {response.text}")
-            body = response.json()
-            if name == "analyses":  # the temporary path would change on every capture
-                for a in body["analyses"]:
-                    a["path"] = "golden/analysis.json"
-            (out / f"{name}.json").write_text(json.dumps(body, indent=1, sort_keys=True) + "\n")
-            print(f"{name}.json  {path}")
+        capture(TestClient(create_app(analysis, static_dir=Path(tmp) / "no-dist")), ENDPOINTS, out)
+    with tempfile.TemporaryDirectory() as tmp:
+        compared = comparison(tmp)
+        app = create_app(compared.primary, static_dir=Path(tmp) / "no-dist", analyses=compared.analyses)
+        capture(TestClient(app), COMPARE_ENDPOINTS, out)
 
 
 def serve(port):

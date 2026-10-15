@@ -2,12 +2,15 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { NetworkPayload } from "../lib/network";
-import { getJson } from "./client";
+import { useActiveAnalysis } from "./active";
+import { getJson, scoped } from "./client";
 
-export const useNetwork = (enabled = true) =>
-  useQuery({
-    queryKey: ["network"],
-    queryFn: () => getJson<NetworkPayload>("/api/network"),
+export const useNetwork = (enabled = true) => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["network", analysis],
+    queryFn: () => getJson<NetworkPayload>("/api/network", scoped({}, analysis)),
     staleTime: Infinity,
     enabled,
   });
+};

@@ -1,7 +1,8 @@
 // The Analysis's summary, the open Analyses and the status bar's summary.
 
 import { useQuery } from "@tanstack/react-query";
-import { getJson } from "./client";
+import { useActiveAnalysis } from "./active";
+import { getJson, scoped } from "./client";
 
 export interface AnalysisSummary {
   label: string;
@@ -46,8 +47,14 @@ export interface Status {
   attention: Record<string, number>;
 }
 
-export const useAnalysis = () =>
-  useQuery({ queryKey: ["analysis"], queryFn: () => getJson<AnalysisSummary>("/api/analysis"), staleTime: Infinity });
+export const useAnalysis = () => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["analysis", analysis],
+    queryFn: () => getJson<AnalysisSummary>("/api/analysis", scoped({}, analysis)),
+    staleTime: Infinity,
+  });
+};
 
 export const useAnalyses = () =>
   useQuery({
@@ -56,8 +63,14 @@ export const useAnalyses = () =>
     staleTime: Infinity,
   });
 
-export const useStatus = () =>
-  useQuery({ queryKey: ["status"], queryFn: () => getJson<Status>("/api/status"), refetchInterval: 60_000 });
+export const useStatus = () => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["status", analysis],
+    queryFn: () => getJson<Status>("/api/status", scoped({}, analysis)),
+    refetchInterval: 60_000,
+  });
+};
 
 /** The Chain labels in Analysis order, which fixes each Chain's colour; [] while loading. */
 export function useChains(): string[] {

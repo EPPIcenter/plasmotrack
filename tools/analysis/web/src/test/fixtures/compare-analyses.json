@@ -1,0 +1,33 @@
+{
+ "analyses": [
+  {
+   "chains": [
+    {
+     "chain": "chain1",
+     "draws": 10
+    }
+   ],
+   "draws": 10,
+   "instructions_retired": 2000000000.0,
+   "label": "single",
+   "path": "golden/single.json",
+   "primary": true,
+   "sampling_seconds": 4.0
+  },
+  {
+   "chains": [
+    {
+     "chain": "chain1",
+     "draws": 10
+    }
+   ],
+   "draws": 10,
+   "instructions_retired": null,
+   "label": "replica",
+   "path": "golden/replica.json",
+   "primary": false,
+   "sampling_seconds": null
+  }
+ ],
+ "input_sha256": "cd84e24b6713ef19bc3e27d4a45b9d579634262c808ee3530375e1ac409774ca"
+}
