@@ -13,16 +13,18 @@ Needs [uv](https://docs.astral.sh/uv/). From this directory:
 uv sync
 ```
 
-This creates `.venv/` with Python 3.13, DuckDB, pyarrow and pytest, and installs the `pt-analysis` command into it.
+This creates `.venv/` with Python 3.13, DuckDB, pyarrow, Starlette, uvicorn and pytest, and installs the `pt-analysis`
+command into it.
 
 ## Run the tests
 
 ```sh
-uv run pytest
+./test.sh          # every test: pytest, then the frontend's type check and vitest
+uv run pytest      # the Python tests only
 ```
 
 The tests read the golden stores in `test/data/golden/` and check the benchmark scripts in `tools/benchmark/`, which
-read stores through this package.
+read stores through this package. `test.sh` needs pnpm for the frontend (`web/README.md`).
 
 ## Describe an Analysis
 
@@ -30,6 +32,7 @@ An Analysis is a set of Runs of one input, described by a JSON manifest. Paths a
 
 ```json
 {
+  "label": "example, two Chains",
   "input": "example_input.json",
   "symptomatic_idp": "symptomatic_idp.txt",
   "asymptomatic_idp": "asymptomatic_idp.txt",
@@ -42,7 +45,8 @@ An Analysis is a set of Runs of one input, described by a JSON manifest. Paths a
 }
 ```
 
-`input`, the two IDP paths and `runs` are required; every Run directory must exist. The rest is optional.
+`input`, the two IDP paths and `runs` are required; every Run directory must exist. The rest is optional; `label`
+names the Analysis in the GUI and defaults to the manifest's directory name.
 
 ```sh
 uv run pt-analysis info analysis.json
@@ -131,6 +135,33 @@ the benchmark scripts used:
   rank normalisation).
 - `split_rhat`: each chain's two halves, every half truncated to the shortest half's length n; sqrt(((n-1)/n W +
   B/n) / W) over the halves; infinite when every half is constant but the halves differ.
+
+## Serve the analysis GUI
+
+```sh
+(cd web && pnpm install && pnpm build)            # once, and after the frontend changes
+uv run pt-analysis serve analysis.json [--port 8765] [--no-browser]
+```
+
+derives what is not current, then serves the page in `web/dist/` and a JSON API on `127.0.0.1` and opens the
+browser. The page opens on the convergence table: one row per quantity with its pooled ESS, split R-hat and each
+Chain's ESS, sorted by clicking the ESS or R-hat header and filtered by group and by name. Clicking a row opens the
+trace panel: one line per Chain over Sampling iterations, burn-in greyed on request, a rank-normalised histogram per
+Chain, and ESS and R-hat for the Draws in the range brushed on the trace.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/analysis` | label, Draws per Chain and in all, Infections, Loci |
+| `GET /api/convergence` | `{rows}`: the convergence table's rows |
+| `GET /api/trace?group=&name=[&burn_in=true]` | per Chain, `iteration`, `phase` and `value` lists of a quantity |
+| `GET /api/range?group=&name=[&first=][&last=]` | ESS per Chain, pooled ESS and split R-hat over the Draws with Sampling iteration in [first, last] |
+
+A quantity is a group and name of the convergence table. Burn-in rows come only on request and only for the groups
+read from the store's Traces (log posterior to allele frequency); edges, unobserved-source inclusion and functionals
+come from the derived tables, which hold Draws only. The trace and range queries are in `pt_analysis.traces`. The
+manifest's optional `label` names the Analysis on the page (default: the manifest's directory name).
+
+`web/README.md` says how to develop the frontend and how to add a view.
 
 ## Summarise a Run
 

@@ -1,0 +1,41 @@
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb;
+  --text: #0b0b0b;
+  --muted: #52514e;
+  --rule: #e4e3de;
+  --hover: #f1f0ec;
+  --accent: #2a78d6;
+  --flag: #b3261e;
+  font: 14px/1.4 system-ui, sans-serif;
+  color: var(--text);
+  background: var(--surface);
+}
+body { margin: 0; }
+#header { display: flex; align-items: baseline; gap: 1em; padding: 0.6em 1em; border-bottom: 1px solid var(--rule); }
+#header h1 { font-size: 1.1em; margin: 0; }
+#header nav { margin-left: auto; display: flex; gap: 1em; }
+#header nav a.current { font-weight: 600; text-decoration: none; color: var(--text); }
+#view { padding: 0.8em 1em; }
+a { color: var(--accent); }
+h2 { font-size: 1.05em; margin: 0; }
+h3 { font-size: 0.95em; margin: 1em 0 0.3em; font-weight: 600; }
+.muted { color: var(--muted); }
+.flag { color: var(--flag); font-weight: 600; }
+.toolbar { display: flex; align-items: center; gap: 0.8em; margin-bottom: 0.6em; flex-wrap: wrap; }
+.toolbar input[type="search"] { width: 16em; }
+.table { border: 1px solid var(--rule); }
+.table-row { display: grid; align-items: center; font-variant-numeric: tabular-nums; }
+.table-header { border-bottom: 1px solid var(--rule); background: var(--hover); }
+.table-body { height: calc(100vh - 11em); min-height: 200px; }
+.table-row.clickable { cursor: pointer; border-bottom: 1px solid var(--rule); box-sizing: border-box; }
+.table-row.clickable:hover { background: var(--hover); }
+.cell { padding: 0 0.6em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell.num { text-align: right; }
+button.cell { font: inherit; border: 0; background: none; text-align: left; padding: 0.4em 0.6em; color: var(--text); }
+button.sortable:not(:disabled) { cursor: pointer; text-decoration: underline dotted; }
+.histograms { display: flex; flex-wrap: wrap; gap: 1em; }
+.trace-plot { width: 100%; }
+.stats { margin: 0.4em 0; }
+.note:empty { display: none; }
+.brush .selection { fill: var(--accent); fill-opacity: 0.1; stroke: var(--accent); stroke-opacity: 0.5; }

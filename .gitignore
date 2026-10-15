@@ -104,6 +104,7 @@ skills-lock.json
 .venv/
 __pycache__/
 node_modules/
+tools/analysis/web/dist/
 
 ## Derived tables written beside a store by the analysis tools
 derived/

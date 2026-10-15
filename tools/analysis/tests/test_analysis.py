@@ -77,3 +77,8 @@ def test_a_manifest_without_runs_fails(tmp_path):
     path.write_text(json.dumps({"input": "x.json", "symptomatic_idp": "s", "asymptomatic_idp": "a"}))
     with pytest.raises(AnalysisError, match="runs"):
         Analysis.open(path)
+
+
+def test_the_label_names_the_analysis_and_defaults_to_the_manifests_directory(tmp_path):
+    assert Analysis.open(write_manifest(tmp_path / "analysis.json", label="sim 7")).label == "sim 7"
+    assert Analysis.open(write_manifest(tmp_path / "analysis.json")).label == tmp_path.name

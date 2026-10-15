@@ -1,0 +1,24 @@
+{
+  "name": "pt-analysis-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@observablehq/plot": "^0.6.17",
+    "d3-brush": "^3.0.0",
+    "d3-selection": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/d3-brush": "^3.0.6",
+    "@types/d3-selection": "^3.0.12",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4"
+  }
+}

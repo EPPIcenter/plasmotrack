@@ -3,6 +3,7 @@
 Described by a JSON manifest the user writes or a loader generates:
 
     {
+      "label": "sim 7, full panel",                  optional: a name for the Analysis (default: its directory's)
       "input": "sim_0_s7_to_run.json.gz",            engine input the Runs were fitted to
       "symptomatic_idp": "symptomatic_idp.txt",      IDP files given to the engine
       "asymptomatic_idp": "asymptomatic_idp.txt",
@@ -41,6 +42,7 @@ class Analysis:
     pairwise_scores: Path | None = None
     null_model: Path | None = None
     timings: dict | None = None
+    label: str = ""
 
     @classmethod
     def open(cls, path):
@@ -73,4 +75,5 @@ class Analysis:
                    symptomatic_idp=resolve("symptomatic_idp", required=True),
                    asymptomatic_idp=resolve("asymptomatic_idp", required=True), runs=runs,
                    truth=resolve("truth"), epi=resolve("epi"), pairwise_scores=resolve("pairwise_scores"),
-                   null_model=resolve("null_model"), timings=timings)
+                   null_model=resolve("null_model"), timings=timings,
+                   label=manifest.get("label") or base.name)
