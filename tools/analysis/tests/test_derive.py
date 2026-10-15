@@ -209,7 +209,7 @@ def test_psi_edge_is_the_mean_over_infections_of_expected_observed_parents(store
 
 
 TABLES = ["set_classes", "edges", "set_summary", "infection_draws", "functional_draws", "genotype_summary",
-          "genotype_mode"]
+          "genotype_mode", "coi"]
 
 
 # Latent genotype bitstrings per Draw, read from the golden stores: Infection 1 is 00001000 at AS1 in every Draw of

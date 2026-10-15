@@ -13,6 +13,7 @@ and does nothing otherwise. Tables are computed from the sampling Phase, so ever
     functional_draws  iteration, psi_edge, mean_q, mean_entropy, mean_<class> per composition class
     genotype_summary  infection, locus, allele, presence
     genotype_mode     infection, locus, alleles, draws, fraction, rank
+    coi               iteration, infection, coi
 
 An Analysis's own derived tables go in `<manifest stem>.derived/` beside its manifest, with a manifest recording each
 Run's directory and closed Windows; `derive_analysis` derives every Run first, then rewrites them when that changes:
@@ -176,8 +177,18 @@ def genotype_mode(store):
         FROM counts ORDER BY infection, locus, rank""")
 
 
+def coi(store):
+    """Per Draw and Infection, the COI: the largest Allele count (the number of `1` characters of the bitstring) over
+    the Loci of the Infection's Latent genotype at that Draw."""
+    latent = table(store, "latent_genotypes")
+    return store.connection.sql("""
+        SELECT iteration, infection, max(length(replace(alleles, '0', ''))) AS coi
+        FROM latent GROUP BY ALL ORDER BY iteration, infection""")
+
+
 TABLES = {"set_classes": set_classes, "edges": edges, "set_summary": set_summary, "infection_draws": infection_draws,
           "functional_draws": functional_draws, "genotype_summary": genotype_summary, "genotype_mode": genotype_mode}
+TABLES["coi"] = coi  # U10 infection card
 
 
 def source(store):

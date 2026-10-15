@@ -33,6 +33,7 @@ pnpm dev                                              # here: the page with hot 
 | `src/main.ts` | Page layout (Analysis header, navigation bar) and the hash router |
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
+| `src/infection.ts` | The infection card's URL state (`#/infection?id=`), response types, heatmap cells, Parent-set labels, COI histogram bars and kernel densities |
 | `src/pair.ts` | The pair inspector's URL state (`#/pair?a=&b=`), response types and differing-Loci count |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
 | `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
@@ -53,6 +54,7 @@ pnpm dev                                              # here: the page with hot 
 |---|---|
 | `convergence` | U1 convergence table |
 | `trace?group=&name=` | U1 trace panel |
+| `infection?id=` | U10 infection card: densities per Chain of expected false positives and false negatives, duration and infection time; COI per Draw; Latent genotype heatmap of posterior presence with the Observed Alleles ringed; Parent sets per Chain and pooled with the credible collection; parent and child Edge marginals linking to the card, the pair inspector and the trace panel; q, entropy and effective size. Link to it with `ctx.navigate("infection", infectionParams(id))`; the edge table and pair inspector link their Infection ids to it |
 | `pair?a=&b=` | U3 pair inspector: order per Chain with its trace, both Edge marginals, co-inclusion, genotypes per Locus with differing Loci highlighted, infection times and lag. Link to it with `ctx.navigate("pair", pairParams({ a, b }))` |
 
 ## Add a view

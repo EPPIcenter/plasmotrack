@@ -36,6 +36,7 @@ ENDPOINTS = [
     # #86 #87 U9 functionals panel
 
     # #88 U10 infection card
+    "pt_analysis.endpoints.infection",  # U10: one Infection's posteriors, genotype, Parent sets and edges
 
     # #89 #90 U6 truth overlay, ranking
 

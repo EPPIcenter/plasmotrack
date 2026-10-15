@@ -76,11 +76,11 @@ const render: RenderView = (root, ctx) => {
   function renderRow(r: EdgeRow) {
     const parent = r.unobserved
       ? el("span", { className: "cell muted", title: `${r.parent}, the unobserved source` }, "unobserved source")
-      : el("span", { className: "cell" }, r.parent);
+      : el("a", { className: "cell", href: `#/infection?id=${encodeURIComponent(r.parent)}`, title: `Open Infection ${r.parent}`, onclick: (e: Event) => e.stopPropagation() }, r.parent);
     const row = el(
       "div",
       { className: "table-row clickable", title: `Open the trace of ${r.group} ${r.name}` },
-      el("span", { className: "cell" }, r.child),
+      el("a", { className: "cell", href: `#/infection?id=${encodeURIComponent(r.child)}`, title: `Open Infection ${r.child}`, onclick: (e: Event) => e.stopPropagation() }, r.child),
       parent,
       el("span", { className: "cell num" }, formatProb(r.pooled)),
       el("span", { className: "cell num" }, formatProb(r.spread)),

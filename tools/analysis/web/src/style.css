@@ -44,3 +44,7 @@ table.data th, table.data td { padding: 0.25em 0.8em; border-bottom: 1px solid v
 table.data th { background: var(--hover); font-weight: 600; }
 table.data tr.differs td { background: #fdf0e6; }
 table.data tr.differs td:first-child { box-shadow: inset 3px 0 var(--flag); font-weight: 600; }
+.bar-track { display: inline-block; width: 8em; height: 0.7em; background: var(--hover); vertical-align: middle; }
+.bar-track .bar { display: block; height: 100%; background: var(--accent); }
+.infection figure { margin: 0; }
+.infection figcaption { font-weight: 600; margin-bottom: 0.2em; }
