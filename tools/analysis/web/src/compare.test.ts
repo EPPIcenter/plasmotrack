@@ -36,9 +36,40 @@ const response: CompareResponse = {
 describe("columnGroups", () => {
   it("gives each Analysis a group of ESS and R-hat, and ESS per second only for a timed Analysis", () => {
     expect(columnGroups(response.analyses, response.timed)).toEqual([
-      { analysis: "single", columns: [{ key: "ess", label: "ESS" }, { key: "rhat", label: "R-hat" }, { key: "essPerSecond", label: "ESS/s" }] },
+      { analysis: "single", columns: [{ key: "ess", label: "ESS" }, { key: "rhat", label: "R-hat" }, { key: "essPerSecond", label: "ESS per second" }] },
       { analysis: "replica", columns: [{ key: "ess", label: "ESS" }, { key: "rhat", label: "R-hat" }] },
     ]);
+  });
+});
+
+describe("ESS per instruction retired", () => {
+  // "single" timed by instructions retired and seconds, "replica" by seconds only.
+  const timed: CompareResponse = {
+    analyses: ["single", "replica"],
+    timed: ["single", "replica"],
+    instructions: ["single"],
+    rows: [{ group: "edge", name: "3<-1", analyses: {
+      single: { ess: 4, rhat: 1.3, ess_per_second: 1, ess_per_instruction: 2e-9 },
+      replica: { ess: 20, rhat: 1.0, ess_per_second: 5 },
+    } }],
+  };
+
+  it("is the efficiency column of an Analysis with an instruction count, in preference to ESS per second", () => {
+    expect(columnGroups(timed.analyses, timed.timed, timed.instructions).map((g) => g.columns[2])).toEqual([
+      { key: "essPerInstruction", label: "ESS per instruction retired" },
+      { key: "essPerSecond", label: "ESS per second" },
+    ]);
+  });
+
+  it("is read, sorted by and exported beside ESS per second", () => {
+    const qs = comparedQuantities(timed);
+    expect(qs[0]!.by.single).toEqual({ ess: 4, rhat: 1.3, essPerSecond: 1, essPerInstruction: 2e-9 });
+    expect(qs[0]!.by.replica!.essPerInstruction).toBeNull();
+    expect(sortCompared(qs, { key: "essPerInstruction", analysis: "single", descending: true })).toHaveLength(1);
+    const t = compareTable(qs, timed.analyses, timed.timed, timed.instructions);
+    expect(t.columns).toEqual(["analysis", "group", "name", "ess", "rhat", "ess_per_second", "ess_per_instruction"]);
+    expect(t.rows[0]).toEqual(["single", "edge", "3<-1", 4, 1.3, 1, 2e-9]);
+    expect(scatterPoints(qs, "single", "single", "essPerInstruction").points).toEqual([{ group: "edge", name: "3<-1", x: 2e-9, y: 2e-9 }]);
   });
 });
 
@@ -51,8 +82,8 @@ describe("comparedQuantities", () => {
       [2, "edge", "2<-1"],
     ]);
     expect(qs[1]!.by).toEqual({
-      single: { ess: 4, rhat: 1.3, essPerSecond: 1 },
-      replica: { ess: 20, rhat: Infinity, essPerSecond: null },
+      single: { ess: 4, rhat: 1.3, essPerSecond: 1, essPerInstruction: null },
+      replica: { ess: 20, rhat: Infinity, essPerSecond: null, essPerInstruction: null },
     });
   });
 });

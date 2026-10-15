@@ -1,6 +1,7 @@
 // U5 comparison of Analyses of one input: the convergence table with one column group per Analysis (ESS, R-hat, and
-// ESS per second of sampling where the manifest has timings), sortable by any column, and a scatter of
-// per-quantity ESS of Analysis X against Y. Hovering a dot names the quantity; clicking it shows its trace in both.
+// ESS per instruction retired where the manifest's timings count instructions, else ESS per second of sampling where
+// they have seconds), sortable by any column, and a scatter of per-quantity ESS (or either efficiency) of Analysis X
+// against Y. Hovering a dot names the quantity; clicking it shows its trace in both.
 
 import * as Plot from "@observablehq/plot";
 import { getJson, getTrace, type Trace } from "../api";
@@ -8,11 +9,13 @@ import { el } from "../dom";
 import {
   columnGroups,
   compareTable,
+  METRIC_LABELS,
   comparedQuantities,
   filterCompared,
   scatterPoints,
   sortCompared,
   traceLinks,
+  type AnalysisListing,
   type CompareResponse,
   type ComparedQuantity,
   type CompareSort,
@@ -27,9 +30,9 @@ const ROW_HEIGHT = 28;
 const DOT = CHAIN_COLOURS[0]!;
 const GUIDE = "#a3a29d";
 
-const formatPerSecond = (x: number | null) => (x === null || Number.isNaN(x) ? "–" : x.toPrecision(3));
+const formatEfficiency = (x: number | null) => (x === null || Number.isNaN(x) ? "–" : x.toPrecision(3));
 const format = (key: Metric, x: number | null) =>
-  key === "ess" ? formatEss(x) : key === "rhat" ? formatRhat(x) : formatPerSecond(x);
+  key === "ess" ? formatEss(x) : key === "rhat" ? formatRhat(x) : formatEfficiency(x);
 
 const render: RenderView = (root, ctx) => {
   const groupSelect = el("select", { title: "Group" }, el("option", { value: "", textContent: "All groups" }));
@@ -43,6 +46,7 @@ const render: RenderView = (root, ctx) => {
   const ySelect = el("select", { title: "Analysis on the y axis" });
   const metricSelect = el("select", { title: "What to compare" }, el("option", { value: "ess", textContent: "ESS" }));
   const scatterNote = el("span", { className: "muted" });
+  const timings = el("p", { className: "muted" });
   const scatter = el("div", { className: "compare-scatter" });
   const traces = el("div", { className: "compare-traces" });
   traces.style.display = "flex";
@@ -50,6 +54,7 @@ const render: RenderView = (root, ctx) => {
   traces.style.gap = "1.5em";
   root.append(
     el("div", { className: "toolbar" }, groupSelect, nameInput, count),
+    timings,
     el("div", { className: "table" }, groupHeader, header, body),
     el("h3", {}, "ESS per quantity, one Analysis against another"),
     el("div", { className: "toolbar" }, el("label", {}, "X ", xSelect), el("label", {}, "Y ", ySelect), metricSelect, scatterNote),
@@ -68,8 +73,9 @@ const render: RenderView = (root, ctx) => {
   };
 
   const layout = () => {
-    const groups = columnGroups(response!.analyses, response!.timed);
-    const template = `minmax(10em, 1.2fr) minmax(8em, 1.5fr) ${groups.flatMap((g) => g.columns.map(() => "6.5em")).join(" ")}`;
+    const groups = columnGroups(response!.analyses, response!.timed, response!.instructions ?? []);
+    const width = (key: Metric) => (key === "essPerInstruction" ? "11em" : key === "essPerSecond" ? "8em" : "6.5em");
+    const template = `minmax(10em, 1.2fr) minmax(8em, 1.5fr) ${groups.flatMap((g) => g.columns.map((c) => width(c.key))).join(" ")}`;
     return { groups, template };
   };
 
@@ -155,7 +161,7 @@ const render: RenderView = (root, ctx) => {
     const x = xSelect.value;
     const y = ySelect.value;
     const metric = metricSelect.value as Metric;
-    const label = metric === "ess" ? "ESS" : "ESS per second";
+    const label = METRIC_LABELS[metric];
     const { points, missing } = scatterPoints(shown, x, y, metric);
     scatterNote.textContent = missing ? `${missing.toLocaleString()} quantities without a positive ${label} in both are left out` : "";
     if (!points.length) {
@@ -240,6 +246,16 @@ const render: RenderView = (root, ctx) => {
   nameInput.addEventListener("input", update);
   count.textContent = "Loading the convergence tables…";
 
+  // Each Analysis's timings, beside the table: what its efficiency column is per.
+  getJson<{ analyses: AnalysisListing[] }>("/api/analyses")
+    .then(({ analyses }) => {
+      const timing = (a: AnalysisListing) =>
+        a.instructions_retired != null ? `${a.instructions_retired.toLocaleString()} instructions retired`
+          : a.sampling_seconds != null ? `${Number(a.sampling_seconds.toPrecision(4)).toLocaleString()} sampling seconds` : "no timings";
+      timings.textContent = `Timings: ${analyses.map((a) => `${a.label}, ${timing(a)}`).join("; ")}.`;
+    })
+    .catch(() => undefined);
+
   getJson<CompareResponse>("/api/compare/convergence")
     .then((r) => {
       response = r;
@@ -253,10 +269,11 @@ const render: RenderView = (root, ctx) => {
       };
       options(xSelect, ctx.params.get("x"), r.analyses[0]!);
       options(ySelect, ctx.params.get("y"), r.analyses[1] ?? r.analyses[0]!);
-      if (r.timed.length) {
-        metricSelect.append(el("option", { value: "essPerSecond", textContent: "ESS per second of sampling" }));
-        if (ctx.params.get("metric") === "essPerSecond") metricSelect.value = "essPerSecond";
-      }
+      // Either efficiency, where some Analysis has it; ESS per instruction retired first, the benchmark's measure.
+      const efficiencies: Metric[] = [...((r.instructions ?? []).length ? ["essPerInstruction" as const] : []),
+        ...(r.timed.length ? ["essPerSecond" as const] : [])];
+      metricSelect.append(...efficiencies.map((m) => el("option", { value: m, textContent: METRIC_LABELS[m] })));
+      if (efficiencies.includes(ctx.params.get("metric") as Metric)) metricSelect.value = ctx.params.get("metric")!;
       if (!r.analyses.includes(sort.analysis)) Object.assign(sort, { key: "table", analysis: r.analyses[0] });
       groupSelect.append(...[...new Set(all.map((q) => q.group))].map((g) => el("option", { value: g, textContent: g })));
       groupSelect.value = ctx.params.get("group") ?? "";
@@ -267,7 +284,7 @@ const render: RenderView = (root, ctx) => {
   // CSV export: each Analysis's row of every quantity the filter keeps, in the order shown, not only the rows in view.
   return {
     cleanup: () => list.destroy(),
-    table: () => (response ? compareTable(sortCompared(shown, sort), response.analyses, response.timed) : null),
+    table: () => (response ? compareTable(sortCompared(shown, sort), response.analyses, response.timed, response.instructions ?? []) : null),
   };
 };
 
