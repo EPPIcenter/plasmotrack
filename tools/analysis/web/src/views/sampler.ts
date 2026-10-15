@@ -179,7 +179,7 @@ const render: RenderView = (root, ctx) => {
             Plot.frame({ stroke: "#d6d5d0" }),
             ...timeMarks(p, rules),
             Plot.rect([{ y1: band[0], y2: band[1] }], { x1: domain[0], x2: domain[1], y1: "y1", y2: "y2", fill: BAND, fillOpacity: 0.1 }),
-            Plot.areaY(g.rows, { x: "x", y1: "rate_min", y2: "rate_max", fill: MUTED, fillOpacity: 0.2 }),
+            Plot.areaY(g.rows, { x: "x", y1: "rate_min", y2: "rate_max", fill: MUTED, fillOpacity: 0.12 }),
             Plot.line(g.rows, { x: "x", y: "rate", stroke: CHAIN_COLOURS[0], strokeWidth: 1.5 }),
             Plot.dot(g.rows, { x: "x", y: "rate", fill: CHAIN_COLOURS[0], r: 2.5 }),
             Plot.tip(g.rows, Plot.pointer({
