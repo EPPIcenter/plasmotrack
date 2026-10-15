@@ -409,6 +409,39 @@ both Phases; every row carries its Window's Phase and Sampling-iteration range.
 - A type with more targets than the categorical palette's eight colours draws them as thin grey lines, named in the
   tooltip.
 
+## Compare Analyses
+
+```sh
+uv run pt-analysis serve a.json b.json [more.json ...]
+uv run pt-analysis serve comparison.json          # {"analyses": ["a.json", "b.json"]}, paths relative to it
+```
+
+opens several Analyses of one input to answer whether build or setting X mixes better than Y (U5). Every Run of
+every Analysis must record the same `input` hash in its manifest's `input_sha256`; otherwise `serve` stops with
+`DifferentInputs`, naming each Analysis and the start of its hash. The first Analysis is primary: every view and
+endpoint above reads it, unchanged. Labels repeated between Analyses get ` (2)`, ` (3)` appended.
+
+The comparison view (`#/compare`) is the convergence table with one column group per Analysis (pooled ESS and split
+R-hat, sortable by any column, filtered by group and name), and a log-log scatter of per-quantity ESS of Analysis X
+against Y (selectors for X and Y; the dashed line is equal ESS). Hovering a dot names the quantity; clicking it or a
+table row shows its trace in both Analyses, each with a link to its full trace panel.
+
+**Timings.** An Analysis whose manifest has `timings`, in the shape of `mixing_benchmark.py`'s `timings.json` keyed by
+Chain label (`{"chain1": {"exit": 0, "seed": 1, "sampling_seconds": 812.4, "samples": 80}, ...}`), also gets ESS per
+second of sampling: pooled ESS over `sampling_seconds` summed over its Chains. An Analysis without timings, or with a
+Chain missing `sampling_seconds`, has no such column. The benchmark's own protocol counts instructions retired rather
+than seconds: put that count, measured by you, in the same `sampling_seconds` field and read the column as ESS per
+instruction retired.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/analyses` | `{input_sha256, analyses}`: per Analysis, primary first, label, primary, path, chains `[{chain, draws}]`, draws, sampling_seconds (null without timings) |
+| `GET /api/compare/convergence` | `{analyses, timed, rows}`: per quantity (group, name, in table order) and per Analysis `{ess, rhat}`, with `ess_per_second` for the Analyses in `timed` |
+
+`/api/trace` and `/api/range` take `analysis=LABEL` to read another open Analysis than the primary (404 for a label
+not open), and echo it. The comparison logic is `pt_analysis.compare` (`open_comparison`, `compare_convergence`,
+`sampling_seconds`).
+
 ## Use from Python
 
 ```python

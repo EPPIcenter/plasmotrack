@@ -31,6 +31,7 @@ export const views: ViewEntry[] = [
   { route: "sampler", title: "Samplers", nav: true, load: () => import("./views/sampler") },
 
   // #94 U5 comparison of Analyses
+  { route: "compare", title: "Compare", nav: true, load: () => import("./views/compare") },
 
 ];
 

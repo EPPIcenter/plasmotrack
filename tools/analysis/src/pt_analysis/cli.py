@@ -9,9 +9,11 @@
     pt-analysis summary analysis.json [--pairs A:B ...] [--show N]
                                                          the chain summary: ESS and R-hat per group, the order of
                                                          Infection pairs per Chain, and agreement on parents
-    pt-analysis serve analysis.json [--port 8765] [--no-browser]
+    pt-analysis serve analysis.json [more.json ...] [--port 8765] [--no-browser]
                                                          derive what is not current, then serve the analysis GUI
-                                                         on 127.0.0.1 and open it in the browser
+                                                         on 127.0.0.1 and open it in the browser; several
+                                                         Analyses of one input (or a comparison manifest) are
+                                                         compared, the first primary
 
 The summaries derive a Run's tables first when they are not current.
 """
@@ -133,7 +135,10 @@ def summary_command(args):
 def serve_command(args):
     from pt_analysis.server import serve
 
-    serve(Analysis.open(args.manifest), port=args.port, open_browser=not args.no_browser)
+    from pt_analysis.compare import open_comparison
+
+    comparison = open_comparison(args.manifests)
+    serve(comparison.primary, port=args.port, open_browser=not args.no_browser, analyses=comparison.analyses)
 
 
 def main(argv=None):
@@ -165,8 +170,9 @@ def main(argv=None):
     p.add_argument("--pairs", nargs="*", default=[], help="Infection pairs A:B")
     p.add_argument("--show", type=int, default=15, help="Infections listed, least agreement first (default 15)")
     p.set_defaults(handler=summary_command)
-    p = sub.add_parser("serve", help="serve the analysis GUI over an Analysis")
-    p.add_argument("manifest")
+    p = sub.add_parser("serve", help="serve the analysis GUI over an Analysis, or several of one input to compare")
+    p.add_argument("manifests", nargs="+", metavar="manifest",
+                   help="Analysis manifests, or a comparison manifest listing them; the first is primary")
     p.add_argument("--port", type=int, default=8765, help="port on 127.0.0.1 (default 8765; 0 picks a free one)")
     p.add_argument("--no-browser", action="store_true", help="do not open the browser")
     p.set_defaults(handler=serve_command)

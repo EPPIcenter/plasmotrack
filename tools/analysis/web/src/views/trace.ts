@@ -31,7 +31,10 @@ const render: RenderView = (root, ctx) => {
   // A functional of one stratum (U9) names its stratum too: `stratum_column` (empty: every Infection) and `stratum`.
   const stratum: Record<string, string> = {};
   for (const key of ["stratum_column", "stratum"]) if (ctx.params.has(key)) stratum[key] = ctx.params.get(key)!;
-  const chains = ctx.analysis.chains.map((c) => c.chain);
+  // With several Analyses open (U5), `analysis` names the one to read; its Chains come with the trace.
+  const analysis = ctx.params.get("analysis");
+  if (analysis) stratum.analysis = analysis;
+  let chains = ctx.analysis.chains.map((c) => c.chain);
   const colour = { domain: chains, range: CHAIN_COLOURS.slice(0, chains.length) };
   let burnIn = ctx.params.get("burn_in") === "1";
   let trace: Trace | null = null;
@@ -42,7 +45,7 @@ const render: RenderView = (root, ctx) => {
     <div class="toolbar">
       ${"stratum_column" in stratum
         ? `<a href="${formatRoute("functionals", stratum.stratum_column ? { column: stratum.stratum_column } : {})}">← Functionals</a>`
-        : `<a href="${formatRoute("convergence")}">← Convergence table</a>`}
+        : analysis ? `<a href="${formatRoute("compare")}">← Compare</a>` : `<a href="${formatRoute("convergence")}">← Convergence table</a>`}
       <h2></h2>
       <label><input type="checkbox" class="burn-in"> Show burn-in</label>
     </div>
@@ -55,7 +58,7 @@ const render: RenderView = (root, ctx) => {
   const $ = <T extends Element>(selector: string) => root.querySelector<T>(selector)!;
   $("h2").textContent = `${group}: ${name}` + ("stratum_column" in stratum
     ? stratum.stratum_column ? `, ${stratum.stratum_column} = ${stratum.stratum ?? "no value"}` : ", all Infections"
-    : "");
+    : "") + (analysis ? ` (${analysis})` : "");
   const checkbox = $<HTMLInputElement>(".burn-in");
   checkbox.checked = burnIn;
   checkbox.addEventListener("change", () => {
@@ -181,6 +184,11 @@ const render: RenderView = (root, ctx) => {
     getTrace(group!, name!, burnIn, stratum)
       .then((t) => {
         trace = t;
+        if (analysis) {
+          chains = t.chains.map((c) => c.chain);
+          Object.assign(colour, { domain: chains, range: CHAIN_COLOURS.slice(0, chains.length) });
+          $(".legend").replaceChildren(Plot.legend({ color: { ...colour, type: "categorical" } }));
+        }
         $(".note").textContent =
           burnIn && !t.burn_in ? `The ${group} group is read from derived tables, which hold Draws only: no burn-in rows.` : "";
         drawTrace();
