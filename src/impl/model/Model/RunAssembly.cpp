@@ -21,7 +21,7 @@ namespace transmission_nets::impl::Model {
         return id;
     }
 
-    AssembledRun assemble(const Recipe& recipe, const Inputs& inputs, const std::optional<checkpoint::Checkpoint>& saved,
+    AssembledRun assemble(const Recipe& recipe, const Study& study, const std::optional<checkpoint::Checkpoint>& saved,
                           std::unique_ptr<core::io::StoreSink> sink, Progress& progress, const Provenance& provenance, RunRecorder::Clock clock) {
         AssembledRun run;
         run.plan            = recipe.plan;
@@ -35,7 +35,7 @@ namespace transmission_nets::impl::Model {
 
         run.rng = std::make_shared<checkpoint::Engine>(manifest.seed);
         if (saved) {
-            run.ensemble = checkpoint::restore(*saved, run.rng, inputs.input, inputs.symptomaticIdp, inputs.asymptomaticIdp, manifest.nullModel, recipe.cores);
+            run.ensemble = checkpoint::restore(*saved, run.rng, study, manifest.nullModel, recipe.cores);
             if (recipe.mode == Mode::StartFrom) {
                 // A new Run's burn-in counts from 0, not from the saved position, so its ladder adapts on the same
                 // iterations as a fresh Run's, with no barriers pending from the source Run's.
@@ -47,7 +47,7 @@ namespace transmission_nets::impl::Model {
                 }
             }
         } else {
-            run.ensemble = std::make_unique<Ensemble>(manifest.chains, *manifest.gradient, run.rng, manifest.nullModel, recipe.cores, inputs.input, inputs.symptomaticIdp, inputs.asymptomaticIdp);
+            run.ensemble = std::make_unique<Ensemble>(manifest.chains, *manifest.gradient, run.rng, manifest.nullModel, recipe.cores, study);
         }
         if (!resuming) {
             // A resumed Run keeps its manifest: the original recipe. Its run_resumed event records the new -s.

@@ -42,7 +42,7 @@ namespace {
             std::ifstream in(EXAMPLE_INPUT_PATH);
             const auto input = nlohmann::json::parse(in);
             const std::vector<double> idp(60, 1.0 / 60);
-            state = std::make_shared<State>(input, idp, idp, std::make_shared<boost::random::mt19937>(seed));
+            state = std::make_shared<State>(studyFromJson(input, idp, idp), std::make_shared<boost::random::mt19937>(seed));
             model = std::make_shared<Model>(state);
         }
 

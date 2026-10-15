@@ -95,7 +95,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
     const std::vector<double> idp(60, 1.0 / 60);
 
 
-    auto state = std::make_shared<State>(input, idp, idp, rng);
+    auto state = std::make_shared<State>(studyFromJson(input, idp, idp), rng);
     auto model = std::make_shared<Model>(state);
     SamplerSet<Model> samplers(state, model, rng);
 

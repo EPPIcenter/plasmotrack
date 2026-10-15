@@ -37,7 +37,7 @@ namespace {
     std::unique_ptr<Exchange> makeExchange(const int numChains, const unsigned int seed) {
         const std::vector<double> idp(60, 1.0 / 60);
         auto rng = std::make_shared<boost::random::mt19937>(seed);
-        return std::make_unique<Exchange>(numChains, 0.5, rng, false, 1, exampleInput(), idp, idp);
+        return std::make_unique<Exchange>(numChains, 0.5, rng, false, 1, studyFromJson(exampleInput(), idp, idp));
     }
 }// namespace
 
@@ -416,7 +416,7 @@ namespace {
         const std::vector<double> idp(60, 1.0 / 60);
         auto rng = std::make_shared<boost::random::mt19937>(seed);
         return std::make_unique<Exchange>(saved, rng, 1, [&](const size_t, const ChainState& state, std::shared_ptr<boost::random::mt19937> chainRng) {
-            auto fresh = std::make_shared<State>(exampleInput(), idp, idp, std::move(chainRng), false);
+            auto fresh = std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), std::move(chainRng), false);
             checkpoint::restoreState(checkpoint::stateLayout(*fresh), state, *fresh);
             return fresh;
         });

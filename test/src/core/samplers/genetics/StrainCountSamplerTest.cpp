@@ -56,7 +56,7 @@ namespace {
 
         Fixture() {
             const std::vector<double> idp(60, 1.0 / 60);
-            state = std::make_shared<State>(makeInput(), idp, idp, rng);
+            state = std::make_shared<State>(studyFromJson(makeInput(), idp, idp), rng);
             x     = state->infections[0];
             l0    = state->loci.at("L0");
             l1    = state->loci.at("L1");

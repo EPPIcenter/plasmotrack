@@ -69,7 +69,7 @@ namespace {
 
         Fixture() {
             const std::vector<double> idp(DAYS, 1.0 / DAYS);
-            state = std::make_shared<State>(makeInput(), idp, idp, rng);
+            state = std::make_shared<State>(studyFromJson(makeInput(), idp, idp), rng);
             for (const auto& id : {"a", "b", "c"}) {
                 auto infection = state->infections[index(id)];
                 infection->infectionDuration()->initializeValue(10);
