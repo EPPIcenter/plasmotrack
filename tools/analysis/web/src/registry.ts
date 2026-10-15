@@ -23,6 +23,7 @@ export const views: ViewEntry[] = [
   // #91 U7 cohort view
 
   // #92 U4 sampler panel
+  { route: "sampler", title: "Samplers", nav: true, load: () => import("./views/sampler") },
 
   // #94 U5 comparison of Analyses
 
