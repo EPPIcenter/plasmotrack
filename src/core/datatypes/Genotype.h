@@ -14,7 +14,6 @@
 #include <functional>
 #include <ostream>
 #include <string>
-#include <vector>
 
 
 namespace transmission_nets::core::datatypes {
@@ -29,40 +28,6 @@ namespace transmission_nets::core::datatypes {
         friend std::ostream& operator<<(std::ostream& os, const Genotype& alleles) noexcept;
         bool operator==(const Genotype& rhs) const;
         bool operator!=(const Genotype& rhs) const;
-
-        Genotype(const Genotype& other)
-            : total_alleles_(other.total_alleles_),
-              alleles_(other.alleles_),
-              mask_(other.mask_) {
-            // fmt::print("Copy constructor called\n");
-        }
-
-        Genotype(Genotype&& other) noexcept
-            : total_alleles_(other.total_alleles_),
-              alleles_(std::move(other.alleles_)),
-              mask_(std::move(other.mask_)) {
-            // fmt::print("Move constructor called\n");
-        }
-
-        Genotype& operator=(const Genotype& other) {
-            // fmt::print("Copy assignment called\n");
-            if (this == &other)
-                return *this;
-            total_alleles_ = other.total_alleles_;
-            alleles_       = other.alleles_;
-            mask_          = other.mask_;
-            return *this;
-        }
-
-        Genotype& operator=(Genotype&& other) noexcept {
-            // fmt::print("Move assignment called\n");
-            if (this == &other)
-                return *this;
-            total_alleles_ = other.total_alleles_;
-            alleles_       = std::move(other.alleles_);
-            mask_          = std::move(other.mask_);
-            return *this;
-        }
 
         [[nodiscard]] std::string serialize() const noexcept;
 
@@ -98,9 +63,9 @@ namespace transmission_nets::core::datatypes {
         [[nodiscard]] constexpr unsigned int totalAlleles() const noexcept;
 
         constexpr void flip(size_t pos) noexcept;
-        void flip(std::vector<unsigned int> pos) noexcept;
 
         constexpr void set(size_t pos, bool val = true) noexcept;
+        // Every Allele present.
         constexpr void set() noexcept;
 
         constexpr void reset(size_t pos) noexcept;
@@ -116,8 +81,16 @@ namespace transmission_nets::core::datatypes {
         }
 
     private:
+        // This value's Alleles replaced by `alleles`, which the mask then bounds.
+        [[nodiscard]] Genotype withAlleles(const std::bitset<MAX_ALLELES>& alleles) const noexcept {
+            Genotype result = *this;
+            result.alleles_ = alleles & mask_;
+            return result;
+        }
+
         unsigned int total_alleles_ = 0;
         std::bitset<MAX_ALLELES> alleles_{};
+        // One bit per Allele this value holds; bounds the set algebra.
         std::bitset<MAX_ALLELES> mask_{};
     };
 
@@ -132,7 +105,9 @@ namespace transmission_nets::core::datatypes {
     inline Genotype::Genotype(int totalAlleles) : total_alleles_(totalAlleles) {
         // As the string of totalAlleles - 1 zeros and a one: the last allele present, which is bit 0.
         assert(total_alleles_ <= MAX_ALLELES);
-        alleles_.reset();
+        for (size_t i = 0; i < total_alleles_; ++i) {
+            mask_.set(i);
+        }
         alleles_.set(0);
     }
 
@@ -181,19 +156,13 @@ namespace transmission_nets::core::datatypes {
         alleles_.flip(total_alleles_ - 1 - pos);
     }
 
-    inline void Genotype::flip(std::vector<unsigned int> pos) noexcept {
-        for (auto& p : pos) {
-            flip(p);
-        }
-    }
-
     constexpr void Genotype::set(size_t pos, bool val) noexcept {
         assert(pos < total_alleles_);
         alleles_.set(total_alleles_ - 1 - pos, val);
     }
 
     constexpr void Genotype::set() noexcept {
-        alleles_.set();
+        alleles_ = mask_;
     }
 
     constexpr void Genotype::reset(size_t pos) noexcept {
@@ -222,36 +191,19 @@ namespace transmission_nets::core::datatypes {
     }
 
     inline Genotype Genotype::shared(const Genotype& lhs, const Genotype& rhs) noexcept {
-        Genotype result;
-        result.alleles_ = lhs.alleles_ & rhs.alleles_;
-        result.total_alleles_ = lhs.total_alleles_;
-        result.mask_ = lhs.mask_;
-        return result;
+        return lhs.withAlleles(lhs.alleles_ & rhs.alleles_);
     }
 
     inline Genotype Genotype::any(const Genotype& lhs, const Genotype& rhs) noexcept {
-        Genotype result;
-        result.alleles_ = lhs.alleles_ | rhs.alleles_;
-        result.total_alleles_ = lhs.total_alleles_;
-        result.mask_ = lhs.mask_;
-        return result;
+        return lhs.withAlleles(lhs.alleles_ | rhs.alleles_);
     }
 
     inline Genotype Genotype::diff(const Genotype& lhs, const Genotype& rhs) noexcept {
-        Genotype result;
-        result.alleles_ = lhs.alleles_ ^ rhs.alleles_;
-        result.total_alleles_ = lhs.total_alleles_;
-        result.mask_ = lhs.mask_;
-        return result;
+        return lhs.withAlleles(lhs.alleles_ ^ rhs.alleles_);
     }
 
     inline Genotype Genotype::invert(const Genotype& alleles) noexcept {
-        Genotype result;
-        result.alleles_ = alleles.alleles_;
-        result.total_alleles_ = alleles.total_alleles_;
-        result.mask_ = alleles.mask_;
-        result.alleles_ = ~result.alleles_ & result.mask_;
-        return result;
+        return alleles.withAlleles(~alleles.alleles_);
     }
 
 
@@ -266,12 +218,8 @@ namespace transmission_nets::core::datatypes {
     }
 
     inline Genotype Genotype::mutationMask(const Genotype& parent) const noexcept {
-        // The mutation mask gets the alleles that are present in the child but not in the parent
-        Genotype result;
-        result.alleles_ = ~parent.alleles_ & this->alleles_;
-        result.total_alleles_ = this->total_alleles_;
-        result.mask_ = this->mask_;
-        return result;
+        // The Alleles present here but not in the parent.
+        return withAlleles(~parent.alleles_ & alleles_);
     }
 }// namespace transmission_nets::core::datatypes
 

@@ -71,7 +71,8 @@ namespace transmission_nets::model::transmission_process {
         [[nodiscard]] const p_ParameterDouble& meanStrainsTransmitted() const { return meanStrainsTransmitted_; }
         [[nodiscard]] const std::shared_ptr<AlleleFrequencyContainer>& alleleFrequencies() const { return alleleFrequencies_; }
 
-        // Bounds every cache. Every cache is cleared together, so ids handed out earlier in the same batch stay valid.
+        // Bounds every cache, each at its own limit, and only here: ids and results handed out earlier in the same
+        // batch stay valid until the next call.
         void beginBatch() {
             if (locusTerms_.size() >= MAX_LOCUS_TERM_CACHE_SIZE) {
                 locusTerms_.clear();

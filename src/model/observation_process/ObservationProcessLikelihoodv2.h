@@ -44,7 +44,7 @@ namespace transmission_nets::model::observation_process {
         p_Parameterdouble expected_false_positives_;
         p_Parameterdouble expected_false_negatives_;
         unsigned int total_alleles_;
-        bool null_model_;
+        bool nullModel;
     };
 
     inline ObservationProcessLikelihoodv2::ObservationProcessLikelihoodv2(
@@ -56,7 +56,7 @@ namespace transmission_nets::model::observation_process {
             ) : observed_genetics_(std::move(observedGenetics)),
                                                         latent_genetics_(std::move(latentGenetics)),
                                                         expected_false_positives_(std::move(expectedFalsePositives)),
-                                                        expected_false_negatives_(std::move(expectedFalseNegatives)), null_model_(null_model) {
+                                                        expected_false_negatives_(std::move(expectedFalseNegatives)), nullModel(null_model) {
         total_alleles_ = latent_genetics_->value().totalAlleles();
         core::abstract::dependsOn(this, latent_genetics_, expected_false_positives_, expected_false_negatives_);
         this->setDirty();
@@ -68,7 +68,7 @@ namespace transmission_nets::model::observation_process {
     }
 
     inline core::computation::Likelihood ObservationProcessLikelihoodv2::value() {
-        if (null_model_) {
+        if (nullModel) {
             value_ = 0;
             this->setClean();
             return value_;

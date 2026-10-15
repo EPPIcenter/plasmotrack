@@ -21,7 +21,7 @@ namespace transmission_nets::impl::Model::checkpoint {
     using nlohmann::json;
     using core::io::CborFile;
 
-    void refuse(std::string message) {
+    void refuseCheckpoint(std::string message) {
         throw Refused({.kind = RefusalKind::UnusableCheckpoint, .message = std::move(message)});
     }
 
@@ -70,7 +70,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             const auto accepted = j.at("accepted").get<std::vector<std::uint64_t>>();
             const auto proposed = j.at("proposed").get<std::vector<std::uint64_t>>();
             if (accepted.size() != proposed.size()) {
-                refuse("checkpoint has sampler counts of unequal lengths");
+                refuseCheckpoint("checkpoint has sampler counts of unequal lengths");
             }
             std::vector<core::samplers::SamplerCounts> counts;
             counts.reserve(accepted.size());
@@ -101,7 +101,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             // The Sampler set counts in int.
             const auto iterations = j.at("scheduler_iterations").get<std::int64_t>();
             if (iterations < 0 or iterations > std::numeric_limits<int>::max()) {
-                refuse(fmt::format("checkpoint has a replica at scheduler iteration {}, out of range", iterations));
+                refuseCheckpoint(fmt::format("checkpoint has a replica at scheduler iteration {}, out of range", iterations));
             }
             return {.state    = chainStateFromJson(j.at("state")),
                     .rng      = j.at("rng"),
@@ -127,7 +127,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             if (name == "sampling") {
                 return Phase::Sampling;
             }
-            refuse("checkpoint has an unknown Phase " + name);
+            refuseCheckpoint("checkpoint has an unknown Phase " + name);
         }
 
         json toJson(const RunPosition& position) {
@@ -321,18 +321,18 @@ namespace transmission_nets::impl::Model::checkpoint {
     Checkpoint load(const fs::path& file) {
         std::ifstream in(file, std::ios::binary);
         if (!in) {
-            refuse(fmt::format("cannot open the checkpoint {}: {}", file.string(), std::strerror(errno)));
+            refuseCheckpoint(fmt::format("cannot open the checkpoint {}: {}", file.string(), std::strerror(errno)));
         }
         const std::vector<std::uint8_t> bytes{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
         try {
             const json saved = json::from_cbor(bytes);
             const int version = saved.at("format_version");
             if (version != FORMAT_VERSION) {
-                refuse(fmt::format("{} has checkpoint format version {}; this engine reads version {}", file.string(), version, FORMAT_VERSION));
+                refuseCheckpoint(fmt::format("{} has checkpoint format version {}; this engine reads version {}", file.string(), version, FORMAT_VERSION));
             }
             return fromJson(saved);
         } catch (const json::exception& e) {
-            refuse(fmt::format("{} is not a readable checkpoint: {}", file.string(), e.what()));
+            refuseCheckpoint(fmt::format("{} is not a readable checkpoint: {}", file.string(), e.what()));
         }
     }
 

@@ -1,3 +1,9 @@
+//
+// The State: every Quantity a chain samples, built from a Study. It applies the model's rules to the data (starting
+// genotypes capped at the COI limit, the frequency floor, the null model) and refuses an input that breaks one.
+// quantities(visitor) enumerates the Quantities once; the Checkpoint and the Run recorder's Traces follow that
+// enumeration, and the Sampler set attaches its samplers by the same names.
+//
 
 #ifndef TRANSMISSION_NETWORKS_APP_STATE_H
 #define TRANSMISSION_NETWORKS_APP_STATE_H
@@ -63,7 +69,7 @@ namespace transmission_nets::impl::Model {
         // The scalar and per-Infection Quantity names, in enumeration order.
         [[nodiscard]] std::vector<std::string> scalarNames() const;
         [[nodiscard]] std::vector<std::string> perInfectionNames() const;
-        bool null_model_{};
+        bool nullModel{};
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
         // Each infection's latent parent, summed out of the model. These name it in parent-set output (id `<id>_copy`)
@@ -95,7 +101,7 @@ namespace transmission_nets::impl::Model {
         p_Parameterdouble parentSetSizePriorAlpha;
         p_Parameterdouble parentSetSizePriorBeta;
 
-        // Node Transmission Process
+        // Transmission term parameters
         p_Parameterdouble meanStrainsTransmitted;
         p_Parameterdouble meanStrainsTransmittedPriorShape;
         p_Parameterdouble meanStrainsTransmittedPriorScale;

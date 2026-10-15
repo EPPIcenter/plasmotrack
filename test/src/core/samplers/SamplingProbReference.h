@@ -133,7 +133,7 @@ namespace transmission_nets::test::reference {
     // source alone. A duration d falls in day round(d), and a source's window ends where the infection would no longer
     // be infected after it.
     template<typename InfectionPtr>
-    double relinkProposalDensity(const InfectionPtr& infection, const InfectionPtr& latentParent, const std::vector<InfectionPtr>& allowedParents,
+    double relinkProposalDensity(const InfectionPtr& infection, const InfectionPtr& latentParent, const std::vector<InfectionPtr>& permittedParents,
                                  const double minDuration, const double maxDuration, const std::vector<double>& shape, const double fnRate, const double fpRate) {
         auto mass = [&](const double first, const double second) {
             double total = 0;
@@ -168,10 +168,10 @@ namespace transmission_nets::test::reference {
         }
         std::vector<double> terms{};
         size_t feasible = 0;
-        for (size_t s = 0; s <= allowedParents.size(); ++s) {
-            const bool latent   = s == allowedParents.size();
+        for (size_t s = 0; s <= permittedParents.size(); ++s) {
+            const bool latent   = s == permittedParents.size();
             const double first  = minDuration;
-            const double second = latent ? maxDuration : std::min(maxDuration, infection->observationTime()->value() - allowedParents[s]->infectionTime());
+            const double second = latent ? maxDuration : std::min(maxDuration, infection->observationTime()->value() - permittedParents[s]->infectionTime());
             if (second <= first) {
                 continue;
             }
@@ -181,7 +181,7 @@ namespace transmission_nets::test::reference {
             }
             ++feasible;
             if (duration >= first and duration < second) {
-                terms.push_back(std::log(shape[day] / sourceMass) + genomeLogProb(latent ? latentParent : allowedParents[s]));
+                terms.push_back(std::log(shape[day] / sourceMass) + genomeLogProb(latent ? latentParent : permittedParents[s]));
             }
         }
         if (terms.empty()) {

@@ -44,7 +44,7 @@ namespace transmission_nets::core::samplers::specialized {
     public:
         ParentRelinkSampler(std::shared_ptr<InfectionEventImpl> infection,
                             std::shared_ptr<InfectionEventImpl> latentParent,
-                            std::vector<std::shared_ptr<InfectionEventImpl>> allowedParents,
+                            std::vector<std::shared_ptr<InfectionEventImpl>> permittedParents,
                             std::shared_ptr<T> target,
                             std::shared_ptr<Engine> rng,
                             double minDuration,
@@ -60,9 +60,9 @@ namespace transmission_nets::core::samplers::specialized {
         [[nodiscard]] double logProposalDensity() const;
 
     private:
-        [[nodiscard]] size_t numSources() const noexcept { return allowedParents_.size() + 1; }
+        [[nodiscard]] size_t numSources() const noexcept { return permittedParents_.size() + 1; }
         // Sources are the allowed parents, then the latent parent.
-        [[nodiscard]] const InfectionEventImpl& source(const size_t s) const { return s < allowedParents_.size() ? *allowedParents_[s] : *latentParent_; }
+        [[nodiscard]] const InfectionEventImpl& source(const size_t s) const { return s < permittedParents_.size() ? *permittedParents_[s] : *latentParent_; }
         // The durations [first, second) for which the source was infected before the infection; empty if second <= first.
         [[nodiscard]] std::pair<double, double> window(size_t s) const;
         // The sources the duration can be drawn for (positive mass), and their masses.
@@ -74,7 +74,7 @@ namespace transmission_nets::core::samplers::specialized {
 
         std::shared_ptr<InfectionEventImpl> infection_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
-        std::vector<std::shared_ptr<InfectionEventImpl>> allowedParents_;
+        std::vector<std::shared_ptr<InfectionEventImpl>> permittedParents_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
         double minDuration_;
@@ -107,7 +107,7 @@ namespace transmission_nets::core::samplers::specialized {
     template<typename T, typename Engine, typename InfectionEventImpl>
     ParentRelinkSampler<T, Engine, InfectionEventImpl>::ParentRelinkSampler(std::shared_ptr<InfectionEventImpl> infection,
                                                                            std::shared_ptr<InfectionEventImpl> latentParent,
-                                                                           std::vector<std::shared_ptr<InfectionEventImpl>> allowedParents,
+                                                                           std::vector<std::shared_ptr<InfectionEventImpl>> permittedParents,
                                                                            std::shared_ptr<T> target,
                                                                            std::shared_ptr<Engine> rng,
                                                                            const double minDuration,
@@ -118,7 +118,7 @@ namespace transmission_nets::core::samplers::specialized {
                                                                            const unsigned int tries)
         : infection_(std::move(infection)),
           latentParent_(std::move(latentParent)),
-          allowedParents_(std::move(allowedParents)),
+          permittedParents_(std::move(permittedParents)),
           target_(std::move(target)),
           rng_(std::move(rng)),
           minDuration_(minDuration),
@@ -130,11 +130,11 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     std::pair<double, double> ParentRelinkSampler<T, Engine, InfectionEventImpl>::window(const size_t s) const {
-        if (s >= allowedParents_.size()) {
+        if (s >= permittedParents_.size()) {
             return {minDuration_, maxDuration_};
         }
         // Infected before the source means observation time - duration > the source's infection time.
-        const double latest = infection_->observationTime()->value() - allowedParents_[s]->infectionTime();
+        const double latest = infection_->observationTime()->value() - permittedParents_[s]->infectionTime();
         return {minDuration_, std::min(maxDuration_, latest)};
     }
 
@@ -154,7 +154,7 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     double ParentRelinkSampler<T, Engine, InfectionEventImpl>::logGenomeProb(const size_t s) const {
-        if (s >= allowedParents_.size()) {
+        if (s >= permittedParents_.size()) {
             return logGenomeProbFrom(*latentParent_);
         }
         const auto c = sourceClasses_.classOf(s);
@@ -186,7 +186,7 @@ namespace transmission_nets::core::samplers::specialized {
             return -std::numeric_limits<double>::infinity();
         }
         const auto sources = feasibleSources();
-        sourceClasses_.update(allowedParents_);
+        sourceClasses_.update(permittedParents_);
         classLogProb_.assign(sourceClasses_.numClasses(), std::numeric_limits<double>::quiet_NaN());
         genotypes_.gather(*infection_, fnRate_);
         std::vector<double> terms{};

@@ -83,7 +83,7 @@ namespace transmission_nets::model::transmission_process {
         std::shared_ptr<OrderingImpl> ordering_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
 
-        bool null_model_ = false;
+        bool nullModel = false;
 
     private:
         void postSaveState(int savedStateId);
@@ -293,7 +293,7 @@ namespace transmission_nets::model::transmission_process {
           child_(std::move(child)),
           ordering_(std::move(ordering)),
           latentParent_(std::move(latent_parent)),
-          null_model_(null_model) {
+          nullModel(null_model) {
 
         // The strain-count parameter enters every entry's strain-summed likelihood, through the memo's table of it.
         core::abstract::dependsOn(this, memo_->meanStrainsTransmitted(), [this]() {
@@ -717,7 +717,7 @@ namespace transmission_nets::model::transmission_process {
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
     void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::recordChange(const InfectionEventImpl* infection, const LocusPtr& locus, const Genotype& previous) {
         const auto& current = cache();
-        if (null_model_ or current.valid.empty()) {
+        if (nullModel or current.valid.empty()) {
             return;
         }
         // A parent that is not in the parent set the entries refer to has no entries to update; any it gains are
@@ -1049,10 +1049,10 @@ namespace transmission_nets::model::transmission_process {
             // Genome ids, used to group parents and compute entries, stay valid until the next batch.
             memo_->beginBatch();
             // The latent parent's COI log-probabilities, read once per evaluation that recomputes a latent entry.
-            std::optional<std::decay_t<decltype(coiProb_->value())>> coiLogProbsRead;
+            const std::decay_t<decltype(coiProb_->logProbs())>* coiLogProbsRead = nullptr;
             const auto coiLogProbs = [&]() -> const auto& {
                 if (not coiLogProbsRead) {
-                    coiLogProbsRead = coiProb_->value();
+                    coiLogProbsRead = &coiProb_->logProbs();
                 }
                 return *coiLogProbsRead;
             };
@@ -1066,7 +1066,7 @@ namespace transmission_nets::model::transmission_process {
             parentsMayHaveChanged_ = false;
             auto& current          = mutableCache();
 
-            if (null_model_) {
+            if (nullModel) {
                 current.changes.clear();
                 for (size_t position = 0; position < current.valid.size(); ++position) {
                     if (current.logMultiplicity[position] != -std::numeric_limits<Likelihood>::infinity()) {
@@ -1209,7 +1209,7 @@ namespace transmission_nets::model::transmission_process {
 
             this->setClean();
         }
-        if (null_model_) {
+        if (nullModel) {
             // The entries' multiplicities still combine to a count; the term itself is 0.
             this->value_ = 0;
         }
@@ -1281,7 +1281,7 @@ namespace transmission_nets::model::transmission_process {
             }
         }
 
-        if (null_model_) {
+        if (nullModel) {
             Likelihood totalLlik = 0;
             for (const auto& [llik, ps] : dist.parentSetLliks) {
                 totalLlik += std::exp(llik);

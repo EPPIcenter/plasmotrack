@@ -37,7 +37,7 @@ namespace transmission_nets::impl::Model {
         for (auto& infection : state_->infections) {
             // infection duration likelihood
 
-            if (!state_->null_model_) {
+            if (!state_->nullModel) {
                 if (infection->isSymptomatic()) {
                     prior.addTarget(std::make_shared<core::distributions::DiscretePDF<double>>(infection->infectionDuration(), state_->symptomaticInfectionDurationDist, "symptomatic_infection_duration"));
                 } else {
@@ -51,7 +51,7 @@ namespace transmission_nets::impl::Model {
                         infection->latentGenotype(locus),
                         state_->expectedFalsePositives[i],
                         state_->expectedFalseNegatives[i],
-                        state_->null_model_
+                        state_->nullModel
                         ));
                 likelihood.addTarget(observationProcessLikelihoodList.back());
             }
@@ -70,7 +70,7 @@ namespace transmission_nets::impl::Model {
                         infection,
                         state_->infectionEventOrdering,
                         latentParent,
-                        state_->null_model_
+                        state_->nullModel
                         ));
                 likelihood.addTarget(transmissionProcessList.back());
             }
