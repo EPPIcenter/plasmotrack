@@ -39,3 +39,11 @@ button.sortable:not(:disabled) { cursor: pointer; text-decoration: underline dot
 .stats { margin: 0.4em 0; }
 .note:empty { display: none; }
 .brush .selection { fill: var(--accent); fill-opacity: 0.1; stroke: var(--accent); stroke-opacity: 0.5; }
+.pr-curves { display: flex; flex-wrap: wrap; gap: 1.5em; }
+.metrics-table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.metrics-table th, .metrics-table td { padding: 0.25em 0.8em; border-bottom: 1px solid var(--rule); text-align: left; }
+.metrics-table .num { text-align: right; }
+.summary { margin: 0.2em 0 0.8em; padding-left: 1.2em; }
+.pr-curves figure { margin: 0; }
+.legend-key { display: inline-flex; align-items: center; gap: 0.4em; margin-right: 1.2em; }
+.table-row.ruled { border-bottom: 1px solid var(--rule); box-sizing: border-box; }

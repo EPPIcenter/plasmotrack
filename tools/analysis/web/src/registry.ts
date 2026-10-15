@@ -17,6 +17,8 @@ export const views: ViewEntry[] = [
   // #88 U10 infection card
 
   // #89 #90 U6 truth overlay, error table, ranking and parent-set panels
+  { route: "ranking", title: "Ranking", nav: true, load: () => import("./views/ranking") },
+  { route: "parentsets", title: "Parent sets", nav: true, load: () => import("./views/parentsets") },
 
   // #91 U7 cohort view
 

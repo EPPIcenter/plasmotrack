@@ -161,6 +161,50 @@ read from the store's Traces (log posterior to allele frequency); edges, unobser
 come from the derived tables, which hold Draws only. The trace and range queries are in `pt_analysis.traces`. The
 manifest's optional `label` names the Analysis on the page (default: the manifest's directory name).
 
+### Accuracy against truth (U6)
+
+With a `truth` file in the manifest, the **Ranking** page draws the directed and undirected precision-recall curves
+of the posterior Edge marginals against the true network, with the null-model Analysis and the pairwise scores
+overlaid when the manifest names them, and a table of their metrics. The **Parent sets** page lists, per Infection,
+the effective parent-set size, the credible collection's size at a level (0.8 by default), whether the true set is in
+it, and the modal set's probability, beside the null-model fit, with a summary line per fit. It works without truth,
+less the coverage column.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/ranking` | realised truth, and per fit (posterior, null, IBD) its directed and undirected metrics and curve; 404 without truth |
+| `GET /api/parent-sets[?level=0.8]` | per fit its summary columns, and one row per Infection, `null_` columns for the null fit |
+
+The definitions follow the thesis pipeline's per-fit summary (`remote/R/final_analysis/R`), with weights pooled as in
+the rest of this package:
+
+- **Truth** is the simulation's JSON (plain or gzipped): `network: [{src, dest}]` and `nodes: [{id, ...}]`. True
+  edges are those with both ends among the Analysis's Infections. An Infection's true Parent set is its true parents
+  among the Infections, plus the unobserved source when it is a root or has a true parent outside them; it matches a
+  fitted set whose Latent parent `<id>_copy` is read as `<id>`. `n_true_cases` counts the truth's nodes,
+  `n_observed_cases` the Infections, `true_average_outdegree` is true edges per Infection and
+  `true_unobserved_source_proportion` the share of Infections whose true set has the unobserved source.
+- **Edge scores** are the posterior transmission matrix's observed entries: weight summed over every Draw of every
+  Chain, divided by the number of Draws (not the R pipeline's mean over Draws with a row). Scores are clipped to [0, 1]
+  and rounded to 10 decimals. The directed universe is every ordered pair of distinct Infections, a missing score
+  counting 0; the undirected universe is every unordered pair, scored by the sum of its two directions clipped to 1,
+  and true when a true edge joins it either way.
+- **Ranking metrics**, directed and undirected: the precision-recall curve at each distinct score (tied pairs enter
+  together); `average_precision` = sum of the recall gained at each breakpoint times the precision there; `pr_auc` =
+  trapezoid area with (recall 0, precision 1) prepended; `top_k_precision` = precision of every pair scoring at least
+  the k-th highest score, k the number of true edges (ties included); `n_edge_universe`, `n_true_edges`,
+  `n_distinct_scores`.
+- **Baselines**: the null-model Analysis (`null_model`) is scored the same way against the same truth. The pairwise
+  scores CSV (`pairwise_scores`) has columns `a, b, score`, one row per pair of Infection ids in either order (the
+  largest score of a pair's rows counts; pairs without a row score 0; ids outside the Analysis are ignored), and is
+  ranked undirected only.
+- **Parent-set metrics**: an Infection's sets are pooled over Chains (matched by members), ranked by weight. Its
+  effective size is exp of the entropy of the pooled weights, its credible collection the smallest prefix with mass at
+  least the level (as `functionals.credible_collection`), its top probability the modal set's weight. The summary
+  columns are `mean_credible_parent_set_size_80`, `median_credible_parent_set_size_80`,
+  `credible_parent_set_coverage_80` and `mean_top_parent_set_probability`; a level other than 0.8 has the suffix
+  `_a<percent>`, for example `_a095`.
+
 `web/README.md` says how to develop the frontend and how to add a view.
 
 ## Summarise a Run
@@ -235,6 +279,17 @@ functionals.map_graph(store)                     # {infection: RankedSet} of mod
 functionals.psi_map(store)
 functionals.size_range(store, level=0.8)         # (psi_lo, psi_hi)
 functionals.credible_collection(store, "3", level=0.8)   # [RankedSet(set_id, members, weight, rank, ...), ...]
+
+from pt_analysis import metrics
+
+truth = metrics.analysis_truth(analysis)         # Truth: edges, parent_sets, n_true_cases, ...; None without truth
+metrics.edge_scores(analysis)                    # {(parent, child): pooled Edge marginal}
+metrics.edge_rankings(analysis, truth)           # {"directed": Ranking, "undirected": Ranking}
+metrics.ranking_fits(analysis, truth)            # posterior, null and IBD Rankings, as the manifest names them
+metrics.rank(scores, truth_flags)                # Ranking of any scores: curve, average_precision, pr_auc, ...
+metrics.parent_set_rows(analysis, truth, 0.8)    # [InfectionParentSets(infection, effective_size, credible_size,
+                                                 #   covered, top_probability), ...]
+metrics.fit_summary_metrics(analysis, truth)     # {fit-summary column name: value} for the ranking and parent sets
 ```
 
 The benchmark scripts run in this environment:

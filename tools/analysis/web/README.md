@@ -34,6 +34,16 @@ pnpm dev                                              # here: the page with hot 
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
+| `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
+
+## Views
+
+| Route | View |
+|---|---|
+| `#/convergence` | Convergence table (U1) |
+| `#/trace?group=&name=` | Trace panel (U1) |
+| `#/ranking` | Ranking against truth (U6): directed and undirected precision-recall curves, posterior solid, null-model dashed, IBD dotted, a dotted grey line at the random ranking's precision; metrics table below |
+| `#/parentsets?level=0.8` | Parent sets (U6): per Infection effective size, credible size, whether the true set is in the credible collection, top probability, and the same for the null fit; sortable by any column; a summary line per fit |
 
 ## Add a view
 
