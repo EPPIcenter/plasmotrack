@@ -79,3 +79,34 @@ export function parentSetTable(rows: readonly ParentSetRow[], withNull: boolean)
   const columns = ["infection", ...fit, ...(withNull ? fit.map((c) => `null_${c}`) : [])];
   return recordsTable(columns, rows);
 }
+
+export const COVERAGE_CLASSES = ["holds the true set", "misses it", "no truth"] as const;
+export type CoverageClass = (typeof COVERAGE_CLASSES)[number];
+
+const coverageClass = (covered: boolean | null | undefined): CoverageClass =>
+  covered === true ? COVERAGE_CLASSES[0] : covered === false ? COVERAGE_CLASSES[1] : COVERAGE_CLASSES[2];
+
+/** Ranges of credible collection size, for counting Infections: real fits run from 1 to thousands of sets. */
+export const SIZE_RANGES = [
+  [1, 1], [2, 2], [3, 5], [6, 10], [11, 50], [51, 100], [101, 500], [501, 1000], [1001, Infinity],
+].map(([lo, hi]) => ({
+  lo: lo!, hi: hi!,
+  label: hi === Infinity ? `> ${(lo! - 1).toLocaleString("en")}` : lo === hi ? String(lo) : `${lo!.toLocaleString("en")}–${hi!.toLocaleString("en")}`,
+}));
+
+/** Infections per range of credible collection size (`SIZE_RANGES`) and coverage class, ranges ascending, classes in
+ *  `COVERAGE_CLASSES` order; combinations without an Infection left out. */
+export function credibleSizeCounts(rows: readonly ParentSetRow[]): { size: string; coverage: CoverageClass; n: number }[] {
+  const counts = new Map<string, { range: number; size: string; coverage: CoverageClass; n: number }>();
+  for (const r of rows) {
+    const coverage = coverageClass(r.covered);
+    const range = Math.max(0, SIZE_RANGES.findIndex((s) => r.credible_size >= s.lo && r.credible_size <= s.hi));
+    const key = `${range}|${coverage}`;
+    const found = counts.get(key) ?? { range, size: SIZE_RANGES[range]!.label, coverage, n: 0 };
+    found.n++;
+    counts.set(key, found);
+  }
+  return [...counts.values()]
+    .sort((a, b) => a.range - b.range || COVERAGE_CLASSES.indexOf(a.coverage) - COVERAGE_CLASSES.indexOf(b.coverage))
+    .map(({ size, coverage, n }) => ({ size, coverage, n }));
+}

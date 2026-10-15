@@ -1,7 +1,7 @@
 """The golden Analysis for the web app's tests: its endpoints' JSON as fixtures, or served for the Playwright smoke test.
 
 The golden two-Chain Analysis (`tests/conftest.py`, `golden_analysis`) is copied into a temporary directory with an epi
-CSV and a truth file, so every endpoint has data. Run from `tools/analysis/`:
+CSV, a truth file and a cohort of three fits of it (full, partial and null; `cohort`), so every endpoint has data. Run from `tools/analysis/`:
 
     uv run python web/scripts/golden.py fixtures web/src/test/fixtures   # write <name>.json per endpoint
     uv run python web/scripts/golden.py serve --port 8899                 # serve it (and web/dist/) until stopped
@@ -53,7 +53,33 @@ ENDPOINTS = {
     "ranking": "/api/ranking",
     "parent-sets": "/api/parent-sets",
     "compare-convergence": "/api/compare/convergence",
+    "cohort": "/api/cohort",
 }
+
+# The cohort's fits: (fit_type, missingness_condition), each a copy of the golden Analysis with these factors.
+COHORT_FITS = [("posterior", "full"), ("posterior", "missing_50"), ("null_prior", "full")]
+FACTORS = {"run_key": "biological__fp0.05__sp0__r00.5__coi1__high__sim0__s0", "simulation_model": "biological",
+           "total_nodes": 3, "founder_probability": 0.05, "superinfection_probability": 0, "secondary_case_rate": 0.5,
+           "founder_coi_rate": 1, "asymptomatic_probability": 0.5, "panel_name": "high",
+           "panel_alleles_per_locus": 20, "simulation_index": 0, "seed": 0}
+
+
+def cohort(directory):
+    """A cohort of the golden Analysis's fit summaries, one per `COHORT_FITS`, with per-edge rows: `cohort.parquet`."""
+    from pt_analysis import cohort as cohorts
+    from pt_analysis import fit_summary
+
+    rows = directory / "rows"
+    rows.mkdir()
+    for fit_type, missing in COHORT_FITS:
+        fit = directory / f"{fit_type}-{missing}"
+        fit.mkdir()
+        (fit / "truth.json").write_text(json.dumps(TRUTH))
+        analysis = open_golden(fit, label=fit.name, truth="truth.json",
+                               factors=FACTORS | {"fit_type": fit_type, "missingness_condition": missing})
+        fit_summary.write_row(fit_summary.summarize(analysis), rows / f"{fit.name}.parquet", manifest=analysis.path)
+        fit_summary.write_edges(analysis, cohorts.edges_path(rows / f"{fit.name}.parquet"))
+    cohorts.concatenate([rows], directory / "cohort.parquet")
 
 
 # Fixture name -> request, against two Analyses open side by side (`pt-analysis serve single.json replica.json`): the
@@ -67,11 +93,12 @@ SINGLE_TIMINGS = {"chain1": {"sampling_seconds": 4.0, "instructions_retired": 2.
 
 
 def golden(directory):
-    """The golden Analysis with epi data and truth, its copies in `directory`."""
+    """The golden Analysis with epi data, truth and a cohort, its copies in `directory`."""
     directory = Path(directory).resolve()
     (directory / "epi.csv").write_text(EPI)
     (directory / "truth.json").write_text(json.dumps(TRUTH))
-    return open_golden(directory, label="golden", epi="epi.csv", truth="truth.json")
+    cohort(directory)
+    return open_golden(directory, label="golden", epi="epi.csv", truth="truth.json", cohort="cohort.parquet")
 
 
 def comparison(directory):
@@ -95,6 +122,8 @@ def capture(client, endpoints, out):
         if "analyses" in body and isinstance(body["analyses"][0], dict):  # temporary paths change on every capture
             for a in body["analyses"]:
                 a["path"] = f"golden/{a['label'] if a['label'] != 'golden' else 'analysis'}.json"
+        if name == "cohort":
+            body["file"] = "golden/cohort.parquet"
         (out / f"{name}.json").write_text(json.dumps(body, indent=1, sort_keys=True) + "\n")
         print(f"{name}.json  {path}")
 

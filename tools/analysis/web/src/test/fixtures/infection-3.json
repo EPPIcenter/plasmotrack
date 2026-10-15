@@ -113,31 +113,31 @@
      {
       "class": "observed_1",
       "credible": true,
-      "cumulative_mass": 0.8847704596398124,
+      "cumulative_mass": 0.8847704596398123,
       "members": [
        "1"
       ],
       "n_observed": 1,
       "rank": 1,
       "set_id": 4,
-      "weight": 0.8847704596398124
+      "weight": 0.8847704596398123
      },
      {
       "class": "unobserved_only",
       "credible": false,
-      "cumulative_mass": 0.993118477193562,
+      "cumulative_mass": 0.9931184771935619,
       "members": [
        "3_copy"
       ],
       "n_observed": 0,
       "rank": 2,
       "set_id": 0,
-      "weight": 0.10834801755374968
+      "weight": 0.10834801755374965
      },
      {
       "class": "observed_1_unobserved",
       "credible": false,
-      "cumulative_mass": 0.9969846341068009,
+      "cumulative_mass": 0.9969846341068008,
       "members": [
        "1",
        "3_copy"
@@ -145,12 +145,12 @@
       "n_observed": 1,
       "rank": 3,
       "set_id": 1,
-      "weight": 0.0038661569132389184
+      "weight": 0.003866156913238919
      },
      {
       "class": "observed_2",
       "credible": false,
-      "cumulative_mass": 0.9997154435801592,
+      "cumulative_mass": 0.9997154435801591,
       "members": [
        "1",
        "2"
@@ -163,7 +163,7 @@
      {
       "class": "observed_1_unobserved",
       "credible": false,
-      "cumulative_mass": 0.9999848961362281,
+      "cumulative_mass": 0.999984896136228,
       "members": [
        "2",
        "3_copy"
@@ -176,7 +176,7 @@
      {
       "class": "observed_2_unobserved",
       "credible": false,
-      "cumulative_mass": 1.0,
+      "cumulative_mass": 0.9999999999999999,
       "members": [
        "1",
        "2",
@@ -214,7 +214,7 @@
       "n_observed": 0,
       "rank": 2,
       "set_id": 0,
-      "weight": 0.2241170658651365
+      "weight": 0.22411706586513644
      },
      {
       "class": "observed_2",
@@ -253,7 +253,7 @@
       "n_observed": 1,
       "rank": 5,
       "set_id": 2,
-      "weight": 0.00018659415323605335
+      "weight": 0.00018659415323605337
      },
      {
       "class": "observed_2_unobserved",
@@ -267,7 +267,7 @@
       "n_observed": 2,
       "rank": 6,
       "set_id": 3,
-      "weight": 7.748344997203153e-06
+      "weight": 7.748344997203151e-06
      }
     ]
    }
@@ -278,7 +278,7 @@
     "chains": [
      {
       "chain": "chain1",
-      "weight": 0.8847704596398124
+      "weight": 0.8847704596398123
      },
      {
       "chain": "chain2",
@@ -300,11 +300,11 @@
     "chains": [
      {
       "chain": "chain1",
-      "weight": 0.10834801755374968
+      "weight": 0.10834801755374965
      },
      {
       "chain": "chain2",
-      "weight": 0.2241170658651365
+      "weight": 0.22411706586513644
      }
     ],
     "class": "unobserved_only",
@@ -322,7 +322,7 @@
     "chains": [
      {
       "chain": "chain1",
-      "weight": 0.0038661569132389184
+      "weight": 0.003866156913238919
      },
      {
       "chain": "chain2",
@@ -339,7 +339,7 @@
     "n_observed": 1,
     "rank": 3,
     "set_id": 1,
-    "weight": 0.0028621801826783197
+    "weight": 0.00286218018267832
    },
    {
     "chains": [
@@ -372,7 +372,7 @@
      },
      {
       "chain": "chain2",
-      "weight": 0.00018659415323605335
+      "weight": 0.00018659415323605337
      }
     ],
     "class": "observed_1_unobserved",
@@ -395,7 +395,7 @@
      },
      {
       "chain": "chain2",
-      "weight": 7.748344997203153e-06
+      "weight": 7.748344997203151e-06
      }
     ],
     "class": "observed_2_unobserved",

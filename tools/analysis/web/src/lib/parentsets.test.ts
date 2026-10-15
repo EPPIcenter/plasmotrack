@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { levelSuffix, parentSetTable, sortRows, summaryLine, type ParentSetRow, type ParentSetsPayload } from "./parentsets";
+import { credibleSizeCounts, SIZE_RANGES, levelSuffix, parentSetTable, sortRows, summaryLine, type ParentSetRow, type ParentSetsPayload } from "./parentsets";
 
 const row = (infection: string, credible_size: number, covered: boolean | null, top: number): ParentSetRow => ({
   infection,
@@ -76,5 +76,38 @@ describe("parentSetTable", () => {
     });
     const withNull = { ...rows[1]!, null_effective_size: 2.5, null_credible_size: 4, null_covered: true, null_top_probability: 0.3 };
     expect(parentSetTable([withNull], true).rows).toEqual([["2", 1, 1, true, 0.99, 2.5, 4, true, 0.3]]);
+  });
+});
+
+describe("credibleSizeCounts", () => {
+  it("counts Infections per range of credible collection size and whether it holds the true set, ranges ascending", () => {
+    const rows = [
+      { infection: "1", effective_size: 1, credible_size: 1, covered: true, top_probability: 1 },
+      { infection: "2", effective_size: 1.2, credible_size: 1, covered: false, top_probability: 0.9 },
+      { infection: "3", effective_size: 2.5, credible_size: 3, covered: true, top_probability: 0.5 },
+      { infection: "4", effective_size: 1, credible_size: 1, covered: true, top_probability: 1 },
+      { infection: "5", effective_size: 900, credible_size: 2400, covered: false, top_probability: 0.01 },
+      { infection: "6", effective_size: 2, credible_size: 5, covered: false, top_probability: 0.3 },
+    ];
+    expect(credibleSizeCounts(rows)).toEqual([
+      { size: "1", coverage: "holds the true set", n: 2 },
+      { size: "1", coverage: "misses it", n: 1 },
+      { size: "3–5", coverage: "holds the true set", n: 1 },
+      { size: "3–5", coverage: "misses it", n: 1 },
+      { size: "> 1,000", coverage: "misses it", n: 1 },
+    ]);
+  });
+
+  it("has one class without truth", () => {
+    const rows = [{ infection: "1", effective_size: 1, credible_size: 2, covered: null, top_probability: 1 }];
+    expect(credibleSizeCounts(rows)).toEqual([{ size: "2", coverage: "no truth", n: 1 }]);
+  });
+});
+
+describe("SIZE_RANGES", () => {
+  it("covers every size from 1 up, in order, without gaps", () => {
+    SIZE_RANGES.forEach((r, i) => i && expect(r.lo).toBe(SIZE_RANGES[i - 1]!.hi + 1));
+    expect(SIZE_RANGES[0]!.lo).toBe(1);
+    expect(SIZE_RANGES.at(-1)!.hi).toBe(Infinity);
   });
 });

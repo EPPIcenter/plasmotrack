@@ -1,0 +1,690 @@
+{
+ "calibration": {
+  "bin": [
+   0,
+   8,
+   0,
+   8,
+   0,
+   8
+  ],
+  "bins": 10,
+  "n": [
+   2,
+   1,
+   2,
+   1,
+   2,
+   1
+  ],
+  "n_true": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "row": [
+   0,
+   0,
+   1,
+   1,
+   2,
+   2
+  ],
+  "score_sum": [
+   0.0058763823,
+   0.8335394349,
+   0.0058763823,
+   0.8335394349,
+   0.0058763823,
+   0.8335394349
+  ]
+ },
+ "columns": [
+  {
+   "kind": "string",
+   "name": "run_key"
+  },
+  {
+   "kind": "string",
+   "name": "simulation_model"
+  },
+  {
+   "kind": "number",
+   "name": "total_nodes"
+  },
+  {
+   "kind": "number",
+   "name": "founder_probability"
+  },
+  {
+   "kind": "number",
+   "name": "superinfection_probability"
+  },
+  {
+   "kind": "number",
+   "name": "secondary_case_rate"
+  },
+  {
+   "kind": "number",
+   "name": "founder_coi_rate"
+  },
+  {
+   "kind": "number",
+   "name": "asymptomatic_probability"
+  },
+  {
+   "kind": "string",
+   "name": "panel_name"
+  },
+  {
+   "kind": "number",
+   "name": "panel_alleles_per_locus"
+  },
+  {
+   "kind": "integer",
+   "name": "simulation_index"
+  },
+  {
+   "kind": "integer",
+   "name": "seed"
+  },
+  {
+   "kind": "string",
+   "name": "missingness_condition"
+  },
+  {
+   "kind": "string",
+   "name": "fit_type"
+  },
+  {
+   "kind": "integer",
+   "name": "n_true_cases"
+  },
+  {
+   "kind": "integer",
+   "name": "n_observed_cases"
+  },
+  {
+   "kind": "number",
+   "name": "true_average_outdegree"
+  },
+  {
+   "kind": "number",
+   "name": "true_unobserved_source_proportion"
+  },
+  {
+   "kind": "number",
+   "name": "estimated_average_outdegree"
+  },
+  {
+   "kind": "number",
+   "name": "average_outdegree_lower"
+  },
+  {
+   "kind": "number",
+   "name": "average_outdegree_upper"
+  },
+  {
+   "kind": "number",
+   "name": "estimated_unobserved_source_proportion"
+  },
+  {
+   "kind": "number",
+   "name": "unobserved_source_lower"
+  },
+  {
+   "kind": "number",
+   "name": "unobserved_source_upper"
+  },
+  {
+   "kind": "number",
+   "name": "mean_observed_only_probability"
+  },
+  {
+   "kind": "number",
+   "name": "mean_observed_only_probability_lower"
+  },
+  {
+   "kind": "number",
+   "name": "mean_observed_only_probability_upper"
+  },
+  {
+   "kind": "number",
+   "name": "mean_mixed_observed_unobserved_probability"
+  },
+  {
+   "kind": "number",
+   "name": "mean_mixed_observed_unobserved_probability_lower"
+  },
+  {
+   "kind": "number",
+   "name": "mean_mixed_observed_unobserved_probability_upper"
+  },
+  {
+   "kind": "number",
+   "name": "mean_unobserved_only_probability"
+  },
+  {
+   "kind": "number",
+   "name": "mean_unobserved_only_probability_lower"
+  },
+  {
+   "kind": "number",
+   "name": "mean_unobserved_only_probability_upper"
+  },
+  {
+   "kind": "number",
+   "name": "mean_no_parent_probability"
+  },
+  {
+   "kind": "number",
+   "name": "mean_no_parent_probability_lower"
+  },
+  {
+   "kind": "number",
+   "name": "mean_no_parent_probability_upper"
+  },
+  {
+   "kind": "number",
+   "name": "mean_multi_source_probability_augmented"
+  },
+  {
+   "kind": "number",
+   "name": "mean_multi_source_probability_augmented_lower"
+  },
+  {
+   "kind": "number",
+   "name": "mean_multi_source_probability_augmented_upper"
+  },
+  {
+   "kind": "number",
+   "name": "mean_multi_source_probability_observed_only"
+  },
+  {
+   "kind": "number",
+   "name": "mean_multi_source_probability_observed_only_lower"
+  },
+  {
+   "kind": "number",
+   "name": "mean_multi_source_probability_observed_only_upper"
+  },
+  {
+   "kind": "number",
+   "name": "mean_parent_set_entropy"
+  },
+  {
+   "kind": "number",
+   "name": "mean_parent_set_entropy_lower"
+  },
+  {
+   "kind": "number",
+   "name": "mean_parent_set_entropy_upper"
+  },
+  {
+   "kind": "number",
+   "name": "mean_effective_parent_sets"
+  },
+  {
+   "kind": "number",
+   "name": "mean_effective_parent_sets_lower"
+  },
+  {
+   "kind": "number",
+   "name": "mean_effective_parent_sets_upper"
+  },
+  {
+   "kind": "integer",
+   "name": "directed_n_edge_universe"
+  },
+  {
+   "kind": "integer",
+   "name": "directed_n_true_edges"
+  },
+  {
+   "kind": "integer",
+   "name": "directed_n_distinct_scores"
+  },
+  {
+   "kind": "number",
+   "name": "directed_average_precision"
+  },
+  {
+   "kind": "number",
+   "name": "directed_pr_auc"
+  },
+  {
+   "kind": "number",
+   "name": "directed_top_k_precision"
+  },
+  {
+   "kind": "integer",
+   "name": "undirected_n_edge_universe"
+  },
+  {
+   "kind": "integer",
+   "name": "undirected_n_true_edges"
+  },
+  {
+   "kind": "integer",
+   "name": "undirected_n_distinct_scores"
+  },
+  {
+   "kind": "number",
+   "name": "undirected_average_precision"
+  },
+  {
+   "kind": "number",
+   "name": "undirected_pr_auc"
+  },
+  {
+   "kind": "number",
+   "name": "undirected_top_k_precision"
+  },
+  {
+   "kind": "number",
+   "name": "mean_credible_parent_set_size_80"
+  },
+  {
+   "kind": "number",
+   "name": "median_credible_parent_set_size_80"
+  },
+  {
+   "kind": "number",
+   "name": "credible_parent_set_coverage_80"
+  },
+  {
+   "kind": "number",
+   "name": "mean_top_parent_set_probability"
+  },
+  {
+   "kind": "number",
+   "name": "average_outdegree_error"
+  },
+  {
+   "kind": "number",
+   "name": "average_outdegree_abs_error"
+  },
+  {
+   "kind": "number",
+   "name": "average_outdegree_sq_error"
+  },
+  {
+   "kind": "number",
+   "name": "unobserved_source_error"
+  },
+  {
+   "kind": "number",
+   "name": "unobserved_source_abs_error"
+  },
+  {
+   "kind": "number",
+   "name": "unobserved_source_sq_error"
+  },
+  {
+   "kind": "string",
+   "name": "manifest"
+  }
+ ],
+ "data": {
+  "asymptomatic_probability": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "average_outdegree_abs_error": [
+   0.3868613942511797,
+   0.3868613942511797,
+   0.3868613942511797
+  ],
+  "average_outdegree_error": [
+   -0.3868613942511797,
+   -0.3868613942511797,
+   -0.3868613942511797
+  ],
+  "average_outdegree_lower": [
+   0.002508729037870726,
+   0.002508729037870726,
+   0.002508729037870726
+  ],
+  "average_outdegree_sq_error": [
+   0.1496617383619667,
+   0.1496617383619667,
+   0.1496617383619667
+  ],
+  "average_outdegree_upper": [
+   0.3322350542409481,
+   0.3322350542409481,
+   0.3322350542409481
+  ],
+  "credible_parent_set_coverage_80": [
+   0.6666666666666666,
+   0.6666666666666666,
+   0.6666666666666666
+  ],
+  "directed_average_precision": [
+   0.8333333333333333,
+   0.8333333333333333,
+   0.8333333333333333
+  ],
+  "directed_n_distinct_scores": [
+   4,
+   4,
+   4
+  ],
+  "directed_n_edge_universe": [
+   6,
+   6,
+   6
+  ],
+  "directed_n_true_edges": [
+   2,
+   2,
+   2
+  ],
+  "directed_pr_auc": [
+   0.7916666666666666,
+   0.7916666666666666,
+   0.7916666666666666
+  ],
+  "directed_top_k_precision": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "estimated_average_outdegree": [
+   0.2798052724154869,
+   0.2798052724154869,
+   0.2798052724154869
+  ],
+  "estimated_unobserved_source_proportion": [
+   0.7231113904503861,
+   0.7231113904503861,
+   0.7231113904503861
+  ],
+  "fit_type": [
+   "null_prior",
+   "posterior",
+   "posterior"
+  ],
+  "founder_coi_rate": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "founder_probability": [
+   0.05,
+   0.05,
+   0.05
+  ],
+  "manifest": [
+   "null_prior-full/analysis.json",
+   "posterior-full/analysis.json",
+   "posterior-missing_50/analysis.json"
+  ],
+  "mean_credible_parent_set_size_80": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "mean_effective_parent_sets": [
+   1.108758862022207,
+   1.108758862022207,
+   1.108758862022207
+  ],
+  "mean_effective_parent_sets_lower": [
+   1.0172279679966203,
+   1.0172279679966203,
+   1.0172279679966203
+  ],
+  "mean_effective_parent_sets_upper": [
+   1.2276298153212768,
+   1.2276298153212768,
+   1.2276298153212768
+  ],
+  "mean_mixed_observed_unobserved_probability": [
+   0.002004146028792547,
+   0.002004146028792547,
+   0.002004146028792547
+  ],
+  "mean_mixed_observed_unobserved_probability_lower": [
+   0.0001707681410935183,
+   0.0001707681410935183,
+   0.0001707681410935183
+  ],
+  "mean_mixed_observed_unobserved_probability_upper": [
+   0.004050630023004539,
+   0.004050630023004539,
+   0.004050630023004539
+  ],
+  "mean_multi_source_probability_augmented": [
+   0.002912854164411549,
+   0.002912854164411549,
+   0.002912854164411549
+  ],
+  "mean_multi_source_probability_augmented_lower": [
+   0.0002913556622068281,
+   0.0002913556622068281,
+   0.0002913556622068281
+  ],
+  "mean_multi_source_probability_augmented_upper": [
+   0.00690550995796937,
+   0.00690550995796937,
+   0.00690550995796937
+  ],
+  "mean_multi_source_probability_observed_only": [
+   0.0009125168370805247,
+   0.0009125168370805247,
+   0.0009125168370805247
+  ],
+  "mean_multi_source_probability_observed_only_lower": [
+   5.877011137376582e-07,
+   5.877011137376582e-07,
+   5.877011137376582e-07
+  ],
+  "mean_multi_source_probability_observed_only_upper": [
+   0.002921432074740363,
+   0.002921432074740363,
+   0.002921432074740363
+  ],
+  "mean_no_parent_probability": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "mean_no_parent_probability_lower": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "mean_no_parent_probability_upper": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "mean_observed_only_probability": [
+   0.2768886095496138,
+   0.2768886095496138,
+   0.2768886095496138
+  ],
+  "mean_observed_only_probability_lower": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "mean_observed_only_probability_upper": [
+   0.32711277235881137,
+   0.32711277235881137,
+   0.32711277235881137
+  ],
+  "mean_parent_set_entropy": [
+   0.09152851001309117,
+   0.09152851001309117,
+   0.09152851001309117
+  ],
+  "mean_parent_set_entropy_lower": [
+   0.017004267742109776,
+   0.017004267742109776,
+   0.017004267742109776
+  ],
+  "mean_parent_set_entropy_upper": [
+   0.17549537442131927,
+   0.17549537442131927,
+   0.17549537442131927
+  ],
+  "mean_top_parent_set_probability": [
+   0.9416762985991074,
+   0.9416762985991074,
+   0.9416762985991074
+  ],
+  "mean_unobserved_only_probability": [
+   0.7211072444215936,
+   0.7211072444215936,
+   0.7211072444215936
+  ],
+  "mean_unobserved_only_probability_lower": [
+   0.6701157092388353,
+   0.6701157092388353,
+   0.6701157092388353
+  ],
+  "mean_unobserved_only_probability_upper": [
+   0.9974918586632429,
+   0.9974918586632429,
+   0.9974918586632429
+  ],
+  "median_credible_parent_set_size_80": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "missingness_condition": [
+   "full",
+   "full",
+   "missing_50"
+  ],
+  "n_observed_cases": [
+   3,
+   3,
+   3
+  ],
+  "n_true_cases": [
+   3,
+   3,
+   3
+  ],
+  "panel_alleles_per_locus": [
+   20.0,
+   20.0,
+   20.0
+  ],
+  "panel_name": [
+   "high",
+   "high",
+   "high"
+  ],
+  "run_key": [
+   "biological__fp0.05__sp0__r00.5__coi1__high__sim0__s0",
+   "biological__fp0.05__sp0__r00.5__coi1__high__sim0__s0",
+   "biological__fp0.05__sp0__r00.5__coi1__high__sim0__s0"
+  ],
+  "secondary_case_rate": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "seed": [
+   0,
+   0,
+   0
+  ],
+  "simulation_index": [
+   0,
+   0,
+   0
+  ],
+  "simulation_model": [
+   "biological",
+   "biological",
+   "biological"
+  ],
+  "superinfection_probability": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "total_nodes": [
+   3.0,
+   3.0,
+   3.0
+  ],
+  "true_average_outdegree": [
+   0.6666666666666666,
+   0.6666666666666666,
+   0.6666666666666666
+  ],
+  "true_unobserved_source_proportion": [
+   0.3333333333333333,
+   0.3333333333333333,
+   0.3333333333333333
+  ],
+  "undirected_average_precision": [
+   0.8333333333333333,
+   0.8333333333333333,
+   0.8333333333333333
+  ],
+  "undirected_n_distinct_scores": [
+   3,
+   3,
+   3
+  ],
+  "undirected_n_edge_universe": [
+   3,
+   3,
+   3
+  ],
+  "undirected_n_true_edges": [
+   2,
+   2,
+   2
+  ],
+  "undirected_pr_auc": [
+   0.7916666666666666,
+   0.7916666666666666,
+   0.7916666666666666
+  ],
+  "undirected_top_k_precision": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "unobserved_source_abs_error": [
+   0.38977805711705277,
+   0.38977805711705277,
+   0.38977805711705277
+  ],
+  "unobserved_source_error": [
+   0.38977805711705277,
+   0.38977805711705277,
+   0.38977805711705277
+  ],
+  "unobserved_source_lower": [
+   0.6728872276411886,
+   0.6728872276411886,
+   0.6728872276411886
+  ],
+  "unobserved_source_sq_error": [
+   0.15192693380994446,
+   0.15192693380994446,
+   0.15192693380994446
+  ],
+  "unobserved_source_upper": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ "file": "golden/cohort.parquet",
+ "n": 3
+}

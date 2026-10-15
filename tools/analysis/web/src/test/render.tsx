@@ -59,8 +59,8 @@ export function mockApi(overrides: Record<string, unknown> = {}) {
   return mock;
 }
 
-/** The whole app at `url`, on fixtures (`overrides` as in `mockApi`). Returns the history, to read the URL, and the
- *  fetch mock. */
+/** The whole app at `url`, on fixtures (`overrides` as `mockApi` takes them). Returns the history, to read the URL,
+ *  and the fetch mock. */
 export function renderApp(url = "/overview", overrides: Record<string, unknown> = {}) {
   const fetch = mockApi(overrides);
   const history = createMemoryHistory({ initialEntries: [url] });

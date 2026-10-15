@@ -1,11 +1,12 @@
 {
  "attention": {
   "convergence": 20,
+  "errors": 1,
   "samplers": 6
  },
  "capabilities": {
   "analyses": 1,
-  "cohort": false,
+  "cohort": true,
   "epi": true,
   "pairwise_scores": false,
   "truth": true

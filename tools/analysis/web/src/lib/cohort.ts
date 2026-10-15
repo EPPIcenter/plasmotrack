@@ -3,6 +3,7 @@
 
 import type { DataTable } from "./export";
 import { CHAIN_COLOURS } from "./format";
+import { chainColour, type ChartTheme } from "./palette";
 
 export type ColumnKind = "string" | "integer" | "number";
 export type Value = string | number | null;
@@ -187,4 +188,54 @@ export function nearestRow(points: readonly { row: number; px: number; py: numbe
 export function cohortTable(p: CohortPayload, rows: readonly number[]): DataTable {
   const names = p.columns.map((c) => c.name);
   return { columns: ["fit", ...names], rows: rows.map((r) => [fitLabel(p, r), ...names.map((c) => p.data[c]?.[r] ?? null)]) };
+}
+
+/** A fit label's colour in a theme, on the same categorical slots as `FIT_COLOURS`; other labels take slot 4. */
+export const cohortFitColour = (theme: ChartTheme, fit: string) =>
+  chainColour(theme, ({ full: 0, null: 1, partial: 2 } as Record<string, number>)[fit] ?? 3);
+
+const facetOrder = (fit: string) => {
+  const k = (FITS as readonly string[]).indexOf(fit);
+  return k < 0 ? FITS.length : k;
+};
+
+/** The fit labels of the cohort's rows, in facet order. */
+export function fitsIn(p: CohortPayload): string[] {
+  const found = new Set(Array.from({ length: p.n }, (_, r) => fitLabel(p, r)));
+  return [...found].sort((a, b) => facetOrder(a) - facetOrder(b) || a.localeCompare(b));
+}
+
+export interface BoxPoint {
+  row: number;
+  fit: string;
+  /** The factor's level as text; "–" for a fit without one. */
+  factor: string;
+  y: number;
+}
+
+/** A metric by a simulation factor over the selected rows, for box plots faceted by fit: the points (rows without
+ *  the metric left out), the factor's levels (numbers in numeric order, then text, "–" last) and the fits present. */
+export function boxData(p: CohortPayload, rows: readonly number[], metric: string, factor: string) {
+  const points: BoxPoint[] = rows.flatMap((row) => {
+    const y = p.data[metric]?.[row];
+    const level = p.data[factor]?.[row];
+    return isNumber(y) ? [{ row, fit: fitLabel(p, row), factor: level === null || level === undefined ? "–" : String(level), y }] : [];
+  });
+  const rank = (v: string) => (v === "–" ? 2 : Number.isFinite(Number(v)) && v.trim() !== "" ? 0 : 1);
+  const levels = [...new Set(points.map((d) => d.factor))].sort(
+    (a, b) => rank(a) - rank(b) || (rank(a) === 0 ? Number(a) - Number(b) : a.localeCompare(b)),
+  );
+  const fits = [...new Set(points.map((d) => d.fit))].sort((a, b) => facetOrder(a) - facetOrder(b) || a.localeCompare(b));
+  return { points, levels, fits };
+}
+
+/** A brush's rectangle as the URL keeps it, `x0,x1,y0,y1`; its columns are the scatter's x and y. */
+export const formatBrush = (b: Brush) => [b.x0, b.x1, b.y0, b.y1].join(",");
+
+/** The brush a URL value gives on the scatter of `x` against `y`, or null when it is absent or malformed. */
+export function parseBrush(text: string | undefined, x: string, y: string): Brush | null {
+  const parts = text?.split(",").map(Number) ?? [];
+  if (parts.length !== 4 || parts.some((v) => !Number.isFinite(v))) return null;
+  const [x0, x1, y0, y1] = parts as [number, number, number, number];
+  return { x, y, x0, x1, y0, y1 };
 }
