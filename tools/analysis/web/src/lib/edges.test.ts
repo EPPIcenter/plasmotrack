@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgeRows, edgeStatsTable, filterEdges, sortEdges, type EdgeJson } from "./edges";
+import { edgeIndex, edgeLag, edgeQuantity, edgeRows, edgeStatsTable, filterEdges, sortEdges, type EdgeJson } from "./edges";
 
 // A constructed Analysis of two Chains: 9<-1 disagrees between them (locked at 1 in A, absent in B); 9<-2 switches
 // often in both; 8<-1 is locked near 0 in both; 9<-9_copy is the unobserved source.
@@ -91,5 +91,27 @@ describe("edgeStatsTable", () => {
       ["9", "9_copy", true, "B", 0.5, 0, null, null],
       ["9", "9_copy", true, null, 0.6, 2, 0.2, NaN],
     ]);
+  });
+});
+
+describe("one edge", () => {
+  const index = edgeIndex(rows);
+
+  it("is found by parent, then child, and so is its reverse when it has a row", () => {
+    expect(index.get("1", "9")?.pooled).toBe(0.49);
+    expect(index.get("9", "1")).toBeUndefined();
+    expect(index.get("9_copy", "9")?.unobserved).toBe(true);
+  });
+
+  it("has a lag, the child's observation time minus the parent's; none from the unobserved source", () => {
+    const times = new Map([["1", 10], ["9", 35.5]]);
+    expect(edgeLag(index.get("1", "9")!, times)).toBe(25.5);
+    expect(edgeLag(index.get("9_copy", "9")!, times)).toBeNull();
+    expect(edgeLag(index.get("2", "9")!, times)).toBeNull();
+  });
+
+  it("names its trace quantity: the edge's, or the child's q for the unobserved source", () => {
+    expect(edgeQuantity(index.get("1", "9")!)).toEqual({ kind: "quantity", group: "edge", name: "9<-1" });
+    expect(edgeQuantity(index.get("9_copy", "9")!)).toEqual({ kind: "quantity", group: "unobserved-source inclusion", name: "9" });
   });
 });

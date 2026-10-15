@@ -1,8 +1,9 @@
-// Placeholder: replace this module with the Pair Inspector (DESIGN.md, Inspector).
+// The Pair Inspector: Summary (order per Chain, both Edge marginals, co-inclusion, infection times) and Genotypes
+// (per Locus, differing Loci counted and highlighted). See PairView.
 
-import { Placeholder } from "../../components/Placeholder";
 import type { InspectorProps } from "../registry";
+import { PairView } from "./PairView";
 
-export default function PairInspector(_: InspectorProps<"pair">) {
-  return <Placeholder title="Pair" description="Order probability per Chain, both Edge marginals, co-inclusion, genotype comparison, infection times" />;
+export default function PairInspector({ entity, tab }: InspectorProps<"pair">) {
+  return <PairView a={entity.a} b={entity.b} part={tab === "genotypes" ? "genotypes" : "summary"} />;
 }

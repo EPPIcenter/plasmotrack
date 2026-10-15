@@ -22,7 +22,7 @@ const tabs = (...names: string[]) => names.map((title) => ({ id: title.toLowerCa
 export const entities: { [K in EntityKind]: InspectorEntry<K> } = {
   infection: { title: "Infection", tabs: tabs("Summary", "Parents", "Children", "Genotype", "Traces"), load: () => import("./infection") },
   edge: { title: "Edge", tabs: tabs("Summary"), load: () => import("./edge") },
-  pair: { title: "Pair", tabs: tabs("Summary"), load: () => import("./pair") },
+  pair: { title: "Pair", tabs: tabs("Summary", "Genotypes"), load: () => import("./pair") },
   quantity: { title: "Quantity", tabs: tabs("Trace"), load: () => import("./quantity") },
   stratum: { title: "Stratum", tabs: tabs("Summary"), load: () => import("./stratum") },
 };

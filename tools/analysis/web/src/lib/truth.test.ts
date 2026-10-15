@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EDGE_COLOUR } from "./network";
 import {
+  edgeTruth,
   errorCounts,
   errorsTable,
   FALSE_COLOUR,
@@ -122,5 +123,28 @@ describe("errorsTable", () => {
     expect(t.columns).toEqual(["source", "threshold", "kind", "parent", "child", "marginal", "confidence", "reverse_marginal", "reverse_true",
       "lag", "parent_true_infection_time", "child_true_infection_time"]);
     expect(t.rows).toEqual([["null", 0.5, "missed", "3", "9", 0.5, 0.5, 0, false, 1, null, null]]);
+  });
+});
+
+describe("an edge's truth status", () => {
+  const posterior: OverlaySource = { source: "posterior", label: "golden", directed: true, edges: [
+    { parent: "1", child: "3", marginal: 0.83, true: true, reverse_true: false, reverse_marginal: 0, lag: 116 },
+    { parent: "2", child: "3", marginal: 0.2, true: false, reverse_true: false, reverse_marginal: 0, lag: 4 },
+  ] };
+
+  it("reads a listed edge's truth and its reverse's", () => {
+    expect(edgeTruth(posterior, "1", "3")).toEqual({ true: true, reverseTrue: false });
+    expect(edgeTruth(posterior, "2", "3")).toEqual({ true: false, reverseTrue: false });
+  });
+
+  it("calls an edge the overlay does not list false, since it lists every true edge, and its reverse true when listed so", () => {
+    expect(edgeTruth(posterior, "3", "1")).toEqual({ true: false, reverseTrue: true });
+    expect(edgeTruth(posterior, "4", "5")).toEqual({ true: false, reverseTrue: false });
+  });
+
+  it("knows nothing without truth", () => {
+    const unknown = { ...posterior, edges: posterior.edges.map((e) => ({ ...e, true: null, reverse_true: null })) };
+    expect(edgeTruth(unknown, "1", "3")).toBeNull();
+    expect(edgeTruth(undefined, "1", "3")).toBeNull();
   });
 });

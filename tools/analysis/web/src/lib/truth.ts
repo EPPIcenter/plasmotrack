@@ -189,3 +189,12 @@ export function errorsTable(p: Pick<ErrorsPayload, "source" | "label" | "thresho
     rows.map((r) => ({ source: p.source, threshold: p.threshold, ...r })),
   );
 }
+
+/** Whether the edge parent -> child is true and whether its reverse is, from an overlay edge set that lists every
+ *  true edge; null when the set carries no truth. */
+export function edgeTruth(source: OverlaySource | undefined, parent: string, child: string): { true: boolean; reverseTrue: boolean } | null {
+  if (!source || !source.edges.some((e) => e.true !== null)) return null;
+  const listed = source.edges.find((e) => e.parent === parent && e.child === child);
+  const reverse = source.edges.find((e) => e.parent === child && e.child === parent);
+  return { true: listed?.true ?? false, reverseTrue: Boolean(listed?.reverse_true ?? reverse?.true ?? false) };
+}

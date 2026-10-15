@@ -87,6 +87,11 @@ describe("Sparkline", () => {
     expect(paths).toHaveLength(2);
     expect(paths[1]).toHaveAttribute("stroke", "#222");
   });
+
+  it("draws on a fixed range when given one: a constant 1 sits at the top of [0, 1]", () => {
+    const { container } = render(<Sparkline series={[[1, 1]]} colours={["#111"]} width={10} height={16} domain={[0, 1]} />);
+    expect(container.querySelector("path")).toHaveAttribute("d", "M0.0,1.0L10.0,1.0");
+  });
 });
 
 describe("KpiStrip", () => {

@@ -1,8 +1,114 @@
-// Placeholder: replace this module with the Edge Inspector (DESIGN.md, Inspector).
+// The Edge Inspector (parent -> child): pooled and per-Chain marginal, spread, switches, ESS and lag; the reverse
+// edge's marginal; truth status when the Analysis has truth; links to the pair and both Infections; and the edge's
+// trace per Chain (the child's q for an edge from the unobserved source).
 
-import { Placeholder } from "../../components/Placeholder";
+import { useMemo } from "react";
+import { useEdges } from "../../api/edges";
+import { useNetwork, useTruthNetwork } from "../../api/network";
+import { useStatus } from "../../api/analysis";
+import { useTheme } from "../../app/theme";
+import { EntityLink } from "../../components/EntityLink";
+import { QuantityTrace } from "../../components/QuantityTrace";
+import { StatusChip } from "../../components/StatusChip";
+import { edgeIndex, edgeLag, edgeQuantity } from "../../lib/edges";
+import { chainColour } from "../../lib/palette";
+import { edgeTruth } from "../../lib/truth";
+import { ChainLabel, Figure, Figures, Section } from "../layout";
 import type { InspectorProps } from "../registry";
 
-export default function EdgeInspector(_: InspectorProps<"edge">) {
-  return <Placeholder title="Edge" description="Pooled and per-Chain marginal, spread, switches, ESS, lag, trace per Chain, reverse edge, truth" />;
+const marginal = (x: number | null | undefined) => (x === null || x === undefined || Number.isNaN(x) ? "–" : x.toFixed(3));
+
+export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
+  const { parent, child } = entity;
+  const { data, error, isLoading } = useEdges();
+  const { data: network } = useNetwork();
+  const { data: status } = useStatus();
+  const { data: overlay } = useTruthNetwork(Boolean(status?.capabilities.truth));
+  const { chart } = useTheme();
+
+  const index = useMemo(() => edgeIndex(data?.rows ?? []), [data]);
+  const times = useMemo(() => new Map((network?.nodes ?? []).map((n) => [n.id, n.observation_time])), [network]);
+
+  if (error) return <p className="p-3 text-axis text-critical-ink">Could not load the edge table: {error.message}</p>;
+  if (isLoading || !data) return <p className="p-3 text-axis text-muted">Loading…</p>;
+
+  const row = index.get(parent, child);
+  const infection = (id: string) => <EntityLink entity={{ kind: "infection", id }} />;
+  if (!row) {
+    return (
+      <div className="text-ui">
+        <Section title="Edge">
+          <p className="text-ink-2">No Draw of any Chain has {parent} as a parent of {child}: its Edge marginal is 0.</p>
+          <p className="mt-1 text-ink-2">
+            Infections {infection(parent)} and {infection(child)}; their <EntityLink entity={{ kind: "pair", a: parent, b: child }} />.
+          </p>
+        </Section>
+      </div>
+    );
+  }
+
+  const reverse = row.unobserved ? undefined : index.get(child, parent);
+  const truth = row.unobserved ? null : edgeTruth(overlay?.sources.find((s) => s.source === "posterior"), parent, child);
+  const lag = edgeLag(row, times);
+
+  return (
+    <div className="text-ui">
+      <Section title={row.unobserved ? "Edge from the unobserved source" : "Edge marginal"}>
+        {row.unobserved && (
+          <p className="mb-1 text-axis text-muted">The unobserved source ({parent}, {child}'s Latent parent): this edge's marginal is q of {infection(child)}.</p>
+        )}
+        <Figures>
+          <Figure label="Pooled marginal" title="Mean over every Draw of every Chain">{marginal(row.pooled)}</Figure>
+          <Figure label="Spread" title="Largest minus smallest Chain mean">{marginal(row.spread)}</Figure>
+          <Figure label="Switches" title="Adjacent Draws at which the marginal crossed one half, summed over Chains">{row.switches}</Figure>
+          <Figure label="ESS" title="Multi-chain effective sample size"><StatusChip kind="ess" value={row.ess} /></Figure>
+          <Figure label="Lag" title="The child's observation time minus the parent's">{lag === null ? "–" : lag.toFixed(1)}</Figure>
+        </Figures>
+        <table className="mt-2 w-full text-table tabular-nums" aria-label="Per Chain">
+          <thead className="text-ink-2">
+            <tr className="border-b border-line">
+              <th className="py-0.5 text-left font-medium">Chain</th>
+              <th className="text-right font-medium">Mean</th>
+              <th className="text-right font-medium">Switches</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.chains.map((c, k) => (
+              <tr key={c} className="border-b border-line/60">
+                <td className="py-0.5"><ChainLabel chain={c} colour={chainColour(chart, k)} /></td>
+                <td className="num">{marginal(row.chains[c]?.mean)}</td>
+                <td className="num">{row.chains[c]?.switches ?? "–"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Section>
+      {!row.unobserved && (
+        <Section title="Related">
+          <Figures>
+            <Figure label="Reverse edge" title="The edge the other way, child as the parent">
+              <EntityLink entity={{ kind: "edge", parent: child, child: parent }} />{" "}
+              <span className="text-ink-2">{reverse ? marginal(reverse.pooled) : "no Draw"}</span>
+            </Figure>
+            {truth && (
+              <Figure label="Truth" title="From the Analysis's truth file">
+                <span className={truth.true ? "text-good-ink" : "text-critical-ink"}>{truth.true ? "true edge" : "not a true edge"}</span>
+                {truth.reverseTrue && <span className="text-ink-2"> · reverse is true</span>}
+              </Figure>
+            )}
+            <Figure label="Pair" title="Their order, both edges, co-inclusion, genotypes and infection times">
+              <EntityLink entity={{ kind: "pair", a: parent, b: child }} />
+            </Figure>
+            <Figure label="Parent">{infection(parent)}</Figure>
+            <Figure label="Child">{infection(child)}</Figure>
+          </Figures>
+        </Section>
+      )}
+      <Section title="Trace per Chain">
+        <div className="-mx-2">
+          <QuantityTrace key={`${row.group}/${row.name}`} entity={edgeQuantity(row)} height={180} compact />
+        </div>
+      </Section>
+    </div>
+  );
 }

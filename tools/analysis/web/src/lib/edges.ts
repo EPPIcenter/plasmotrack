@@ -3,6 +3,7 @@
 import { num } from "./num";
 import type { DataTable } from "./export";
 import { compareInfectionIds } from "./ids";
+import type { Entity } from "./entity";
 
 /** One Chain's view of an edge: its mean weight over the Chain's Draws and how often it crossed one half. */
 export interface ChainEdge {
@@ -106,4 +107,27 @@ export function edgeStatsTable(rows: readonly EdgeRow[], chains: readonly string
       [r.child, r.parent, r.unobserved, null, r.pooled, r.switches, r.spread, r.ess],
     ]),
   };
+}
+
+/** Edge rows by parent and child. */
+export interface EdgeIndex {
+  get(parent: string, child: string): EdgeRow | undefined;
+}
+
+export function edgeIndex(rows: readonly EdgeRow[]): EdgeIndex {
+  const byKey = new Map(rows.map((r) => [`${r.child}<-${r.parent}`, r]));
+  return { get: (parent, child) => byKey.get(`${child}<-${parent}`) };
+}
+
+/** The child's observation time minus the parent's; null from the unobserved source or without both times. */
+export function edgeLag(row: Pick<EdgeRow, "child" | "parent" | "unobserved">, times: ReadonlyMap<string, number>): number | null {
+  if (row.unobserved) return null;
+  const child = times.get(row.child);
+  const parent = times.get(row.parent);
+  return child === undefined || parent === undefined ? null : child - parent;
+}
+
+/** The edge's trace quantity in the convergence table: the edge's own, or the child's q for the unobserved source. */
+export function edgeQuantity(row: Pick<EdgeRow, "group" | "name">): Extract<Entity, { kind: "quantity" }> {
+  return { kind: "quantity", group: row.group, name: row.name };
 }

@@ -6,6 +6,8 @@ export interface SparklineProps {
   width?: number;
   height?: number;
   label?: string;
+  /** A fixed y range, e.g. [0, 1] for probabilities; the series' own range by default. */
+  domain?: readonly [number, number];
 }
 
 export function sparkPath(values: readonly number[], width: number, height: number, lo: number, hi: number): string {
@@ -17,10 +19,10 @@ export function sparkPath(values: readonly number[], width: number, height: numb
     .join("");
 }
 
-export function Sparkline({ series, colours, width = 72, height = 16, label }: SparklineProps) {
+export function Sparkline({ series, colours, width = 72, height = 16, label, domain }: SparklineProps) {
   const finite = series.flat().filter(Number.isFinite);
-  const lo = Math.min(...finite);
-  const hi = Math.max(...finite);
+  const lo = domain ? domain[0] : Math.min(...finite);
+  const hi = domain ? domain[1] : Math.max(...finite);
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} className="block">
       {finite.length > 0 &&

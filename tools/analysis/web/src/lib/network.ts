@@ -160,6 +160,17 @@ export function findNode(ids: readonly string[], query: string): string | null {
  * surface (the ramp's lighter steps would recede into it). */
 export const Q_RAMP = ["#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95",
   "#104281", "#0d366b"];
+/** The q ramp on the dark surface: steps 600 down to 100 of the same blue, so q near 0 stays visible (3:1 against the
+ * dark surface) and a larger q is lighter, as the dark theme's sequential ramp runs. */
+export const Q_RAMP_DARK = ["#256abf", "#2a78d6", "#3987e5", "#5598e7", "#6da7ec", "#86b6ef", "#9ec5f4", "#b7d3f6",
+  "#cde2fb"];
+
+/** The ramp and categorical palette node colours take; the light theme's by default. */
+export interface NodePalette {
+  ramp: readonly string[];
+  categories: readonly string[];
+}
+
 /** An Infection without q. */
 export const NO_Q = "#a3a29d";
 
@@ -172,10 +183,10 @@ export function qColour(q: number | null): string {
 }
 
 /** The ramp's colour at `x` in [0, 1] (clamped), linear in RGB between its steps. */
-export function rampColour(x: number): string {
-  const t = Math.min(1, Math.max(0, x)) * (Q_RAMP.length - 1);
-  const k = Math.min(Math.floor(t), Q_RAMP.length - 2);
-  const [a, b] = [rgb(Q_RAMP[k]!), rgb(Q_RAMP[k + 1]!)];
+export function rampColour(x: number, ramp: readonly string[] = Q_RAMP): string {
+  const t = Math.min(1, Math.max(0, x)) * (ramp.length - 1);
+  const k = Math.min(Math.floor(t), ramp.length - 2);
+  const [a, b] = [rgb(ramp[k]!), rgb(ramp[k + 1]!)];
   return `#${a.map((v, i) => Math.round(v + (b[i]! - v) * (t - k)).toString(16).padStart(2, "0")).join("")}`;
 }
 
@@ -303,23 +314,28 @@ const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 /** Each node's colour under `key`, and the legend. q runs along the ramp from 0 to 1; a numeric or date column and
  * the posterior quantities from their smallest to their largest value; a categorical column takes the categorical
  * palette in the column's value order, or an ordinal ramp when it has more values than the palette (seven). No value: grey. */
-export function nodeColours(payload: NetworkPayload, key: ColourKey): NodeColours {
+export function nodeColours(
+  payload: NetworkPayload,
+  key: ColourKey,
+  palette: NodePalette = { ramp: Q_RAMP, categories: CATEGORY_COLOURS },
+): NodeColours {
+  const { ramp, categories } = palette;
   const colours = new Map<string, string>();
   const column = key.startsWith("epi:") ? payload.epi_columns?.find((c) => c.name === key.slice(4)) : undefined;
 
   if (column?.type === "categorical") {
     const values = column.values.filter((v): v is string => v !== null);
-    const palette = values.length <= CATEGORY_COLOURS.length
-      ? values.map((_, i) => CATEGORY_COLOURS[i]!)
-      : values.map((_, i) => rampColour(i / (values.length - 1)));
-    const byValue = new Map(values.map((v, i) => [v, palette[i]!]));
+    const colourOf = values.length <= categories.length
+      ? values.map((_, i) => categories[i]!)
+      : values.map((_, i) => rampColour(i / (values.length - 1), ramp));
+    const byValue = new Map(values.map((v, i) => [v, colourOf[i]!]));
     let missing = 0;
     for (const n of payload.nodes) {
       const colour = byValue.get(n.epi?.[column.name] ?? "\u0000");
       if (colour === undefined) missing++;
       colours.set(n.id, colour ?? NO_Q);
     }
-    return { colours, legend: { kind: "categories", label: column.name, items: values.map((v, i) => ({ label: v, colour: palette[i]! })), missing } };
+    return { colours, legend: { kind: "categories", label: column.name, items: values.map((v, i) => ({ label: v, colour: colourOf[i]! })), missing } };
   }
 
   // A number per node, or null.
@@ -345,7 +361,7 @@ export function nodeColours(payload: NetworkPayload, key: ColourKey): NodeColour
   const [lower, upper] = key === "q" && !column ? [0, 1] : [Math.min(...present), Math.max(...present)];
   payload.nodes.forEach((n, i) => {
     const x = values[i];
-    colours.set(n.id, x === null || x === undefined || Number.isNaN(x) ? NO_Q : rampColour(upper > lower ? (x - lower) / (upper - lower) : 0.5));
+    colours.set(n.id, x === null || x === undefined || Number.isNaN(x) ? NO_Q : rampColour(upper > lower ? (x - lower) / (upper - lower) : 0.5, ramp));
   });
   const legend: ColourLegend = present.length
     ? { kind: "ramp", label, lower: text(lower), upper: text(upper), missing: payload.nodes.length - present.length }
@@ -383,3 +399,19 @@ export function stratumPayload(payload: NetworkPayload, s: Stratum | null): Netw
 
 /** The slider threshold that shows an edge of pooled marginal `marginal`: at or below it, to three decimals. */
 export const thresholdFor = (marginal: number) => Math.floor(marginal * 1000 + 1e-9) / 1000;
+
+/** The threshold the Network opens at: 0.1, or the smallest threshold (to three decimals) at which at most `budget`
+ *  edges show, whichever is larger, so a large Analysis (Zanzibar, 1,556 Infections) opens with a few thousand. */
+export function defaultThreshold(index: EdgeThreshold, budget = 3000, base = 0.1): number {
+  if (index.count(base) <= budget) return base;
+  // count() falls as the threshold rises: bisect over thousandths.
+  let lo = Math.round(base * 1000);
+  let hi = 1000;
+  if (index.count(hi / 1000) > budget) return 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >>> 1;
+    if (index.count(mid / 1000) <= budget) hi = mid;
+    else lo = mid;
+  }
+  return hi / 1000;
+}

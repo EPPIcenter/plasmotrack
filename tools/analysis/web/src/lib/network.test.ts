@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CATEGORY_COLOURS,
   colourOptions,
+  defaultThreshold,
   EdgeThreshold,
   edgeTooltip,
   findNode,
@@ -11,6 +12,7 @@ import {
   nodeTooltip,
   qColour,
   Q_RAMP,
+  Q_RAMP_DARK,
   readColour,
   readStratum,
   stratumParams,
@@ -305,5 +307,39 @@ describe("the threshold that shows an edge", () => {
     expect(thresholdFor(0.8347)).toBe(0.834);
     expect(thresholdFor(0.5)).toBe(0.5);
     expect(thresholdFor(0.0004)).toBe(0);
+  });
+});
+
+describe("the default threshold", () => {
+  it("is 0.1 when no more than the edge budget shows there", () => {
+    const index = new EdgeThreshold([edge("3", "1", 0.8), edge("2", "1", 0.05), edge("3", "2", 0.3)]);
+    expect(defaultThreshold(index)).toBe(0.1);
+  });
+
+  it("rises until at most the budget of edges shows, at Zanzibar scale", () => {
+    // 20,000 edges with marginals spread evenly over (0.01, 1): about 3,000 lie at or above 0.85.
+    const { edges } = synthetic(1556, 20_000);
+    const index = new EdgeThreshold(edges);
+    const t = defaultThreshold(index, 3000);
+    expect(index.count(t)).toBeLessThanOrEqual(3000);
+    expect(index.count(t - 0.001)).toBeGreaterThan(3000);
+    expect(t).toBeCloseTo(0.85, 1);
+  });
+
+  it("never goes above 1", () => {
+    const index = new EdgeThreshold(Array.from({ length: 10 }, (_, i) => edge(String(i), "p", 1)));
+    expect(defaultThreshold(index, 5)).toBe(1);
+  });
+});
+
+describe("node colours in the dark theme", () => {
+  it("run q along the dark ramp, light at q = 1, and categories along the given palette", () => {
+    const dark = { ramp: Q_RAMP_DARK, categories: ["#111111", "#222222"] };
+    const p: NetworkPayload = { chains: [], floor: 0, edges: [],
+      epi_columns: [{ name: "district", type: "categorical", values: ["North", "South"] }],
+      nodes: [({ ...node("1", 0, 0, 0, 1), epi: { district: "South" } }), ({ ...node("2", 0, 1, 0, 1), epi: { district: "North" } })] };
+    const q = nodeColours(p, "q", dark).colours;
+    expect([q.get("1"), q.get("2")]).toEqual([Q_RAMP_DARK[0], Q_RAMP_DARK[Q_RAMP_DARK.length - 1]]);
+    expect([...nodeColours(p, "epi:district", dark).colours.values()]).toEqual(["#222222", "#111111"]);
   });
 });
