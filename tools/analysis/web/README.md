@@ -35,6 +35,7 @@ pnpm dev                                              # here: the page with hot 
 | `src/views/` | One file per view |
 | `src/selection.ts` | The selected Infections, shared by every view: `getSelection`, `select`, `subscribeSelection` |
 | `src/network.ts` | The network view's logic: threshold filter, timeline layout, search, q colours, tooltips |
+| `src/infection.ts` | The infection card's URL state (`#/infection?id=`), response types, heatmap cells, Parent-set labels, COI histogram bars and kernel densities |
 | `src/pair.ts` | The pair inspector's URL state (`#/pair?a=&b=`), response types and differing-Loci count |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
 | `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
@@ -57,6 +58,7 @@ pnpm dev                                              # here: the page with hot 
 | `#/errors[?source=][&threshold=0.5][&kinds=missed,false,direction]` | Error table (U6): missed true edges and false edges of an edge set at a threshold, most confidently wrong first, direction errors flagged; filter by kind; a row opens the pair inspector (true genotypes) and shows both true infection times |
 | `#/parentsets?level=0.8` | Parent sets (U6): per Infection effective size, credible size, whether the true set is in the credible collection, top probability, and the same for the null fit; sortable by any column; a summary line per fit |
 | `#/functionals[?column=]` | U9 functionals panel, overall or per stratum of an epi column: a dot-and-range chart of ψ_MAP (square, its range the parent-set size range at 0.8), ψ_edge (triangle) and mean q (circle) with 95% MCMC intervals; composition classes as stacked bars, the unobserved source first; tables of every number, multi-source probabilities included. A triangle, circle, bar segment or table cell opens the trace panel for that stratum's per-Draw functional; ψ_MAP and the size range are point summaries and open nothing |
+| `#/infection?id=` | U10 infection card: densities per Chain of expected false positives and false negatives, duration and infection time; COI per Draw; Latent genotype heatmap of posterior presence with the Observed Alleles ringed; Parent sets per Chain and pooled with the credible collection; parent and child Edge marginals linking to the card, the pair inspector and the trace panel; q, entropy and effective size. Link to it with `ctx.navigate("infection", infectionParams(id))`; the edge table and pair inspector link their Infection ids to it |
 
 ## Add a view
 

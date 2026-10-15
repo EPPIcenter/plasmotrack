@@ -38,6 +38,7 @@ ENDPOINTS = [
     "pt_analysis.endpoints.functionals",  # #86: epi columns, functionals overall and per stratum
 
     # #88 U10 infection card
+    "pt_analysis.endpoints.infection",  # U10: one Infection's posteriors, genotype, Parent sets and edges
 
     # #89 #90 U6 truth overlay, ranking
     "pt_analysis.endpoints.ranking",  # U6: ranking and parent-set metrics against truth
