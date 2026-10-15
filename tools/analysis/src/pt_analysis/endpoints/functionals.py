@@ -9,13 +9,16 @@
 An interval is {mean, lower, upper}. Without `column`, one stratum of every Infection; a stratum's `value` is null
 for it and for the Infections with no value of the column. A column the epi data does not have is a 400 naming it.
 The per-Draw series behind each cell come from `/api/trace` (see `pt_analysis.endpoints.traces`).
+
+Functionals are remembered per column and level until a Chain closes another Window or the epi file changes: pooling
+the Parent sets of a real-size Analysis takes seconds.
 """
 
 from dataclasses import asdict
 
 from starlette.routing import Route
 
-from pt_analysis.endpoints import error, json
+from pt_analysis.endpoints import error, json, memo
 from pt_analysis.epi import EpiError, load_epi
 from pt_analysis.strata import LEVEL, labels, stratified_functionals
 
@@ -41,8 +44,11 @@ async def functionals(request):
         level = float(request.query_params.get("level", LEVEL))
     except ValueError:
         return error(f"level is a probability, not '{request.query_params['level']}'")
+    epi_file = analysis.epi
+    stamp = epi_file.stat().st_mtime_ns if epi_file is not None and epi_file.is_file() else None
     try:
-        strata = stratified_functionals(analysis, column, level=level)
+        strata = memo(request, ("functionals", column, level, stamp),
+                      lambda: stratified_functionals(analysis, column, level=level))
     except EpiError as e:
         return error(str(e))
     return json({"column": column, "level": level, "classes": labels(analysis),

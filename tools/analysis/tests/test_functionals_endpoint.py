@@ -84,3 +84,24 @@ def test_a_stratum_of_another_group_or_an_unknown_value_is_an_error(client):
                    {"group": "functionals", "name": "psi_edge", "stratum_column": "travel", "stratum": "x"}):
         assert client.get("/api/trace", params=params).status_code == 400
 
+
+
+def test_functionals_are_computed_once_per_query_until_the_epi_data_changes(tmp_path, monkeypatch):
+    import os
+
+    from pt_analysis.endpoints import functionals as endpoint
+
+    calls = []
+    compute = endpoint.stratified_functionals
+    monkeypatch.setattr(endpoint, "stratified_functionals", lambda *a, **k: calls.append(a) or compute(*a, **k))
+    client = client_for(open_analysis(tmp_path), tmp_path)
+    first = client.get("/api/functionals").json()
+    assert client.get("/api/functionals").json() == first
+    assert len(calls) == 1
+    client.get("/api/functionals", params={"level": "0.5"})
+    assert len(calls) == 2
+    epi = tmp_path / "epi.csv"
+    stat = epi.stat()
+    os.utime(epi, ns=(stat.st_atime_ns, stat.st_mtime_ns + 10**9))
+    client.get("/api/functionals")
+    assert len(calls) == 3

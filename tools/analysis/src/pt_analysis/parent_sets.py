@@ -65,10 +65,9 @@ def _rank(rows, level):
     return out
 
 
-def ranked_sets(store, level=None, infection=None):
-    """The Run's Parent sets with their weights (`set_summary`), classes and members, in Infection then rank order
-    by the MAP rule. With `level`, only each Infection's credible collection at that level. With `infection`, only
-    that Infection's sets."""
+def _set_rows(store, infection=None):
+    """The Run's Parent sets unranked: [(infection, members, weight, set_id, n_observed, class)], members as in
+    RankedSet. With `infection`, only that Infection's sets."""
     with Scope(store.connection) as s:
         rows = s.rows(f"""
             SELECT s.infection, list(m.member ORDER BY m.member = i.latent_parent, m.member) AS members, s.weight,
@@ -79,8 +78,14 @@ def ranked_sets(store, level=None, infection=None):
                  JOIN {s.name(store.structure("infections"))} i USING (infection)
             WHERE $infection IS NULL OR s.infection = $infection
             GROUP BY ALL""", {"infection": infection})
-    ranked = _rank([(inf, tuple(ms), w, set_id, n, cls) for inf, ms, w, set_id, n, cls in rows],
-                   LEVEL if level is None else level)
+    return [(inf, tuple(ms), w, set_id, n, cls) for inf, ms, w, set_id, n, cls in rows]
+
+
+def ranked_sets(store, level=None, infection=None):
+    """The Run's Parent sets with their weights (`set_summary`), classes and members, in Infection then rank order
+    by the MAP rule. With `level`, only each Infection's credible collection at that level. With `infection`, only
+    that Infection's sets."""
+    ranked = _rank(_set_rows(store, infection), LEVEL if level is None else level)
     return [RankedSet(inf, set_id, members, n, cls, w, rank, mass)
             for (inf, members, w, set_id, n, cls), rank, mass, credible in ranked if level is None or credible]
 
@@ -114,17 +119,17 @@ def pooled_sets(analysis, level=LEVEL, infection=None):
     total = sum(draws.values())
     if not total:
         return {}
-    found = {}
+    found = {}  # Chains in Analysis order, so each set's pooled weight sums its Chains in that order
     for label, store in analysis.runs.items():
-        for s in ranked_sets(store, infection=infection):
-            entry = found.setdefault((s.infection, s.members), {"set": s, "chains": {}, "set_ids": {}})
-            entry["chains"][label] = s.weight
-            entry["set_ids"][label] = s.set_id
+        for inf, members, weight, set_id, n_observed, composition in _set_rows(store, infection):
+            entry = found.setdefault((inf, members), {"set": (n_observed, composition), "chains": {}, "set_ids": {}})
+            entry["chains"][label] = weight
+            entry["set_ids"][label] = set_id
     rows = [(inf, members, sum(e["chains"][c] * draws[c] for c in e["chains"]) / total, e)
             for (inf, members), e in found.items()]
     out = {}
     for (inf, members, weight, e), rank, mass, credible in _rank(rows, level):
         out.setdefault(inf, []).append(PooledSet(
-            inf, members, e["set"].n_observed, e["set"].composition, weight, rank, mass, credible,
+            inf, members, *e["set"], weight, rank, mass, credible,
             chains={label: e["chains"].get(label, 0.0) for label in analysis.runs}, set_ids=e["set_ids"]))
     return out
