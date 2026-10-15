@@ -28,6 +28,7 @@ STATIC_DIR = Path(__file__).resolve().parents[2] / "web" / "dist"
 ENDPOINTS = [
     "pt_analysis.endpoints.analysis",  # U1: Analysis summary, convergence table
     "pt_analysis.endpoints.traces",  # U1: trace panel, ESS and R-hat over a Draw range
+    "pt_analysis.endpoints.series",  # U1: several quantities' Draw values per Chain, compact (sparklines)
     # U2 edge table
     "pt_analysis.endpoints.edges",  # U2: edge table
 

@@ -219,6 +219,7 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 
 | `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
 | `GET /api/pairs[?min=0.1&max=0.9][&disagree=D][&edge_min=0][&limit=200]` | the pairs worth a look: pooled P(A before B) in [min, max], or Chains differing by at least `disagree`, with an Edge marginal of at least `edge_min` either way; per pair its order per Chain, switches, spread, both pooled Edge marginals and `differing_loci` (Loci where the pooled Latent genotype modes differ, as `/api/pair` counts them), larger marginal first; `total` counts them all (`pt_analysis.pairs`) |
+| `GET /api/series?q=GROUP:NAME[&q=...][&points=N]` | up to 200 quantities' sampling-Draw values per Chain, each `q` split at its first `:`, in request order, binned to `points` means when given; `chains` null for an unknown or malformed quantity: the convergence table's sparklines (`pt_analysis.endpoints.series`) |
 | `GET /api/edge-series?edges=child<-parent,...[&points=N]` | up to 500 edges' weights per Draw per Chain (0 at a Draw without the edge), binned to `points` means when given: the edge table's sparklines (`pt_analysis.edge_series`) |
 
 A quantity is a group and name of the convergence table, or a functional of one stratum: group `functionals`,
