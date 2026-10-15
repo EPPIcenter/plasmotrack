@@ -1,12 +1,14 @@
 // U2 edge table: one row per (child, parent) with the pooled Edge marginal, between-Chain spread, switch count, ESS
 // and each Chain's mean and switch count; sortable by every column, filterable by child or parent id, with the
-// unobserved source shown or hidden. Clicking a row opens the edge's trace panel.
+// unobserved source shown or hidden. Clicking a row opens the edge's trace panel; a row's Network button selects the
+// edge's two Infections and opens the network view at a threshold that shows it.
 
 import { getJson } from "../api";
 import { el } from "../dom";
 import { edgeRows, edgeStatsTable, filterEdges, sortEdges, type EdgeJson, type EdgeRow, type SortKey } from "../edges";
 import { formatEss } from "../format";
-import { getSelection, subscribeSelection } from "../selection";
+import { thresholdFor } from "../network";
+import { getSelection, selectOnly, subscribeSelection } from "../selection";
 import type { RenderView } from "../view";
 import { virtualList } from "../virtual-list";
 
@@ -22,12 +24,12 @@ function worstFirst(key: SortKey): boolean {
 
 const render: RenderView = (root, ctx) => {
   const chains = ctx.analysis.chains.map((c) => c.chain);
-  const columns = `minmax(6em, 1fr) minmax(10em, 1.4fr) 6em 6em 6em 6em ${chains.map(() => "8.5em 8.5em").join(" ")}`;
+  const columns = `minmax(6em, 1fr) minmax(10em, 1.4fr) 6em 6em 6em 6em ${chains.map(() => "8.5em 8.5em").join(" ")} 6em`;
 
   const childInput = el("input", { type: "search", placeholder: "Child id", value: ctx.params.get("child") ?? "" });
   const parentInput = el("input", { type: "search", placeholder: "Parent id", value: ctx.params.get("parent") ?? "" });
   const unobserved = el("input", { type: "checkbox", checked: ctx.params.get("unobserved") !== "0" });
-  // The Infections selected in the network view (#84): when there are any, the table keeps their edges unless unticked.
+  // The Infections selected in the network view: when there are any, the table keeps their edges unless unticked.
   const selected = el("input", { type: "checkbox", checked: true });
   const selectedLabel = el("label", {}, selected, " Selected Infections only");
   const count = el("span", { className: "muted" });
@@ -70,6 +72,7 @@ const render: RenderView = (root, ctx) => {
         headerCell(`Mean ${c}`, `mean:${c}`, `${c}'s mean over its Draws`),
         headerCell(`Switches ${c}`, `switches:${c}`, `${c}'s crossings of one half`),
       ]),
+      el("span", { className: "cell", title: "Highlight the edge in the network view" }, "Network"),
     );
   }
 
@@ -90,6 +93,16 @@ const render: RenderView = (root, ctx) => {
         el("span", { className: "cell num muted" }, formatProb(r.chains[c]?.mean)),
         el("span", { className: "cell num muted" }, r.chains[c] ? String(r.chains[c].switches) : "–"),
       ]),
+      r.unobserved
+        ? el("span", { className: "cell muted", title: "The network view draws no edge from the unobserved source" }, "–")
+        : el("button", {
+          className: "cell", type: "button", title: `Select ${r.parent} and ${r.child} and show the edge in the network view`,
+          onclick: (e: Event) => {
+            e.stopPropagation();
+            selectOnly([r.parent, r.child]);
+            ctx.navigate("network", { threshold: String(thresholdFor(r.pooled)) });
+          },
+        }, "Show"),
     );
     row.style.gridTemplateColumns = columns;
     row.addEventListener("click", () => ctx.navigate("trace", { group: r.group, name: r.name }));
