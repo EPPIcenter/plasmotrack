@@ -10,7 +10,7 @@
 #include "core/containers/Infection.h"
 #include "core/datatypes/Alleles.h"
 #include "core/datatypes/Simplex.h"
-#include "core/computation/OrderDerivedParentSet.h"
+#include "core/containers/ParentSet.h"
 
 
 namespace transmission_nets::core::io {
@@ -74,18 +74,6 @@ namespace transmission_nets::core::io {
         return out;
     }
 
-
-    template<typename T, typename U>
-    std::string serialize(computation::OrderDerivedParentSet<T, U> &ps) {
-        std::string out = "{";
-        for (const auto& p : ps.value()) {
-            out += serialize(*p);
-            out += ";";
-        }
-        out.pop_back();
-        out += "}";
-        return out;
-    }
 
     template<typename T>
     std::string serialize(const boost::container::flat_set<T> ps) {

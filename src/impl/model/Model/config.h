@@ -54,12 +54,11 @@ namespace transmission_nets::impl::Model {
     using COIProbabilityImpl     = core::distributions::ZTPoisson<MAX_COI>;
     using ParentSetSizeLikelihoodImpl = core::distributions::ZTGeometric<MAX_PARENT_SET_SIZE>;
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
-    using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
 
     // The per-chain memory of Transmission kernel results, with the latent parent summed out of each term through it.
     using TransmissionMemoImpl = model::transmission_process::TransmissionMemo<MAX_PARENTS, MAX_STRAINS, MAX_COI, GeneticsImpl, InfectionEvent, LocusImpl, AlleleFrequencyContainerImpl>;
 
-    using TransmissionProcess = model::transmission_process::TransmissionTerm<MAX_PARENTS, TransmissionMemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEvent, ParentSetImpl>;
+    using TransmissionProcess = model::transmission_process::TransmissionTerm<MAX_PARENTS, TransmissionMemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEvent, OrderingImpl>;
 
 }// namespace transmission_nets::impl::Model
 
