@@ -29,8 +29,8 @@ def client(tmp_path):
 def test_the_analyses_are_listed_primary_first_with_their_input_hash_and_timings(client):
     got = client.get("/api/analyses").json()
     assert got["input_sha256"] == "cd84e24b6713ef19bc3e27d4a45b9d579634262c808ee3530375e1ac409774ca"
-    assert [(a["label"], a["primary"], a["draws"], a["sampling_seconds"]) for a in got["analyses"]] == [
-        ("single", True, 10, 4.0), ("replica", False, 10, None)]
+    assert [(a["label"], a["primary"], a["draws"], a["sampling_seconds"], a["instructions_retired"])
+            for a in got["analyses"]] == [("single", True, 10, 4.0, None), ("replica", False, 10, None, None)]
     assert got["analyses"][0]["chains"] == [{"chain": "chain1", "draws": 10}]
 
 
@@ -45,6 +45,7 @@ def test_compared_convergence_puts_each_analysis_side_by_side(client):
     got = client.get("/api/compare/convergence").json()
     assert got["analyses"] == ["single", "replica"]
     assert got["timed"] == ["single"]
+    assert got["instructions"] == []
     assert len(got["rows"]) == 42
     first = got["rows"][0]
     assert (first["group"], first["name"]) == ("log posterior", "log posterior")

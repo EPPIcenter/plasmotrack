@@ -5,11 +5,12 @@ They are named on the command line (`pt-analysis serve a.json b.json`) or by a c
 
     {"analyses": ["build-a/analysis.json", "build-b/analysis.json"]}     paths resolved against the manifest's directory
 
-ESS per second of sampling is reported for an Analysis whose manifest carries `timings` in the shape of
-`mixing_benchmark.py`'s `timings.json`, keyed by Chain label: `{"chain1": {"sampling_seconds": 812.4, ...}, ...}`.
-The cost of an Analysis is the sum of `sampling_seconds` over its Chains, and its ESS per second is the pooled ESS
-over that sum. The benchmark's protocol measures instructions retired instead of seconds; that count, measured by
-the user, goes in the same `sampling_seconds` field, and the column then reads as ESS per instruction retired.
+Cost-normalised ESS is reported for an Analysis whose manifest carries `timings` in the shape of
+`mixing_benchmark.py`'s `timings.json`, keyed by Chain label:
+`{"chain1": {"sampling_seconds": 812.4, "instructions_retired": 3.1e12, ...}, ...}`. Each field is a cost when every
+Chain has it: the sum over the Chains of `sampling_seconds` gives ESS per second (the pooled ESS over that sum), and
+the sum of `instructions_retired` gives ESS per instruction retired, the measure the benchmark protocol uses (the
+count is measured by the user, for example with `perf stat -e instructions`). An Analysis may have either or both.
 
 Every Run of every Analysis must have been fitted to the same input: the `input` entry of `input_sha256` in each Run
 manifest must agree, or the comparison is refused with `DifferentInputs`.
@@ -98,36 +99,51 @@ def open_comparison(paths):
     return Comparison(analyses=analyses, input_sha256=next(iter(hashes.values())))
 
 
-def sampling_seconds(analysis):
-    """The sum over the Chains of `sampling_seconds` in the Analysis's timings; None without timings or when a Chain
-    has no `sampling_seconds` there."""
+def chain_cost(analysis, field):
+    """The sum over the Chains of `field` in the Analysis's timings; None without timings or when a Chain has no
+    number in `field` there."""
     timings = analysis.timings
     if not isinstance(timings, dict):
         return None
-    seconds = [(timings.get(label) or {}).get("sampling_seconds") for label in analysis.runs]
-    if any(not isinstance(s, (int, float)) for s in seconds):
+    costs = [(timings.get(label) or {}).get(field) for label in analysis.runs]
+    if any(isinstance(c, bool) or not isinstance(c, (int, float)) for c in costs):
         return None
-    return float(sum(seconds))
+    return float(sum(costs))
+
+
+def sampling_seconds(analysis):
+    """The sum over the Chains of `sampling_seconds` in the Analysis's timings (see `chain_cost`)."""
+    return chain_cost(analysis, "sampling_seconds")
+
+
+def instructions_retired(analysis):
+    """The sum over the Chains of `instructions_retired` in the Analysis's timings (see `chain_cost`)."""
+    return chain_cost(analysis, "instructions_retired")
+
+
+# Cell key of cost-normalised ESS -> the cost it divides by.
+PER_COST = {"ess_per_second": sampling_seconds, "ess_per_instruction": instructions_retired}
 
 
 def compare_convergence(analyses):
     """The pooled rows of the convergence table of each of `analyses` (label -> Analysis, as `Comparison.analyses`),
     matched by quantity: one row per (group, name) in table order (groups in display order, names sorted),
     `{group, name, analyses: {label: {ess, rhat}}}`, every Analysis present and its ESS and R-hat null where it lacks
-    the quantity. An Analysis with timings (`sampling_seconds`) also has `ess_per_second` in its cells."""
+    the quantity. An Analysis with `sampling_seconds` timings also has `ess_per_second` in its cells, and one with
+    `instructions_retired` timings `ess_per_instruction`."""
+    costs = {label: {key: cost(a) for key, cost in PER_COST.items() if cost(a) is not None}
+             for label, a in analyses.items()}
     cells = {}
     for label, analysis in analyses.items():
-        seconds = sampling_seconds(analysis)
         rows = derived_analysis(analysis, "convergence").filter("chain IS NULL").fetchall()
         for group, name, _, ess, rhat in rows:
             cell = {"ess": ess, "rhat": rhat}
-            if seconds is not None:
-                cell["ess_per_second"] = ess / seconds if ess is not None and seconds > 0 else None
+            for key, cost in costs[label].items():
+                cell[key] = ess / cost if ess is not None and cost > 0 else None
             cells.setdefault((group, name), {})[label] = cell
-    timed = {label for label, a in analyses.items() if sampling_seconds(a) is not None}
 
     def empty(label):
-        return {"ess": None, "rhat": None, **({"ess_per_second": None} if label in timed else {})}
+        return {"ess": None, "rhat": None, **dict.fromkeys(costs[label])}
 
     order = sorted(cells, key=lambda key: (GROUPS.index(key[0]) if key[0] in GROUPS else len(GROUPS), key))
     return [{"group": group, "name": name,

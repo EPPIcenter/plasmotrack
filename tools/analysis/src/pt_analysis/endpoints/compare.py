@@ -1,18 +1,21 @@
 """Comparison of Analyses of one input (U5), served by `pt-analysis serve a.json b.json ...`; see `pt_analysis.compare`.
 
     GET /api/analyses
-        {input_sha256, analyses: [{label, primary, path, chains: [{chain, draws}], draws, sampling_seconds}]}
+        {input_sha256, analyses: [{label, primary, path, chains: [{chain, draws}], draws, sampling_seconds,
+                                   instructions_retired}]}
     GET /api/compare/convergence
-        {analyses: [label], timed: [label], rows: [{group, name, analyses: {label: {ess, rhat[, ess_per_second]}}}]}
+        {analyses: [label], timed: [label], instructions: [label],
+         rows: [{group, name, analyses: {label: {ess, rhat[, ess_per_second][, ess_per_instruction]}}}]}
 
 The primary Analysis comes first. `sampling_seconds` is null, and `ess_per_second` is absent, for an Analysis
-without timings; `timed` lists the Analyses with them. The trace endpoints take `analysis=LABEL` to read any of them.
+without `sampling_seconds` timings for every Chain; `timed` lists the Analyses with them. Likewise
+`instructions_retired`, `ess_per_instruction` and `instructions` for `instructions_retired` timings. The trace endpoints take `analysis=LABEL` to read any of them.
 """
 
 from starlette.routing import Route
 
 from pt_analysis.analysis import AnalysisError
-from pt_analysis.compare import compare_convergence, input_hash, sampling_seconds
+from pt_analysis.compare import compare_convergence, input_hash, instructions_retired, sampling_seconds
 from pt_analysis.endpoints import json
 
 
@@ -31,7 +34,8 @@ async def analyses(request):
         chains = [{"chain": chain, "draws": store.draws()} for chain, store in analysis.runs.items()]
         listed.append({"label": label, "primary": analysis is request.app.state.analysis, "path": str(analysis.path),
                        "chains": chains, "draws": sum(c["draws"] for c in chains),
-                       "sampling_seconds": sampling_seconds(analysis)})
+                       "sampling_seconds": sampling_seconds(analysis),
+                       "instructions_retired": instructions_retired(analysis)})
     return json({"input_sha256": sha, "analyses": listed})
 
 
@@ -39,7 +43,8 @@ async def convergence(request):
     opened = open_analyses(request)
     rows = compare_convergence(opened)
     timed = [label for label, a in opened.items() if sampling_seconds(a) is not None]
-    return json({"analyses": list(opened), "timed": timed, "rows": rows})
+    instructions = [label for label, a in opened.items() if instructions_retired(a) is not None]
+    return json({"analyses": list(opened), "timed": timed, "instructions": instructions, "rows": rows})
 
 
 ROUTES = [Route("/api/analyses", analyses), Route("/api/compare/convergence", convergence)]

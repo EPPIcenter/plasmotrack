@@ -530,20 +530,21 @@ against Y (selectors for X and Y; the dashed line is equal ESS). Hovering a dot 
 table row shows its trace in both Analyses, each with a link to its full trace panel.
 
 **Timings.** An Analysis whose manifest has `timings`, in the shape of `mixing_benchmark.py`'s `timings.json` keyed by
-Chain label (`{"chain1": {"exit": 0, "seed": 1, "sampling_seconds": 812.4, "samples": 80}, ...}`), also gets ESS per
-second of sampling: pooled ESS over `sampling_seconds` summed over its Chains. An Analysis without timings, or with a
-Chain missing `sampling_seconds`, has no such column. The benchmark's own protocol counts instructions retired rather
-than seconds: put that count, measured by you, in the same `sampling_seconds` field and read the column as ESS per
-instruction retired.
+Chain label (`{"chain1": {"exit": 0, "seed": 1, "sampling_seconds": 812.4, "instructions_retired": 3.1e12,
+"samples": 80}, ...}`), also gets cost-normalised ESS. With `instructions_retired` for every Chain (the benchmark
+protocol's cost, measured by you, for example with `perf stat -e instructions`), ESS per instruction retired: pooled
+ESS over the count summed over its Chains. With `sampling_seconds` for every Chain, ESS per second of sampling, the
+same way. The view shows ESS per instruction retired when the count is there and ESS per second otherwise; an
+Analysis with neither, or with a Chain missing the field, has no such column.
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/analyses` | `{input_sha256, analyses}`: per Analysis, primary first, label, primary, path, chains `[{chain, draws}]`, draws, sampling_seconds (null without timings) |
-| `GET /api/compare/convergence` | `{analyses, timed, rows}`: per quantity (group, name, in table order) and per Analysis `{ess, rhat}`, with `ess_per_second` for the Analyses in `timed` |
+| `GET /api/analyses` | `{input_sha256, analyses}`: per Analysis, primary first, label, primary, path, chains `[{chain, draws}]`, draws, sampling_seconds and instructions_retired (each null unless every Chain's timings have it) |
+| `GET /api/compare/convergence` | `{analyses, timed, instructions, rows}`: per quantity (group, name, in table order) and per Analysis `{ess, rhat}`, with `ess_per_second` for the Analyses in `timed` and `ess_per_instruction` for those in `instructions` |
 
 `/api/trace` and `/api/range` take `analysis=LABEL` to read another open Analysis than the primary (404 for a label
 not open), and echo it. The comparison logic is `pt_analysis.compare` (`open_comparison`, `compare_convergence`,
-`sampling_seconds`).
+`sampling_seconds`, `instructions_retired`).
 
 ## Use from Python
 

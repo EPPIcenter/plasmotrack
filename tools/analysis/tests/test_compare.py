@@ -96,6 +96,22 @@ def test_timings_give_ess_per_second_of_sampling_summed_over_chains(tmp_path):
     assert "ess_per_second" not in log_posterior["replica"]
 
 
+def test_instructions_retired_give_ess_per_instruction_beside_ess_per_second(tmp_path):
+    from pt_analysis.compare import compare_convergence, instructions_retired
+
+    both = one_run_analysis(tmp_path, "single-chain", "single",
+                            timings={"chain1": {"sampling_seconds": 4.0, "instructions_retired": 2e9}})
+    counted = one_run_analysis(tmp_path, "replica-exchange", "replica",
+                               timings={"chain1": {"instructions_retired": 5e8}})
+    comparison = open_comparison([both, counted])
+    assert [instructions_retired(a) for a in comparison.analyses.values()] == [2e9, 5e8]
+    log_posterior = by_name(compare_convergence(comparison.analyses))[("log posterior", "log posterior")]
+    assert log_posterior["single"]["ess_per_instruction"] == pytest.approx(10.0 / 2e9)
+    assert log_posterior["single"]["ess_per_second"] == pytest.approx(10.0 / 4.0)
+    assert log_posterior["replica"]["ess_per_instruction"] == pytest.approx(7.44641539328075 / 5e8)
+    assert "ess_per_second" not in log_posterior["replica"]
+
+
 def test_timings_missing_a_chain_count_as_absent(tmp_path):
     from pt_analysis.compare import sampling_seconds
 
