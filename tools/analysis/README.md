@@ -277,7 +277,8 @@ pairwise scores. An edge set is the posterior, the null-model Analysis or the pa
 pair's score is the larger of its rows, and it is true when a true edge joins it either way). `match` reports the
 Analysis's Infections the truth file has no node for, and the simulated Infections the input does not observe. An
 edge is called when its score is at least the threshold: a true edge below it is `missed`, a false edge at or above
-it `false`, or `direction` when its reverse is the true edge. Rows rank by how confidently wrong they are (1 - score
+it `false`, or `direction` when its reverse is the true edge. A true edge missed while its false reverse is called
+is one error, the reverse's `direction` row, with no `missed` row of its own. Rows rank by how confidently wrong they are (1 - score
 for a missed edge, the score otherwise; `confidence`), with the lag, the reverse's score and whether it is true, and
 both Infections' true infection times.
 
