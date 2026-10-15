@@ -10,6 +10,7 @@ export const views: ViewEntry[] = [
   { route: "edges", title: "Edges", nav: true, load: () => import("./views/edges") },
 
   // #84 U8 network view
+  { route: "network", title: "Network", nav: true, load: () => import("./views/network") },
 
   // #85 U3 pair inspector
   { route: "pair", title: "Pair", nav: true, load: () => import("./views/pair") },

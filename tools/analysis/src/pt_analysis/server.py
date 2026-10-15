@@ -29,6 +29,7 @@ ENDPOINTS = [
     "pt_analysis.endpoints.edges",  # U2: edge table
 
     # #84 U8 network view
+    "pt_analysis.endpoints.network",  # U8: network view's nodes and edges
 
     # #85 U3 pair inspector
     "pt_analysis.endpoints.pair",  # U3: order, edges, co-inclusion, genotypes and infection times of a pair

@@ -193,12 +193,26 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/epi` | the epi data's key, columns with types, ids matching no Infection, Infections without a row |
 | `GET /api/functionals[?column=][&level=0.8]` | the functionals overall, or per stratum of an epi column |
 
+| `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
+
 A quantity is a group and name of the convergence table, or a functional of one stratum: group `functionals`,
 a per-Draw functional name (below), `stratum_column=C` (empty for every Infection) and `stratum=V` (left out for the
 Infections with no value of C), on `/api/trace` and `/api/range` alike. Burn-in rows come only on request and only for the groups
 read from the store's Traces (log posterior to allele frequency); edges, unobserved-source inclusion and functionals
 come from the derived tables, which hold Draws only. The trace and range queries are in `pt_analysis.traces`. The
 manifest's optional `label` names the Analysis on the page (default: the manifest's directory name).
+
+### The network view
+
+`GET /api/network` gives the network view its nodes and edges, from `pt_analysis.network`. Each node is an Infection
+of the input, in input order: `id`, `observation_time` and `symptomatic` from the input JSON; `q`, its
+unobserved-source inclusion pooled over every Draw of every Chain (from `infection_draws`); and `infection_time`,
+`{lower, median, upper}`: the observation time minus the 97.5%, 50% and 2.5% quantiles (R type 7) of
+`infection_duration` from the `infections` Trace, pooled over Chains. Each edge is an `edges` entry from an observed
+parent whose pooled marginal (summed over every Chain's Draws, divided by the Draws in all) is at least `floor`
+(default 0.01, in [0, 1]): `child`, `parent`, `marginal`, `chains` (each Chain's mean, in the order of the payload's
+`chains`) and `lag` (child's observation time minus the parent's). Edges come largest first. Edges from the
+unobserved source are left out; `q` carries them.
 
 ### Accuracy against truth (U6)
 

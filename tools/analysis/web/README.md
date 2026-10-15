@@ -33,6 +33,8 @@ pnpm dev                                              # here: the page with hot 
 | `src/main.ts` | Page layout (Analysis header, navigation bar) and the hash router |
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
+| `src/selection.ts` | The selected Infections, shared by every view: `getSelection`, `select`, `subscribeSelection` |
+| `src/network.ts` | The network view's logic: threshold filter, timeline layout, search, q colours, tooltips |
 | `src/pair.ts` | The pair inspector's URL state (`#/pair?a=&b=`), response types and differing-Loci count |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
 | `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
@@ -46,7 +48,8 @@ pnpm dev                                              # here: the page with hot 
 |---|---|
 | `#/convergence` | U1 convergence table: one row per quantity, sorted by ESS or R-hat, filtered by group and name |
 | `#/trace?group=&name=` | U1 trace panel of one quantity; also a functional of one stratum (U9) with `group=functionals&name=psi_edge&stratum_column=district&stratum=North` (`stratum_column` empty for every Infection, `stratum` left out for the Infections with no value) |
-| `#/edges[?child=][&parent=][&unobserved=0][&sort=][&desc=1]` | U2 edge table: pooled Edge marginal, spread, switch count, ESS and per-Chain mean and switch count; sorts by every column (`sort` is a column, or `mean:<chain>` and `switches:<chain>`), filters by exact child and parent id, hides the unobserved source with `unobserved=0`; a row opens its trace panel |
+| `#/edges[?child=][&parent=][&unobserved=0][&sort=][&desc=1]` | U2 edge table: pooled Edge marginal, spread, switch count, ESS and per-Chain mean and switch count; sorts by every column (`sort` is a column, or `mean:<chain>` and `switches:<chain>`), filters by exact child and parent id, hides the unobserved source with `unobserved=0`; with Infections selected in the network view, keeps only their edges unless "Selected Infections only" is unticked; a row opens its trace panel |
+| `#/network[?threshold=][&layout=force\|timeline][&order=q\|lanes]` | U8 network view: Infections coloured by q, pooled Edge marginals as edges parent → child with width by marginal, loaded once at or above the server floor (0.01) and hidden below the slider's threshold in the browser. Force-directed layout (ForceAtlas2 in a web worker, 5 s, weighted by marginal) or timeline (x = observation time, the 95% posterior infection-time interval as a bar behind each node, rows ranked by q or packed lanes). Hover for per-Chain marginals and lag or a node's q and times; search centres on an Infection; click selects, shift-click adds or removes, into `src/selection.ts`, which the edge table follows |
 | `#/sampler[?chain=][&band_lo=&band_hi=]` | U4 sampler panel of one Chain: acceptance per sampler per Window by type with the target band, swap acceptance per temperature pair, the ladder, burn-in-end proposal variances, and Run events as rules on every time axis |
 | `#/pair?a=&b=` | U3 pair inspector: order per Chain with its trace, both Edge marginals, co-inclusion, genotypes per Locus with differing Loci highlighted, infection times and lag. Link to it with `ctx.navigate("pair", pairParams({ a, b }))` |
 | `#/ranking` | Ranking against truth (U6): directed and undirected precision-recall curves, posterior solid, null-model dashed, IBD dotted, a dotted grey line at the random ranking's precision; metrics table below |
@@ -94,3 +97,4 @@ line under their own slot merge without conflicts.
   strings `"Infinity"`, `"-Infinity"` and `"NaN"`. Read such fields with `num()` from `src/api.ts`.
 - Use the `CONTEXT.md` and `doc/analysis-gui.md` terms in labels and code: Chain (one Run of the Analysis), Draw,
   Sampling iteration, Infection, Locus, Allele. Never sample, step, sweep, or chain for a replicate.
+
