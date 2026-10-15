@@ -1,7 +1,6 @@
 """Epi data: a CSV keyed by Infection id, read with DuckDB, typed by inspection and checked against the Infections
 of the Analysis's Runs."""
 
-
 import pytest
 from conftest import open_golden
 

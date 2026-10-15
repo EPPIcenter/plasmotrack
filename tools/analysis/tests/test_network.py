@@ -1,8 +1,8 @@
 """The network view's payload (U8) on the golden Analysis: the two golden stores as Chains chain1 and chain2 of the
 example input, whose three Infections are observed at 234.0737, 306.2297 and 350.5."""
 
-
 import pytest
+from conftest import open_golden
 from starlette.testclient import TestClient
 
 from pt_analysis.network import network
@@ -80,3 +80,19 @@ def test_a_floor_outside_0_to_1_is_refused(client, floor):
     response = client.get("/api/network", params={"floor": floor})
     assert response.status_code == 400
     assert "floor" in response.json()["error"]
+
+
+def test_without_epi_data_the_payload_has_no_epi_columns_and_empty_node_values(golden_analysis):
+    payload = network(golden_analysis)
+    assert payload["epi_columns"] == []
+    assert [n["epi"] for n in payload["nodes"]] == [{}, {}, {}]
+
+
+def test_epi_columns_and_each_nodes_values_join_the_payload(tmp_path):
+    (tmp_path / "epi.csv").write_text("infection,district,age\n1,North,4\n3,North,31\n2,South,12.5\n")
+    payload = network(open_golden(tmp_path, epi="epi.csv"))
+    assert payload["epi_columns"] == [{"name": "district", "type": "categorical", "values": ["North", "South"]},
+                                      {"name": "age", "type": "numeric", "values": ["4", "12.5", "31"]}]
+    assert {n["id"]: n["epi"] for n in payload["nodes"]} == {
+        "1": {"district": "North", "age": "4"}, "2": {"district": "South", "age": "12.5"},
+        "3": {"district": "North", "age": "31"}}

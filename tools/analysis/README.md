@@ -233,7 +233,10 @@ unobserved-source inclusion pooled over every Draw of every Chain (from `infecti
 parent whose pooled marginal (summed over every Chain's Draws, divided by the Draws in all) is at least `floor`
 (default 0.01, in [0, 1]): `child`, `parent`, `marginal`, `chains` (each Chain's mean, in the order of the payload's
 `chains`) and `lag` (child's observation time minus the parent's). Edges come largest first. Edges from the
-unobserved source are left out; `q` carries them.
+unobserved source are left out; `q` carries them. With epi data, `epi_columns` lists its columns as
+`{name, type, values}` (type categorical, numeric or date; values its stratum values in order, null last when some
+Infection has no value) and each node's `epi` maps every column to the node's value as text (null for none); without
+epi data `epi_columns` is `[]` and each `epi` is `{}`.
 
 ### Accuracy against truth (U6)
 

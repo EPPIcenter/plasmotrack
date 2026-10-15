@@ -6,12 +6,17 @@ the pooled unobserved-source inclusion q, and the posterior infection time: the 
 from observed parents at or above a floor, with each Chain's mean and the lag (child's observation time minus the
 parent's). Edges from the unobserved source are left out; q carries them.
 
+With epi data (`pt_analysis.epi`), `epi_columns` lists its columns with their type and stratum values (as
+`Epi.stratum_values` orders them) and each node carries its value of every column as text, None where it has none;
+without epi data the list is empty and every node's values are `{}`.
+
 Pooling is over Chain x Draw: a pooled mean is the sum over every Chain's Draws divided by the number of Draws in
 all, and quantiles are over the pooled per-Draw values (R type 7).
 """
 
 from pt_analysis import inputs
 from pt_analysis.derive import derive_analysis, derived, table
+from pt_analysis.epi import load_epi
 
 DEFAULT_FLOOR = 0.01
 
@@ -39,16 +44,21 @@ def network(analysis, floor=DEFAULT_FLOOR):
                quantile_cont(infection_duration, 0.025)
         FROM ({durations_query}) GROUP BY infection""").fetchall()}
 
+    epi = load_epi(analysis)
+    columns = list(epi.columns) if epi is not None else []
+    values = {column: epi.values(column) for column in columns}
     nodes = []
     for id, node in inputs.nodes(analysis.input).items():
         time = node["observation_time"]
         quantiles = durations.get(id)
         interval = None if quantiles is None else dict(zip(("lower", "median", "upper"), (time - d for d in quantiles)))
         nodes.append({"id": id, "observation_time": time, "symptomatic": node.get("symptomatic", True),
-                      "q": q.get(id), "infection_time": interval})
+                      "q": q.get(id), "infection_time": interval,
+                      "epi": {column: values[column].get(id) for column in columns}})
 
     observation_time = {n["id"]: n["observation_time"] for n in nodes}
-    return {"chains": list(analysis.runs), "floor": floor, "nodes": nodes,
+    epi_columns = [{"name": c, "type": epi.columns[c], "values": epi.stratum_values(c)} for c in columns]
+    return {"chains": list(analysis.runs), "floor": floor, "nodes": nodes, "epi_columns": epi_columns,
             "edges": _edges(analysis, connection, floor, observation_time)}
 
 

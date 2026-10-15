@@ -1,7 +1,6 @@
 """Edge statistics (U2): per (child, parent), the pooled Edge marginal, each Chain's mean, the between-Chain spread,
 each Chain's switch count (adjacent Draws on either side of one half) and the multi-chain ESS."""
 
-
 import duckdb
 import pytest
 from starlette.testclient import TestClient

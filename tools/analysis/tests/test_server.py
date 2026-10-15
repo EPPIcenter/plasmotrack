@@ -1,7 +1,6 @@
 """The HTTP backend of `pt-analysis serve`: the Analysis summary, the convergence table, per-Chain traces and ESS and
 R-hat over a Draw range, on the two golden stores as Chains chain1 and chain2 of one Analysis."""
 
-
 import pytest
 from starlette.testclient import TestClient
 

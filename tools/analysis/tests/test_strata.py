@@ -1,7 +1,6 @@
 """Functionals overall and per stratum of an epi column, on the golden stores as one-Chain and two-Chain Analyses,
 against values computed with R arrow (exploration notes)."""
 
-
 import pytest
 from conftest import open_golden
 

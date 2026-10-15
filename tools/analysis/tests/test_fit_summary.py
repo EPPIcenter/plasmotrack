@@ -1,7 +1,6 @@
 """The per-fit summary row (U7): the 70 columns of the thesis pipeline's `simulation_fit_summary.rds`, in order and
 with its types, computed for the golden stores as two Chains of one Analysis against a constructed truth file."""
 
-
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
