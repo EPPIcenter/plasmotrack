@@ -139,7 +139,9 @@ tables are rewritten when any of those changes.
 `convergence.parquet` has columns group, name, chain, ess, rhat: for every quantity, one row per Chain (`chain` is
 the Run's label) with that Chain's ESS, then a pooled row (`chain` null) with the multi-chain ESS and split R-hat over
 the Chains with Draws. `rhat` is null on Chain rows. ESS and R-hat are null for a quantity that is constant, or
-constant up to rounding, and below 4 Draws; split R-hat also needs 2 Chains.
+constant up to rounding (max - min <= 1e-9 * max(1, max |v|) over every Chain's values, `diagnostics.ROUNDING`; the web
+app's `isConstant` is the same rule), and below 4 Draws; split R-hat also needs 2 Chains. Every ESS and R-hat the
+server reports (`/api/range`, the Overview, Compare) comes from this table or from `diagnostics`.
 
 | group | name | quantity per Draw |
 |---|---|---|
