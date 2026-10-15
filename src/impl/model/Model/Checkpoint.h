@@ -54,12 +54,12 @@ namespace transmission_nets::impl::Model::checkpoint {
     using transmission_nets::impl::Model::ParentSetIds;
     using transmission_nets::impl::Model::ParentSetIdDictionary;
 
-    // What every chain shares, named once per checkpoint.
+    // What every chain's State shares, named once per checkpoint. The sampler ids every chain shares are the ensemble
+    // record's.
     struct Layout {
         std::vector<std::string> infections;   // Infection ids, in input order
         std::vector<std::string> latentParents;// Latent parent ids, in input order
         std::vector<std::string> loci;         // Locus labels, sorted
-        std::vector<std::string> samplers;     // sampler ids, in the order the schedulers registered them
 
         bool operator==(const Layout&) const = default;
     };
@@ -75,33 +75,29 @@ namespace transmission_nets::impl::Model::checkpoint {
         bool operator==(const ChainState&) const = default;
     };
 
-    // One replica: its State, its RNG engine's state, its samplers' counts and adaptation state, and how many Sampling
-    // iterations its scheduler has run, which decides when each sampler adapts.
-    struct Replica {
-        ChainState state;
-        std::string rng;
-        std::vector<core::samplers::SamplerCounts> samplerCounts;              // by sampler, in Layout order
-        std::map<std::uint32_t, core::samplers::AdaptationState> adaptation;   // by position in Layout::samplers; only samplers that adapt
-        std::int64_t schedulerIterations = 0;
-
-        bool operator==(const Replica&) const = default;
-    };
+    // The ensemble's own record, with each chain's State as a ChainState; see core/samplers/meta/EnsembleRecord.h. Its
+    // exchange state's burn-in iteration count isn't saved: restore takes it from the Run position.
+    using EnsembleRecord = core::samplers::EnsembleRecord<ChainState>;
+    using Replica        = EnsembleRecord::Replica;
 
     struct Checkpoint {
         Identity identity;
         RunPosition position;
         ParentSetIdDictionary parentSetIds;
         Layout layout;
-        std::string runRng;               // the top-level engine, which draws replica exchange swaps
-        std::vector<Replica> replicas;    // by replica, not by temperature slot
-        Ensemble::ExchangeState exchange; // the temperature slots: replica, temperature, swap barriers and counts; its
-                                          // burn-in iteration count isn't saved, and restore takes it from `position`
+        EnsembleRecord ensemble;
 
         bool operator==(const Checkpoint&) const = default;
     };
 
-    // Takes a checkpoint of `ensemble`, whose top-level RNG engine is `runRng`.
-    Checkpoint capture(const Ensemble& ensemble, const Engine& runRng, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds);
+    // The State's Quantities as a ChainState, and back into a State no Model has been built on yet, from the same input
+    // as `layout`. restoreState throws Refused for a ChainState that doesn't fit the State.
+    Layout stateLayout(const State& state);
+    ChainState captureState(const State& state);
+    void restoreState(const Layout& layout, const ChainState& saved, State& state);
+
+    // Takes a checkpoint of `ensemble`.
+    Checkpoint capture(const Ensemble& ensemble, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds);
 
     // Writes `checkpoint` to `file` as CBOR, replacing any file there durably (see core/io/DurableFile.h). A failure
     // ends the process with OUTPUT_FAILURE, naming the path.

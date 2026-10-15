@@ -5,9 +5,8 @@
 #include "RunDriver.h"
 
 namespace transmission_nets::impl::Model {
-    RunDriver::RunDriver(Ensemble& ensemble, const checkpoint::Engine& runRng, RunRecorder& recorder, std::filesystem::path store, checkpoint::Identity identity,
-                         Progress& progress, RunRecorder::Clock clock)
-        : ensemble_(ensemble), runRng_(runRng), recorder_(recorder), store_(std::move(store)), identity_(std::move(identity)), progress_(progress), clock_(std::move(clock)) {}
+    RunDriver::RunDriver(Ensemble& ensemble, RunRecorder& recorder, std::filesystem::path store, checkpoint::Identity identity, Progress& progress, RunRecorder::Clock clock)
+        : ensemble_(ensemble), recorder_(recorder), store_(std::move(store)), identity_(std::move(identity)), progress_(progress), clock_(std::move(clock)) {}
 
     RunOutcome RunDriver::drive(const RunStart& start, const RunPlan& plan, const StopQuery& stop) {
         // Every call to the recorder holds the lock, so a forced end never comes while one is in progress.
@@ -40,7 +39,7 @@ namespace transmission_nets::impl::Model {
             driving_       = true;
             firstRecorded_ = false;
             recorder_.onWindowCommitted([&](const WindowCommit& commit) {
-                auto taken = windowEnd ? std::move(*windowEnd) : checkpoint::capture(ensemble_, runRng_, identity_, {}, {});
+                auto taken = windowEnd ? std::move(*windowEnd) : checkpoint::capture(ensemble_, identity_, {}, {});
                 windowEnd.reset();
                 taken.position     = commit.position;
                 taken.parentSetIds = commit.parentSetIds;
@@ -90,7 +89,7 @@ namespace transmission_nets::impl::Model {
         const auto iterate = [&](const Phase phase, const std::int64_t iteration) {
             recording([&] {
                 if (recorder_.windowComplete()) {
-                    windowEnd = checkpoint::capture(ensemble_, runRng_, identity_, {}, {});
+                    windowEnd = checkpoint::capture(ensemble_, identity_, {}, {});
                 }
             });
             std::optional<TemperatureAdaptation> adaptation;

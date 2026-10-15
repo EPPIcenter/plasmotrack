@@ -54,14 +54,15 @@ namespace transmission_nets::impl::Model {
             return scheduler_.sampler(id);
         }
 
-        // Sampling iterations stepped so far, which decide when each sampler updates and adapts.
-        [[nodiscard]] int iterations() const noexcept {
-            return scheduler_.iterations();
+        // What this set carries between Sampling iterations, by sampler in ids() order; see SamplerSetRecord.
+        [[nodiscard]] core::samplers::SamplerSetRecord record() const {
+            return scheduler_.record();
         }
 
-        // Continue from `iterations`, as when resuming from a Checkpoint.
-        void restoreIterations(const int iterations) noexcept {
-            scheduler_.restoreIterations(iterations);
+        // Continues from `saved`, as when resuming from a Checkpoint. Throws std::invalid_argument for a record of
+        // another Sampler set.
+        void restore(const core::samplers::SamplerSetRecord& saved) {
+            scheduler_.restore(saved);
         }
 
     private:

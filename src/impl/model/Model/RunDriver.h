@@ -58,11 +58,11 @@ namespace transmission_nets::impl::Model {
         // Polled between Sampling iterations: the first signal once the Run has been asked to stop, none before.
         using StopQuery = std::function<std::optional<std::string>()>;
 
-        // Advances `ensemble`, whose top-level engine is `runRng`, records it through `recorder`, writes its
-        // Checkpoints, stamped with `identity`, into `store`, and reports its progress to `progress`. `clock` decides
-        // when a heartbeat is due; give it the recorder's.
-        RunDriver(Ensemble& ensemble, const checkpoint::Engine& runRng, RunRecorder& recorder, std::filesystem::path store, checkpoint::Identity identity,
-                  Progress& progress, RunRecorder::Clock clock = std::chrono::system_clock::now);
+        // Advances `ensemble`, records it through `recorder`, writes its Checkpoints, stamped with `identity`, into
+        // `store`, and reports its progress to `progress`. `clock` decides when a heartbeat is due; give it the
+        // recorder's.
+        RunDriver(Ensemble& ensemble, RunRecorder& recorder, std::filesystem::path store, checkpoint::Identity identity, Progress& progress,
+                  RunRecorder::Clock clock = std::chrono::system_clock::now);
 
         // Runs the Run from `start` to the end of `plan`, or until `stop` asks it to stop before a Sampling iteration.
         // Records the Run's start or resumption, burn-in end, every Sampling iteration, any first interrupt and the
@@ -77,7 +77,6 @@ namespace transmission_nets::impl::Model {
 
     private:
         Ensemble& ensemble_;
-        const checkpoint::Engine& runRng_;
         RunRecorder& recorder_;
         std::filesystem::path store_;
         checkpoint::Identity identity_;
