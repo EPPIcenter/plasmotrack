@@ -1,0 +1,26 @@
+/* U8 network view. */
+.network-toolbar .threshold { width: 14em; vertical-align: middle; }
+.network-toolbar .threshold-value { display: inline-block; width: 3.5em; font-variant-numeric: tabular-nums; }
+.network-toolbar .order-control { display: none; }
+.timeline .network-toolbar .order-control { display: inline; }
+.network-toolbar .search { display: flex; gap: 0.3em; }
+.network-toolbar .selection-info { flex-basis: 100%; min-height: 1.6em; }
+.network-toolbar .search.not-found input { outline: 2px solid var(--flag); }
+.network-legend { display: flex; flex-wrap: wrap; gap: 1.4em; align-items: center; margin: 0.3em 0 0.5em; color: var(--muted); }
+.network-legend .legend-item { display: inline-flex; align-items: center; gap: 0.4em; }
+.network-legend .q-scale { display: inline-flex; flex-direction: column; width: 9em; }
+.network-legend .q-ramp { height: 0.7em; border-radius: 2px; }
+.network-legend .q-ticks { display: flex; justify-content: space-between; font-size: 0.8em; }
+.network-legend .swatch { width: 0.8em; height: 0.8em; border-radius: 50%; display: inline-block; }
+.network-legend .bar-swatch { width: 2em; height: 4px; background: rgba(82, 81, 78, 0.35); display: inline-block; }
+.network-legend .timeline-only { display: none; }
+.timeline .network-legend .timeline-only { display: inline-flex; }
+.network-stage { position: relative; height: calc(100vh - 15em); min-height: 360px; border: 1px solid var(--rule); background: #fff; }
+.network-tooltip {
+  position: absolute; z-index: 10; pointer-events: none; background: var(--surface); border: 1px solid var(--rule);
+  border-radius: 4px; padding: 0.4em 0.6em; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.network-legend .truth-only { display: none; }
+.truth-shown .network-legend .truth-only { display: inline-flex; }
+.network-legend .dash-swatch { width: 2em; height: 0; border-top: 2px dashed; display: inline-block; }
