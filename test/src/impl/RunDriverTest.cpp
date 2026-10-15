@@ -79,7 +79,7 @@ namespace {
 
     // The replica in the Hot temperature slot.
     const checkpoint::Replica& hotReplica(const checkpoint::Checkpoint& saved) {
-        return saved.replicas.at(saved.exchange.replicas.front());
+        return saved.ensemble.replicas.at(saved.ensemble.exchange.replicas.front());
     }
 }// namespace
 

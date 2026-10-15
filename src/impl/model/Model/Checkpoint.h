@@ -1,20 +1,20 @@
 //
-// Saves and restores everything a Run carries between Sampling iterations, so that a Run can be resumed or a new Run
-// started from a saved State. Written as CBOR. Model caches are not saved; restore rebuilds them from the State.
+// The Checkpoint: everything a Run carries between Sampling iterations, so that it can be resumed or a new Run started
+// from its State, and the codec that writes it as CBOR and reads it back. The ensemble's part is the ensemble's own
+// record; the State's part is a ChainState of its Quantities. Taking one of an Ensemble and restoring an Ensemble from
+// one are EnsembleCheckpoint.h's; this header needs no Model.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_CHECKPOINT_H
 #define TRANSMISSION_NETWORKS_APP_CHECKPOINT_H
 
-#include "impl/model/Model/Ensemble.h"
-#include "impl/model/Model/Model.h"
 #include "impl/model/Model/ParentSetIds.h"
 #include "impl/model/Model/Refusal.h"
 #include "impl/model/Model/RunPosition.h"
-#include "impl/model/Model/State.h"
 
-#include <boost/random.hpp>
-#include <nlohmann/json.hpp>
+#include "core/samplers/meta/EnsembleRecord.h"
+
+#include <boost/random/mersenne_twister.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -30,7 +30,8 @@ namespace transmission_nets::impl::Model::checkpoint {
     // Written into every checkpoint. Raise it when a change means an older engine would misread the file.
     // 3: latent parents are summed out of the model, so their genotypes are no longer saved.
     // 4: Quantities are saved by name: the scalars and the per-Infection values are maps keyed by Quantity name.
-    inline constexpr int FORMAT_VERSION = 4;
+    // 5: the exchange state carries its burn-in iteration count.
+    inline constexpr int FORMAT_VERSION = 5;
 
     // The checkpoints in a Run's store: the latest Window's, and the one at burn-in end.
     inline constexpr const char* LATEST_FILE  = "checkpoint.cbor";
@@ -54,12 +55,12 @@ namespace transmission_nets::impl::Model::checkpoint {
     using transmission_nets::impl::Model::ParentSetIds;
     using transmission_nets::impl::Model::ParentSetIdDictionary;
 
-    // What every chain shares, named once per checkpoint.
+    // What every chain's State shares, named once per checkpoint. The sampler ids every chain shares are the ensemble
+    // record's.
     struct Layout {
         std::vector<std::string> infections;   // Infection ids, in input order
         std::vector<std::string> latentParents;// Latent parent ids, in input order
         std::vector<std::string> loci;         // Locus labels, sorted
-        std::vector<std::string> samplers;     // sampler ids, in the order the schedulers registered them
 
         bool operator==(const Layout&) const = default;
     };
@@ -75,33 +76,22 @@ namespace transmission_nets::impl::Model::checkpoint {
         bool operator==(const ChainState&) const = default;
     };
 
-    // One replica: its State, its RNG engine's state, its samplers' counts and adaptation state, and how many Sampling
-    // iterations its scheduler has run, which decides when each sampler adapts.
-    struct Replica {
-        ChainState state;
-        std::string rng;
-        std::vector<core::samplers::SamplerCounts> samplerCounts;              // by sampler, in Layout order
-        std::map<std::uint32_t, core::samplers::AdaptationState> adaptation;   // by position in Layout::samplers; only samplers that adapt
-        std::int64_t schedulerIterations = 0;
-
-        bool operator==(const Replica&) const = default;
-    };
+    // The ensemble's own record, with each chain's State as a ChainState; see core/samplers/meta/EnsembleRecord.h.
+    using EnsembleRecord = core::samplers::EnsembleRecord<ChainState>;
+    using Replica        = EnsembleRecord::Replica;
 
     struct Checkpoint {
         Identity identity;
         RunPosition position;
         ParentSetIdDictionary parentSetIds;
         Layout layout;
-        std::string runRng;               // the top-level engine, which draws replica exchange swaps
-        std::vector<Replica> replicas;    // by replica, not by temperature slot
-        Ensemble::ExchangeState exchange; // the temperature slots: replica, temperature, swap barriers and counts; its
-                                          // burn-in iteration count isn't saved, and restore takes it from `position`
+        EnsembleRecord ensemble;
 
         bool operator==(const Checkpoint&) const = default;
     };
 
-    // Takes a checkpoint of `ensemble`, whose top-level RNG engine is `runRng`.
-    Checkpoint capture(const Ensemble& ensemble, const Engine& runRng, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds);
+    // A checkpoint that can't be used is a refusal, which exits 1.
+    [[noreturn]] void refuse(std::string message);
 
     // Writes `checkpoint` to `file` as CBOR, replacing any file there durably (see core/io/DurableFile.h). A failure
     // ends the process with OUTPUT_FAILURE, naming the path.
@@ -110,15 +100,6 @@ namespace transmission_nets::impl::Model::checkpoint {
     // Throws Refused for a file that can't be opened, isn't a checkpoint or has another format version.
     Checkpoint load(const std::filesystem::path& file);
 
-    // Builds an ensemble from `checkpoint` and the Run's input, and sets `runRng` to the saved top-level engine. Throws
-    // Refused for a checkpoint that doesn't fit the input. Whether it fits the Run is the Run recipe's to check.
-    std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint,
-                                      const std::shared_ptr<Engine>& runRng,
-                                      const nlohmann::json& input,
-                                      const std::vector<core::computation::Probability>& symptomaticIDPDist,
-                                      const std::vector<core::computation::Probability>& asymptomaticIDPDist,
-                                      bool nullModel,
-                                      unsigned int numCores);
 }// namespace transmission_nets::impl::Model::checkpoint
 
 #endif//TRANSMISSION_NETWORKS_APP_CHECKPOINT_H

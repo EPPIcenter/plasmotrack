@@ -60,8 +60,8 @@ namespace {
     checkpoint::Checkpoint storedCheckpoint() {
         checkpoint::Checkpoint saved{.identity = {.runId = "run-1", .inputHash = "in", .engineVersion = engineVersion()},
                                      .position = {.iteration = 30, .phase = Phase::Sampling, .lastClosedWindow = 2},
-                                     .replicas = std::vector<checkpoint::Replica>(1)};
-        saved.exchange.temperatures = {1.0};
+                                     .ensemble = {.replicas = std::vector<checkpoint::Replica>(1)}};
+        saved.ensemble.exchange.temperatures = {1.0};
         return saved;
     }
 
@@ -77,8 +77,8 @@ namespace {
     checkpoint::Checkpoint sourceCheckpoint() {
         checkpoint::Checkpoint saved{.identity = {.runId = "source", .inputHash = "in", .engineVersion = "0.9.0"},
                                      .position = {.iteration = 30, .phase = Phase::Sampling, .lastClosedWindow = 2},
-                                     .replicas = std::vector<checkpoint::Replica>(2)};
-        saved.exchange.temperatures = {1.0, 0.4};
+                                     .ensemble = {.replicas = std::vector<checkpoint::Replica>(2)}};
+        saved.ensemble.exchange.temperatures = {1.0, 0.4};
         return saved;
     }
 
@@ -288,7 +288,7 @@ TEST(RunRecipe, ResumingNeedsTheSameInputEngineVersionAndChainCount) {
     EXPECT_EQ(refusalOf(resume([](GivenOptions&) {}, storedRun(), otherVersion)), RefusalKind::EngineVersionChanged);
 
     auto twoChains     = storedCheckpoint();
-    twoChains.replicas = std::vector<checkpoint::Replica>(2);
+    twoChains.ensemble.replicas = std::vector<checkpoint::Replica>(2);
     EXPECT_EQ(refusalOf(resume([](GivenOptions&) {}, storedRun(), twoChains)), RefusalKind::ChainCountChanged);
 }
 

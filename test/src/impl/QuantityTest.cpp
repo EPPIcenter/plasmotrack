@@ -7,6 +7,7 @@
 
 #include "core/io/MemoryStoreSink.h"
 #include "impl/model/Model/Checkpoint.h"
+#include "impl/model/Model/EnsembleCheckpoint.h"
 #include "impl/model/Model/Ensemble.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/RunRecorder.h"
@@ -89,9 +90,9 @@ TEST(QuantityTest, TraceColumnsAreTheQuantityNamesInEnumerationOrder) {
 TEST(QuantityTest, CheckpointKeysAreTheQuantityNames) {
     auto rng = std::make_shared<Engine>(1);
     const Ensemble ensemble(1, 0.5, rng, false, 1, exampleInput(), idp, idp);
-    const auto saved = checkpoint::capture(ensemble, *rng, {.runId = "run-q", .inputHash = "sha256:x", .engineVersion = "1.0.0"}, {.iteration = 0, .phase = checkpoint::Phase::BurnIn, .lastClosedWindow = 0, .burnInRemaining = 1, .samplingRemaining = 1}, {});
+    const auto saved = checkpoint::capture(ensemble, {.runId = "run-q", .inputHash = "sha256:x", .engineVersion = "1.0.0"}, {.iteration = 0, .phase = checkpoint::Phase::BurnIn, .lastClosedWindow = 0, .burnInRemaining = 1, .samplingRemaining = 1}, {});
 
-    const auto& state = saved.replicas.at(0).state;
+    const auto& state = saved.ensemble.replicas.at(0).state;
     std::vector<std::string> scalars, perInfection;
     for (const auto& [name, _] : state.scalars) {
         scalars.push_back(name);

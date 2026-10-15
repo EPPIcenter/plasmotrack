@@ -108,6 +108,8 @@ TEST(RunAssemblyTest, AStartedRunsLadderAdaptsAsAFreshRunsDoes) {
     recipe.manifest.seed   = 9;
     auto run               = startedRun(store, recipe, saved);
     EXPECT_EQ(run.ensemble->exchangeState().burnInIterations, 0);
+    EXPECT_EQ(run.ensemble->exchangeState().barrierIterations, 0);
+    EXPECT_EQ(run.ensemble->exchangeState().temperatures, saved.ensemble.exchange.temperatures);
     ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
 
     EXPECT_EQ(ladderAdaptedAt(store), (std::vector<std::int64_t>{16, 21}));

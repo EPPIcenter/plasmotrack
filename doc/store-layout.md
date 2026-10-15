@@ -299,18 +299,18 @@ checkpoint or the new one. `checkpoint-burn-in.cbor` is the same checkpoint for 
 written when that Window commits. A second interrupt closes the in-flight Window but writes no checkpoint, since the
 State may be mid-iteration.
 
-Both files are CBOR (`format_version` 4). An engine refuses a checkpoint of another format version. Python `cbor2` or
+Both files are CBOR (`format_version` 5). An engine refuses a checkpoint of another format version. Python `cbor2` or
 R `cbor` can read them for debugging:
 
 | Key | Contents |
 |---|---|
-| `format_version` | 4 (3 saved the scalars and per-Infection values under fixed keys; 2 saved Latent parent genotypes, which are now summed out of the model) |
+| `format_version` | 5 (4 did not save `burn_in_iterations`; 3 saved the scalars and per-Infection values under fixed keys; 2 saved Latent parent genotypes, which are now summed out of the model) |
 | `identity` | `run_id`, `input_hash` (SHA-256 of the input), `engine_version` |
 | `run_position` | `iteration`, `phase` (Phase of the next Sampling iteration), `last_closed_window`, `burn_in_remaining`, `sampling_remaining` |
 | `parent_set_ids` | Per Infection: `sets` (array of `members`, `set_id`) and `next_id` |
 | `run_rng` | State of the top-level random engine, which draws swaps |
 | `replicas` | Per replica: `state` (`scalars` by Quantity name: `mean_coi`, `mean_strains_tx`, `parent_set_size_prob`; `per_infection` by Quantity name, each an array by Infection: `expected_false_positives`, `expected_false_negatives`, `infection_duration`; `allele_frequencies` by Locus; `latent_genotypes` packed bits; `ordering`), `rng`, `samplers` (by id: `counts`, `adaptation`), `scheduler_iterations` |
-| `exchange` | Temperature slots: `replicas` (replica in each slot), `temperatures`, `swap_barriers`, `barrier_iterations`, `second_pair_set_next`, `swap_counts` |
+| `exchange` | Temperature slots: `replicas` (replica in each slot), `temperatures`, `swap_barriers`, `barrier_iterations`, `burn_in_iterations` (burn-in iterations run, which decide when the ladder next adapts), `second_pair_set_next`, `swap_counts` |
 
 Model caches are not saved; they are rebuilt from the State.
 
@@ -333,7 +333,8 @@ adaptation state. The checkpoint may be `checkpoint-burn-in.cbor` or `checkpoint
 - The temperature ladder is the checkpoint's, recorded in `started_from`; `-g` is ignored, and the manifest has no
   `gradient`. Resuming such a Run refuses `-g`.
 - It runs its own `-b` burn-in from the saved State (`-b 0` is allowed) and numbers iterations from 0. Iteration 0 is
-  the saved State.
+  the saved State. The ladder adapts on the iterations a fresh Run's does, from a clean slate: swap barriers the
+  source Run had pending are not carried over.
 
 ## Reading a store
 
