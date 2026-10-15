@@ -3,6 +3,7 @@
 //
 
 #include "RunDriver.h"
+#include "impl/model/Model/EnsembleCheckpoint.h"
 
 namespace transmission_nets::impl::Model {
     RunDriver::RunDriver(Ensemble& ensemble, RunRecorder& recorder, std::filesystem::path store, checkpoint::Identity identity, Progress& progress, RunRecorder::Clock clock)

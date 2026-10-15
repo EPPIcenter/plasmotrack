@@ -8,6 +8,7 @@
 
 #include "core/samplers/meta/ReplicaExchange.h"
 #include "impl/model/Model/Checkpoint.h"
+#include "impl/model/Model/EnsembleCheckpoint.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/SamplerSet.h"
 #include "impl/model/Model/State.h"

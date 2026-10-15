@@ -1,191 +1,31 @@
+//
+// The Checkpoint codec: a Checkpoint written as CBOR and read back. See Checkpoint.h.
+//
+
 #include "Checkpoint.h"
 
+#include "core/io/CborFile.h"
 #include "core/io/DurableFile.h"
-#include "core/io/OutputFailure.h"
 
 #include <fmt/core.h>
-
-#include <fcntl.h>
-#include <unistd.h>
-
-#include <algorithm>
-#include <bit>
 
 #include <cerrno>
 #include <cstring>
 #include <fstream>
 #include <iterator>
 #include <limits>
-#include <sstream>
 #include <stdexcept>
-#include <string_view>
-#include <system_error>
 
 namespace transmission_nets::impl::Model::checkpoint {
     namespace fs = std::filesystem;
     using nlohmann::json;
+    using core::io::CborFile;
+
+    void refuse(std::string message) {
+        throw Refused({.kind = RefusalKind::UnusableCheckpoint, .message = std::move(message)});
+    }
 
     namespace {
-        // A checkpoint that can't be used is a refusal, which exits 1.
-        [[noreturn]] void refuse(std::string message) {
-            throw Refused({.kind = RefusalKind::UnusableCheckpoint, .message = std::move(message)});
-        }
-
-        // The saved value for `key`; a missing key means the checkpoint was made from another input.
-        template<typename Value>
-        const Value& savedFor(const std::map<std::string, Value>& saved, const std::string& key, const std::string& what) {
-            const auto it = saved.find(key);
-            if (it == saved.end()) {
-                refuse(fmt::format("checkpoint has no {} {}; it was made from another input", what, key));
-            }
-            return it->second;
-        }
-
-        void requireSameNames(const std::vector<std::string>& saved, const std::vector<std::string>& current, const std::string& what) {
-            if (saved != current) {
-                refuse(fmt::format("checkpoint has other {} than this input; it was made from another input", what));
-            }
-        }
-
-        template<typename Value>
-        void requireLength(const std::vector<Value>& saved, const size_t expected, const std::string& what) {
-            if (saved.size() != expected) {
-                refuse(fmt::format("checkpoint has {} {}, not {}; it was made from another input", saved.size(), what, expected));
-            }
-        }
-
-        std::vector<std::string> infectionIds(const std::vector<std::shared_ptr<InfectionEvent>>& infections) {
-            std::vector<std::string> ids;
-            ids.reserve(infections.size());
-            for (const auto& infection : infections) {
-                ids.push_back(infection->id());
-            }
-            return ids;
-        }
-
-        std::vector<std::string> locusLabels(const State& state) {
-            std::vector<std::string> labels;
-            for (const auto& [label, locus] : state.loci) {
-                labels.push_back(label);
-            }
-            return labels;
-        }
-
-        // Appends Allele bits to bytes, filling each byte from its most significant bit.
-        class BitWriter {
-        public:
-            void push(const bool bit) {
-                if (bits_ % 8 == 0) {
-                    bytes_.push_back(0);
-                }
-                bytes_.back() |= static_cast<std::uint8_t>(static_cast<unsigned>(bit) << (7 - bits_ % 8));
-                ++bits_;
-            }
-            std::vector<std::uint8_t> take() { return std::move(bytes_); }
-
-        private:
-            std::vector<std::uint8_t> bytes_;
-            size_t bits_ = 0;
-        };
-
-        class BitReader {
-        public:
-            explicit BitReader(const std::vector<std::uint8_t>& bytes) : bytes_(bytes) {}
-            bool next() {
-                if (bits_ / 8 >= bytes_.size()) {
-                    refuse("checkpoint has fewer Allele bits than this input's genotypes; it was made from another input");
-                }
-                const bool bit = (bytes_[bits_ / 8] >> (7 - bits_ % 8)) & 1;
-                ++bits_;
-                return bit;
-            }
-            void requireAllRead() const {
-                if ((bits_ + 7) / 8 != bytes_.size()) {
-                    refuse("checkpoint has more Allele bits than this input's genotypes; it was made from another input");
-                }
-            }
-
-        private:
-            const std::vector<std::uint8_t>& bytes_;
-            size_t bits_ = 0;
-        };
-
-        // Visits a State's Quantities into a ChainState.
-        struct Capturing {
-            const State& state;
-            ChainState saved{};
-            BitWriter genotypes{};
-
-            void scalar(const char* name, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
-                saved.scalars.emplace(name, p->value());
-            }
-            void perInfection(const char* name, size_t, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
-                saved.perInfection[name].push_back(p->value());
-            }
-            void alleleFrequencies(const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<AlleleFrequencyImpl>>& p) {
-                saved.alleleFrequencies.push_back(p->value().frequencies());
-            }
-            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
-                const auto& alleles = p->value();
-                for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
-                    genotypes.push(alleles.allele(allele));
-                }
-            }
-            void ordering(const std::shared_ptr<OrderingImpl>& ordering) {
-                std::map<const InfectionEvent*, std::uint32_t> position;
-                for (std::uint32_t ii = 0; ii < state.infections.size(); ++ii) {
-                    position.emplace(state.infections[ii].get(), ii);
-                }
-                for (const auto& infection : ordering->value()) {
-                    saved.ordering.push_back(position.at(infection.get()));
-                }
-            }
-            ChainState take() {
-                saved.latentGenotypes = genotypes.take();
-                return std::move(saved);
-            }
-        };
-
-        // Visits a ChainState into a State no Model has been built on yet.
-        struct Restoring {
-            State& state;
-            const ChainState& saved;
-            BitReader genotypes;
-            size_t locusAt = 0;
-
-            void scalar(const char* name, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
-                p->initializeValue(savedFor(saved.scalars, name, "Quantity"));
-            }
-            void perInfection(const char* name, const size_t index, const std::shared_ptr<core::parameters::Parameter<double>>& p) {
-                const auto& values = savedFor(saved.perInfection, name, "per-Infection Quantity");
-                if (index == 0) {
-                    requireLength(values, state.infections.size(), name);
-                }
-                p->initializeValue(values[index]);
-            }
-            void alleleFrequencies(const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<AlleleFrequencyImpl>>& p) {
-                p->initializeValue(AlleleFrequencyImpl::exactly(saved.alleleFrequencies[locusAt++]));
-            }
-            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
-                GeneticsImpl alleles(static_cast<int>(p->value().totalAlleles()));
-                for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
-                    alleles.set(allele, genotypes.next());
-                }
-                p->initializeValue(alleles);
-            }
-            void ordering(const std::shared_ptr<OrderingImpl>& ordering) {
-                genotypes.requireAllRead();
-                std::vector<std::shared_ptr<InfectionEvent>> order;
-                for (const auto at : saved.ordering) {
-                    if (at >= state.infections.size()) {
-                        refuse(fmt::format("checkpoint's Ordering has Infection {} of {}", at, state.infections.size()));
-                    }
-                    order.push_back(state.infections[at]);
-                }
-                ordering->restoreOrder(std::move(order));
-            }
-        };
-
         std::vector<std::uint8_t> bytesFrom(const json& j) {
             const auto& bytes = j.get_binary();
             return {bytes.begin(), bytes.end()};
@@ -199,7 +39,7 @@ namespace transmission_nets::impl::Model::checkpoint {
                     .ordering          = j.at("ordering")};
         }
 
-        json toJson(const Ensemble::ExchangeState& exchange) {
+        json toJson(const core::samplers::ExchangeState& exchange) {
             json swapCounts = json::array();
             for (const auto& count : exchange.swapCounts) {
                 swapCounts.push_back({{"accepted", count.accepted}, {"attempted", count.attempted}});
@@ -208,15 +48,17 @@ namespace transmission_nets::impl::Model::checkpoint {
                     {"temperatures", exchange.temperatures},
                     {"swap_barriers", exchange.swapBarriers},
                     {"barrier_iterations", exchange.barrierIterations},
+                    {"burn_in_iterations", exchange.burnInIterations},
                     {"second_pair_set_next", exchange.secondPairSetNext},
                     {"swap_counts", swapCounts}};
         }
 
-        Ensemble::ExchangeState exchangeFromJson(const json& j) {
-            Ensemble::ExchangeState exchange{.replicas          = j.at("replicas"),
+        core::samplers::ExchangeState exchangeFromJson(const json& j) {
+            core::samplers::ExchangeState exchange{.replicas          = j.at("replicas"),
                                              .temperatures      = j.at("temperatures"),
                                              .swapBarriers      = j.at("swap_barriers"),
                                              .barrierIterations = j.at("barrier_iterations"),
+                                             .burnInIterations  = j.at("burn_in_iterations"),
                                              .secondPairSetNext = j.at("second_pair_set_next")};
             for (const auto& count : j.at("swap_counts")) {
                 exchange.swapCounts.push_back({.accepted = count.at("accepted"), .attempted = count.at("attempted")});
@@ -328,125 +170,6 @@ namespace transmission_nets::impl::Model::checkpoint {
             }
             return dictionary;
         }
-
-        // Writes CBOR straight to a file through a small buffer, so a checkpoint is never held whole in memory. The
-        // small parts go through nlohmann_json; the large arrays are written item by item.
-        class CborFile {
-        public:
-            explicit CborFile(fs::path path) : path_(std::move(path)), fd_(::open(path_.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644)) {
-                if (fd_ < 0) {
-                    core::io::failOutput("open", path_, std::strerror(errno));
-                }
-                buffer_.reserve(BUFFER_BYTES);
-            }
-            CborFile(const CborFile&)            = delete;
-            CborFile& operator=(const CborFile&) = delete;
-            ~CborFile() {
-                if (fd_ >= 0) {
-                    ::close(fd_);
-                }
-            }
-
-            void map(const size_t entries) { head(5, entries); }
-            void array(const size_t items) { head(4, items); }
-            void text(const std::string_view value) {
-                head(3, value.size());
-                append(value);
-            }
-            void bytes(const std::vector<std::uint8_t>& value) {
-                head(2, value.size());
-                append({reinterpret_cast<const char*>(value.data()), value.size()});
-            }
-            void number(const std::uint64_t value) { head(0, value); }
-            void number(const std::int64_t value) {
-                if (value < 0) {
-                    head(1, static_cast<std::uint64_t>(-(value + 1)));
-                } else {
-                    head(0, static_cast<std::uint64_t>(value));
-                }
-            }
-            void number(const double value) {
-                const auto bits = std::bit_cast<std::uint64_t>(value);
-                buffer_.push_back(static_cast<char>(0xfb));
-                for (int shift = 56; shift >= 0; shift -= 8) {
-                    buffer_.push_back(static_cast<char>((bits >> shift) & 0xff));
-                }
-                flushIfFull();
-            }
-            template<typename Number>
-            void numbers(const std::vector<Number>& values) {
-                array(values.size());
-                for (const auto value : values) {
-                    number(value);
-                }
-            }
-            void texts(const std::vector<std::string>& values) {
-                array(values.size());
-                for (const auto& value : values) {
-                    text(value);
-                }
-            }
-            void value(const json& small) {
-                const auto encoded = json::to_cbor(small);
-                append({reinterpret_cast<const char*>(encoded.data()), encoded.size()});
-            }
-
-            void close() {
-                flush();
-                const int fd = fd_;
-                fd_          = -1;
-                if (::close(fd) != 0) {
-                    core::io::failOutput("write", path_, std::strerror(errno));
-                }
-            }
-
-        private:
-            static constexpr size_t BUFFER_BYTES = size_t{1} << 20;
-
-            void head(const std::uint8_t major, const std::uint64_t value) {
-                const auto type = static_cast<std::uint8_t>(major << 5);
-                if (value < 24) {
-                    buffer_.push_back(static_cast<char>(type | value));
-                } else {
-                    const int width = value <= 0xff ? 1 : value <= 0xffff ? 2 : value <= 0xffffffff ? 4 : 8;
-                    buffer_.push_back(static_cast<char>(type | (width == 1 ? 24 : width == 2 ? 25 : width == 4 ? 26 : 27)));
-                    for (int shift = 8 * (width - 1); shift >= 0; shift -= 8) {
-                        buffer_.push_back(static_cast<char>((value >> shift) & 0xff));
-                    }
-                }
-                flushIfFull();
-            }
-
-            void append(const std::string_view raw) {
-                buffer_.append(raw);
-                flushIfFull();
-            }
-
-            void flushIfFull() {
-                if (buffer_.size() >= BUFFER_BYTES) {
-                    flush();
-                }
-            }
-
-            void flush() {
-                size_t written = 0;
-                while (written < buffer_.size()) {
-                    const ssize_t n = ::write(fd_, buffer_.data() + written, buffer_.size() - written);
-                    if (n < 0) {
-                        if (errno == EINTR) {
-                            continue;
-                        }
-                        core::io::failOutput("write", path_, std::strerror(errno));
-                    }
-                    written += static_cast<size_t>(n);
-                }
-                buffer_.clear();
-            }
-
-            fs::path path_;
-            int fd_;
-            std::string buffer_;
-        };
 
         void write(CborFile& out, const Layout& layout, const std::vector<std::string>& samplerIds) {
             out.map(4);
@@ -587,39 +310,6 @@ namespace transmission_nets::impl::Model::checkpoint {
 
     }// namespace
 
-    Layout stateLayout(const State& state) {
-        return {.infections = infectionIds(state.infections), .latentParents = infectionIds(state.latentParents), .loci = locusLabels(state)};
-    }
-
-    ChainState captureState(const State& state) {
-        Capturing capturing{.state = state};
-        state.quantities(capturing);
-        return capturing.take();
-    }
-
-    // Fills a State no Model has been built on yet, from the same input as `layout`.
-    void restoreState(const Layout& layout, const ChainState& saved, State& state) {
-        requireSameNames(layout.infections, infectionIds(state.infections), "Infections");
-        requireSameNames(layout.latentParents, infectionIds(state.latentParents), "Latent parents");
-        requireSameNames(layout.loci, locusLabels(state), "Loci");
-        requireLength(saved.alleleFrequencies, state.loci.size(), "Allele frequencies");
-        requireLength(saved.ordering, state.infections.size(), "Infections in the Ordering");
-        Restoring restoring{.state = state, .saved = saved, .genotypes = BitReader(saved.latentGenotypes)};
-        state.quantities(restoring);
-    }
-
-
-    Checkpoint capture(const Ensemble& ensemble, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds) {
-        Checkpoint checkpoint{.identity = std::move(identity), .position = position, .parentSetIds = std::move(parentSetIds), .layout = stateLayout(*ensemble.chains.front().state)};
-        checkpoint.ensemble = ensemble.record([&](const State& state) {
-            if (infectionIds(state.infections) != checkpoint.layout.infections) {
-                throw std::logic_error("chains of one ensemble have different Infections");
-            }
-            return captureState(state);
-        });
-        return checkpoint;
-    }
-
     void save(const Checkpoint& checkpoint, const fs::path& file) {
         core::io::writeDurably(file, [&](const fs::path& temporary) {
             CborFile out(temporary);
@@ -646,36 +336,4 @@ namespace transmission_nets::impl::Model::checkpoint {
         }
     }
 
-    std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint,
-                                      const std::shared_ptr<Engine>& runRng,
-                                      const nlohmann::json& input,
-                                      const std::vector<core::computation::Probability>& symptomaticIDPDist,
-                                      const std::vector<core::computation::Probability>& asymptomaticIDPDist,
-                                      const bool nullModel,
-                                      const unsigned int numCores) {
-        std::unique_ptr<Ensemble> ensemble;
-        try {
-            ensemble = std::make_unique<Ensemble>(checkpoint.ensemble, runRng, numCores, [&](const size_t, const ChainState& saved, std::shared_ptr<Engine> chainRng) {
-                auto state = std::make_shared<State>(input, symptomaticIDPDist, asymptomaticIDPDist, std::move(chainRng), nullModel);
-                restoreState(checkpoint.layout, saved, *state);
-                return state;
-            });
-        } catch (const std::invalid_argument& e) {
-            refuse(fmt::format("checkpoint of Run {} does not fit this input: {}", checkpoint.identity.runId, e.what()));
-        }
-
-        // The burn-in iteration count isn't saved: in burn-in it is the position's iteration. Once burn-in has ended
-        // it is never read.
-        auto exchange             = ensemble->exchangeState();
-        exchange.burnInIterations = static_cast<int>(checkpoint.position.iteration);
-        // Once burn-in has ended, barriers still pending can't be told apart by pair: the ladder works out each pair's
-        // attempts from burn-in iterations that run back to back, and Sampling iterations have alternated the pairs
-        // since. A Run started from here begins its own.
-        if (checkpoint.position.phase == Phase::Sampling) {
-            std::ranges::fill(exchange.swapBarriers, 0.0);
-            exchange.barrierIterations = 0;
-        }
-        ensemble->restoreExchangeState(exchange);
-        return ensemble;
-    }
 }// namespace transmission_nets::impl::Model::checkpoint

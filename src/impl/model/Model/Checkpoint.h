@@ -1,20 +1,20 @@
 //
-// Saves and restores everything a Run carries between Sampling iterations, so that a Run can be resumed or a new Run
-// started from a saved State. Written as CBOR. Model caches are not saved; restore rebuilds them from the State.
+// The Checkpoint: everything a Run carries between Sampling iterations, so that it can be resumed or a new Run started
+// from its State, and the codec that writes it as CBOR and reads it back. The ensemble's part is the ensemble's own
+// record; the State's part is a ChainState of its Quantities. Taking one of an Ensemble and restoring an Ensemble from
+// one are EnsembleCheckpoint.h's; this header needs no Model.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_CHECKPOINT_H
 #define TRANSMISSION_NETWORKS_APP_CHECKPOINT_H
 
-#include "impl/model/Model/Ensemble.h"
-#include "impl/model/Model/Model.h"
 #include "impl/model/Model/ParentSetIds.h"
 #include "impl/model/Model/Refusal.h"
 #include "impl/model/Model/RunPosition.h"
-#include "impl/model/Model/State.h"
 
-#include <boost/random.hpp>
-#include <nlohmann/json.hpp>
+#include "core/samplers/meta/EnsembleRecord.h"
+
+#include <boost/random/mersenne_twister.hpp>
 
 #include <cstdint>
 #include <filesystem>
@@ -30,7 +30,8 @@ namespace transmission_nets::impl::Model::checkpoint {
     // Written into every checkpoint. Raise it when a change means an older engine would misread the file.
     // 3: latent parents are summed out of the model, so their genotypes are no longer saved.
     // 4: Quantities are saved by name: the scalars and the per-Infection values are maps keyed by Quantity name.
-    inline constexpr int FORMAT_VERSION = 4;
+    // 5: the exchange state carries its burn-in iteration count.
+    inline constexpr int FORMAT_VERSION = 5;
 
     // The checkpoints in a Run's store: the latest Window's, and the one at burn-in end.
     inline constexpr const char* LATEST_FILE  = "checkpoint.cbor";
@@ -75,8 +76,7 @@ namespace transmission_nets::impl::Model::checkpoint {
         bool operator==(const ChainState&) const = default;
     };
 
-    // The ensemble's own record, with each chain's State as a ChainState; see core/samplers/meta/EnsembleRecord.h. Its
-    // exchange state's burn-in iteration count isn't saved: restore takes it from the Run position.
+    // The ensemble's own record, with each chain's State as a ChainState; see core/samplers/meta/EnsembleRecord.h.
     using EnsembleRecord = core::samplers::EnsembleRecord<ChainState>;
     using Replica        = EnsembleRecord::Replica;
 
@@ -90,14 +90,8 @@ namespace transmission_nets::impl::Model::checkpoint {
         bool operator==(const Checkpoint&) const = default;
     };
 
-    // The State's Quantities as a ChainState, and back into a State no Model has been built on yet, from the same input
-    // as `layout`. restoreState throws Refused for a ChainState that doesn't fit the State.
-    Layout stateLayout(const State& state);
-    ChainState captureState(const State& state);
-    void restoreState(const Layout& layout, const ChainState& saved, State& state);
-
-    // Takes a checkpoint of `ensemble`.
-    Checkpoint capture(const Ensemble& ensemble, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds);
+    // A checkpoint that can't be used is a refusal, which exits 1.
+    [[noreturn]] void refuse(std::string message);
 
     // Writes `checkpoint` to `file` as CBOR, replacing any file there durably (see core/io/DurableFile.h). A failure
     // ends the process with OUTPUT_FAILURE, naming the path.
@@ -106,15 +100,6 @@ namespace transmission_nets::impl::Model::checkpoint {
     // Throws Refused for a file that can't be opened, isn't a checkpoint or has another format version.
     Checkpoint load(const std::filesystem::path& file);
 
-    // Builds an ensemble from `checkpoint` and the Run's input, and sets `runRng` to the saved top-level engine. Throws
-    // Refused for a checkpoint that doesn't fit the input. Whether it fits the Run is the Run recipe's to check.
-    std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint,
-                                      const std::shared_ptr<Engine>& runRng,
-                                      const nlohmann::json& input,
-                                      const std::vector<core::computation::Probability>& symptomaticIDPDist,
-                                      const std::vector<core::computation::Probability>& asymptomaticIDPDist,
-                                      bool nullModel,
-                                      unsigned int numCores);
 }// namespace transmission_nets::impl::Model::checkpoint
 
 #endif//TRANSMISSION_NETWORKS_APP_CHECKPOINT_H

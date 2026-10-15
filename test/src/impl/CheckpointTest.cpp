@@ -8,6 +8,7 @@
 #include "gtest/gtest.h"
 
 #include "impl/model/Model/Checkpoint.h"
+#include "impl/model/Model/EnsembleCheckpoint.h"
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
