@@ -15,6 +15,7 @@
 #define TRANSMISSION_NETWORKS_APP_RUNDRIVER_H
 
 #include "Checkpoint.h"
+#include "Ensemble.h"
 #include "ParentSetIds.h"
 #include "Progress.h"
 #include "RunPosition.h"
@@ -30,12 +31,6 @@
 #include <variant>
 
 namespace transmission_nets::impl::Model {
-    // How long a Run is, in Sampling iterations per Phase.
-    struct RunPlan {
-        std::int64_t burnIn  = 0;
-        std::int64_t samples = 0;
-    };
-
     // Where a Run starts: a fresh Run at its starting State, or a Run resumed from its Checkpoint, where the
     // Checkpoint left it.
     struct FreshRun {};

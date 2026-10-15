@@ -27,6 +27,12 @@ namespace transmission_nets::impl::Model {
 
         bool operator==(const RunPosition&) const = default;
     };
+
+    // How long a Run is, in Sampling iterations per Phase.
+    struct RunPlan {
+        std::int64_t burnIn  = 0;
+        std::int64_t samples = 0;
+    };
 }// namespace transmission_nets::impl::Model
 
 #endif//TRANSMISSION_NETWORKS_APP_RUNPOSITION_H

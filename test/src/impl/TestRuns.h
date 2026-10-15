@@ -11,6 +11,7 @@
 
 #include "core/io/MemoryStoreSink.h"
 #include "impl/model/Model/Checkpoint.h"
+#include "impl/model/Model/EnsembleCheckpoint.h"
 #include "impl/model/Model/Progress.h"
 #include "impl/model/Model/RunAssembly.h"
 #include "impl/model/Model/RunDriver.h"

@@ -7,6 +7,7 @@
 
 #include "core/io/MemoryStoreSink.h"
 #include "impl/model/Model/Checkpoint.h"
+#include "impl/model/Model/EnsembleCheckpoint.h"
 #include "impl/model/Model/Ensemble.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/RunRecorder.h"

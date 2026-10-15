@@ -3,6 +3,7 @@
 //
 
 #include "RunAssembly.h"
+#include "impl/model/Model/EnsembleCheckpoint.h"
 
 #include "core/utils/timers.h"
 
