@@ -48,10 +48,11 @@ const render: RenderView = (root, ctx) => {
   root.append(
     el("div", { className: "toolbar" }, el("h2", {}, "Functionals"), el("label", {}, "Stratum ", select), status),
     note,
-    el("h3", {}, "Out-degree and unobserved-source inclusion"),
-    el("p", { className: "muted" }, "ψ_MAP (square) with the parent-set size range; ψ_edge (triangle) and mean q (circle) with 95% MCMC intervals. Out-degree counts an Infection as a source, q as a recipient. Click a triangle or circle for its trace."),
+    el("h3", {}, "Out-degree and unobserved-source inclusion ",
+      el("span", { className: "muted" }, "(ψ_edge, ψ_MAP: by source stratum; mean q, composition classes, multi-source, size range: by recipient stratum)")),
+    el("p", { className: "muted" }, "ψ_MAP (square) with the parent-set size range; ψ_edge (triangle) and mean q (circle) with 95% MCMC intervals. Per stratum, ψ_edge and ψ_MAP count the stratum's Infections as sources (their expected children); mean q, the composition classes, the multi-source probabilities and the size range count them as recipients (their own Parent sets). Click a triangle or circle for its trace."),
     degree,
-    el("h3", {}, "Parent-set composition"),
+    el("h3", {}, "Parent-set composition ", el("span", { className: "muted" }, "(by recipient stratum)")),
     el("p", { className: "muted" }, "Mean posterior weight of each composition class over the stratum's Infections, as recipients. Click a segment for its trace."),
     composition,
     tables,
@@ -135,8 +136,8 @@ const render: RenderView = (root, ctx) => {
     const order = stackOrder(f.classes);
     const ms = multiSourceRows(f);
     const summary = el("table", { className: "data" },
-      el("thead", {}, el("tr", {}, ...["Stratum", "n", "ψ_MAP", `Size range (${f.level})`, "ψ_edge [95%]", "mean q [95%]",
-        "Multi-source, augmented [95%]", "Multi-source, observed [95%]"].map((h) => el("th", {}, h)))),
+      el("thead", {}, el("tr", {}, ...["Stratum", "n", "ψ_MAP (source)", `Size range (${f.level}, recipient)`, "ψ_edge [95%] (source)", "mean q [95%] (recipient)",
+        "Multi-source, augmented [95%] (recipient)", "Multi-source, observed [95%] (recipient)"].map((h) => el("th", {}, h)))),
       el("tbody", {}, ...f.strata.map((s, k) => el("tr", {},
         stratumCell(f.column, s.value),
         el("td", { className: "num" }, String(s.n)),
