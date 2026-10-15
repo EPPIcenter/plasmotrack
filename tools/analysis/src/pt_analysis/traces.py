@@ -105,11 +105,28 @@ def table_over(store, name, phases):
     return relation if relation is not None else table(store, name).select("*, NULL::VARCHAR AS phase")
 
 
-def chain_traces(analysis, group, name, burn_in=False):
+def stratum_traces(analysis, name, stratum):
+    """A functional of one stratum (`pt_analysis.strata`) in every Chain, as `chain_traces` gives series. `stratum`
+    is (epi column or None for every Infection, value or None for the Infections with no value)."""
+    from pt_analysis.epi import EpiError
+    from pt_analysis.strata import StrataError, stratum_series
+
+    try:
+        found = stratum_series(analysis, name, *stratum)
+    except (EpiError, StrataError) as e:
+        raise TraceError(str(e)) from None
+    return {label: {**s, "phase": ["sampling"] * len(s["iteration"])} for label, s in found.items()}, False
+
+
+def chain_traces(analysis, group, name, burn_in=False, stratum=None):
     """Quantity (group, name) in every Chain of `analysis`: ({label: series}, whether burn-in rows are included).
     Burn-in rows are included only when asked for and the group is read from the store's Traces. A Chain with no rows
     of an edge another Chain has is 0 at each of its Draws; with no rows of another quantity, its series is empty.
-    Raises UnknownQuantity when no Chain has rows."""
+    Raises UnknownQuantity when no Chain has rows. With `stratum`, a functional of one stratum (`stratum_traces`)."""
+    if stratum is not None:
+        if group != "functionals":
+            raise TraceError(f"only functionals have strata, not {group}")
+        return stratum_traces(analysis, name, stratum)
     with_burn_in = burn_in and group in TRACE_GROUPS
     phases = BOTH_PHASES if with_burn_in else SAMPLING
     found = {label: series(store, group, name, phases) for label, store in analysis.runs.items()}
@@ -126,11 +143,11 @@ def chain_traces(analysis, group, name, burn_in=False):
     return traces, with_burn_in
 
 
-def range_diagnostics(analysis, group, name, first=None, last=None):
+def range_diagnostics(analysis, group, name, first=None, last=None, stratum=None):
     """ESS and R-hat of quantity (group, name) over the Draws with Sampling iteration in [first, last] (either end
     open when None): {"chains": [{"chain", "draws", "ess"}], "ess", "rhat"}, the pooled statistics over the Chains
-    with Draws in the range. Statistics are None where `diagnostics` gives None."""
-    traces, _ = chain_traces(analysis, group, name)
+    with Draws in the range. Statistics are None where `diagnostics` gives None. `stratum` as for `chain_traces`."""
+    traces, _ = chain_traces(analysis, group, name, stratum=stratum)
     chains, pooled = [], []
     for label, s in traces.items():
         values = [v for i, v in zip(s["iteration"], s["value"])

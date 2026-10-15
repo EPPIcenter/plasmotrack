@@ -208,7 +208,24 @@ def test_psi_edge_is_the_mean_over_infections_of_expected_observed_parents(store
         assert f["mean_unobserved_only"] == pytest.approx(sum(r["unobserved_only"] for r in infections) / 3)
 
 
-TABLES = ["set_classes", "edges", "set_summary", "infection_draws", "functional_draws"]
+def test_out_degree_draws_give_each_infection_its_expected_observed_children_per_draw(store):
+    derive(store)
+    rows = read(store, "out_degree_draws", "iteration, infection")
+    assert [(it, inf) for it, inf, _ in rows] == [(it, inf) for it in range(25, 75, 5) for inf in ("1", "2", "3")]
+    by_draw = defaultdict(dict)
+    for it, inf, out_degree in rows:
+        by_draw[it][inf] = out_degree
+    name = store.path.name
+    # Infection 3 is no Infection's parent; Infection 1 is 3's parent with the oracle's edge 1->3, plus 2's at < 0.01.
+    assert all(d["3"] == 0 for d in by_draw.values())
+    edge_1_to_3 = [by_draw[it]["1"] for it in sorted(by_draw)]
+    assert edge_1_to_3 == pytest.approx(EDGE_1_TO_3[name], abs=0.01)
+    # Out-degrees and in-degrees count the same edges, so their mean over Infections is psi_edge.
+    psi = [sum(by_draw[it].values()) / 3 for it in sorted(by_draw)]
+    assert psi == pytest.approx(PSI_EDGE[name], rel=2e-3)
+
+
+TABLES = ["set_classes", "edges", "set_summary", "infection_draws", "functional_draws", "out_degree_draws"]
 
 
 def test_the_manifest_records_the_closed_windows_per_phase_and_the_package_version(store):
@@ -254,4 +271,5 @@ def test_a_run_still_in_burn_in_has_no_edges_or_pooled_weights(store):
     assert read(store, "set_summary", "infection") == []
     assert read(store, "infection_draws", "iteration") == []
     assert read(store, "functional_draws", "iteration") == []
+    assert read(store, "out_degree_draws", "iteration") == []
     assert len(read(store, "set_classes", "infection")) == 9

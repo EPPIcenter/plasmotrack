@@ -11,6 +11,7 @@ and does nothing otherwise. Tables are computed from the sampling Phase, so ever
     infection_draws   iteration, infection, q, expected_observed_parents, entropy, effective_size, one column per
                       composition class present in the Run, multi_source_augmented, multi_source_observed
     functional_draws  iteration, psi_edge, mean_q, mean_entropy, mean_<class> per composition class
+    out_degree_draws  iteration, infection, out_degree
 
 An Analysis's own derived tables go in `<manifest stem>.derived/` beside its manifest, with a manifest recording each
 Run's directory and closed Windows; `derive_analysis` derives every Run first, then rewrites them when that changes:
@@ -146,8 +147,23 @@ def functional_draws(store):
         FROM draws GROUP BY iteration ORDER BY iteration""")
 
 
+def out_degree_draws(store):
+    """Per Draw and Infection, its expected number of observed children: the summed Edge marginals from it to every
+    other Infection, 0 where it is no Infection's parent at that Draw. The Infection as a source, where
+    `infection_draws` has it as a recipient; both average to psi_edge over Infections."""
+    parent_sets = table(store, "parent_sets")
+    observed = edges(store)
+    infections = store.structure("infections")
+    return store.connection.sql("""
+        WITH draws AS (SELECT DISTINCT iteration FROM parent_sets),
+             grid AS (SELECT d.iteration, i.infection FROM draws d CROSS JOIN infections i)
+        SELECT g.iteration, g.infection, coalesce(sum(o.prob), 0) AS out_degree
+        FROM grid g LEFT JOIN observed o ON o.iteration = g.iteration AND o.parent = g.infection
+        GROUP BY ALL ORDER BY iteration, infection""")
+
+
 TABLES = {"set_classes": set_classes, "edges": edges, "set_summary": set_summary, "infection_draws": infection_draws,
-          "functional_draws": functional_draws}
+          "functional_draws": functional_draws, "out_degree_draws": out_degree_draws}
 
 
 def source(store):

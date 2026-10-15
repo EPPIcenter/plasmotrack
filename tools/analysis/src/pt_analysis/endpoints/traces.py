@@ -5,6 +5,9 @@
                                                    {group, name, first, last, chains: [{chain, draws, ess}], ess, rhat}
 
 `first` and `last` are Sampling iterations, inclusive; only Draws (sampling-Phase rows) count.
+
+A functional of one stratum (U9, `pt_analysis.strata`) is group `functionals` with `stratum_column=C` (empty for every
+Infection) and `stratum=V` (left out for the Infections with no value of C); both are echoed in the response.
 """
 
 from starlette.routing import Route
@@ -18,6 +21,21 @@ def quantity(request):
     if group is None or name is None:
         raise TraceError("a quantity needs both group and name")
     return group, name
+
+
+def stratum(request):
+    """(column or None, value or None) when the query names a stratum column, else None."""
+    params = request.query_params
+    if "stratum_column" not in params:
+        return None
+    return params["stratum_column"] or None, params.get("stratum")
+
+
+def echo(request):
+    params = request.query_params
+    if "stratum_column" not in params:
+        return {}
+    return {"stratum_column": params["stratum_column"], "stratum": params.get("stratum")}
 
 
 def iteration(request, key):
@@ -34,12 +52,12 @@ async def trace(request):
     try:
         group, name = quantity(request)
         burn_in = request.query_params.get("burn_in", "false").lower() in ("1", "true", "yes")
-        traces, with_burn_in = chain_traces(request.app.state.analysis, group, name, burn_in)
+        traces, with_burn_in = chain_traces(request.app.state.analysis, group, name, burn_in, stratum(request))
     except UnknownQuantity as e:
         return error(str(e), 404)
     except TraceError as e:
         return error(str(e))
-    return json({"group": group, "name": name, "burn_in": with_burn_in,
+    return json({"group": group, "name": name, **echo(request), "burn_in": with_burn_in,
                  "chains": [{"chain": label, **s} for label, s in traces.items()]})
 
 
@@ -47,12 +65,12 @@ async def draw_range(request):
     try:
         group, name = quantity(request)
         first, last = iteration(request, "first"), iteration(request, "last")
-        result = range_diagnostics(request.app.state.analysis, group, name, first, last)
+        result = range_diagnostics(request.app.state.analysis, group, name, first, last, stratum(request))
     except UnknownQuantity as e:
         return error(str(e), 404)
     except TraceError as e:
         return error(str(e))
-    return json({"group": group, "name": name, "first": first, "last": last, **result})
+    return json({"group": group, "name": name, **echo(request), "first": first, "last": last, **result})
 
 
 ROUTES = [Route("/api/trace", trace), Route("/api/range", draw_range)]

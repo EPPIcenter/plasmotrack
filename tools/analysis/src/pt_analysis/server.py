@@ -32,6 +32,7 @@ ENDPOINTS = [
     # #85 U3 pair inspector
 
     # #86 #87 U9 functionals panel
+    "pt_analysis.endpoints.functionals",  # #86: epi columns, functionals overall and per stratum
 
     # #88 U10 infection card
 

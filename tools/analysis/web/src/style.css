@@ -39,3 +39,8 @@ button.sortable:not(:disabled) { cursor: pointer; text-decoration: underline dot
 .stats { margin: 0.4em 0; }
 .note:empty { display: none; }
 .brush .selection { fill: var(--accent); fill-opacity: 0.1; stroke: var(--accent); stroke-opacity: 0.5; }
+table.data { border-collapse: collapse; font-variant-numeric: tabular-nums; margin-bottom: 0.6em; }
+table.data th, table.data td { border-bottom: 1px solid var(--rule); padding: 0.25em 0.6em; text-align: left; }
+table.data td.num { text-align: right; }
+table.data td.clickable { cursor: pointer; }
+table.data td.clickable:hover { background: var(--hover); }

@@ -28,6 +28,9 @@ const render: RenderView = (root, ctx) => {
       to see its trace.</p>`;
     return;
   }
+  // A functional of one stratum (U9) names its stratum too: `stratum_column` (empty: every Infection) and `stratum`.
+  const stratum: Record<string, string> = {};
+  for (const key of ["stratum_column", "stratum"]) if (ctx.params.has(key)) stratum[key] = ctx.params.get(key)!;
   const chains = ctx.analysis.chains.map((c) => c.chain);
   const colour = { domain: chains, range: CHAIN_COLOURS.slice(0, chains.length) };
   let burnIn = ctx.params.get("burn_in") === "1";
@@ -37,7 +40,9 @@ const render: RenderView = (root, ctx) => {
 
   root.innerHTML = `
     <div class="toolbar">
-      <a href="${formatRoute("convergence")}">← Convergence table</a>
+      ${"stratum_column" in stratum
+        ? `<a href="${formatRoute("functionals", stratum.stratum_column ? { column: stratum.stratum_column } : {})}">← Functionals</a>`
+        : `<a href="${formatRoute("convergence")}">← Convergence table</a>`}
       <h2></h2>
       <label><input type="checkbox" class="burn-in"> Show burn-in</label>
     </div>
@@ -48,12 +53,14 @@ const render: RenderView = (root, ctx) => {
     <h3>Rank-normalised histograms <span class="muted">(flat when the Chains mix; dashed: a flat histogram)</span></h3>
     <div class="histograms"></div>`;
   const $ = <T extends Element>(selector: string) => root.querySelector<T>(selector)!;
-  $("h2").textContent = `${group}: ${name}`;
+  $("h2").textContent = `${group}: ${name}` + ("stratum_column" in stratum
+    ? stratum.stratum_column ? `, ${stratum.stratum_column} = ${stratum.stratum ?? "no value"}` : ", all Infections"
+    : "");
   const checkbox = $<HTMLInputElement>(".burn-in");
   checkbox.checked = burnIn;
   checkbox.addEventListener("change", () => {
     burnIn = checkbox.checked;
-    ctx.replaceParams({ group, name, ...(burnIn ? { burn_in: "1" } : {}) });
+    ctx.replaceParams({ group, name, ...stratum, ...(burnIn ? { burn_in: "1" } : {}) });
     load();
   });
   $(".legend").append(Plot.legend({ color: { ...colour, type: "categorical" } }));
@@ -165,13 +172,13 @@ const render: RenderView = (root, ctx) => {
   function updateRange() {
     drawHistograms();
     const mine = ++request;
-    getRange(group!, name!, range?.[0] ?? null, range?.[1] ?? null)
+    getRange(group!, name!, range?.[0] ?? null, range?.[1] ?? null, stratum)
       .then((r) => mine === request && showStats(r))
       .catch((e: Error) => ($(".stats").textContent = `Could not compute ESS and R-hat: ${e.message}`));
   }
 
   function load() {
-    getTrace(group!, name!, burnIn)
+    getTrace(group!, name!, burnIn, stratum)
       .then((t) => {
         trace = t;
         $(".note").textContent =

@@ -34,6 +34,18 @@ pnpm dev                                              # here: the page with hot 
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
+| `src/functionals.ts` | The functionals panel's chart data and trace parameters, tested without a DOM |
+
+## Views
+
+- `#/convergence`, `#/trace?group=&name=`: the convergence table and the trace panel (U1). The trace panel also
+  shows a functional of one stratum: `group=functionals&name=psi_edge&stratum_column=district&stratum=North`.
+- `#/functionals[?column=]`: the functionals panel (U9). A stratum selector (overall or any epi column); a
+  dot-and-range chart per stratum of ψ_MAP (square, its range the parent-set size range at 0.8), ψ_edge (triangle)
+  and mean q (circle) with 95% MCMC intervals; the composition classes as stacked bars, with the unobserved source
+  first; tables of every number, multi-source probabilities included. Clicking a triangle, circle, bar segment or
+  table cell opens the trace panel for that stratum's per-Draw functional. ψ_MAP and the size range are point
+  summaries without a per-Draw series, so they open nothing.
 
 ## Add a view
 

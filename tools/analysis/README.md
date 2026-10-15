@@ -72,6 +72,7 @@ Phases.
 | `set_summary` | infection, set_id, weight, rank, cumulative_mass | one per Parent set with weight in some Draw |
 | `infection_draws` | iteration, infection, q, expected_observed_parents, entropy, effective_size, one column per class, multi_source_augmented, multi_source_observed | one per Draw and Infection |
 | `functional_draws` | iteration, psi_edge, mean_q, mean_entropy, `mean_<class>` per class | one per Draw |
+| `out_degree_draws` | iteration, infection, out_degree | one per Draw and Infection |
 
 - `n_observed` counts a set's observed parents (members that are Infection ids). `has_unobserved` says whether the
   unobserved source, the Infection's Latent parent (`<id>_copy`), is a member.
@@ -98,6 +99,8 @@ Phases.
 - `functional_draws` averages `infection_draws` over Infections per Draw. `psi_edge`, the edge-sum, is the mean of
   `expected_observed_parents`; `mean_q`, `mean_entropy` and `mean_<class>` are the means of the others. The 95%
   interval of a functional is the 2.5% and 97.5% quantiles of its column over Draws.
+- `out_degree_draws` has each Infection as a source: its expected number of observed children at a Draw, the sum
+  of the Edge marginals from it, 0 where it is no Infection's parent. Its mean over Infections is psi_edge too.
 
 `derived/manifest.json` records the closed Windows per Phase the tables came from and the package version that wrote
 them. `derive` does nothing when both match the store and this package, and replaces every table otherwise, for
@@ -156,12 +159,50 @@ Chain, and ESS and R-hat for the Draws in the range brushed on the trace.
 | `GET /api/trace?group=&name=[&burn_in=true]` | per Chain, `iteration`, `phase` and `value` lists of a quantity |
 | `GET /api/range?group=&name=[&first=][&last=]` | ESS per Chain, pooled ESS and split R-hat over the Draws with Sampling iteration in [first, last] |
 
-A quantity is a group and name of the convergence table. Burn-in rows come only on request and only for the groups
+| `GET /api/epi` | the epi data's key, columns with types, ids matching no Infection, Infections without a row |
+| `GET /api/functionals[?column=][&level=0.8]` | the functionals overall, or per stratum of an epi column |
+
+A quantity is a group and name of the convergence table, or a functional of one stratum: group `functionals`,
+a per-Draw functional name (below), `stratum_column=C` (empty for every Infection) and `stratum=V` (left out for the
+Infections with no value of C), on `/api/trace` and `/api/range` alike. Burn-in rows come only on request and only for the groups
 read from the store's Traces (log posterior to allele frequency); edges, unobserved-source inclusion and functionals
 come from the derived tables, which hold Draws only. The trace and range queries are in `pt_analysis.traces`. The
 manifest's optional `label` names the Analysis on the page (default: the manifest's directory name).
 
 `web/README.md` says how to develop the frontend and how to add a view.
+
+## Epi data and functionals by stratum
+
+The manifest's optional `epi` CSV has one row per Infection. The key is the column named `infection`, or the first
+column when none is; keys are read as text. DuckDB's CSV inspection types every other column: `date` (dates and
+timestamps, written as ISO dates), `numeric`, or `categorical` (anything else, booleans included). Keys that are no
+Infection of the Analysis are reported, not an error; a repeated key is an error. `pt_analysis.epi.load_epi`.
+
+Any column is a stratum: one stratum per distinct value, in the column's own order, plus one of the Infections with
+no value (no row, or an empty cell) when there are any. A column the CSV does not have is an error naming it.
+`pt_analysis.strata.stratified_functionals(analysis, column)` gives per stratum (or overall, without a column):
+
+| Field | What it is |
+|---|---|
+| `n` | Infections in the stratum |
+| `psi_map` | number of Infections whose modal set names an Infection of the stratum, over `n` |
+| `size_range` | [psi_lo, psi_hi] at the level (0.8): the min and max observed-parent count in each of the stratum's Infections' credible collections, averaged |
+| `psi_edge` | per Draw, the stratum's Infections' summed `out_degree`, over `n` |
+| `mean_q` | per Draw, the mean `q` of the stratum's Infections |
+| `classes` | per Draw, the mean weight of each composition class |
+| `multi_source_augmented`, `multi_source_observed` | per Draw, the mean multi-source probabilities |
+
+Which way an Infection counts follows the manuscript's Zanzibar summaries (`summarize_zanzibar_functionals.R`):
+out-degree (psi_edge, psi_MAP) by the Infection as a source, so a stratum's psi_edge is how many observed Infections
+its Infections infect on average; everything else by the Infection as a recipient, from its own Parent sets. Every
+mean is over all of the stratum's Infections, those with no weight included, so the strata's values weighted by `n`
+average back to the overall value, Draw by Draw.
+
+The per-Draw functionals are `psi_edge`, `mean_q`, `mean_<class>`, `mean_multi_source_augmented` and
+`mean_multi_source_observed`; each has an estimate, the mean over every Draw of every Chain, and an interval, the
+2.5% and 97.5% type-7 quantiles (R's default) of the same pooled values. psi_MAP and the size range come from Parent-set
+weights pooled over every Draw of every Chain, matching sets across Chains by their members, and have no interval.
+`pt_analysis.strata.stratum_series` gives a stratum's per-Draw functional per Chain, which the trace panel shows.
 
 ## Summarise a Run
 

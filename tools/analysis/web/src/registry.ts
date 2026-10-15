@@ -13,6 +13,7 @@ export const views: ViewEntry[] = [
   // #85 U3 pair inspector
 
   // #86 #87 U9 functionals panel
+  { route: "functionals", title: "Functionals", nav: true, load: () => import("./views/functionals") },
 
   // #88 U10 infection card
 
