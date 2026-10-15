@@ -36,6 +36,7 @@ ENDPOINTS = [
 
     # #86 #87 U9 functionals panel
     "pt_analysis.endpoints.functionals",  # #86: epi columns, functionals overall and per stratum
+    "pt_analysis.endpoints.flows",  # #87: attribution, enrichment, net flow, lags, spatial scale
 
     # #88 U10 infection card
 

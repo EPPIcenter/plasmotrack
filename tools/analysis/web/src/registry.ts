@@ -17,6 +17,7 @@ export const views: ViewEntry[] = [
 
   // #86 #87 U9 functionals panel
   { route: "functionals", title: "Functionals", nav: true, load: () => import("./views/functionals") },
+  { route: "flows", title: "Flows", nav: true, load: () => import("./views/flows") },
 
   // #88 U10 infection card
 

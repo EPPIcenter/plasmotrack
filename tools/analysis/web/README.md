@@ -40,6 +40,7 @@ pnpm dev                                              # here: the page with hot 
 | `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
 | `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
 | `src/functionals.ts` | The functionals panel's chart data and trace parameters, tested without a DOM |
+| `src/flows.ts` | The flows view's payload types and chart data: attribution and enrichment cells, net-flow bars, lag bars split at the cutoff, the slider's range, spatial-scale labels, tested without a DOM |
 | `src/sampler.ts` | The sampler panel's types and logic: samplers grouped by type, Run events placed on the time axes, the ladder, the target band |
 
 ## Views
@@ -55,6 +56,7 @@ pnpm dev                                              # here: the page with hot 
 | `#/ranking` | Ranking against truth (U6): directed and undirected precision-recall curves, posterior solid, null-model dashed, IBD dotted, a dotted grey line at the random ranking's precision; metrics table below |
 | `#/parentsets?level=0.8` | Parent sets (U6): per Infection effective size, credible size, whether the true set is in the credible collection, top probability, and the same for the null fit; sortable by any column; a summary line per fit |
 | `#/functionals[?column=]` | U9 functionals panel, overall or per stratum of an epi column: a dot-and-range chart of ψ_MAP (square, its range the parent-set size range at 0.8), ψ_edge (triangle) and mean q (circle) with 95% MCMC intervals; composition classes as stacked bars, the unobserved source first; tables of every number, multi-source probabilities included. A triangle, circle, bar segment or table cell opens the trace panel for that stratum's per-Draw functional; ψ_MAP and the size range are point summaries and open nothing |
+| `#/flows[?column=][&min_infections=][&max_lag=][&unit=][&parent=]` | U9 flows, lags and spatial scale (#87), per stratum of an epi column: the attribution matrix (recipient by source stratum and the unobserved source, rows summing to one) and flow enrichment against the candidate pairs (fill clipped to [0.25, 4], labels the expected edge counts) as heatmaps; net flow per stratum as bars, strata under the minimum Infections hidden; the lag histogram of edge mass with the median fitted duration and a cutoff slider (`max_lag`) that reports ψ_edge and mean q with the mass beyond it moved to the unobserved source, overall and per stratum; spatial-scale shares for a unit column within a parent column, optionally only for edges up to the cutoff |
 
 ## Add a view
 

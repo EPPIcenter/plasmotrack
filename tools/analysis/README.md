@@ -192,6 +192,9 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/pair?a=&b=` | the pair inspector's panels for Infections A and B (below) |
 | `GET /api/epi` | the epi data's key, columns with types, ids matching no Infection, Infections without a row |
 | `GET /api/functionals[?column=][&level=0.8]` | the functionals overall, or per stratum of an epi column |
+| `GET /api/flows[?column=][&min_infections=1]` | attribution, enrichment and net flow per stratum (below) |
+| `GET /api/lags[?max_lag=][&column=][&width=]` | the lag histogram of edge mass, the median fitted duration, and psi_edge and mean q with mass beyond `max_lag` reassigned (below) |
+| `GET /api/spatial?unit=&parent=[&max_lag=]` | shares of edge mass by where the source lives relative to the recipient (below) |
 
 | `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
 
@@ -312,6 +315,27 @@ The per-Draw functionals are `psi_edge`, `mean_q`, `mean_<class>`, `mean_multi_s
 2.5% and 97.5% type-7 quantiles (R's default) of the same pooled values. psi_MAP and the size range come from Parent-set
 weights pooled over every Draw of every Chain, matching sets across Chains by their members, and have no interval.
 `pt_analysis.strata.stratum_series` gives a stratum's per-Draw functional per Chain, which the trace panel shows.
+
+### Flows, lags and spatial scale
+
+`pt_analysis.flows` (view `#/flows`, endpoints in `pt_analysis.endpoints.flows`) follows the manuscript's Zanzibar
+results. Everything is a function of the pooled Edge marginals Q[i, j] (summed over every Draw of every Chain, over
+the number of Draws) and q; sums of Q are expected edge counts. Strata are those above, the no-value stratum included.
+
+| Function | What it is |
+|---|---|
+| `attribution(analysis, column)` | per recipient stratum, its Infections' attributed parent mass (expected observed parents plus q) by source stratum and the unobserved source, as mass and share within the recipient |
+| `enrichment(analysis, column)` | per source x recipient cell: expected edges, share of all edge mass, candidate pairs from the input's `allowed_parents` and their share, and enrichment = share / candidate share (None without candidate pairs) |
+| `net_flow(analysis, column, min_infections=1)` | per stratum with at least `min_infections` Infections: expected out-edges and in-edges between different strata and their difference; and the number of strata hidden |
+| `lag_histogram(analysis, width=None)` | edge mass binned by lag, the child's minus the parent's input observation time; bins start at multiples of the width (default about 30 bins of 1, 2 or 5 x 10^k) |
+| `median_duration(analysis)` | median over Infections of each one's posterior mean `infection_duration` |
+| `reassign(analysis, max_lag, column=None)` | the mass of every edge with lag above `max_lag` moved to the unobserved source, Draw by Draw: moved mass and share, and psi_edge and mean q before and after with 95% intervals, overall and per stratum |
+| `spatial_scale(analysis, unit, parent, max_lag=None)` | edge mass and share with lag at most `max_lag` whose source is in the recipient's unit (`same_unit`), its parent unit only (`same_parent`), or elsewhere (`other`) |
+
+Reassigning lowers psi_edge by the moved mass over n and raises mean q by the same amount, the manuscript's
+accounting, so q then counts attributed mass and can exceed one for an Infection. Per stratum, psi_edge counts the
+stratum's Infections as sources and q as recipients, as above. A unit is known by its value and its parent unit's, so
+a unit name used in two parent units is two units; a missing value is `other`.
 
 ## Summarise a Run
 
