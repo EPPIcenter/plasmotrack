@@ -43,7 +43,7 @@ namespace {
     // An ensemble past the start of sampler adaptation (iteration 20), with swaps between its temperature slots.
     Run burnedIn(const int numChains, const unsigned int seed, const int iterations = 40) {
         auto rng      = std::make_shared<Engine>(seed);
-        auto ensemble = std::make_unique<Ensemble>(numChains, 0.5, rng, false, 1, exampleInput(), idp, idp);
+        auto ensemble = std::make_unique<Ensemble>(numChains, 0.5, rng, false, 1, studyFromJson(exampleInput(), idp, idp));
         for (int ii = 0; ii < iterations; ++ii) {
             ensemble->burnin();
         }
@@ -66,7 +66,7 @@ namespace {
 
     Run restoredFrom(const fs::path& file, const unsigned int seed = 99) {
         auto rng = std::make_shared<Engine>(seed);
-        auto ensemble = checkpoint::restore(checkpoint::load(file), rng, exampleInput(), idp, idp, false, 1);
+        auto ensemble = checkpoint::restore(checkpoint::load(file), rng, studyFromJson(exampleInput(), idp, idp), false, 1);
         return {rng, std::move(ensemble)};
     }
 }// namespace
@@ -281,7 +281,7 @@ TEST(CheckpointTest, RestoreRefusesAnInputWithOtherLoci) {
         renamed.replace(at, 4, "AS99");
     }
 
-    EXPECT_THROW(checkpoint::restore(checkpoint::load(file), std::make_shared<Engine>(1), nlohmann::json::parse(renamed), idp, idp, false, 1), Refused);
+    EXPECT_THROW(checkpoint::restore(checkpoint::load(file), std::make_shared<Engine>(1), studyFromJson(nlohmann::json::parse(renamed), idp, idp), false, 1), Refused);
 }
 
 // A checkpoint restores the exchange state as saved, pending ladder barriers included, whatever the Phase: a resumed

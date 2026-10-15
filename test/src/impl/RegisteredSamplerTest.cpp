@@ -33,7 +33,7 @@ namespace {
     std::vector<std::string> samplerIdsForSeed(const unsigned int seed) {
         const std::vector<double> idp(60, 1.0 / 60);
         auto rng   = std::make_shared<boost::random::mt19937>(seed);
-        auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
+        auto state = std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng);
         auto model = std::make_shared<Model>(state);
         SamplerSet<Model> samplers(state, model, rng);
         return samplers.ids();
@@ -102,7 +102,7 @@ TEST(SamplerIdsTest, TargetsNameTheInfectionByItsId) {
     }
     const std::vector<double> idp(60, 1.0 / 60);
     auto rng   = std::make_shared<boost::random::mt19937>(1);
-    auto state = std::make_shared<State>(input, idp, idp, rng);
+    auto state = std::make_shared<State>(studyFromJson(input, idp, idp), rng);
     auto model = std::make_shared<Model>(state);
     SamplerSet<Model> samplers(state, model, rng);
     const auto& ids = samplers.ids();
@@ -125,7 +125,7 @@ TEST(SamplerIdsTest, TargetsNameTheInfectionByItsId) {
 TEST(SamplerCountsTest, EachUpdateCountsOneProposalAndAnAcceptedProposalChangesTheValue) {
     const std::vector<double> idp(60, 1.0 / 60);
     auto rng   = std::make_shared<boost::random::mt19937>(7);
-    auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
+    auto state = std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng);
     auto model = std::make_shared<Model>(state);
     SamplerSet<Model> samplers(state, model, rng);
 
@@ -160,7 +160,7 @@ TEST(SamplerCountsTest, EachUpdateCountsOneProposalAndAnAcceptedProposalChangesT
 TEST(SamplerCountsTest, RestoredCountsContinueFromWhereTheyWere) {
     const std::vector<double> idp(60, 1.0 / 60);
     auto rng   = std::make_shared<boost::random::mt19937>(7);
-    auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
+    auto state = std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng);
     auto model = std::make_shared<Model>(state);
     SamplerSet<Model> samplers(state, model, rng);
     auto& meanCoi = samplers.sampler("ConstrainedContinuousRandomWalk/mean_coi");
@@ -182,7 +182,7 @@ namespace {
 
         explicit Chain(const unsigned int seed, const std::vector<double>& idp = std::vector<double>(60, 1.0 / 60))
             : rng(std::make_shared<boost::random::mt19937>(seed)),
-              state(std::make_shared<State>(exampleInput(), idp, idp, rng)),
+              state(std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng)),
               model(std::make_shared<Model>(state)),
               samplers(state, model, rng) {}
 
@@ -212,7 +212,7 @@ TEST(AdaptationStateTest, AdaptingSamplersExposeTheirProposalScales) {
     EXPECT_TRUE(anyScaleMoved);
 
     const auto as1 = chain.sampler("SALTSampler/allele_frequencies/AS1").adaptationState();
-    EXPECT_EQ(as1.scales.size(), exampleInput()["loci"][0]["num_alleles"].get<size_t>());
+    EXPECT_EQ(as1.scales.size(), studyFromJson(exampleInput(), {}, {}).loci[0].alleles);
 
     EXPECT_TRUE(chain.sampler("ParentRelinkSampler/infection/1").adaptationState().scales.empty());
 }

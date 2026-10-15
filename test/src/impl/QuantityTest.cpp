@@ -46,14 +46,14 @@ namespace {
 }// namespace
 
 TEST(QuantityTest, ScalarsAndPerInfectionValuesAreNamedInEnumerationOrder) {
-    const State state(exampleInput(), idp, idp, std::make_shared<Engine>(1));
+    const State state(studyFromJson(exampleInput(), idp, idp), std::make_shared<Engine>(1));
     EXPECT_EQ(state.scalarNames(), SCALARS);
     EXPECT_EQ(state.perInfectionNames(), PER_INFECTION);
 }
 
 TEST(QuantityTest, EveryScalarAndPerInfectionQuantityIsASamplersTarget) {
     auto rng   = std::make_shared<Engine>(1);
-    auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
+    auto state = std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng);
     auto model = std::make_shared<Model>(state);
     const SamplerSet<Model> samplers(state, model, rng);
     const auto& ids = samplers.ids();
@@ -68,7 +68,7 @@ TEST(QuantityTest, EveryScalarAndPerInfectionQuantityIsASamplersTarget) {
 
 TEST(QuantityTest, TraceColumnsAreTheQuantityNamesInEnumerationOrder) {
     auto rng   = std::make_shared<Engine>(1);
-    auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
+    auto state = std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng);
     auto model = std::make_shared<Model>(state);
     const SamplerSet<Model> samplers(state, model, rng);
 
@@ -89,7 +89,7 @@ TEST(QuantityTest, TraceColumnsAreTheQuantityNamesInEnumerationOrder) {
 
 TEST(QuantityTest, CheckpointKeysAreTheQuantityNames) {
     auto rng = std::make_shared<Engine>(1);
-    const Ensemble ensemble(1, 0.5, rng, false, 1, exampleInput(), idp, idp);
+    const Ensemble ensemble(1, 0.5, rng, false, 1, studyFromJson(exampleInput(), idp, idp));
     const auto saved = checkpoint::capture(ensemble, {.runId = "run-q", .inputHash = "sha256:x", .engineVersion = "1.0.0"}, {.iteration = 0, .phase = checkpoint::Phase::BurnIn, .lastClosedWindow = 0, .burnInRemaining = 1, .samplingRemaining = 1}, {});
 
     const auto& state = saved.ensemble.replicas.at(0).state;

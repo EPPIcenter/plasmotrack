@@ -6,7 +6,8 @@
 // latent genotypes (genomes), or both into the target chain's state, and reports the change in the target chain's log
 // posterior (and its prior and likelihood). Every change is undone after it is evaluated.
 
-#include "core/io/parse_json.h"
+#include "impl/model/Model/Study.h"
+#include <nlohmann/json.hpp>
 #include "core/io/utils.h"
 #include "impl/model/Model/Checkpoint.h"
 #include "impl/model/Model/EnsembleCheckpoint.h"
@@ -27,13 +28,14 @@ int main(int argc, char** argv) {
         fmt::print(stderr, "usage: {} INPUT SYMPTOMATIC_IDP ASYMPTOMATIC_IDP TARGET_CHECKPOINT SOURCE_CHECKPOINT ID [ID ...]\n", argv[0]);
         return 2;
     }
-    const auto input = core::io::loadJSON(core::io::decompressGzipFile(argv[1]));
+    const auto input = nlohmann::json::parse(core::io::decompressGzipFile(argv[1]));
     const auto sIdp  = core::io::loadVectorFromFile<core::computation::Probability>(argv[2]);
     const auto aIdp  = core::io::loadVectorFromFile<core::computation::Probability>(argv[3]);
+    const auto study  = studyFromJson(input, sIdp, aIdp);
     auto rngA        = std::make_shared<checkpoint::Engine>(1);
     auto rngB        = std::make_shared<checkpoint::Engine>(2);
-    auto target      = checkpoint::restore(checkpoint::load(argv[4]), rngA, input, sIdp, aIdp, false, 1);
-    auto source      = checkpoint::restore(checkpoint::load(argv[5]), rngB, input, sIdp, aIdp, false, 1);
+    auto target      = checkpoint::restore(checkpoint::load(argv[4]), rngA, study, false, 1);
+    auto source      = checkpoint::restore(checkpoint::load(argv[5]), rngB, study, false, 1);
     const auto& t    = target->hotChain();
     const auto& s    = source->hotChain();
 
