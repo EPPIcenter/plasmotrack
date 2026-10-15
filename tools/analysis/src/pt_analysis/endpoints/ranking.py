@@ -14,7 +14,8 @@ null) when the manifest names them; a baseline it does not name is not in the li
 fit-summary name (`average_precision`, `pr_auc`, `top_k_precision`, `n_edge_universe`, `n_true_edges`,
 `n_distinct_scores`) and `curve`, a list of {score, recall, precision, tp, fp} by score descending, thinned to the
 points a line through the whole curve needs. Parent-set rows are per Infection in id order; the `null_` columns are
-there only with a null-model Analysis, and `covered` is null without truth. Results are computed once per level.
+there only with a null-model Analysis, and `covered` is null without truth. Results are computed once per level
+(`endpoints.memo`) until a Chain closes another Window.
 """
 
 from dataclasses import asdict
@@ -23,16 +24,7 @@ from starlette.routing import Route
 
 from pt_analysis import metrics
 from pt_analysis.analysis import AnalysisError
-from pt_analysis.endpoints import error, json
-
-
-def cached(request, key, compute):
-    cache = getattr(request.app.state, "metrics_cache", None)
-    if cache is None:
-        cache = request.app.state.metrics_cache = {}
-    if key not in cache:
-        cache[key] = compute()
-    return cache[key]
+from pt_analysis.endpoints import error, json, memo
 
 
 def ranking_json(ranking):
@@ -70,7 +62,7 @@ async def ranking(request):
     if analysis.truth is None:
         return error("the Analysis manifest names no truth file, so there is nothing to rank against", 404)
     try:
-        return json(cached(request, "ranking", lambda: ranking_payload(analysis)))
+        return json(memo(request, "ranking", lambda: ranking_payload(analysis)))
     except (OSError, KeyError, ValueError, AnalysisError, metrics.MetricsError) as e:
         return error(str(e))
 
@@ -84,7 +76,7 @@ async def parent_sets(request):
         return error(f"level must be in (0, 1], not {level}")
     analysis = request.app.state.analysis
     try:
-        return json(cached(request, ("parent-sets", level), lambda: parent_sets_payload(analysis, level)))
+        return json(memo(request, ("parent-sets", level), lambda: parent_sets_payload(analysis, level)))
     except (OSError, KeyError, ValueError, AnalysisError, metrics.MetricsError) as e:
         return error(str(e))
 

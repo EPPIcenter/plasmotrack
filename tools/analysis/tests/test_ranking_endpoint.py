@@ -83,3 +83,18 @@ def test_a_drawn_curve_keeps_only_the_points_where_true_positives_change():
     r = metrics.rank([0.9, 0.8, 0.7, 0.6, 0.5, 0.4], [True, False, False, False, True, False])
     # tp 1,1,1,1,2,2: the run of fp-only points at tp 1 keeps its ends.
     assert [(p.tp, p.fp) for p in metrics.drawn_curve(r)] == [(1, 0), (1, 3), (2, 3), (2, 4)]
+
+
+def test_results_are_computed_once_until_a_chain_closes_another_window(tmp_path, stores, monkeypatch):  # noqa: F811
+    analysis = open_analysis(tmp_path, stores)
+    calls = []
+    ranking_fits = metrics.ranking_fits
+    monkeypatch.setattr(metrics, "ranking_fits", lambda *a: calls.append(a) or ranking_fits(*a))
+    client = client_for(analysis, tmp_path)
+    first = client.get("/api/ranking").json()
+    assert client.get("/api/ranking").json() == first
+    assert len(calls) == 1
+    marker = analysis.runs["chain2"].path / "_closed" / "window-000002"
+    marker.rename(marker.with_name("aside"))
+    client.get("/api/ranking")
+    assert len(calls) == 2

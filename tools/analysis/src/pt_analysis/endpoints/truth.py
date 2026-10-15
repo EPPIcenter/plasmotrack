@@ -11,8 +11,8 @@
         404 without a truth file or when the manifest does not name that source
 
 `sources` holds the posterior, then the null-model Analysis (`null`) and the pairwise scores (`ibd`, undirected) when
-the manifest names them. Without truth the overlay's `true` and `reverse_true` are null. Results are cached per
-parameter.
+the manifest names them. Without truth the overlay's `true` and `reverse_true` are null. Results are remembered per
+parameter (`endpoints.memo`) until a Chain closes another Window.
 """
 
 import math
@@ -21,8 +21,7 @@ from starlette.routing import Route
 
 from pt_analysis import metrics, truth_overlay
 from pt_analysis.analysis import AnalysisError
-from pt_analysis.endpoints import error, json
-from pt_analysis.endpoints.ranking import cached
+from pt_analysis.endpoints import error, json, memo
 
 FAILURES = (OSError, KeyError, ValueError, AnalysisError, metrics.MetricsError)
 
@@ -43,7 +42,7 @@ async def truth_network(request):
         return error(f"floor is a score in [0, 1], not '{request.query_params['floor']}'")
     analysis = request.app.state.analysis
     try:
-        return json(cached(request, ("truth-network", floor), lambda: truth_overlay.overlay(analysis, floor)))
+        return json(memo(request, ("truth-network", floor), lambda: truth_overlay.overlay(analysis, floor)))
     except FAILURES as e:
         return error(str(e))
 
@@ -59,7 +58,7 @@ async def errors(request):
     if analysis.truth is None:
         return error("the Analysis manifest names no truth file, so there are no errors to list", 404)
     try:
-        return json(cached(request, ("errors", source, threshold),
+        return json(memo(request, ("errors", source, threshold),
                            lambda: truth_overlay.errors(analysis, source, threshold)))
     except truth_overlay.UnknownSource as e:
         return error(str(e), 404)

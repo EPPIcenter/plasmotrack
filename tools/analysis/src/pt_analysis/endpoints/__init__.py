@@ -1,6 +1,9 @@
 """JSON endpoints of `pt-analysis serve`, one module per view. See `pt_analysis.server`."""
 
 import math
+from json import dumps as json_text
+
+from pt_analysis.derive import analysis_source
 
 from starlette.responses import JSONResponse
 
@@ -19,6 +22,19 @@ def finite(value):
 
 def json(value, status_code=200):
     return JSONResponse(finite(value), status_code=status_code)
+
+
+def memo(request, key, compute):
+    """`compute()`, remembered per app under `key` for the primary Analysis while its Chains' closed Windows stay
+    the same: a Chain that closes another Window makes every remembered result stale."""
+    analysis = request.app.state.analysis
+    source = json_text(analysis_source(analysis))
+    cache = getattr(request.app.state, "memo", None)
+    if cache is None or cache["source"] != source:
+        cache = request.app.state.memo = {"source": source, "results": {}}
+    if key not in cache["results"]:
+        cache["results"][key] = compute()
+    return cache["results"][key]
 
 
 def error(message, status_code=400):
