@@ -9,6 +9,8 @@ of that noise means nothing.
 import math
 import statistics
 
+import numpy as np
+
 ROUNDING = 1e-12
 
 
@@ -21,8 +23,8 @@ def constant(chains):
 def multichain_ess(chains):
     """Effective sample size of several chains, counting disagreement between chains as variance (Vehtari et al.
     2021, without rank normalisation). Chains are truncated to the shortest; None below 4 Draws or for a constant
-    series. Autocorrelations are taken against the pooled variance and summed with Geyer's initial monotone sequence,
-    computing autocovariances (divisor n) only up to the lag where the sum stops."""
+    series. Autocorrelations are taken against the pooled variance and summed with Geyer's initial monotone sequence.
+    Autocovariances (divisor n) come for every lag at once from an FFT of each chain, averaged over chains."""
     m = len(chains)
     n = min(len(c) for c in chains)
     if n < 4:
@@ -30,24 +32,23 @@ def multichain_ess(chains):
     chains = [list(c[:n]) for c in chains]
     if constant(chains):
         return None
-    means = [sum(c) / n for c in chains]
-    centred = [[v - mu for v in c] for c, mu in zip(chains, means)]
+    x = np.asarray(chains, dtype=float)
+    means = x.mean(axis=1)
+    centred = x - means[:, None]
+    size = 1 << (2 * n - 1).bit_length()  # zero-padded past 2n - 1: no wrap-around between lags
+    spectrum = np.fft.rfft(centred, size, axis=1)
+    autocov = (np.fft.irfft(spectrum * spectrum.conj(), size, axis=1)[:, :n] / n).mean(axis=0)
 
-    def mean_autocov(lag):
-        return statistics.mean(sum(c[i] * c[i + lag] for i in range(n - lag)) / n for c in centred)
-
-    within = mean_autocov(0) * n / (n - 1)
-    between = n * statistics.variance(means) if m > 1 else 0.0
+    within = float(autocov[0]) * n / (n - 1)
+    between = n * statistics.variance(means.tolist()) if m > 1 else 0.0
     pooled = (n - 1) / n * within + between / n
     if pooled <= 0:
         return None
-
-    def rho(lag):
-        return 1.0 - (within - mean_autocov(lag)) / pooled
+    rho = 1.0 - (within - autocov) / pooled
 
     total, previous = 0.0, math.inf
     for k in range(0, n - 1, 2):
-        pair = rho(k) + rho(k + 1)
+        pair = float(rho[k] + rho[k + 1])
         if pair <= 0:
             break
         pair = min(pair, previous)  # initial monotone sequence
