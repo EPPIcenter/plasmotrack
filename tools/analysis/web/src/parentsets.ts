@@ -1,5 +1,7 @@
 // The parent-set panel's data: /api/parent-sets' payload, sorting its rows and the summary line. No DOM here.
 
+import { recordsTable, type DataTable } from "./export";
+
 export interface ParentSetRow {
   infection: string;
   /** exp of the entropy of the Infection's pooled Parent-set weights. */
@@ -73,4 +75,12 @@ export function summaryLine(fit: ParentSetFit, level: number): string {
   let line = `${FIT_NAMES[fit.fit]}: credible collection at ${level} has ${mean?.toFixed(2) ?? "–"} sets on average (median ${median ?? "–"})`;
   if (coverage !== null && coverage !== undefined) line += `, holds the true set for ${(100 * coverage).toFixed(1)}% of Infections`;
   return `${line}; mean top set probability ${top?.toFixed(3) ?? "–"}`;
+}
+
+/** The rows given with /api/parent-sets' column names, the `null_` columns only with a null-model fit. What the view
+ *  exports as CSV. */
+export function parentSetTable(rows: readonly ParentSetRow[], withNull: boolean): DataTable {
+  const fit = ["effective_size", "credible_size", "covered", "top_probability"];
+  const columns = ["infection", ...fit, ...(withNull ? fit.map((c) => `null_${c}`) : [])];
+  return recordsTable(columns, rows);
 }

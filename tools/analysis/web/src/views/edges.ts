@@ -3,7 +3,7 @@
 // unobserved source shown or hidden. Clicking a row opens the edge's trace panel.
 
 import { getJson } from "../api";
-import { edgeRows, filterEdges, sortEdges, type EdgeJson, type EdgeRow, type SortKey } from "../edges";
+import { edgeRows, edgeStatsTable, filterEdges, sortEdges, type EdgeJson, type EdgeRow, type SortKey } from "../edges";
 import { formatEss } from "../format";
 import { getSelection, subscribeSelection } from "../selection";
 import type { RenderView } from "../view";
@@ -45,6 +45,7 @@ const render: RenderView = (root, ctx) => {
   );
 
   let all: EdgeRow[] = [];
+  let shown: EdgeRow[] = [];
   let sortKey = (ctx.params.get("sort") as SortKey | null) ?? "table";
   let descending = ctx.params.get("desc") === "1";
 
@@ -108,7 +109,7 @@ const render: RenderView = (root, ctx) => {
     selectedLabel.lastChild!.textContent = ` Selected Infections only (${[...selection].slice(0, 5).join(", ")}${selection.size > 5 ? ", …" : ""})`;
     const filter = { child: childInput.value, parent: parentInput.value, unobserved: unobserved.checked,
                      selection: selected.checked ? selection : undefined };
-    const shown = sortEdges(filterEdges(all, filter), { key: sortKey, descending });
+    shown = sortEdges(filterEdges(all, filter), { key: sortKey, descending });
     count.textContent = `${shown.length.toLocaleString()} of ${all.length.toLocaleString()} edges`;
     drawHeader();
     list.setItems(shown);
@@ -134,9 +135,13 @@ const render: RenderView = (root, ctx) => {
     })
     .catch((e: Error) => (count.textContent = `Could not load the edge table: ${e.message}`));
 
-  return () => {
-    unsubscribe();
-    list.destroy();
+  return {
+    cleanup: () => {
+      unsubscribe();
+      list.destroy();
+    },
+    // CSV export: every row the filters keep, as the package's edge_stats rows, not only the rows in view.
+    table: () => (all.length ? edgeStatsTable(shown, chains) : null),
   };
 };
 

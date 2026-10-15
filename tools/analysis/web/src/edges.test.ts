@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgeRows, filterEdges, sortEdges, type EdgeJson } from "./edges";
+import { edgeRows, edgeStatsTable, filterEdges, sortEdges, type EdgeJson } from "./edges";
 
 // A constructed Analysis of two Chains: 9<-1 disagrees between them (locked at 1 in A, absent in B); 9<-2 switches
 // often in both; 8<-1 is locked near 0 in both; 9<-9_copy is the unobserved source.
@@ -76,5 +76,20 @@ describe("filterEdges", () => {
 
   it("hides the unobserved source on request", () => {
     expect(keys(filterEdges(rows, { ...all, unobserved: false }))).toEqual(["8<-1", "9<-1", "9<-2"]);
+  });
+});
+
+describe("edgeStatsTable", () => {
+  it("gives the package's edge_stats rows: one per Chain with its mean and switch count, then the pooled row", () => {
+    const t = edgeStatsTable([rows[1]!, rows[3]!], ["A", "B"]);
+    expect(t.columns).toEqual(["child", "parent", "unobserved", "chain", "mean", "switches", "spread", "ess"]);
+    expect(t.rows).toEqual([
+      ["9", "1", false, "A", 0.98, 0, null, null],
+      ["9", "1", false, "B", 0, 0, null, null],
+      ["9", "1", false, null, 0.49, 0, 0.98, 2.1],
+      ["9", "9_copy", true, "A", 0.7, 2, null, null],
+      ["9", "9_copy", true, "B", 0.5, 0, null, null],
+      ["9", "9_copy", true, null, 0.6, 2, 0.2, NaN],
+    ]);
   });
 });

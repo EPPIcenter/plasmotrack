@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterQuantities, quantities, sortQuantities, type ConvergenceRow } from "./convergence";
+import { convergenceTable, filterQuantities, quantities, sortQuantities, type ConvergenceRow } from "./convergence";
 
 const rows: ConvergenceRow[] = [
   { group: "log posterior", name: "log posterior", chain: "chain1", ess: 10, rhat: null },
@@ -54,5 +54,19 @@ describe("filterQuantities", () => {
     expect(filterQuantities(qs, { group: "", name: "<-1" }).map((q) => q.name)).toEqual(["3<-1", "2<-1"]);
     expect(filterQuantities(qs, { group: "", name: "LOG" }).map((q) => q.name)).toEqual(["log posterior"]);
     expect(filterQuantities(qs, { group: "edge", name: "3" }).map((q) => q.name)).toEqual(["3<-1"]);
+  });
+});
+
+describe("convergenceTable", () => {
+  it("gives back the package's convergence table, its columns and rows, for the quantities shown", () => {
+    const t = convergenceTable(quantities(rows), ["chain1", "chain2"]);
+    expect(t.columns).toEqual(["group", "name", "chain", "ess", "rhat"]);
+    expect(t.rows).toEqual(rows.map((r) => [r.group, r.name, r.chain, r.ess, r.rhat]));
+  });
+
+  it("keeps the order and the filter of the table as shown", () => {
+    const shown = sortQuantities(filterQuantities(quantities(rows), { group: "edge", name: "" }), { key: "ess", descending: true });
+    expect(convergenceTable(shown, ["chain1", "chain2"]).rows.map((r) => `${r[1]} ${r[2]}`))
+      .toEqual(["3<-1 chain1", "3<-1 chain2", "3<-1 null", "2<-1 chain1", "2<-1 chain2", "2<-1 null"]);
   });
 });

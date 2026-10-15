@@ -1,6 +1,7 @@
 // The edge table's rows, and the table's sorting and filtering. No DOM here.
 
 import { num } from "./api";
+import type { DataTable } from "./export";
 
 /** One Chain's view of an edge: its mean weight over the Chain's Draws and how often it crossed one half. */
 export interface ChainEdge {
@@ -93,4 +94,17 @@ export function filterEdges(rows: readonly EdgeRow[], filter: Filter): EdgeRow[]
       (filter.unobserved || !r.unobserved) &&
       (!selection || selection.has(r.child) || selection.has(r.parent)),
   );
+}
+
+/** The package's `edge_stats` table (child, parent, unobserved, chain, mean, switches, spread, ess) of the rows
+ *  given, in their order: each Chain's row, then the pooled row (chain null) with the pooled marginal as its mean.
+ *  What the view exports as CSV. */
+export function edgeStatsTable(rows: readonly EdgeRow[], chains: readonly string[]): DataTable {
+  return {
+    columns: ["child", "parent", "unobserved", "chain", "mean", "switches", "spread", "ess"],
+    rows: rows.flatMap((r) => [
+      ...chains.filter((c) => r.chains[c]).map((c) => [r.child, r.parent, r.unobserved, c, r.chains[c]!.mean, r.chains[c]!.switches, null, null]),
+      [r.child, r.parent, r.unobserved, null, r.pooled, r.switches, r.spread, r.ess],
+    ]),
+  };
 }

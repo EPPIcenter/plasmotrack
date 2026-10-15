@@ -18,3 +18,23 @@ describe("the view registry", () => {
     for (const v of views) expect(typeof (await v.load()).default).toBe("function");
   });
 });
+
+// Exports (U11) come from the layout, not the views: SVG and PNG draw any view (its SVG elements and canvases, else
+// its HTML), and CSV reads a view's `<table>` elements or its ViewHooks.table. This checks each registered view's
+// source gives the default mechanism something, and that a virtualised table, which keeps only the rows in view in
+// the DOM, hands over its data through the hook.
+const sources = import.meta.glob<string>("./views/*.ts", { query: "?raw", import: "default", eager: true });
+
+describe("every registered view exports", () => {
+  const source = (route: string) => sources[`./views/${route}.ts`] ?? "";
+  const hasHook = (src: string) => /\btable: \(\) =>/.test(src);
+  const drawsGraphics = (src: string) => /\bPlot\.\w+\(|new Sigma\b|createElementNS\([^)]*"svg"|createElement\("canvas"\)/.test(src);
+  const rendersTables = (src: string) => /createElement\("table"\)|\bel\(\s*"table"|<table\b/.test(src);
+
+  it.each(views.map((v) => v.route))("%s, as src/views/<route>.ts", (route) => {
+    const src = source(route);
+    expect(src, `src/views/${route}.ts`).not.toBe("");
+    expect(hasHook(src) || drawsGraphics(src) || rendersTables(src)).toBe(true);
+    if (src.includes("virtualList(")) expect(hasHook(src), "a virtualised table needs ViewHooks.table").toBe(true);
+  });
+});

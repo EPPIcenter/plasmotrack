@@ -37,6 +37,7 @@ pnpm dev                                              # here: the page with hot 
 | `src/network.ts` | The network view's logic: threshold filter, timeline layout, search, q colours, tooltips |
 | `src/infection.ts` | The infection card's URL state (`#/infection?id=`), response types, heatmap cells, Parent-set labels, COI histogram bars and kernel densities |
 | `src/pair.ts` | The pair inspector's URL state (`#/pair?a=&b=`), response types and differing-Loci count |
+| `src/export.ts`, `src/export-dom.ts` | Exports (U11): CSV, the composed SVG and file names (no DOM, tested); the header's SVG, PNG and CSV buttons, which read the shown view's SVG elements, canvases and `<table>` elements |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
 | `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
 | `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
@@ -84,7 +85,18 @@ A view is one file plus one registry line. Other views' files and the shared fil
 
    `nav: false` leaves the view out of the navigation bar, for views opened from another view with parameters.
 
-3. Put the view's own logic and types in the view file, or in a module beside it with its own `*.test.ts`. Call
+3. Exports come free: the header's SVG and PNG buttons draw the view's SVG elements (Observable Plot output) and
+   canvases, and CSV writes each `<table>` it rendered. A view whose table is not a `<table>`, or is virtualised
+   (only the rows in view are in the DOM), returns ViewHooks instead of a bare cleanup function, with `table` giving
+   all its rows under the package's column names (`recordsTable` in `src/export.ts` builds one from records):
+
+   ```ts
+   return { cleanup: () => list.destroy(), table: () => (rows.length ? recordsTable(["child", "parent"], rows) : null) };
+   ```
+
+   `src/registry.test.ts` checks every registered view either renders SVG, canvases or tables or has the hook.
+
+4. Put the view's own logic and types in the view file, or in a module beside it with its own `*.test.ts`. Call
    your endpoints with `getJson` from the view file rather than adding functions to `src/api.ts`.
 
 The backend side is the same pattern: an endpoint module in `src/pt_analysis/endpoints/<name>.py` exporting

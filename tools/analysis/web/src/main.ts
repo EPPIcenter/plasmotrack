@@ -2,12 +2,15 @@
 
 import "./style.css";
 import { getAnalysis, type AnalysisSummary } from "./api";
+import { exportBar, preserveWebGlDrawingBuffers } from "./export-dom";
 import { viewFor, views } from "./registry";
 import { formatRoute, parseRoute } from "./router";
+import type { ViewHooks } from "./view";
 
 const header = document.querySelector<HTMLElement>("#header")!;
 const main = document.querySelector<HTMLElement>("#view")!;
-let cleanup: void | (() => void);
+let hooks: ViewHooks = {};
+preserveWebGlDrawingBuffers();
 
 function drawHeader(analysis: AnalysisSummary, current: string) {
   const counts = `${analysis.chains.length} Chains, ${analysis.draws.toLocaleString()} Draws, ${analysis.infections.toLocaleString()} Infections, ${analysis.loci.toLocaleString()} Loci`;
@@ -23,6 +26,8 @@ function drawHeader(analysis: AnalysisSummary, current: string) {
         className: v.route === current ? "current" : "",
       })),
   );
+  // Exports (U11) of whatever view is shown, with the query state it has now.
+  header.append(exportBar(() => ({ root: main, hooks, label: analysis.label, route: current, params: parseRoute(location.hash).params })));
 }
 
 async function show(analysis: AnalysisSummary) {
@@ -30,15 +35,17 @@ async function show(analysis: AnalysisSummary) {
   const entry = viewFor(route);
   drawHeader(analysis, entry.route);
   document.title = `${entry.title} · ${analysis.label}`;
-  if (typeof cleanup === "function") cleanup();
+  hooks.cleanup?.();
+  hooks = {};
   const { default: render } = await entry.load();
   main.replaceChildren();
-  cleanup = render(main, {
+  const result = render(main, {
     params,
     analysis,
     navigate: (to, p) => (location.hash = formatRoute(to, p)),
     replaceParams: (p) => history.replaceState(null, "", formatRoute(entry.route, p)),
   });
+  hooks = typeof result === "function" ? { cleanup: result } : (result ?? {});
 }
 
 getAnalysis()

@@ -1,5 +1,7 @@
 // The convergence table's rows as quantities, and the table's sorting and filtering. No DOM here.
 
+import type { DataTable } from "./export";
+
 /** A row of the `convergence` derived table: one Chain's ESS of a quantity, or (chain null) the pooled row. */
 export interface ConvergenceRow {
   group: string;
@@ -74,4 +76,16 @@ export function filterQuantities(qs: readonly Quantity[], filter: Filter): Quant
 /** The groups present, in table order. */
 export function groups(qs: readonly Quantity[]): string[] {
   return [...new Set(qs.map((q) => q.group))];
+}
+
+/** The package's `convergence` table (group, name, chain, ess, rhat) of the quantities given, in their order: each
+ *  Chain's row, then the pooled row (chain null). What the view exports as CSV. */
+export function convergenceTable(qs: readonly Quantity[], chains: readonly string[]): DataTable {
+  return {
+    columns: ["group", "name", "chain", "ess", "rhat"],
+    rows: qs.flatMap((q) => [
+      ...chains.map((c) => [q.group, q.name, c, q.chains[c] ?? null, null]),
+      [q.group, q.name, null, q.ess, q.rhat],
+    ]),
+  };
 }

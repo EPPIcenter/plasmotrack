@@ -3,7 +3,7 @@
 // Sortable by any column; a summary line per fit.
 
 import { getJson } from "../api";
-import { sortRows, summaryLine, type ParentSetKey, type ParentSetRow, type ParentSetsPayload } from "../parentsets";
+import { parentSetTable, sortRows, summaryLine, type ParentSetKey, type ParentSetRow, type ParentSetsPayload } from "../parentsets";
 import type { RenderView } from "../view";
 import { virtualList } from "../virtual-list";
 
@@ -118,7 +118,11 @@ const render: RenderView = (root, ctx) => {
     })
     .catch((e: Error) => ($(".count").textContent = `Could not load the parent sets: ${e.message}`));
 
-  return () => list.destroy();
+  // CSV export: every Infection's row in the order shown, not only the rows in view.
+  return {
+    cleanup: () => list.destroy(),
+    table: () => (payload ? parentSetTable(sortRows(payload.rows, sortKey, descending), cols.some((c) => c.key.startsWith("null_"))) : null),
+  };
 };
 
 export default render;

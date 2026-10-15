@@ -206,6 +206,17 @@ read from the store's Traces (log posterior to allele frequency); edges, unobser
 come from the derived tables, which hold Draws only. The trace and range queries are in `pt_analysis.traces`. The
 manifest's optional `label` names the Analysis on the page (default: the manifest's directory name).
 
+### Exports (U11)
+
+The header's **SVG**, **PNG** and **CSV** buttons export the view on screen. SVG is the view's SVG elements and
+canvases where they are on screen (a table view, which has neither, is drawn from its HTML); PNG is the same picture
+at twice the screen's resolution on white. CSV is one file per table the view shows, as shown; the convergence table,
+the edge table and the parent-set panel instead write every row their filters keep, in the order shown, with the
+package's column names (`convergence`: group, name, chain, ess, rhat; `edge_stats`: child, parent, unobserved,
+chain, mean, switches, spread, ess; parent sets: the `/api/parent-sets` row keys). Missing values are empty cells and
+non-finite numbers `Inf`, `-Inf`, `NaN`, as R's `read.csv` reads them. File names are
+`<label>_<route>[_<key>=<value>...][_<table heading>].<ext>`, for example `golden_edges_sort=pooled_desc=1.csv`.
+
 ### The network view
 
 `GET /api/network` gives the network view its nodes and edges, from `pt_analysis.network`. Each node is an Infection

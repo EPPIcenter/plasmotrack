@@ -2,7 +2,7 @@
 // or R-hat, filterable by group and name. Clicking a row opens the trace panel.
 
 import { getConvergence } from "../api";
-import { filterQuantities, groups, quantities, sortQuantities, type Quantity, type SortKey } from "../convergence";
+import { convergenceTable, filterQuantities, groups, quantities, sortQuantities, type Quantity, type SortKey } from "../convergence";
 import { formatEss, formatRhat, RHAT_LIMIT } from "../format";
 import type { RenderView } from "../view";
 import { virtualList } from "../virtual-list";
@@ -31,6 +31,7 @@ const render: RenderView = (root, ctx) => {
   );
 
   let all: Quantity[] = [];
+  let shown: Quantity[] = [];
   let sortKey = (ctx.params.get("sort") as SortKey | null) ?? "table";
   let descending = ctx.params.get("desc") === "1";
 
@@ -85,7 +86,7 @@ const render: RenderView = (root, ctx) => {
 
   function update() {
     const filter = { group: groupSelect.value, name: nameInput.value };
-    const shown = sortQuantities(filterQuantities(all, filter), { key: sortKey, descending });
+    shown = sortQuantities(filterQuantities(all, filter), { key: sortKey, descending });
     count.textContent = `${shown.length.toLocaleString()} of ${all.length.toLocaleString()} quantities`;
     drawHeader();
     list.setItems(shown);
@@ -109,7 +110,8 @@ const render: RenderView = (root, ctx) => {
     })
     .catch((e: Error) => (count.textContent = `Could not load the convergence table: ${e.message}`));
 
-  return () => list.destroy();
+  // CSV export: every row the filter keeps, in the package's long form, not only the rows in view.
+  return { cleanup: () => list.destroy(), table: () => (all.length ? convergenceTable(shown, chains) : null) };
 };
 
 export default render;

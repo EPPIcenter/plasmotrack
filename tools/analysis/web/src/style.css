@@ -59,3 +59,4 @@ table.data td.clickable:hover { background: var(--hover); }
 .bar-track .bar { display: block; height: 100%; background: var(--accent); }
 .infection figure { margin: 0; }
 .infection figcaption { font-weight: 600; margin-bottom: 0.2em; }
+.export-bar { display: flex; align-items: baseline; gap: 0.3em; }

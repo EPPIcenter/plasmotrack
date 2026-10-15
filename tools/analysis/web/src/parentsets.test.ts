@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { levelSuffix, sortRows, summaryLine, type ParentSetRow, type ParentSetsPayload } from "./parentsets";
+import { levelSuffix, parentSetTable, sortRows, summaryLine, type ParentSetRow, type ParentSetsPayload } from "./parentsets";
 
 const row = (infection: string, credible_size: number, covered: boolean | null, top: number): ParentSetRow => ({
   infection,
@@ -65,5 +65,16 @@ describe("summaryLine", () => {
     expect(summaryLine(payload.fits[1]!, payload.level)).toBe(
       "Null model: credible collection at 0.8 has 2.00 sets on average (median 2); mean top set probability 0.500",
     );
+  });
+});
+
+describe("parentSetTable", () => {
+  it("names its columns as /api/parent-sets does, the null-model columns only with a null-model fit", () => {
+    expect(parentSetTable(rows.slice(0, 1), false)).toEqual({
+      columns: ["infection", "effective_size", "credible_size", "covered", "top_probability"],
+      rows: [["10", 1, 2, false, 0.6]],
+    });
+    const withNull = { ...rows[1]!, null_effective_size: 2.5, null_credible_size: 4, null_covered: true, null_top_probability: 0.3 };
+    expect(parentSetTable([withNull], true).rows).toEqual([["2", 1, 1, true, 0.99, 2.5, 4, true, 0.3]]);
   });
 });
