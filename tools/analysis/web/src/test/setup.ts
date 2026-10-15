@@ -1,7 +1,11 @@
 // Vitest setup for component tests in jsdom.
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+
+// A workspace's module loads lazily on its first render; under load (test.sh, parallel files) that takes over the
+// default second.
+configure({ asyncUtilTimeout: 3000 });
 
 afterEach(() => {
   cleanup();
