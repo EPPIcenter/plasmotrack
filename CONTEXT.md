@@ -37,7 +37,7 @@ _Avoid_: Complexity of infection (spelled out), multiplicity of infection, MOI, 
 ### Transmission
 
 **Ordering**:
-A total order over all Infections, representing the sequence in which they were acquired. This is the sampled representation of the transmission network — the model samples the Ordering, not the network directly.
+A total order over all Infections, representing the sequence in which they were acquired. This is the sampled representation of the transmission network — the model samples the Ordering, not the network directly. The Ordering owns each Infection's Candidate parents: it answers them as a view and tells an Infection when they change, or when one of them changes genotype.
 _Avoid_: Network, topology, tree, permutation, sort order
 
 **Candidate parents**:
