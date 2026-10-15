@@ -173,7 +173,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
         const auto& latent    = state->latentParents[j];
         const auto& memo      = model->transmissionMemo;
         const auto& psp       = model->parentSetSizeLikelihood;
-        const auto parents    = model->parentSets.at(infection->id())->value();
+        const auto parents    = state->infectionEventOrdering->candidateParents(infection);
         const int totalNodes  = parents.size();
 
         std::vector<double> lliks{latentTerm(infection, {})};
@@ -272,7 +272,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
     // Like a path proposal: one locus of a node and of one of its current parents change before a single evaluation.
     auto perturbWithParent = [&](const int node) {
         const auto& infection = state->infections[node];
-        const auto parents    = model->parentSets.at(infection->id())->value();
+        const auto parents    = state->infectionEventOrdering->candidateParents(infection);
         if (parents.empty()) {
             return;
         }

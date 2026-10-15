@@ -1,236 +1,210 @@
 //
-// Created by Maxwell Murphy on 4/7/21.
+// The Ordering and the Candidate parents it owns: moving an Infection's duration moves it past its neighbours, each
+// crossing tells only the Infections whose Candidate parents changed, the view answers the new order, and a restore
+// brings it back. Four Infections observed ten days apart, every one permitted every other unless a test says
+// otherwise.
 //
-
-
-#include "core/computation/ObservationTimeDerivedOrdering.h"
-#include "core/computation/OrderDerivedParentSet.h"
-#include "core/containers/Infection.h"
-#include "core/datatypes/Alleles.h"
-#include "core/io/serialize.h"
 
 #include "gtest/gtest.h"
 
+#include "core/computation/ObservationTimeDerivedOrdering.h"
+#include "core/containers/Infection.h"
+#include "core/containers/Locus.h"
+#include "core/datatypes/Alleles.h"
+
 #include <memory>
+#include <string>
 #include <vector>
 
 using namespace transmission_nets::core::computation;
 using namespace transmission_nets::core::containers;
-using namespace transmission_nets::core::datatypes;
-using namespace transmission_nets::core::io;
+using transmission_nets::core::datatypes::AllelesBitSet;
 
-TEST(ObservationTimeDerivedOrderingTest, BaseTest) {
-    using GeneticsImpl       = AllelesBitSet<32>;
-    using InfectionEventImpl = Infection<GeneticsImpl>;
+namespace {
+    using Genetics  = AllelesBitSet<32>;
+    using Infection = transmission_nets::core::containers::Infection<Genetics>;
+    using Ordering  = ObservationTimeDerivedOrdering<Infection>;
+    using Ptr       = std::shared_ptr<Infection>;
 
+    struct Fixture {
+        std::vector<Ptr> infections;
+        std::shared_ptr<Ordering> ordering = std::make_shared<Ordering>();
+        std::vector<std::string> toldOfCandidates;// ids, in the order they were told
+        std::vector<std::string> toldOfGenotypes;
 
-    auto inf1       = std::make_shared<InfectionEventImpl>("1", 1000, false);
-    auto inf2       = std::make_shared<InfectionEventImpl>("2", 1010, false);
-    auto inf3       = std::make_shared<InfectionEventImpl>("3", 1020, false);
-    auto inf4       = std::make_shared<InfectionEventImpl>("4", 1030, false);
-    auto infections = std::vector({inf1, inf2, inf3, inf4});
-    auto ord        = std::make_shared<ObservationTimeDerivedOrdering<InfectionEventImpl>>(infections);
+        // `permits(child id, parent id)` says what the study permits; every pair by default.
+        explicit Fixture(const std::function<bool(const std::string&, const std::string&)>& permits = [](const std::string&, const std::string&) { return true; }) {
+            for (const auto* id : {"1", "2", "3", "4"}) {
+                infections.push_back(std::make_shared<Infection>(id, 1000 + 10 * (id[0] - '1'), false));
+            }
+            ordering->addElements(infections, [&](const Ptr& child) {
+                std::vector<Ptr> permitted;
+                for (const auto& parent : infections) {
+                    if (parent != child and permits(child->id(), parent->id())) {
+                        permitted.push_back(parent);
+                    }
+                }
+                return permitted;
+            });
+            for (const auto& infection : infections) {
+                ordering->add_keyed_candidates_changed_listener(infection, [this, id = infection->id()]() { toldOfCandidates.push_back(id); });
+                ordering->add_keyed_candidate_genotype_changed_listener(infection, [this, id = infection->id()]() { toldOfGenotypes.push_back(id); });
+            }
+        }
 
-    auto inf1_parents = std::vector({inf2, inf3, inf4});
-    auto inf2_parents = std::vector({inf1, inf3, inf4});
-    auto inf3_parents = std::vector({inf1, inf2, inf4});
-    auto inf4_parents = std::vector({inf1, inf2, inf3});
+        Ptr operator[](const std::string& id) const {
+            for (const auto& infection : infections) {
+                if (infection->id() == id) {
+                    return infection;
+                }
+            }
+            throw std::out_of_range(id);
+        }
 
-    bool ps1_parent_added = false;
-    bool ps2_parent_added = false;
-    bool ps3_parent_added = false;
-    bool ps4_parent_added = false;
+        // Ids of `id`'s Candidate parents, in the view's order.
+        std::vector<std::string> candidates(const std::string& id) {
+            std::vector<std::string> ids;
+            for (const auto& parent : ordering->candidateParents((*this)[id])) {
+                ids.push_back(parent->id());
+            }
+            return ids;
+        }
 
-    bool ps1_parent_removed = false;
-    bool ps2_parent_removed = false;
-    bool ps3_parent_removed = false;
-    bool ps4_parent_removed = false;
+        std::vector<std::string> order() {
+            std::vector<std::string> ids;
+            for (const auto& infection : ordering->value()) {
+                ids.push_back(infection->id());
+            }
+            return ids;
+        }
 
-    OrderDerivedParentSet ps1(ord, inf1, inf1_parents);
-    ps1.add_element_added_listener([&]([[maybe_unused]] auto el) { ps1_parent_added = true; });
-    ps1.add_element_removed_listener([&]([[maybe_unused]] auto el) { ps1_parent_removed = true; });
+        // Moves `id`'s infection time by `days`, under saved state 1, as a duration proposal does.
+        void move(const std::string& id, const double days) {
+            auto duration = (*this)[id]->infectionDuration();
+            duration->saveState(1);
+            duration->setValue(duration->value() - days);
+        }
+        void undo(const std::string& id) { (*this)[id]->infectionDuration()->restoreState(1); }
+    };
 
-    OrderDerivedParentSet ps2(ord, inf2, inf2_parents);
-    ps2.add_element_added_listener([&]([[maybe_unused]] auto el) { ps2_parent_added = true; });
-    ps2.add_element_removed_listener([&]([[maybe_unused]] auto el) { ps2_parent_removed = true; });
+    using Ids = std::vector<std::string>;
+}// namespace
 
-    OrderDerivedParentSet ps3(ord, inf3, inf3_parents);
-    ps3.add_element_added_listener([&]([[maybe_unused]] auto el) { ps3_parent_added = true; });
-    ps3.add_element_removed_listener([&]([[maybe_unused]] auto el) { ps3_parent_removed = true; });
+TEST(OrderingTest, CandidateParentsAreThePermittedInfectionsThatPrecede) {
+    Fixture f;
+    EXPECT_EQ(f.order(), (Ids{"1", "2", "3", "4"}));
+    EXPECT_EQ(f.candidates("1"), Ids{});
+    EXPECT_EQ(f.candidates("2"), (Ids{"1"}));
+    EXPECT_EQ(f.candidates("3"), (Ids{"1", "2"}));
+    EXPECT_EQ(f.candidates("4"), (Ids{"1", "2", "3"}));
+    EXPECT_EQ(f.ordering->position(f["3"]), 2u);
 
-    OrderDerivedParentSet ps4(ord, inf4, inf4_parents);
-    ps4.add_element_added_listener([&]([[maybe_unused]] auto el) { ps4_parent_added = true; });
-    ps4.add_element_removed_listener([&]([[maybe_unused]] auto el) { ps4_parent_removed = true; });
+    Fixture restricted([](const std::string& child, const std::string& parent) { return child != "4" or parent == "2"; });
+    EXPECT_EQ(restricted.candidates("4"), (Ids{"2"}));
+    EXPECT_EQ(restricted.candidates("3"), (Ids{"1", "2"}));
+}
 
-    ASSERT_EQ(ps1.value().size(), 0);
-    ASSERT_EQ(ps2.value().size(), 1);
-    ASSERT_EQ(ps3.value().size(), 2);
-    ASSERT_EQ(ps4.value().size(), 3);
+TEST(OrderingTest, AMoveWithinTheGapsChangesNothing) {
+    Fixture f;
+    const auto version = f.ordering->version();
 
-    inf1->infectionDuration()->saveState(1);
-    inf1->infectionDuration()->setValue(inf1->infectionDuration()->value() - 5);
-    ASSERT_EQ(ps1.value().size(), 0);
-    ASSERT_FALSE(ps1_parent_added);
-    ASSERT_FALSE(ps2_parent_added);
-    ASSERT_FALSE(ps3_parent_added);
-    ASSERT_FALSE(ps4_parent_added);
-    ASSERT_FALSE(ps1_parent_removed);
-    ASSERT_FALSE(ps2_parent_removed);
-    ASSERT_FALSE(ps3_parent_removed);
-    ASSERT_FALSE(ps4_parent_removed);
-    inf1->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps1.value().size(), 0);
+    f.move("2", 5);
 
-    inf1->infectionDuration()->saveState(1);
-    inf1->infectionDuration()->setValue(inf1->infectionDuration()->value() - 15);
-    ASSERT_EQ(ps1.value().size(), 1);
-    ASSERT_TRUE(ps1_parent_added);
-    ASSERT_FALSE(ps2_parent_added);
-    ASSERT_FALSE(ps3_parent_added);
-    ASSERT_FALSE(ps4_parent_added);
-    ASSERT_FALSE(ps1_parent_removed);
-    ASSERT_TRUE(ps2_parent_removed);
-    ASSERT_FALSE(ps3_parent_removed);
-    ASSERT_FALSE(ps4_parent_removed);
-    inf1->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps1.value().size(), 0);
-    ps1_parent_added   = false;
-    ps2_parent_added   = false;
-    ps3_parent_added   = false;
-    ps4_parent_added   = false;
-    ps1_parent_removed = false;
-    ps2_parent_removed = false;
-    ps3_parent_removed = false;
-    ps4_parent_removed = false;
+    EXPECT_EQ(f.order(), (Ids{"1", "2", "3", "4"}));
+    EXPECT_EQ(f.ordering->version(), version);
+    EXPECT_TRUE(f.toldOfCandidates.empty());
+    EXPECT_EQ(f.candidates("3"), (Ids{"1", "2"}));
+}
 
+// Moving 1 past 2: 1 gains 2 as a Candidate parent and 2 loses 1; nobody else is told. A restore brings the view back
+// and tells nobody, since what depends on it restores itself.
+TEST(OrderingTest, AMoveTellsOnlyTheInfectionsWhoseCandidateParentsChanged) {
+    Fixture f;
+    const auto version = f.ordering->version();
 
-    inf1->infectionDuration()->saveState(1);
-    inf1->infectionDuration()->setValue(inf1->infectionDuration()->value() - 25);
-    ASSERT_EQ(ps1.value().size(), 2);
-    ASSERT_TRUE(ps1_parent_added);
-    ASSERT_FALSE(ps2_parent_added);
-    ASSERT_FALSE(ps3_parent_added);
-    ASSERT_FALSE(ps4_parent_added);
-    ASSERT_FALSE(ps1_parent_removed);
-    ASSERT_TRUE(ps2_parent_removed);
-    ASSERT_TRUE(ps3_parent_removed);
-    ASSERT_FALSE(ps4_parent_removed);
-    inf1->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps1.value().size(), 0);
-    ps1_parent_added   = false;
-    ps2_parent_added   = false;
-    ps3_parent_added   = false;
-    ps4_parent_added   = false;
-    ps1_parent_removed = false;
-    ps2_parent_removed = false;
-    ps3_parent_removed = false;
-    ps4_parent_removed = false;
+    f.move("1", 15);
 
-    inf1->infectionDuration()->saveState(1);
-    inf1->infectionDuration()->setValue(inf1->infectionDuration()->value() - 35);
-    ASSERT_EQ(ps1.value().size(), 3);
-    inf1->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps1.value().size(), 0);
+    EXPECT_EQ(f.order(), (Ids{"2", "1", "3", "4"}));
+    EXPECT_EQ(f.toldOfCandidates, (Ids{"1", "2"}));
+    EXPECT_GT(f.ordering->version(), version);
+    EXPECT_EQ(f.candidates("1"), (Ids{"2"}));
+    EXPECT_EQ(f.candidates("2"), Ids{});
+    EXPECT_EQ(f.candidates("3"), (Ids{"1", "2"}));
+    const auto moved = f.ordering->version();
 
-    inf2->infectionDuration()->saveState(1);
-    inf2->infectionDuration()->setValue(inf2->infectionDuration()->value() + 15);
-    ASSERT_EQ(ps2.value().size(), 0);
-    inf2->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps2.value().size(), 1);
+    f.undo("1");
 
-    inf2->infectionDuration()->saveState(1);
-    inf2->infectionDuration()->setValue(inf2->infectionDuration()->value() + 5);
-    ASSERT_EQ(ps2.value().size(), 1);
-    inf2->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps2.value().size(), 1);
+    EXPECT_EQ(f.order(), (Ids{"1", "2", "3", "4"}));
+    EXPECT_EQ(f.toldOfCandidates, (Ids{"1", "2"}));
+    EXPECT_GT(f.ordering->version(), moved);
+    EXPECT_EQ(f.candidates("1"), Ids{});
+    EXPECT_EQ(f.candidates("2"), (Ids{"1"}));
+}
 
-    inf2->infectionDuration()->saveState(1);
-    inf2->infectionDuration()->setValue(inf2->infectionDuration()->value() - 15);
-    ASSERT_EQ(ps2.value().size(), 2);
-    inf2->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps2.value().size(), 1);
+TEST(OrderingTest, AMovePastSeveralTellsEachCrossing) {
+    Fixture f;
 
-    inf2->infectionDuration()->saveState(1);
-    inf2->infectionDuration()->setValue(inf2->infectionDuration()->value() - 25);
-    ASSERT_EQ(ps2.value().size(), 3);
-    inf2->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps2.value().size(), 1);
+    f.move("1", 25);
 
+    EXPECT_EQ(f.order(), (Ids{"2", "3", "1", "4"}));
+    EXPECT_EQ(f.toldOfCandidates, (Ids{"1", "2", "1", "3"}));
+    EXPECT_EQ(f.candidates("1"), (Ids{"2", "3"}));
+    EXPECT_EQ(f.candidates("3"), (Ids{"2"}));
+    EXPECT_EQ(f.candidates("4"), (Ids{"1", "2", "3"}));
 
-    inf3->infectionDuration()->saveState(1);
-    inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() + 25);
-    ASSERT_EQ(ps3.value().size(), 0);
-    inf3->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps3.value().size(), 2);
+    f.undo("1");
+    EXPECT_EQ(f.candidates("3"), (Ids{"1", "2"}));
+}
 
-    inf3->infectionDuration()->saveState(1);
-    inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() + 15);
-    ASSERT_EQ(ps3.value().size(), 1);
-    inf3->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps3.value().size(), 2);
+TEST(OrderingTest, AMoveEarlierTellsTheInfectionsPassed) {
+    Fixture f;
 
-    inf3->infectionDuration()->saveState(1);
-    inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() + 5);
-    ASSERT_EQ(ps3.value().size(), 2);
-    inf3->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps3.value().size(), 2);
+    f.move("4", -25);
 
-    inf3->infectionDuration()->saveState(1);
-    inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() - 5);
-    ASSERT_EQ(ps3.value().size(), 2);
-    inf3->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps3.value().size(), 2);
+    EXPECT_EQ(f.order(), (Ids{"1", "4", "2", "3"}));
+    EXPECT_EQ(f.toldOfCandidates, (Ids{"3", "4", "2", "4"}));
+    EXPECT_EQ(f.candidates("4"), (Ids{"1"}));
+    EXPECT_EQ(f.candidates("2"), (Ids{"1", "4"}));
+}
 
-    inf3->infectionDuration()->saveState(1);
-    inf3->infectionDuration()->setValue(inf3->infectionDuration()->value() - 15);
-    ASSERT_EQ(ps3.value().size(), 3);
-    inf3->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps3.value().size(), 2);
-    ps1_parent_added   = false;
-    ps2_parent_added   = false;
-    ps3_parent_added   = false;
-    ps4_parent_added   = false;
-    ps1_parent_removed = false;
-    ps2_parent_removed = false;
-    ps3_parent_removed = false;
-    ps4_parent_removed = false;
+// A crossing is told only to Infections the study permits the crossing pair: 4 may have no parent but 2.
+TEST(OrderingTest, ACrossingTheStudyDoesNotPermitTellsNobody) {
+    Fixture f([](const std::string& child, const std::string& parent) { return child != "4" or parent == "2"; });
 
+    f.move("3", 15);
 
-    inf4->infectionDuration()->saveState(1);
-    inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() + 35);
-    ASSERT_EQ(ps4.value().size(), 0);
-    ASSERT_TRUE(ps1_parent_added);
-    ASSERT_TRUE(ps2_parent_added);
-    ASSERT_TRUE(ps3_parent_added);
-    ASSERT_FALSE(ps4_parent_added);
-    ASSERT_FALSE(ps1_parent_removed);
-    ASSERT_FALSE(ps2_parent_removed);
-    ASSERT_FALSE(ps3_parent_removed);
-    ASSERT_TRUE(ps4_parent_removed);
-    inf4->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps4.value().size(), 3);
+    EXPECT_EQ(f.order(), (Ids{"1", "2", "4", "3"}));
+    EXPECT_EQ(f.toldOfCandidates, (Ids{"3"}));// 3 gained 4; 4 may not have 3
+    EXPECT_EQ(f.candidates("4"), (Ids{"2"}));
+    EXPECT_EQ(f.candidates("3"), (Ids{"1", "2", "4"}));
+}
 
-    inf4->infectionDuration()->saveState(1);
-    inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() + 25);
-    ASSERT_EQ(ps4.value().size(), 1);
-    inf4->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps4.value().size(), 3);
+TEST(OrderingTest, RestoreOrderPutsTheElementsWhereSaidWithoutTellingAnyone) {
+    Fixture f;
+    const auto version = f.ordering->version();
 
-    inf4->infectionDuration()->saveState(1);
-    inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() + 15);
-    ASSERT_EQ(ps4.value().size(), 2);
-    inf4->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps4.value().size(), 3);
+    f.ordering->restoreOrder({f["4"], f["3"], f["2"], f["1"]});
 
-    inf4->infectionDuration()->saveState(1);
-    inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() - 5);
-    ASSERT_EQ(ps4.value().size(), 3);
-    inf4->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps4.value().size(), 3);
+    EXPECT_EQ(f.order(), (Ids{"4", "3", "2", "1"}));
+    EXPECT_GT(f.ordering->version(), version);
+    EXPECT_TRUE(f.toldOfCandidates.empty());
+    EXPECT_EQ(f.candidates("1"), (Ids{"2", "3", "4"}));
+    EXPECT_EQ(f.candidates("4"), Ids{});
+    EXPECT_EQ(f.ordering->position(f["4"]), 0u);
+}
 
-    inf4->infectionDuration()->saveState(1);
-    inf4->infectionDuration()->setValue(inf4->infectionDuration()->value() - 15);
-    ASSERT_EQ(ps4.value().size(), 3);
-    inf4->infectionDuration()->restoreState(1);
-    ASSERT_EQ(ps4.value().size(), 3);
+// A genotype change of 2 reaches the Infections 2 is a Candidate parent of, in input order, and nobody before it.
+TEST(OrderingTest, AGenotypeChangeIsRelayedToTheInfectionsItIsACandidateParentOf) {
+    Fixture f;
+    auto locus = std::make_shared<Locus>("L0", 2);
+    for (const auto& infection : f.infections) {
+        infection->addGenetics(locus, Genetics("10"), Genetics("10"));
+    }
+
+    auto genotype = f["2"]->latentGenotype(locus);
+    genotype->saveState(1);
+    genotype->setValue(Genetics("01"));
+
+    EXPECT_EQ(f.toldOfGenotypes, (Ids{"3", "4"}));
+    EXPECT_TRUE(f.toldOfCandidates.empty());
 }
