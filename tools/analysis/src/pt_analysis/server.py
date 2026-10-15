@@ -41,6 +41,7 @@ ENDPOINTS = [
 
     # #89 #90 U6 truth overlay, ranking
     "pt_analysis.endpoints.ranking",  # U6: ranking and parent-set metrics against truth
+    "pt_analysis.endpoints.truth",  # U6: truth overlay of the network view, error table
 
     # #91 U7 cohort view
 

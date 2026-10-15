@@ -227,6 +227,17 @@ less the coverage column.
 |---|---|
 | `GET /api/ranking` | realised truth, and per fit (posterior, null, IBD) its directed and undirected metrics and curve; 404 without truth |
 | `GET /api/parent-sets[?level=0.8]` | per fit its summary columns, and one row per Infection, `null_` columns for the null fit |
+| `GET /api/truth-network[?floor=0.01]` | the network view's truth overlay: how truth ids matched, and per edge set (posterior, null, IBD) every true edge and the false edges scoring at least `floor` |
+| `GET /api/errors[?source=posterior][&threshold=0.5]` | the error table of one edge set at a threshold (below); 404 without truth or when the manifest names no such source |
+
+The truth overlay and error table (`pt_analysis.truth_overlay`, #89) reuse `metrics`' truth, Edge marginals and
+pairwise scores. An edge set is the posterior, the null-model Analysis or the pairwise scores (IBD, undirected: a
+pair's score is the larger of its rows, and it is true when a true edge joins it either way). `match` reports the
+Analysis's Infections the truth file has no node for, and the simulated Infections the input does not observe. An
+edge is called when its score is at least the threshold: a true edge below it is `missed`, a false edge at or above
+it `false`, or `direction` when its reverse is the true edge. Rows rank by how confidently wrong they are (1 - score
+for a missed edge, the score otherwise; `confidence`), with the lag, the reverse's score and whether it is true, and
+both Infections' true infection times.
 
 The definitions follow the thesis pipeline's per-fit summary (`remote/R/final_analysis/R`), with weights pooled as in
 the rest of this package:
@@ -428,6 +439,12 @@ metrics.rank(scores, truth_flags)                # Ranking of any scores: curve,
 metrics.parent_set_rows(analysis, truth, 0.8)    # [InfectionParentSets(infection, effective_size, credible_size,
                                                  #   covered, top_probability), ...]
 metrics.fit_summary_metrics(analysis, truth)     # {fit-summary column name: value} for the ranking and parent sets
+
+from pt_analysis import truth_overlay
+
+truth_overlay.match(analysis)                    # n_true_edges, unmatched_infections, unobserved_truth_infections
+truth_overlay.overlay(analysis, floor=0.01)      # {floor, truth, sources: [{source, label, directed, edges}]}
+truth_overlay.errors(analysis, "posterior", 0.5) # {source, ..., rows: [{kind, parent, child, marginal, ...}]}
 ```
 
 The benchmark scripts run in this environment:
