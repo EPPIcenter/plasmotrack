@@ -25,6 +25,7 @@ export const views: ViewEntry[] = [
   { route: "parentsets", title: "Parent sets", nav: true, load: () => import("./views/parentsets") },
 
   // #91 U7 cohort view
+  { route: "cohort", title: "Cohort", nav: true, load: () => import("./views/cohort") },
 
   // #92 U4 sampler panel
   { route: "sampler", title: "Samplers", nav: true, load: () => import("./views/sampler") },

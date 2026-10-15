@@ -43,6 +43,7 @@ ENDPOINTS = [
     "pt_analysis.endpoints.ranking",  # U6: ranking and parent-set metrics against truth
 
     # #91 U7 cohort view
+    "pt_analysis.endpoints.cohort",  # U7: cohort of fit summaries, calibration counts, opening a fit's Analysis
 
     # #92 U4 sampler panel
     "pt_analysis.endpoints.sampler",  # U4: acceptance, swaps, ladder, proposal variances, Run events

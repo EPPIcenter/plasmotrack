@@ -40,6 +40,7 @@ pnpm dev                                              # here: the page with hot 
 | `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
 | `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
 | `src/functionals.ts` | The functionals panel's chart data and trace parameters, tested without a DOM |
+| `src/cohort.ts` | The cohort view's payload, fit labels (full, partial, null), the brush filter every panel follows, identity-line points, the calibration curve over the selected fits |
 | `src/sampler.ts` | The sampler panel's types and logic: samplers grouped by type, Run events placed on the time axes, the ladder, the target band |
 
 ## Views
@@ -54,6 +55,7 @@ pnpm dev                                              # here: the page with hot 
 | `#/pair?a=&b=` | U3 pair inspector: order per Chain with its trace, both Edge marginals, co-inclusion, genotypes per Locus with differing Loci highlighted, infection times and lag. Link to it with `ctx.navigate("pair", pairParams({ a, b }))` |
 | `#/ranking` | Ranking against truth (U6): directed and undirected precision-recall curves, posterior solid, null-model dashed, IBD dotted, a dotted grey line at the random ranking's precision; metrics table below |
 | `#/parentsets?level=0.8` | Parent sets (U6): per Infection effective size, credible size, whether the true set is in the credible collection, top probability, and the same for the null fit; sortable by any column; a summary line per fit |
+| `#/cohort[?file=][&fit=][&metric=&factor=][&x=&y=&colour=]` | U7 cohort view of fit summaries (the manifest's `cohort`, or a file typed in): calibration curve (true-edge frequency against pooled Edge marginal, per fit), estimated against true average out-degree and unobserved-source proportion on the identity line, a metric by simulation factor as box plots faceted by fit, and a scatter of any two columns coloured by a third. Brushing the scatter and the fit selector filter every panel; clicking a point shows its run_key with a button that serves its Analysis and opens it on the ranking page |
 | `#/functionals[?column=]` | U9 functionals panel, overall or per stratum of an epi column: a dot-and-range chart of ψ_MAP (square, its range the parent-set size range at 0.8), ψ_edge (triangle) and mean q (circle) with 95% MCMC intervals; composition classes as stacked bars, the unobserved source first; tables of every number, multi-source probabilities included. A triangle, circle, bar segment or table cell opens the trace panel for that stratum's per-Draw functional; ψ_MAP and the size range are point summaries and open nothing |
 
 ## Add a view
