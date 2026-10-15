@@ -33,15 +33,21 @@ pnpm dev                                              # here: the page with hot 
 | `src/main.ts` | Page layout (Analysis header, navigation bar) and the hash router |
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
+| `src/pair.ts` | The pair inspector's URL state (`#/pair?a=&b=`), response types and differing-Loci count |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
 | `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
+| `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
+| `src/sampler.ts` | The sampler panel's types and logic: samplers grouped by type, Run events placed on the time axes, the ladder, the target band |
 
 ## Views
 
 | Route | View |
 |---|---|
-| `#/convergence` | Convergence table (U1) |
-| `#/trace?group=&name=` | Trace panel (U1) |
+| `#/convergence` | U1 convergence table: one row per quantity, sorted by ESS or R-hat, filtered by group and name |
+| `#/trace?group=&name=` | U1 trace panel of one quantity |
+| `#/edges[?child=][&parent=][&unobserved=0][&sort=][&desc=1]` | U2 edge table: pooled Edge marginal, spread, switch count, ESS and per-Chain mean and switch count; sorts by every column (`sort` is a column, or `mean:<chain>` and `switches:<chain>`), filters by exact child and parent id, hides the unobserved source with `unobserved=0`; a row opens its trace panel |
+| `#/sampler[?chain=][&band_lo=&band_hi=]` | U4 sampler panel of one Chain: acceptance per sampler per Window by type with the target band, swap acceptance per temperature pair, the ladder, burn-in-end proposal variances, and Run events as rules on every time axis |
+| `#/pair?a=&b=` | U3 pair inspector: order per Chain with its trace, both Edge marginals, co-inclusion, genotypes per Locus with differing Loci highlighted, infection times and lag. Link to it with `ctx.navigate("pair", pairParams({ a, b }))` |
 | `#/ranking` | Ranking against truth (U6): directed and undirected precision-recall curves, posterior solid, null-model dashed, IBD dotted, a dotted grey line at the random ranking's precision; metrics table below |
 | `#/parentsets?level=0.8` | Parent sets (U6): per Infection effective size, credible size, whether the true set is in the credible collection, top probability, and the same for the null fit; sortable by any column; a summary line per fit |
 

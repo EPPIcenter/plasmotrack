@@ -8,14 +8,11 @@ column names, so the per-fit summary maps them directly.
 """
 
 import csv
-import gzip
-import json
 import math
 import statistics
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from pt_analysis import functionals
+from pt_analysis import functionals, inputs
 from pt_analysis.analysis import Analysis
 from pt_analysis.derive import derived
 from pt_analysis.functionals import LEVEL, TOLERANCE
@@ -43,18 +40,10 @@ class Truth:
     true_unobserved_source_proportion: float  # share of Infections whose true set includes the unobserved source
 
 
-def read_json(path):
-    """JSON from `path`, gunzipped first when the file is gzip (by its magic bytes, not its name)."""
-    data = Path(path).read_bytes()
-    if data[:2] == b"\x1f\x8b":
-        data = gzip.decompress(data)
-    return json.loads(data)
-
-
 def load_truth(path, infections):
-    """The truth file of a simulation (`network: [{src, dest}]`, `nodes: [{id, ...}]`, plain or gzipped JSON),
+    """The truth file of a simulation (`network: [{src, dest}]`, `nodes: [{id, ...}]`; gzipped when named `.gz`),
     restricted to `infections`, the Analysis's Infection ids."""
-    raw = read_json(path)
+    raw = inputs.read_json(path)
     observed = tuple(str(i) for i in infections)
     inside = set(observed)
     network = [(str(e["src"]), str(e["dest"])) for e in raw.get("network") or []]

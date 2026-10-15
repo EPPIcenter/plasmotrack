@@ -47,3 +47,8 @@ button.sortable:not(:disabled) { cursor: pointer; text-decoration: underline dot
 .pr-curves figure { margin: 0; }
 .legend-key { display: inline-flex; align-items: center; gap: 0.4em; margin-right: 1.2em; }
 .table-row.ruled { border-bottom: 1px solid var(--rule); box-sizing: border-box; }
+table.data { border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 0.3em 0; }
+table.data th, table.data td { padding: 0.25em 0.8em; border-bottom: 1px solid var(--rule); text-align: left; }
+table.data th { background: var(--hover); font-weight: 600; }
+table.data tr.differs td { background: #fdf0e6; }
+table.data tr.differs td:first-child { box-shadow: inset 3px 0 var(--flag); font-weight: 600; }
