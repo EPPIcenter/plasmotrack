@@ -13,6 +13,9 @@ Infections count follows the manuscript's Zanzibar summaries (`scripts/summarize
 - Everything else counts an Infection as a recipient, from its own Parent sets: unobserved-source inclusion q, the
   composition classes, the multi-source probabilities (`infection_draws`) and the parent-set size range.
 
+So one figure mixes the two conventions. Whether it should is an open question of `doc/analysis-gui.md`, to be
+confirmed against the manuscript's figure; the functionals view labels each mark with its convention meanwhile.
+
 Per-Draw functionals are named as in `functional_draws`: `psi_edge`, `mean_q`, `mean_<class>` per composition class,
 `mean_multi_source_augmented` and `mean_multi_source_observed`. A functional's estimate is the mean of its per-Draw
 values over every Draw of every Chain; its interval is their 2.5% and 97.5% quantiles, type 7 (R's default), as in

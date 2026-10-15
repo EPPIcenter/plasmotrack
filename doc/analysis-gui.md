@@ -282,7 +282,13 @@ will be revisited as the Eswatini and rerun results come in.
 
 ## Open questions
 
-None at present.
+- **Per-stratum convention of the functionals figure (U9).** `pt_analysis/strata.py` follows the manuscript's
+  Zanzibar summaries (`scripts/summarize_zanzibar_functionals.R`) as read so far: $\psi_{\mathrm{edge}}$ and
+  $\psi_{\mathrm{MAP}}$ count a stratum's Infections as sources (their expected observed children, and the children
+  whose modal set names them), while $q$, the composition classes and the size range count them as recipients (from
+  their own Parent sets). One figure therefore mixes the two conventions. Confirm against the manuscript's figure
+  which convention each mark should use before relying on per-stratum comparisons; until then the functionals view's
+  panel says which convention each mark uses, and the code is unchanged.
 
 ## Out of scope
 
