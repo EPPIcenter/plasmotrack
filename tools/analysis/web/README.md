@@ -34,7 +34,17 @@ pnpm dev                                              # here: the page with hot 
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
+| `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
 | `src/sampler.ts` | The sampler panel's types and logic: samplers grouped by type, Run events placed on the time axes, the ladder, the target band |
+
+## Views
+
+| Route | View |
+|---|---|
+| `#/convergence` | U1 convergence table: one row per quantity, sorted by ESS or R-hat, filtered by group and name |
+| `#/trace?group=&name=` | U1 trace panel of one quantity |
+| `#/edges[?child=][&parent=][&unobserved=0][&sort=][&desc=1]` | U2 edge table: pooled Edge marginal, spread, switch count, ESS and per-Chain mean and switch count; sorts by every column (`sort` is a column, or `mean:<chain>` and `switches:<chain>`), filters by exact child and parent id, hides the unobserved source with `unobserved=0`; a row opens its trace panel |
+| `#/sampler[?chain=][&band_lo=&band_hi=]` | U4 sampler panel of one Chain: acceptance per sampler per Window by type with the target band, swap acceptance per temperature pair, the ladder, burn-in-end proposal variances, and Run events as rules on every time axis |
 
 ## Add a view
 
@@ -70,14 +80,6 @@ The backend side is the same pattern: an endpoint module in `src/pt_analysis/end
 
 Each later ticket has a comment slot in both lists, separated by blank lines, so parallel branches that each add a
 line under their own slot merge without conflicts.
-
-## Views
-
-| Route | View |
-|---|---|
-| `#/convergence` | Convergence table (U1) |
-| `#/trace?group=&name=[&burn_in=1]` | Trace panel (U1) |
-| `#/sampler?[chain=][&band_lo=&band_hi=]` | Sampler panel (U4): acceptance, swaps, ladder, proposal variances and Run events of one Chain |
 
 ## JSON conventions
 
