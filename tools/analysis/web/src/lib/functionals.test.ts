@@ -3,6 +3,10 @@ import {
   classLabel,
   compositionSegments,
   degreePoints,
+  functionalEntity,
+  traceGrid,
+  stratumSummary,
+  classShade,
   functionalsTable,
   multiSourceRows,
   stackOrder,
@@ -154,5 +158,80 @@ describe("functionalsTable", () => {
     });
     // The Infections with no value keep a null value, as the payload has it.
     expect(t.rows[1]![1]).toBeNull();
+  });
+});
+
+describe("functionalEntity", () => {
+  it("selects a stratum's per-Draw functional as a quantity", () => {
+    expect(functionalEntity("district", "North", "psi_edge")).toEqual({
+      kind: "quantity", group: "functionals", name: "psi_edge", stratum: { column: "district", value: "North" },
+    });
+    expect(functionalEntity(null, null, "mean_q")).toEqual({
+      kind: "quantity", group: "functionals", name: "mean_q", stratum: { column: null, value: null },
+    });
+  });
+
+  it("selects the stratum itself for a point summary (psi_MAP, size range), nothing overall", () => {
+    expect(functionalEntity("district", null, null)).toEqual({ kind: "stratum", column: "district", value: null });
+    expect(functionalEntity(null, null, null)).toBeNull();
+  });
+});
+
+describe("traceGrid", () => {
+  it("gives every Infection's psi_edge, mean q and mean entropy as the convergence table's quantities", () => {
+    const grid = traceGrid({ ...response, column: null, strata: [response.strata[0]!] });
+    expect(grid.functionals.map((f) => f.label)).toEqual(["ψ_edge", "mean q", "mean entropy"]);
+    expect(grid.rows).toEqual([{
+      stratum: "All Infections",
+      cells: [
+        { kind: "quantity", group: "functionals", name: "psi_edge" },
+        { kind: "quantity", group: "functionals", name: "mean_q" },
+        { kind: "quantity", group: "functionals", name: "mean_entropy" },
+      ],
+    }]);
+    expect(grid.hidden).toBe(0);
+  });
+
+  it("adds a row per stratum, largest first and capped, with no per-stratum entropy", () => {
+    const grid = traceGrid(response, 1);
+    expect(grid.rows.map((r) => r.stratum)).toEqual(["All Infections", "North"]);
+    expect(grid.rows[1]!.cells).toEqual([
+      { kind: "quantity", group: "functionals", name: "psi_edge", stratum: { column: "district", value: "North" } },
+      { kind: "quantity", group: "functionals", name: "mean_q", stratum: { column: "district", value: "North" } },
+      null,
+    ]);
+    expect(grid.hidden).toBe(1);
+  });
+});
+
+describe("stratumSummary", () => {
+  it("finds a stratum by value and lists its functionals with their convention and what each selects", () => {
+    const rows = stratumSummary(response, "North")!;
+    expect(rows.map((r) => [r.label, r.role])).toEqual([
+      ["ψ_MAP", "source"],
+      ["Size range (0.8)", "recipient"],
+      ["ψ_edge", "source"],
+      ["mean q", "recipient"],
+      ["Multi-source, augmented", "recipient"],
+      ["Multi-source, observed", "recipient"],
+    ]);
+    expect(rows[0]).toMatchObject({ estimate: 0.5, lower: null, upper: null, entity: null });
+    expect(rows[1]).toMatchObject({ estimate: null, lower: 0, upper: 0.5 });
+    expect(rows[2]).toMatchObject({ estimate: 0.39, lower: 0.002, upper: 0.49, entity: { name: "psi_edge", stratum: { column: "district", value: "North" } } });
+    expect(rows[5]!.entity).toMatchObject({ name: "mean_multi_source_observed" });
+  });
+
+  it("is null for a value the column has no stratum of", () => {
+    expect(stratumSummary(response, "West")).toBeNull();
+  });
+});
+
+describe("classShade", () => {
+  it("puts each class in the manuscript's category, stepped by observed-parent count", () => {
+    expect(classShade("unobserved_only")).toEqual({ category: "unobserved_only", step: 0 });
+    expect(classShade("observed_1_unobserved")).toEqual({ category: "mixed", step: 0 });
+    expect(classShade("observed_2_unobserved")).toEqual({ category: "mixed", step: 1 });
+    expect(classShade("observed_1")).toEqual({ category: "observed_only", step: 0 });
+    expect(classShade("observed_3")).toEqual({ category: "observed_only", step: 2 });
   });
 });
