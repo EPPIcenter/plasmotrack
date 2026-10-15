@@ -198,3 +198,73 @@ export function edgeTruth(source: OverlaySource | undefined, parent: string, chi
   const reverse = source.edges.find((e) => e.parent === child && e.child === parent);
   return { true: listed?.true ?? false, reverseTrue: Boolean(listed?.reverse_true ?? reverse?.true ?? false) };
 }
+
+// --- calls at a threshold ---------------------------------------------------------------------------------------------
+
+/** How an edge of a set is called at a threshold: a true edge at or above it is a hit, under it missed; an edge at or
+ *  above it that is not true is a direction error when its reverse is true, else false. Null for an edge neither true
+ *  nor called, or without truth. The error table's kinds, plus hits. */
+export type EdgeCall = "hit" | ErrorKind;
+
+export function edgeCall(e: OverlayEdge, threshold: number): EdgeCall | null {
+  if (e.true === null) return null;
+  if (e.true) return e.marginal >= threshold ? "hit" : "missed";
+  if (e.marginal < threshold) return null;
+  return e.reverse_true ? "direction" : "false";
+}
+
+export interface ThresholdSummary extends Record<EdgeCall, number> {
+  /** Edges at or above the threshold. */
+  called: number;
+  n_true: number;
+  /** Hits over called edges; null when nothing is called. */
+  precision: number | null;
+  /** Hits over true edges; null without true edges. */
+  recall: number | null;
+}
+
+/** The calls of an edge set at `threshold`, from the overlay's edges (every true edge and every edge above its
+ *  floor, so any threshold at or above the floor counts every call). */
+export function thresholdSummary(edges: readonly OverlayEdge[], threshold: number): ThresholdSummary {
+  const s = { hit: 0, missed: 0, false: 0, direction: 0 };
+  for (const e of edges) {
+    const call = edgeCall(e, threshold);
+    if (call) s[call]++;
+  }
+  const called = s.hit + s.false + s.direction;
+  const n_true = s.hit + s.missed;
+  return { called, ...s, n_true, precision: called ? s.hit / called : null, recall: n_true ? s.hit / n_true : null };
+}
+
+/** What an error row selects: the edge of a directed set, the pair of an undirected one (the pairwise scores). */
+export const errorEntity = (r: { parent: string; child: string }, directed: boolean): Entity =>
+  directed ? { kind: "edge", parent: r.parent, child: r.child } : pairLink(r);
+
+export interface CallArc {
+  edge: OverlayEdge;
+  call: EdgeCall;
+  /** From the parent's observation time to the child's; y from 0 at the ends to the arc's height at its middle. */
+  points: { x: number; y: number }[];
+  /** The middle of the arc, where its hover and click land. */
+  apex: { x: number; y: number };
+}
+
+/** The calls of an edge set at `threshold` as an arc diagram over observation time (`time`, by Infection): each arc
+ *  of `n` points runs from parent to child, its height the span it covers over the widest span (so the widest arc
+ *  is 1 high). Edges neither true nor called, and edges with an end without an observation time, are left out. */
+export function callArcs(edges: readonly OverlayEdge[], time: ReadonlyMap<string, number>, threshold: number, n = 24): CallArc[] {
+  const found = edges.flatMap((edge) => {
+    const call = edgeCall(edge, threshold);
+    const [x1, x2] = [time.get(edge.parent), time.get(edge.child)];
+    return call && x1 !== undefined && x2 !== undefined ? [{ edge, call, x1, x2 }] : [];
+  });
+  const widest = Math.max(1e-9, ...found.map((a) => Math.abs(a.x2 - a.x1)));
+  return found.map(({ edge, call, x1, x2 }) => {
+    const height = Math.abs(x2 - x1) / widest;
+    const points = Array.from({ length: n }, (_, i) => {
+      const t = i / (n - 1);
+      return { x: x1 + (x2 - x1) * t, y: height * Math.sin(Math.PI * t) };
+    });
+    return { edge, call, points, apex: { x: (x1 + x2) / 2, y: height } };
+  });
+}

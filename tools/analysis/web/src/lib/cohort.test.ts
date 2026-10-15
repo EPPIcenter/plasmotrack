@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { DARK, LIGHT } from "./palette";
 import {
+  boxData,
   calibrationCurve,
+  cohortFitColour,
+  fitsIn,
+  formatBrush,
+  parseBrush,
   scatterFacets,
   cohortTable,
   columnValues,
@@ -140,5 +146,51 @@ describe("scatterFacets", () => {
 
   it("keep only the facets of the rows given", () => {
     expect(scatterFacets(payload, [3], "true_average_outdegree", "estimated_average_outdegree").facets.map((f) => f.fit)).toEqual(["null"]);
+  });
+});
+
+describe("boxData", () => {
+  it("gives a metric's value per selected fit with its fit label and factor level as text, leaving out missing values", () => {
+    expect(boxData(payload, [0, 1, 2, 3], "directed_pr_auc", "seed")).toEqual({
+      points: [
+        { row: 0, fit: "full", factor: "0", y: 0.6 },
+        { row: 1, fit: "full", factor: "1", y: 0.2 },
+        { row: 2, fit: "partial", factor: "0", y: 0.4 },
+      ],
+      levels: ["0", "1"],
+      fits: ["full", "partial"],
+    });
+  });
+
+  it("orders numeric levels as numbers and text levels alphabetically, a missing level as –", () => {
+    const p = { ...payload, data: { ...payload.data, level: ["10", "9", null, "b"] } };
+    expect(boxData(p, [0, 1, 2], "estimated_average_outdegree", "level").levels).toEqual(["9", "10", "–"]);
+  });
+});
+
+describe("brush in the URL", () => {
+  it("round-trips a brush on the scatter's two columns", () => {
+    const b = { x: "seed", y: "directed_pr_auc", x0: 0, x1: 1.5, y0: 0.25, y1: 0.75 };
+    expect(parseBrush(formatBrush(b), "seed", "directed_pr_auc")).toEqual(b);
+  });
+
+  it("drops a brush that is malformed", () => {
+    expect(parseBrush("1,2,3", "seed", "y")).toBeNull();
+    expect(parseBrush("a,2,3,4", "seed", "y")).toBeNull();
+    expect(parseBrush(undefined, "seed", "y")).toBeNull();
+  });
+});
+
+describe("fitsIn", () => {
+  it("lists the fit labels the cohort has, in facet order", () => {
+    expect(fitsIn(payload)).toEqual(["full", "partial", "null"]);
+  });
+});
+
+describe("cohortFitColour", () => {
+  it("keeps full, partial and null on fixed categorical slots in either theme", () => {
+    expect(cohortFitColour(LIGHT, "full")).toBe(LIGHT.chains[0]);
+    expect(cohortFitColour(LIGHT, "null")).toBe(LIGHT.chains[1]);
+    expect(cohortFitColour(DARK, "partial")).toBe(DARK.chains[2]);
   });
 });

@@ -65,6 +65,17 @@ def test_status_lists_run_events_of_note_and_badges_workspaces_that_need_attenti
     assert status["attention"]["samplers"] == len({s["type"] for s in out_of_band})
 
 
+def test_status_badges_errors_with_the_error_rows_at_the_default_threshold_when_there_is_truth(client, tmp_path):
+    assert "errors" not in client.get("/api/status").json()["attention"]
+    (tmp_path / "t").mkdir()
+    # 1 -> 2 is true but scores near 0 (missed); 2 -> 3 is not true.
+    (tmp_path / "t" / "truth.json").write_text(
+        '{"network": [{"src": "1", "dest": "3"}, {"src": "1", "dest": "2"}], "nodes": [{"id": "1"}, {"id": "2"}, {"id": "3"}]}')
+    with_truth = client_of(open_golden(tmp_path / "t", truth="truth.json", label="golden"))
+    errors = with_truth.get("/api/errors").json()["rows"]
+    assert errors and with_truth.get("/api/status").json()["attention"]["errors"] == len(errors)
+
+
 # --- /api/overview ----------------------------------------------------------------------------------------------------
 
 def test_mixing_by_group_holds_every_pooled_value_in_convergence_group_order(client):
