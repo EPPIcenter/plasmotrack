@@ -64,7 +64,7 @@ uv run pt-analysis derive analysis.json    # every Run of an Analysis, then the 
 ```
 
 writes Parquet tables under `RUN_DIR/derived/`. `edges`, `set_summary`, `infection_draws`, `functional_draws`,
-`genotype_summary` and `genotype_mode` come from the sampling Phase, so every row comes from Draws; `set_classes`
+`genotype_summary`, `genotype_mode` and `coi` come from the sampling Phase, so every row comes from Draws; `set_classes`
 comes from `parent_set_members` over both Phases.
 
 | Table | Columns | Rows |
@@ -77,6 +77,7 @@ comes from `parent_set_members` over both Phases.
 | `genotype_summary` | infection, locus, allele, presence | one per Infection and Allele of `structure/loci` |
 | `genotype_mode` | infection, locus, alleles, draws, fraction, rank | one per Infection, Locus and Latent genotype a Draw had |
 | `out_degree_draws` | iteration, infection, out_degree | one per Draw and Infection |
+| `coi` | iteration, infection, coi | one per Draw and Infection |
 
 - `n_observed` counts a set's observed parents (members that are Infection ids). `has_unobserved` says whether the
   unobserved source, the Infection's Latent parent (`<id>_copy`), is a member.
@@ -110,6 +111,8 @@ comes from `parent_set_members` over both Phases.
   that Chains pool exactly, by summing `draws`.
 - `out_degree_draws` has each Infection as a source: its expected number of observed children at a Draw, the sum
   of the Edge marginals from it, 0 where it is no Infection's parent. Its mean over Infections is psi_edge too.
+- `coi` is the COI at a Draw: the largest Allele count (the number of `1` characters) over the Loci of the
+  Infection's Latent genotype.
 
 `derived/manifest.json` records the closed Windows per Phase the tables came from and the package version that wrote
 them. `derive` does nothing when both match the store and this package, and replaces every table otherwise, for
@@ -192,8 +195,12 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/range?group=&name=[&first=][&last=]` | ESS per Chain, pooled ESS and split R-hat over the Draws with Sampling iteration in [first, last] |
 | `GET /api/edges` | `{chains, rows}`: per edge, child, parent, unobserved, its trace quantity (group, name), pooled, spread, switches, ess and per Chain `{mean, switches}` |
 | `GET /api/pair?a=&b=` | the pair inspector's panels for Infections A and B (below) |
+| `GET /api/infection?id=` | the infection card's panels for one Infection (below); 404 for an unknown id |
 | `GET /api/epi` | the epi data's key, columns with types, ids matching no Infection, Infections without a row |
 | `GET /api/functionals[?column=][&level=0.8]` | the functionals overall, or per stratum of an epi column |
+| `GET /api/flows[?column=][&min_infections=1]` | attribution, enrichment and net flow per stratum (below) |
+| `GET /api/lags[?max_lag=][&column=][&width=]` | the lag histogram of edge mass, the median fitted duration, and psi_edge and mean q with mass beyond `max_lag` reassigned (below) |
+| `GET /api/spatial?unit=&parent=[&max_lag=]` | shares of edge mass by where the source lives relative to the recipient (below) |
 
 | `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
 
@@ -229,6 +236,17 @@ less the coverage column.
 |---|---|
 | `GET /api/ranking` | realised truth, and per fit (posterior, null, IBD) its directed and undirected metrics and curve; 404 without truth |
 | `GET /api/parent-sets[?level=0.8]` | per fit its summary columns, and one row per Infection, `null_` columns for the null fit |
+| `GET /api/truth-network[?floor=0.01]` | the network view's truth overlay: how truth ids matched, and per edge set (posterior, null, IBD) every true edge and the false edges scoring at least `floor` |
+| `GET /api/errors[?source=posterior][&threshold=0.5]` | the error table of one edge set at a threshold (below); 404 without truth or when the manifest names no such source |
+
+The truth overlay and error table (`pt_analysis.truth_overlay`, #89) reuse `metrics`' truth, Edge marginals and
+pairwise scores. An edge set is the posterior, the null-model Analysis or the pairwise scores (IBD, undirected: a
+pair's score is the larger of its rows, and it is true when a true edge joins it either way). `match` reports the
+Analysis's Infections the truth file has no node for, and the simulated Infections the input does not observe. An
+edge is called when its score is at least the threshold: a true edge below it is `missed`, a false edge at or above
+it `false`, or `direction` when its reverse is the true edge. Rows rank by how confidently wrong they are (1 - score
+for a missed edge, the score otherwise; `confidence`), with the lag, the reverse's score and whether it is true, and
+both Infections' true infection times.
 
 The definitions follow the thesis pipeline's per-fit summary (`remote/R/final_analysis/R`), with weights pooled as in
 the rest of this package:
@@ -280,6 +298,27 @@ the rest of this package:
 
 Pooled values weight each Chain by its Draws. The input and truth files may be gzipped (`pt_analysis.inputs`).
 
+### The infection card
+
+`#/infection?id=ID` shows what the posterior says about one Infection. `/api/infection` returns, from
+`pt_analysis.infection.card`:
+
+- `quantities`: `false_positives`, `false_negatives` and `duration` from the `infections` Trace, and
+  `infection_time`, the observation time minus the duration at each Draw: each with its per-Chain series, the 2.5%,
+  50% and 97.5% quantiles (R type 7) over every Chain's Draws, and its trace quantity (`group`, `name`; none for
+  infection time).
+- `coi`: the COI per Draw per Chain from the `coi` table, and its distribution over every Chain's Draws.
+- `genotype`: per Locus in the input's order, its Allele count, the Observed genotype (null where unobserved) and the
+  posterior presence of each Allele pooled over Chains from `genotype_summary`.
+- `parent_sets`: per Chain, the Infection's Parent sets from `set_summary` with members, composition class, pooled
+  weight, rank, cumulative mass and whether the set is in the credible collection at level 0.8
+  (`functionals.credible_collection`, as `pt-analysis credible` prints it); and pooled over Chains, sets matched by
+  members, ranked, with the credible collection by the same rule.
+- `parents` and `children`: the Edge marginals with the Infection as child (the unobserved source included) and as
+  parent, from `edge_stats`: pooled, spread, ESS, per-Chain means and the trace quantity; largest first.
+- `summary`: q, the expected observed-parent count, entropy and effective size from `infection_draws`, per Chain
+  (means over its Draws) and pooled.
+
 `web/README.md` says how to develop the frontend and how to add a view.
 
 ## Epi data and functionals by stratum
@@ -314,6 +353,27 @@ The per-Draw functionals are `psi_edge`, `mean_q`, `mean_<class>`, `mean_multi_s
 2.5% and 97.5% type-7 quantiles (R's default) of the same pooled values. psi_MAP and the size range come from Parent-set
 weights pooled over every Draw of every Chain, matching sets across Chains by their members, and have no interval.
 `pt_analysis.strata.stratum_series` gives a stratum's per-Draw functional per Chain, which the trace panel shows.
+
+### Flows, lags and spatial scale
+
+`pt_analysis.flows` (view `#/flows`, endpoints in `pt_analysis.endpoints.flows`) follows the manuscript's Zanzibar
+results. Everything is a function of the pooled Edge marginals Q[i, j] (summed over every Draw of every Chain, over
+the number of Draws) and q; sums of Q are expected edge counts. Strata are those above, the no-value stratum included.
+
+| Function | What it is |
+|---|---|
+| `attribution(analysis, column)` | per recipient stratum, its Infections' attributed parent mass (expected observed parents plus q) by source stratum and the unobserved source, as mass and share within the recipient |
+| `enrichment(analysis, column)` | per source x recipient cell: expected edges, share of all edge mass, candidate pairs from the input's `allowed_parents` and their share, and enrichment = share / candidate share (None without candidate pairs) |
+| `net_flow(analysis, column, min_infections=1)` | per stratum with at least `min_infections` Infections: expected out-edges and in-edges between different strata and their difference; and the number of strata hidden |
+| `lag_histogram(analysis, width=None)` | edge mass binned by lag, the child's minus the parent's input observation time; bins start at multiples of the width (default about 30 bins of 1, 2 or 5 x 10^k) |
+| `median_duration(analysis)` | median over Infections of each one's posterior mean `infection_duration` |
+| `reassign(analysis, max_lag, column=None)` | the mass of every edge with lag above `max_lag` moved to the unobserved source, Draw by Draw: moved mass and share, and psi_edge and mean q before and after with 95% intervals, overall and per stratum |
+| `spatial_scale(analysis, unit, parent, max_lag=None)` | edge mass and share with lag at most `max_lag` whose source is in the recipient's unit (`same_unit`), its parent unit only (`same_parent`), or elsewhere (`other`) |
+
+Reassigning lowers psi_edge by the moved mass over n and raises mean q by the same amount, the manuscript's
+accounting, so q then counts attributed mass and can exceed one for an Infection. Per stratum, psi_edge counts the
+stratum's Infections as sources and q as recipients, as above. A unit is known by its value and its parent unit's, so
+a unit name used in two parent units is two units; a missing value is `other`.
 
 ## Summarise a Run
 
@@ -481,6 +541,12 @@ metrics.rank(scores, truth_flags)                # Ranking of any scores: curve,
 metrics.parent_set_rows(analysis, truth, 0.8)    # [InfectionParentSets(infection, effective_size, credible_size,
                                                  #   covered, top_probability), ...]
 metrics.fit_summary_metrics(analysis, truth)     # {fit-summary column name: value} for the ranking and parent sets
+
+from pt_analysis import truth_overlay
+
+truth_overlay.match(analysis)                    # n_true_edges, unmatched_infections, unobserved_truth_infections
+truth_overlay.overlay(analysis, floor=0.01)      # {floor, truth, sources: [{source, label, directed, edges}]}
+truth_overlay.errors(analysis, "posterior", 0.5) # {source, ..., rows: [{kind, parent, child, marginal, ...}]}
 ```
 
 The benchmark scripts run in this environment:

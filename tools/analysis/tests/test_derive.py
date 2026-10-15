@@ -226,7 +226,7 @@ def test_out_degree_draws_give_each_infection_its_expected_observed_children_per
 
 
 TABLES = ["set_classes", "edges", "set_summary", "infection_draws", "functional_draws", "genotype_summary",
-          "genotype_mode", "out_degree_draws"]
+          "genotype_mode", "out_degree_draws", "coi"]
 
 
 # Latent genotype bitstrings per Draw, read from the golden stores: Infection 1 is 00001000 at AS1 in every Draw of
