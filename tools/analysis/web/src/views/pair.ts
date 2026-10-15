@@ -138,7 +138,7 @@ const render: RenderView = (root, ctx) => {
       const intervals = times.filter((t) => t.lower !== null);
       section("Infection times",
         table(["Infection", "Observation time", "Infection time, median", "95% interval"], times.map((t) =>
-          [t.infection, time(t.observation_time), time(t.median), t.lower === null ? "–" : `${time(t.lower)} – ${time(t.upper)}`])),
+          [el("a", { href: `#/infection?id=${encodeURIComponent(t.infection)}` }, t.infection), time(t.observation_time), time(t.median), t.lower === null ? "–" : `${time(t.lower)} – ${time(t.upper)}`])),
         el("p", {}, `Lag (observation time of ${b} minus ${a}): `, el("strong", {}, time(p.times.lag)), "."),
         Plot.plot({
           width: 640,
