@@ -56,12 +56,13 @@ export function mockApi(overrides: Record<string, unknown> = {}) {
   return mock;
 }
 
-/** The whole app at `url`, on fixtures. Returns the history, to read the URL. */
-export function renderApp(url = "/overview") {
-  mockApi();
+/** The whole app at `url`, on fixtures (`overrides` as `mockApi` takes them). Returns the history, to read the URL,
+ *  and the fetch mock. */
+export function renderApp(url = "/overview", overrides: Record<string, unknown> = {}) {
+  const fetch = mockApi(overrides);
   const history = createMemoryHistory({ initialEntries: [url] });
   const view = render(<App history={history} theme="light" />);
-  return { ...view, history, search: () => parseSearch(history.location.search) };
+  return { ...view, history, fetch, search: () => parseSearch(history.location.search) };
 }
 
 /** `ui` inside the providers and a one-route router at `url`. */
