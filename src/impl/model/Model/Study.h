@@ -24,7 +24,7 @@ namespace transmission_nets::impl::Model {
 
         // An Observed genotype at one Locus: one '0' or '1' per Allele. All zeros means nothing was observed there, as
         // does a Locus with no entry.
-        struct Genotype {
+        struct ObservedGenotype {
             std::string locus;
             std::string alleles;
         };
@@ -33,7 +33,7 @@ namespace transmission_nets::impl::Model {
             std::string id;
             double observationTime = 0;
             bool symptomatic       = true;
-            std::vector<Genotype> observedGenotypes;
+            std::vector<ObservedGenotype> observedGenotypes;
             std::vector<std::string> permittedParents;// ids of the Infections the study allows as this one's parents
         };
 

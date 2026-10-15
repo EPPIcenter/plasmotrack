@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_STRAINCOUNTSAMPLER_H
 #define TRANSMISSION_NETWORKS_APP_STRAINCOUNTSAMPLER_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/samplers/AbstractSampler.h"
 
 #include <boost/random.hpp>
@@ -40,7 +41,7 @@ namespace transmission_nets::core::samplers::genetics {
      */
     template<typename T, typename Engine, typename InfectionEventImpl>
     class StrainCountSampler : public AbstractSampler {
-        using Genetics = typename InfectionEventImpl::GeneticsType;
+        using Genotype = core::datatypes::Genotype;
 
     public:
         StrainCountSampler(std::shared_ptr<InfectionEventImpl> infection, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, unsigned int maxCOI,
@@ -54,13 +55,13 @@ namespace transmission_nets::core::samplers::genetics {
         static constexpr double NEG_INF = -std::numeric_limits<double>::infinity();
 
         // The locus' observed alleles, or none.
-        [[nodiscard]] Genetics observed(size_t l, const Genetics& like) const;
+        [[nodiscard]] Genotype observed(size_t l, const Genotype& like) const;
         // Log probability that an add from `genotypes` chooses exactly the loci in `chosen` (a flag per locus) and adds
         // allele `added[l]` at each chosen locus.
-        [[nodiscard]] double logAddProb(const std::vector<Genetics>& genotypes, const std::vector<bool>& chosen, const std::vector<unsigned int>& added) const;
+        [[nodiscard]] double logAddProb(const std::vector<Genotype>& genotypes, const std::vector<bool>& chosen, const std::vector<unsigned int>& added) const;
         // Log probability that a remove from `genotypes` removes allele `removed[l]` at each locus with the largest count.
-        [[nodiscard]] static double logRemoveProb(const std::vector<Genetics>& genotypes);
-        [[nodiscard]] static unsigned int largest(const std::vector<Genetics>& genotypes);
+        [[nodiscard]] static double logRemoveProb(const std::vector<Genotype>& genotypes);
+        [[nodiscard]] static unsigned int largest(const std::vector<Genotype>& genotypes);
 
         std::shared_ptr<InfectionEventImpl> infection_;
         std::shared_ptr<T> target_;
@@ -74,7 +75,7 @@ namespace transmission_nets::core::samplers::genetics {
     };
 
     template<typename T, typename Engine, typename InfectionEventImpl>
-    typename StrainCountSampler<T, Engine, InfectionEventImpl>::Genetics StrainCountSampler<T, Engine, InfectionEventImpl>::observed(const size_t l, const Genetics& like) const {
+    typename StrainCountSampler<T, Engine, InfectionEventImpl>::Genotype StrainCountSampler<T, Engine, InfectionEventImpl>::observed(const size_t l, const Genotype& like) const {
         const auto& locus = infection_->loci()[l];
         if (infection_->observedGenotype().contains(locus)) {
             return infection_->observedGenotype(locus)->value();
@@ -85,7 +86,7 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
-    unsigned int StrainCountSampler<T, Engine, InfectionEventImpl>::largest(const std::vector<Genetics>& genotypes) {
+    unsigned int StrainCountSampler<T, Engine, InfectionEventImpl>::largest(const std::vector<Genotype>& genotypes) {
         unsigned int m = 0;
         for (const auto& g : genotypes) {
             m = std::max(m, g.totalPositiveCount());
@@ -94,7 +95,7 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
-    double StrainCountSampler<T, Engine, InfectionEventImpl>::logRemoveProb(const std::vector<Genetics>& genotypes) {
+    double StrainCountSampler<T, Engine, InfectionEventImpl>::logRemoveProb(const std::vector<Genotype>& genotypes) {
         const unsigned int m = largest(genotypes);
         double out           = 0;
         for (const auto& g : genotypes) {
@@ -106,7 +107,7 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
-    double StrainCountSampler<T, Engine, InfectionEventImpl>::logAddProb(const std::vector<Genetics>& genotypes, const std::vector<bool>& chosen, const std::vector<unsigned int>& added) const {
+    double StrainCountSampler<T, Engine, InfectionEventImpl>::logAddProb(const std::vector<Genotype>& genotypes, const std::vector<bool>& chosen, const std::vector<unsigned int>& added) const {
         const unsigned int m = largest(genotypes);
         double out           = 0;
         for (size_t l = 0; l < genotypes.size(); ++l) {
@@ -142,7 +143,7 @@ namespace transmission_nets::core::samplers::genetics {
     template<typename T, typename Engine, typename InfectionEventImpl>
     void StrainCountSampler<T, Engine, InfectionEventImpl>::update() noexcept {
         const auto& loci = infection_->loci();
-        std::vector<Genetics> current;
+        std::vector<Genotype> current;
         current.reserve(loci.size());
         for (const auto& locus : loci) {
             current.push_back(infection_->latentGenotype(locus)->value());

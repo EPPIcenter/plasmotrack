@@ -1,3 +1,6 @@
+//
+// The State's construction from a Study: the data rules and the refusals (see State.h).
+//
 
 #include "State.h"
 
@@ -19,7 +22,8 @@ namespace transmission_nets::impl::Model {
             return std::ranges::all_of(alleles, [](const char s) { return s == '0'; });
         }
 
-        // The genotype with no more than `max_coi` Alleles present: the first ones, in Allele order.
+        // The genotype with fewer than `max_coi` Alleles present: the first `max_coi - 1`, in Allele order. The cap
+        // is one below the limit, as it has always been; the Golden runs depend on it.
         std::string constrainCOI(const std::string& genotype, const int max_coi) {
             std::string out;
             int total_coi = 0;
@@ -38,7 +42,7 @@ namespace transmission_nets::impl::Model {
     }// namespace
 
     State::State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const bool null_model) {
-        null_model_ = null_model;
+        nullModel = null_model;
 
         // Loci, in input order, so that their uids follow the input.
         std::vector<std::shared_ptr<LocusImpl>> lociInOrder;
@@ -122,7 +126,7 @@ namespace transmission_nets::impl::Model {
         }
 
         infectionEventOrdering = std::make_shared<OrderingImpl>();
-        infectionEventOrdering->addElements(infections, [&](const auto& infection) { return allowedRelationships->allowedParents(infection); });
+        infectionEventOrdering->addElements(infections, [&](const auto& infection) { return allowedRelationships->permittedParents(infection); });
 
         for (const auto& infection : infections) {
             expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
@@ -131,7 +135,7 @@ namespace transmission_nets::impl::Model {
             // The anchor: at each locus the observed genotype, or every allele where nothing was observed. A function
             // of the data alone, so a resumed Run proposes as the original would.
             for (const auto& locus : latentParents.back()->loci()) {
-                GeneticsImpl anchor(static_cast<int>(locus->totalAlleles()));
+                Genotype anchor(static_cast<int>(locus->totalAlleles()));
                 anchor.reset();
                 if (infection->observedGenotype().contains(locus) and infection->observedGenotype(locus)->value().totalPositiveCount() > 0) {
                     anchor = infection->observedGenotype(locus)->value();

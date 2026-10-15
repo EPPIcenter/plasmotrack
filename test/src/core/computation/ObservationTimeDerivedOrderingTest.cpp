@@ -10,7 +10,7 @@
 #include "core/computation/ObservationTimeDerivedOrdering.h"
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 
 #include <memory>
 #include <string>
@@ -18,11 +18,10 @@
 
 using namespace transmission_nets::core::computation;
 using namespace transmission_nets::core::containers;
-using transmission_nets::core::datatypes::AllelesBitSet;
+using transmission_nets::core::datatypes::Genotype;
 
 namespace {
-    using Genetics  = AllelesBitSet<32>;
-    using Infection = transmission_nets::core::containers::Infection<Genetics>;
+    using Infection = transmission_nets::core::containers::Infection<>;
     using Ordering  = ObservationTimeDerivedOrdering<Infection>;
     using Ptr       = std::shared_ptr<Infection>;
 
@@ -198,12 +197,12 @@ TEST(OrderingTest, AGenotypeChangeIsRelayedToTheInfectionsItIsACandidateParentOf
     Fixture f;
     auto locus = std::make_shared<Locus>("L0", 2);
     for (const auto& infection : f.infections) {
-        infection->addGenetics(locus, Genetics("10"), Genetics("10"));
+        infection->addGenetics(locus, Genotype("10"), Genotype("10"));
     }
 
     auto genotype = f["2"]->latentGenotype(locus);
     genotype->saveState(1);
-    genotype->setValue(Genetics("01"));
+    genotype->setValue(Genotype("01"));
 
     EXPECT_EQ(f.toldOfGenotypes, (Ids{"3", "4"}));
     EXPECT_TRUE(f.toldOfCandidates.empty());

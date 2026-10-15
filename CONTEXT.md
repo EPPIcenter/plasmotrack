@@ -22,6 +22,10 @@ _Avoid_: Marker, site, SNP
 One of the possible variants at a Locus.
 _Avoid_: Variant, genotype
 
+**Genotype**:
+The set of Alleles at one Locus, as a value: what an Observed genotype and a Latent genotype each hold. Compared and hashed by its Alleles; the set algebra over a Locus's Alleles lives on it.
+_Avoid_: Bitset, alleles bitset, genetics
+
 **Observed genotype**:
 The set of Alleles reported by genotyping at one Locus in one Infection. Fixed data, and noisy — it may report Alleles that are not there and miss Alleles that are.
 _Avoid_: Observation, readout, called genotype

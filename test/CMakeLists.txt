@@ -19,7 +19,7 @@ set(CORE_CONTAINERS_TESTS
 )
 
 set(CORE_DATATYPES_TESTS
-    src/core/datatypes/AllelesTest.cpp
+    src/core/datatypes/GenotypeTest.cpp
     src/core/datatypes/SimplexTest.cpp
 )
 

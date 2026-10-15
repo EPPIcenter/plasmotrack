@@ -4,6 +4,7 @@
 #ifndef RANDOMALLELEBITSETSAMPLER4_H
 #define RANDOMALLELEBITSETSAMPLER4_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/containers/AllowedRelationships.h"
 #include "core/datatypes/Data.h"
 #include "core/parameters/Parameter.h"
@@ -17,7 +18,7 @@
 
 namespace transmission_nets::core::samplers::genetics {
 
-    template<typename T, typename Engine, typename InfectionEventImpl, typename AlleleImpl, typename LocusImpl>
+    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     class RandomAllelesBitSetSampler4 : public AbstractSampler {
     public:
         RandomAllelesBitSetSampler4(
@@ -50,8 +51,8 @@ namespace transmission_nets::core::samplers::genetics {
     };
 
 
-    template<typename T, typename Engine, typename InfectionEventImpl, typename AlleleImpl, typename LocusImpl>
-    RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, AlleleImpl, LocusImpl>::RandomAllelesBitSetSampler4(
+    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
+    RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, LocusImpl>::RandomAllelesBitSetSampler4(
             std::shared_ptr<InfectionEventImpl> infection,
             std::shared_ptr<InfectionEventImpl> latentParent,
             std::shared_ptr<LocusImpl> locus,
@@ -67,10 +68,10 @@ namespace transmission_nets::core::samplers::genetics {
           rng_(std::move(rng)),
           max_coi_(max_coi){};
 
-    template<typename T, typename Engine, typename InfectionEventImpl, typename AlleleImpl, typename LocusImpl>
-    void RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, AlleleImpl, LocusImpl>::update() noexcept {
-        using Parameter = parameters::Parameter<AlleleImpl>;
-        using Data = datatypes::Data<AlleleImpl>;
+    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
+    void RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, LocusImpl>::update() noexcept {
+        using Parameter = parameters::Parameter<core::datatypes::Genotype>;
+        using Data = datatypes::Data<core::datatypes::Genotype>;
         namespace views = std::ranges::views;
 
         auto proposal = this->propose(*target_, *rng_);

@@ -8,7 +8,7 @@
 
 #include "MarginalLatentParentReference.h"
 
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 #include "model/transmission_process/TransmissionKernel.h"
 
 #include <boost/random.hpp>
@@ -20,29 +20,27 @@
 #include <vector>
 
 using namespace transmission_nets::model::transmission_process;
-using transmission_nets::core::datatypes::AllelesBitSet;
+using transmission_nets::core::datatypes::Genotype;
 
 namespace {
     constexpr int MAX_PARENTS = 2;
     constexpr int MAX_STRAINS = 12;
     constexpr int MAX_COI     = 20;
     constexpr double NEG_INF  = -std::numeric_limits<double>::infinity();
-
-    using Genetics = AllelesBitSet<128>;
-    using Kernel   = TransmissionKernel<MAX_PARENTS, MAX_STRAINS, MAX_COI, Genetics>;
+    using Kernel   = TransmissionKernel<MAX_PARENTS, MAX_STRAINS, MAX_COI>;
     using Variant  = Kernel::Variant;
     using Engine   = boost::random::mt19937;
 
-    std::vector<const Genetics*> pointers(const std::vector<Genetics>& genotypes) {
-        std::vector<const Genetics*> out;
+    std::vector<const Genotype*> pointers(const std::vector<Genotype>& genotypes) {
+        std::vector<const Genotype*> out;
         for (const auto& g : genotypes) {
             out.push_back(&g);
         }
         return out;
     }
 
-    Genetics fromMask(const unsigned int numAlleles, const unsigned int mask) {
-        Genetics g(static_cast<int>(numAlleles));
+    Genotype fromMask(const unsigned int numAlleles, const unsigned int mask) {
+        Genotype g(static_cast<int>(numAlleles));
         g.reset();
         for (unsigned int i = 0; i < numAlleles; ++i) {
             if (mask >> i & 1u) {
@@ -77,8 +75,8 @@ namespace {
 
 TEST(TransmissionKernelTest, AParentCarryingTheChildsOnlyAlleleTransmitsItWithCertainty) {
     Kernel kernel;
-    const Genetics child("10"), parent("10");
-    const std::vector<const Genetics*> parents{&parent};
+    const Genotype child("10"), parent("10");
+    const std::vector<const Genotype*> parents{&parent};
     const auto term = kernel.locusTerm(Variant::ObservedParents, child, parents, nullptr);
     ASSERT_FALSE(term.impossible);
     for (const double t : term.terms) {
@@ -88,8 +86,8 @@ TEST(TransmissionKernelTest, AParentCarryingTheChildsOnlyAlleleTransmitsItWithCe
 
 TEST(TransmissionKernelTest, TwoChildAllelesNeedTwoStrainsAndEachStrainPicksOneAtRandom) {
     Kernel kernel;
-    const Genetics child("11"), parent("11");
-    const std::vector<const Genetics*> parents{&parent};
+    const Genotype child("11"), parent("11");
+    const std::vector<const Genotype*> parents{&parent};
     const auto term = kernel.locusTerm(Variant::ObservedParents, child, parents, nullptr);
     ASSERT_FALSE(term.impossible);
     EXPECT_EQ(term.terms[0], NEG_INF);           // one strain cannot carry both
@@ -98,8 +96,8 @@ TEST(TransmissionKernelTest, TwoChildAllelesNeedTwoStrainsAndEachStrainPicksOneA
 
 TEST(TransmissionKernelTest, AParentLackingAChildAlleleIsImpossible) {
     Kernel kernel;
-    const Genetics child("11"), parent("10"), latent("01"), unrelated("001");
-    const std::vector<const Genetics*> parents{&parent};
+    const Genotype child("11"), parent("10"), latent("01"), unrelated("001");
+    const std::vector<const Genotype*> parents{&parent};
     EXPECT_TRUE(kernel.locusTerm(Variant::ObservedParents, child, parents, nullptr).impossible);
     // A latent parent sharing no allele with the child cannot be one of its parents.
     EXPECT_TRUE(kernel.locusTerm(Variant::ObservedAndLatentParents, child, parents, &unrelated).impossible);
@@ -142,8 +140,8 @@ TEST(TransmissionKernelTest, LatentLocusTableMatchesThePlainComputation) {
     for (int trial = 0; trial < 40; ++trial) {
         const unsigned int A = 2 + trial % 6;
         const auto freqs     = randomFrequencies(rng, A);
-        const Genetics child = fromMask(A, randomMask(rng, A, 0.4));
-        std::vector<Genetics> observed;
+        const Genotype child = fromMask(A, randomMask(rng, A, 0.4));
+        std::vector<Genotype> observed;
         for (unsigned int p = 0; p < static_cast<unsigned int>(trial % 3); ++p) {
             observed.push_back(fromMask(A, randomMask(rng, A, 0.4)));
         }
@@ -151,7 +149,7 @@ TEST(TransmissionKernelTest, LatentLocusTableMatchesThePlainComputation) {
         const Variant variant = observed.empty() ? Variant::LatentParentOnly : Variant::ObservedAndLatentParents;
         const marginal::SourceOverlap overlap(freqs, Kernel::allelesOf(child), MAX_COI);
 
-        const auto expected = marginal::locusTable<MAX_COI, MAX_STRAINS, Genetics>(overlap, A, [&](const Genetics& latent) -> std::optional<std::array<double, MAX_STRAINS>> {
+        const auto expected = marginal::locusTable<MAX_COI, MAX_STRAINS>(overlap, A, [&](const Genotype& latent) -> std::optional<std::array<double, MAX_STRAINS>> {
             const auto term = kernel.locusTerm(variant, child, parents, &latent);
             if (term.impossible) {
                 return std::nullopt;
@@ -197,9 +195,9 @@ TEST(TransmissionKernelTest, LatentSumMatchesThePlainCombination) {
     }
     for (int trial = 0; trial < 20; ++trial) {
         const unsigned int A    = 3 + trial % 4;
-        const Genetics child    = fromMask(A, randomMask(rng, A, 0.5));
-        const Genetics observed = fromMask(A, randomMask(rng, A, 0.5));
-        const std::vector<const Genetics*> parents{&observed};
+        const Genotype child    = fromMask(A, randomMask(rng, A, 0.5));
+        const Genotype observed = fromMask(A, randomMask(rng, A, 0.5));
+        const std::vector<const Genotype*> parents{&observed};
         const marginal::SourceOverlap overlap(randomFrequencies(rng, A), Kernel::allelesOf(child), MAX_COI);
         Kernel::LocusTable locus;
         Kernel::contract(kernel.fTable(child, parents), overlap, locus);

@@ -32,6 +32,11 @@ namespace transmission_nets::core::distributions {
         explicit ZTPoisson(p_Parameterdouble mean) noexcept;
 
         std::array<double, MAX_COUNT + 1> value() noexcept;
+        // The log-probabilities by count, evaluated, without a copy. Valid until the mean changes.
+        const std::array<double, MAX_COUNT + 1>& logProbs() noexcept {
+            value();
+            return this->value_;
+        }
 
     private:
         friend class abstract::Checkpointable<ZTPoisson<MAX_COUNT>, std::array<double, MAX_COUNT + 1>>;

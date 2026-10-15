@@ -6,8 +6,8 @@
 // The rules every step must follow live here rather than in the samplers:
 // - a step's saved states carry an id no other open step shares, so steps nest (a multiple-try move evaluates tries
 //   while its own change is saved) and a restore pops exactly its own save;
-// - the target is evaluated before a change is accepted or restored: an accept marks the model's terms clean, and a
-//   term may record a change when it happens and apply it when it is next read;
+// - the target is evaluated before a change is accepted or restored: a term may record a change when it happens and
+//   apply it when it is next read, so the saved states it settles are the evaluated ones;
 // - a change inside a nested step leaves the enclosing steps unevaluated, so they evaluate again before they settle;
 // - the accept/reject decision draws its uniform after the proposed state is evaluated;
 // - every step counts once in the sampler's counts, accepted or not, unless it is a try that is reverted.
@@ -26,6 +26,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <exception>
 #include <utility>
 
 namespace transmission_nets::core::samplers {
@@ -40,7 +41,8 @@ namespace transmission_nets::core::samplers {
                 static thread_local OpenProposals open;
                 return open;
             }
-            // Positive and distinct from every id another open Proposal on this thread can hold.
+            // Positive, and distinct from every other open Proposal's on this thread: the counter wraps after about
+            // two billion steps, and no step stays open that long.
             int takeId() {
                 return static_cast<int>(nextId++ % 0x7ffffffeu) + 1;
             }
@@ -56,8 +58,15 @@ namespace transmission_nets::core::samplers {
         }
         Proposal(const Proposal&)            = delete;
         Proposal& operator=(const Proposal&) = delete;
+        // A step that ends without settling, which only an exception does, puts every parameter it changed back,
+        // without counting and without evaluating.
         ~Proposal() {
-            assert(settled_ && "a Proposal ends in accept(), reject() or revert()");
+            assert((settled_ || std::uncaught_exceptions() > 0) && "a Proposal ends in accept(), reject() or revert()");
+            if (!settled_) {
+                for (auto it = touched_.rbegin(); it != touched_.rend(); ++it) {
+                    it->restore(it->parameter, id_);
+                }
+            }
             open().evaluated.pop_back();
         }
 

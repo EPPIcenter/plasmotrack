@@ -3,6 +3,8 @@
 //
 
 #include "RunAssembly.h"
+
+#include <cassert>
 #include "impl/model/Model/EnsembleCheckpoint.h"
 
 #include "core/utils/timers.h"
@@ -63,6 +65,8 @@ namespace transmission_nets::impl::Model {
 
         run.start = FreshRun{};
         if (resuming) {
+            // The recipe resolves Resume only from a checkpoint it read.
+            assert(saved && "a Resume recipe carries the checkpoint it resumes from");
             run.start = ResumedRun{.position = saved->position, .parentSetIds = saved->parentSetIds};
         }
         return run;

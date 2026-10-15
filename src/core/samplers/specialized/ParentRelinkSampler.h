@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PARENTRELINKSAMPLER_H
 #define TRANSMISSION_NETWORKS_APP_PARENTRELINKSAMPLER_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/samplers/AbstractSampler.h"
 #include "core/samplers/genetics/GenomePartition.h"
 #include "core/samplers/genetics/ParentSetGenotypeProposal.h"
@@ -38,12 +39,12 @@ namespace transmission_nets::core::samplers::specialized {
      */
     template<typename T, typename Engine, typename InfectionEventImpl>
     class ParentRelinkSampler : public AbstractSampler {
-        using Genetics = typename InfectionEventImpl::GeneticsType;
+        using Genotype = core::datatypes::Genotype;
 
     public:
         ParentRelinkSampler(std::shared_ptr<InfectionEventImpl> infection,
                             std::shared_ptr<InfectionEventImpl> latentParent,
-                            std::vector<std::shared_ptr<InfectionEventImpl>> allowedParents,
+                            std::vector<std::shared_ptr<InfectionEventImpl>> permittedParents,
                             std::shared_ptr<T> target,
                             std::shared_ptr<Engine> rng,
                             double minDuration,
@@ -59,9 +60,9 @@ namespace transmission_nets::core::samplers::specialized {
         [[nodiscard]] double logProposalDensity() const;
 
     private:
-        [[nodiscard]] size_t numSources() const noexcept { return allowedParents_.size() + 1; }
+        [[nodiscard]] size_t numSources() const noexcept { return permittedParents_.size() + 1; }
         // Sources are the allowed parents, then the latent parent.
-        [[nodiscard]] const InfectionEventImpl& source(const size_t s) const { return s < allowedParents_.size() ? *allowedParents_[s] : *latentParent_; }
+        [[nodiscard]] const InfectionEventImpl& source(const size_t s) const { return s < permittedParents_.size() ? *permittedParents_[s] : *latentParent_; }
         // The durations [first, second) for which the source was infected before the infection; empty if second <= first.
         [[nodiscard]] std::pair<double, double> window(size_t s) const;
         // The sources the duration can be drawn for (positive mass), and their masses.
@@ -73,7 +74,7 @@ namespace transmission_nets::core::samplers::specialized {
 
         std::shared_ptr<InfectionEventImpl> infection_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
-        std::vector<std::shared_ptr<InfectionEventImpl>> allowedParents_;
+        std::vector<std::shared_ptr<InfectionEventImpl>> permittedParents_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
         double minDuration_;
@@ -86,7 +87,7 @@ namespace transmission_nets::core::samplers::specialized {
         // One draw of the proposal: a duration and the infection's genotypes by locus, in infection_->loci() order.
         struct Try {
             double duration = 0;
-            std::vector<Genetics> genotypes{};
+            std::vector<Genotype> genotypes{};
         };
         void drawTry(Try& t);
         // Sets the infection to `t`, evaluates the target and the proposal density there, and restores it.
@@ -99,14 +100,14 @@ namespace transmission_nets::core::samplers::specialized {
         // share one, so it is evaluated once per class of allowed parents with the same genome.
         mutable genetics::GenomePartition<InfectionEventImpl> sourceClasses_{};
         mutable std::vector<double> classLogProb_{};// NaN until evaluated in the current logProposalDensity() call
-        mutable genetics::ProposalTarget<Genetics> genotypes_{};
-        mutable std::vector<Genetics> sourceGenotypes_{};
+        mutable genetics::ProposalTarget genotypes_{};
+        mutable std::vector<Genotype> sourceGenotypes_{};
     };
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     ParentRelinkSampler<T, Engine, InfectionEventImpl>::ParentRelinkSampler(std::shared_ptr<InfectionEventImpl> infection,
                                                                            std::shared_ptr<InfectionEventImpl> latentParent,
-                                                                           std::vector<std::shared_ptr<InfectionEventImpl>> allowedParents,
+                                                                           std::vector<std::shared_ptr<InfectionEventImpl>> permittedParents,
                                                                            std::shared_ptr<T> target,
                                                                            std::shared_ptr<Engine> rng,
                                                                            const double minDuration,
@@ -117,7 +118,7 @@ namespace transmission_nets::core::samplers::specialized {
                                                                            const unsigned int tries)
         : infection_(std::move(infection)),
           latentParent_(std::move(latentParent)),
-          allowedParents_(std::move(allowedParents)),
+          permittedParents_(std::move(permittedParents)),
           target_(std::move(target)),
           rng_(std::move(rng)),
           minDuration_(minDuration),
@@ -129,11 +130,11 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     std::pair<double, double> ParentRelinkSampler<T, Engine, InfectionEventImpl>::window(const size_t s) const {
-        if (s >= allowedParents_.size()) {
+        if (s >= permittedParents_.size()) {
             return {minDuration_, maxDuration_};
         }
         // Infected before the source means observation time - duration > the source's infection time.
-        const double latest = infection_->observationTime()->value() - allowedParents_[s]->infectionTime();
+        const double latest = infection_->observationTime()->value() - permittedParents_[s]->infectionTime();
         return {minDuration_, std::min(maxDuration_, latest)};
     }
 
@@ -153,7 +154,7 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     double ParentRelinkSampler<T, Engine, InfectionEventImpl>::logGenomeProb(const size_t s) const {
-        if (s >= allowedParents_.size()) {
+        if (s >= permittedParents_.size()) {
             return logGenomeProbFrom(*latentParent_);
         }
         const auto c = sourceClasses_.classOf(s);
@@ -168,7 +169,7 @@ namespace transmission_nets::core::samplers::specialized {
         genetics::latentGenotypesAlong(*infection_, from, sourceGenotypes_);
         double total = 0;
         for (size_t l = 0; l < sourceGenotypes_.size(); ++l) {
-            const std::array<const Genetics*, 1> parents{&sourceGenotypes_[l]};
+            const std::array<const Genotype*, 1> parents{&sourceGenotypes_[l]};
             total += genetics::logLocusProposalProb(parents, 1, genotypes_.latent[l], genotypes_.observed[l], genotypes_.presence[l], fpRate_);
             if (total == -std::numeric_limits<double>::infinity()) {
                 break;
@@ -185,7 +186,7 @@ namespace transmission_nets::core::samplers::specialized {
             return -std::numeric_limits<double>::infinity();
         }
         const auto sources = feasibleSources();
-        sourceClasses_.update(allowedParents_);
+        sourceClasses_.update(permittedParents_);
         classLogProb_.assign(sourceClasses_.numClasses(), std::numeric_limits<double>::quiet_NaN());
         genotypes_.gather(*infection_, fnRate_);
         std::vector<double> terms{};
@@ -213,7 +214,7 @@ namespace transmission_nets::core::samplers::specialized {
         t.duration                 = durationShape_.draw(first, second, mass, *rng_);
         t.genotypes.clear();
         for (const auto& locus : infection_->loci()) {
-            const std::array<const Genetics*, 1> parents{&source(s).latentGenotype(locus)->value()};
+            const std::array<const Genotype*, 1> parents{&source(s).latentGenotype(locus)->value()};
             if (infection_->observedGenotype().contains(locus)) {
                 t.genotypes.push_back(genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnRate_, fpRate_));
             } else {
@@ -334,8 +335,8 @@ namespace transmission_nets::core::samplers::specialized {
         proposal.change(*infection_->infectionDuration(), proposed);
         for (const auto& locus : infection_->loci()) {
             auto genotype = infection_->latentGenotype(locus);
-            const std::array<const Genetics*, 1> parents{&source(s).latentGenotype(locus)->value()};
-            Genetics proposedGenotype;
+            const std::array<const Genotype*, 1> parents{&source(s).latentGenotype(locus)->value()};
+            Genotype proposedGenotype;
             if (infection_->observedGenotype().contains(locus)) {
                 proposedGenotype = genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnRate_, fpRate_);
             } else {

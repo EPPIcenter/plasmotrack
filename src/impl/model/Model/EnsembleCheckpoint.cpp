@@ -19,21 +19,21 @@ namespace transmission_nets::impl::Model::checkpoint {
         const Value& savedFor(const std::map<std::string, Value>& saved, const std::string& key, const std::string& what) {
             const auto it = saved.find(key);
             if (it == saved.end()) {
-                refuse(fmt::format("checkpoint has no {} {}; it was made from another input", what, key));
+                refuseCheckpoint(fmt::format("checkpoint has no {} {}; it was made from another input", what, key));
             }
             return it->second;
         }
 
         void requireSameNames(const std::vector<std::string>& saved, const std::vector<std::string>& current, const std::string& what) {
             if (saved != current) {
-                refuse(fmt::format("checkpoint has other {} than this input; it was made from another input", what));
+                refuseCheckpoint(fmt::format("checkpoint has other {} than this input; it was made from another input", what));
             }
         }
 
         template<typename Value>
         void requireLength(const std::vector<Value>& saved, const size_t expected, const std::string& what) {
             if (saved.size() != expected) {
-                refuse(fmt::format("checkpoint has {} {}, not {}; it was made from another input", saved.size(), what, expected));
+                refuseCheckpoint(fmt::format("checkpoint has {} {}, not {}; it was made from another input", saved.size(), what, expected));
             }
         }
 
@@ -76,7 +76,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             explicit BitReader(const std::vector<std::uint8_t>& bytes) : bytes_(bytes) {}
             bool next() {
                 if (bits_ / 8 >= bytes_.size()) {
-                    refuse("checkpoint has fewer Allele bits than this input's genotypes; it was made from another input");
+                    refuseCheckpoint("checkpoint has fewer Allele bits than this input's genotypes; it was made from another input");
                 }
                 const bool bit = (bytes_[bits_ / 8] >> (7 - bits_ % 8)) & 1;
                 ++bits_;
@@ -84,7 +84,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             }
             void requireAllRead() const {
                 if ((bits_ + 7) / 8 != bytes_.size()) {
-                    refuse("checkpoint has more Allele bits than this input's genotypes; it was made from another input");
+                    refuseCheckpoint("checkpoint has more Allele bits than this input's genotypes; it was made from another input");
                 }
             }
 
@@ -108,7 +108,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             void alleleFrequencies(const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<AlleleFrequencyImpl>>& p) {
                 saved.alleleFrequencies.push_back(p->value().frequencies());
             }
-            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
+            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<Genotype>>& p) {
                 const auto& alleles = p->value();
                 for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
                     genotypes.push(alleles.allele(allele));
@@ -149,8 +149,8 @@ namespace transmission_nets::impl::Model::checkpoint {
             void alleleFrequencies(const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<AlleleFrequencyImpl>>& p) {
                 p->initializeValue(AlleleFrequencyImpl::exactly(saved.alleleFrequencies[locusAt++]));
             }
-            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
-                GeneticsImpl alleles(static_cast<int>(p->value().totalAlleles()));
+            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<Genotype>>& p) {
+                Genotype alleles(static_cast<int>(p->value().totalAlleles()));
                 for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
                     alleles.set(allele, genotypes.next());
                 }
@@ -161,7 +161,7 @@ namespace transmission_nets::impl::Model::checkpoint {
                 std::vector<std::shared_ptr<InfectionEvent>> order;
                 for (const auto at : saved.ordering) {
                     if (at >= state.infections.size()) {
-                        refuse(fmt::format("checkpoint's Ordering has Infection {} of {}", at, state.infections.size()));
+                        refuseCheckpoint(fmt::format("checkpoint's Ordering has Infection {} of {}", at, state.infections.size()));
                     }
                     order.push_back(state.infections[at]);
                 }
@@ -213,7 +213,7 @@ namespace transmission_nets::impl::Model::checkpoint {
                 return state;
             });
         } catch (const std::invalid_argument& e) {
-            refuse(fmt::format("checkpoint of Run {} does not fit this input: {}", checkpoint.identity.runId, e.what()));
+            refuseCheckpoint(fmt::format("checkpoint of Run {} does not fit this input: {}", checkpoint.identity.runId, e.what()));
         }
 
         return ensemble;

@@ -401,7 +401,7 @@ namespace transmission_nets::impl::Model {
                     addRow(tables.at("allele_frequencies"), it, phase, window, locus->label, static_cast<std::int64_t>(a), frequencies.frequencies(a));
                 }
             }
-            void latentGenotype(const size_t index, const std::shared_ptr<LocusImpl>& locus, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
+            void latentGenotype(const size_t index, const std::shared_ptr<LocusImpl>& locus, const std::shared_ptr<core::parameters::Parameter<Genotype>>& p) {
                 addRow(tables.at("latent_genotypes"), it, phase, window, recorder.infectionIds_[index], locus->label, p->value().serialize());
             }
             void ordering(const std::shared_ptr<OrderingImpl>& ordering) {

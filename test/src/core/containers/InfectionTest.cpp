@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "core/containers/Infection.h"
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 
 #include <set>
 
@@ -14,18 +14,17 @@ using namespace transmission_nets::core::containers;
 using namespace transmission_nets::core::parameters;
 
 TEST(InfectionTest, HandlesChangedLatentAlleles) {
-    using GeneticsImpl = AllelesBitSet<16>;
-    using Infection    = Infection<GeneticsImpl, Locus>;
+    using Infection    = Infection<Locus>;
 
     auto as1            = std::make_shared<Locus>("AS1", 6);
     auto as2            = std::make_shared<Locus>("AS2", 8);
     bool allelesChanged = false;
 
     auto inf1 = std::make_shared<Infection>("inf1", 10.0, false);
-    inf1->addLatentGenetics(as1, GeneticsImpl("011010"));
-    inf1->addLatentGenetics(as2, GeneticsImpl("00000011"));
-    inf1->addObservedGenetics(as1, GeneticsImpl("011010"));
-    inf1->addObservedGenetics(as2, GeneticsImpl("00000011"));
+    inf1->addLatentGenetics(as1, Genotype("011010"));
+    inf1->addLatentGenetics(as2, Genotype("00000011"));
+    inf1->addObservedGenetics(as1, Genotype("011010"));
+    inf1->addObservedGenetics(as2, Genotype("00000011"));
     inf1->add_post_change_listener([&]() { allelesChanged = true; });
 
     allelesChanged = false;
@@ -56,15 +55,14 @@ TEST(InfectionTest, HandlesChangedLatentAlleles) {
 
     allelesChanged = false;
     inf1->latentGenotype(as2)->saveState(1);
-    inf1->latentGenotype(as2)->setValue(GeneticsImpl("00000011"));
+    inf1->latentGenotype(as2)->setValue(Genotype("00000011"));
     EXPECT_TRUE(allelesChanged);
     inf1->latentGenotype(as2)->acceptState();
     fmt::print("HandlesChangedLatentAlleles Complete.\n");
 }
 
 TEST(InfectionTest, HandlesCopyingInfection) {
-    using GeneticsImpl = AllelesBitSet<16>;
-    using Infection    = Infection<GeneticsImpl, Locus>;
+    using Infection    = Infection<Locus>;
 
     auto as1            = std::make_shared<Locus>("AS1", 6);
     auto as2            = std::make_shared<Locus>("AS2", 8);
@@ -73,10 +71,10 @@ TEST(InfectionTest, HandlesCopyingInfection) {
 
     auto inf1 = std::make_shared<Infection>("inf1", 10.0, false);
 
-    inf1->addObservedGenetics(as1, GeneticsImpl("011010"));
-    inf1->addLatentGenetics(as1, GeneticsImpl("011010"));
-    inf1->addObservedGenetics(as2, GeneticsImpl("00000011"));
-    inf1->addLatentGenetics(as2, GeneticsImpl("00000011"));
+    inf1->addObservedGenetics(as1, Genotype("011010"));
+    inf1->addLatentGenetics(as1, Genotype("011010"));
+    inf1->addObservedGenetics(as2, Genotype("00000011"));
+    inf1->addLatentGenetics(as2, Genotype("00000011"));
     inf1->add_post_change_listener([&]() { allelesChanged = true; });
 
     auto inf2 = std::make_shared<Infection>(*inf1, "inf2");
@@ -102,8 +100,7 @@ TEST(InfectionTest, HandlesCopyingInfection) {
 
 }
 TEST(InfectionTest, CopiesGetUniqueUids) {
-    using GeneticsImpl = AllelesBitSet<16>;
-    using Infection    = Infection<GeneticsImpl, Locus>;
+    using Infection    = Infection<Locus>;
 
     auto as1 = std::make_shared<Locus>("AS1", 6);
 

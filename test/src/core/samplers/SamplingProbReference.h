@@ -10,6 +10,7 @@
 #define TRANSMISSION_NETWORKS_TEST_SAMPLINGPROBREFERENCE_H
 
 #include "core/computation/PartialLikelihood.h"
+#include "core/datatypes/Genotype.h"
 #include "core/utils/generators/CombinationIndicesGenerator.h"
 #include "core/utils/numerics.h"
 
@@ -19,13 +20,14 @@
 #include <vector>
 
 namespace transmission_nets::test::reference {
+    using transmission_nets::core::datatypes::Genotype;
     using core::computation::Likelihood;
 
     // The chosen parents' genotypes at a locus: the latent parent if included, then the observed parents at the
     // given indices.
-    template<typename GeneticsImpl, typename InfectionPtr, typename ParentSet, typename Indices, typename LocusPtr>
-    std::vector<GeneticsImpl> chosenGenotypes(const InfectionPtr& latentParent, const ParentSet& parentSet, const Indices& indices, const bool withLatent, const LocusPtr& locus) {
-        std::vector<GeneticsImpl> out{};
+    template<typename InfectionPtr, typename ParentSet, typename Indices, typename LocusPtr>
+    std::vector<Genotype> chosenGenotypes(const InfectionPtr& latentParent, const ParentSet& parentSet, const Indices& indices, const bool withLatent, const LocusPtr& locus) {
+        std::vector<Genotype> out{};
         if (withLatent) {
             out.push_back(latentParent->latentGenotype(locus)->value());
         }
@@ -38,13 +40,12 @@ namespace transmission_nets::test::reference {
     // Log probability that the proposal draws `child` at one locus from these chosen parents, following its description
     // literally: every combination of one allele picked from each carrying parent, then independent draws of the other
     // carried alleles.
-    template<typename GeneticsImpl>
-    double logLocusProposal(const std::vector<GeneticsImpl>& parents, const GeneticsImpl& child, const GeneticsImpl& observed, const double fnRate, const double fpRate) {
-        GeneticsImpl carried = child;
+    inline double logLocusProposal(const std::vector<Genotype>& parents, const Genotype& child, const Genotype& observed, const double fnRate, const double fpRate) {
+        Genotype carried = child;
         carried.reset();
         std::vector<std::vector<unsigned int>> picks{};
         for (const auto& parent : parents) {
-            carried = GeneticsImpl::any(carried, parent);
+            carried = Genotype::any(carried, parent);
             std::vector<unsigned int> alleles{};
             for (unsigned int i = 0; i < parent.totalAlleles(); ++i) {
                 if (parent.allele(i)) {
@@ -58,7 +59,7 @@ namespace transmission_nets::test::reference {
         double probability = 0;
         std::vector<size_t> choice(picks.size(), 0);
         while (true) {
-            GeneticsImpl picked = carried;
+            Genotype picked = carried;
             picked.reset();
             double p = 1;
             for (size_t k = 0; k < picks.size(); ++k) {
@@ -92,17 +93,17 @@ namespace transmission_nets::test::reference {
     // Log probability of proposing the infection's current genotypes: a uniform mixture over the parent-set options,
     // each the product over loci of logLocusProposal(). A locus with no observation is drawn with every allele
     // unobserved and fnRate 0.5.
-    template<typename GeneticsImpl, int MaxParentSetSize, typename InfectionPtr, typename ParentSet>
+    template<int MaxParentSetSize, typename InfectionPtr, typename ParentSet>
     Likelihood proposalProb(const InfectionPtr& infection, const ParentSet& parentSet, const InfectionPtr& latentParent, const double fnRate, const double fpRate) {
         auto optionLogProb = [&](const std::vector<unsigned int>& indices, const bool withLatent) {
             double total = 0;
             for (const auto& locus : infection->loci()) {
                 const auto& child = infection->latentGenotype(locus)->value();
-                const auto parents = chosenGenotypes<GeneticsImpl>(latentParent, parentSet, indices, withLatent, locus);
+                const auto parents = chosenGenotypes(latentParent, parentSet, indices, withLatent, locus);
                 if (infection->observedGenotype().contains(locus)) {
                     total += logLocusProposal(parents, child, infection->observedGenotype(locus)->value(), fnRate, fpRate);
                 } else {
-                    GeneticsImpl nothingObserved = child;
+                    Genotype nothingObserved = child;
                     nothingObserved.reset();
                     total += logLocusProposal(parents, child, nothingObserved, 0.5, fpRate);
                 }
@@ -131,8 +132,8 @@ namespace transmission_nets::test::reference {
     // shape mass, each the shape restricted to that window times the probability of drawing every locus from the
     // source alone. A duration d falls in day round(d), and a source's window ends where the infection would no longer
     // be infected after it.
-    template<typename GeneticsImpl, typename InfectionPtr>
-    double relinkProposalDensity(const InfectionPtr& infection, const InfectionPtr& latentParent, const std::vector<InfectionPtr>& allowedParents,
+    template<typename InfectionPtr>
+    double relinkProposalDensity(const InfectionPtr& infection, const InfectionPtr& latentParent, const std::vector<InfectionPtr>& permittedParents,
                                  const double minDuration, const double maxDuration, const std::vector<double>& shape, const double fnRate, const double fpRate) {
         auto mass = [&](const double first, const double second) {
             double total = 0;
@@ -148,11 +149,11 @@ namespace transmission_nets::test::reference {
             double total = 0;
             for (const auto& locus : infection->loci()) {
                 const auto& child = infection->latentGenotype(locus)->value();
-                const std::vector<GeneticsImpl> parents{source->latentGenotype(locus)->value()};
+                const std::vector<Genotype> parents{source->latentGenotype(locus)->value()};
                 if (infection->observedGenotype().contains(locus)) {
                     total += logLocusProposal(parents, child, infection->observedGenotype(locus)->value(), fnRate, fpRate);
                 } else {
-                    GeneticsImpl nothingObserved = child;
+                    Genotype nothingObserved = child;
                     nothingObserved.reset();
                     total += logLocusProposal(parents, child, nothingObserved, 0.5, fpRate);
                 }
@@ -167,10 +168,10 @@ namespace transmission_nets::test::reference {
         }
         std::vector<double> terms{};
         size_t feasible = 0;
-        for (size_t s = 0; s <= allowedParents.size(); ++s) {
-            const bool latent   = s == allowedParents.size();
+        for (size_t s = 0; s <= permittedParents.size(); ++s) {
+            const bool latent   = s == permittedParents.size();
             const double first  = minDuration;
-            const double second = latent ? maxDuration : std::min(maxDuration, infection->observationTime()->value() - allowedParents[s]->infectionTime());
+            const double second = latent ? maxDuration : std::min(maxDuration, infection->observationTime()->value() - permittedParents[s]->infectionTime());
             if (second <= first) {
                 continue;
             }
@@ -180,7 +181,7 @@ namespace transmission_nets::test::reference {
             }
             ++feasible;
             if (duration >= first and duration < second) {
-                terms.push_back(std::log(shape[day] / sourceMass) + genomeLogProb(latent ? latentParent : allowedParents[s]));
+                terms.push_back(std::log(shape[day] / sourceMass) + genomeLogProb(latent ? latentParent : permittedParents[s]));
             }
         }
         if (terms.empty()) {
