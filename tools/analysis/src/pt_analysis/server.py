@@ -28,6 +28,7 @@ ENDPOINTS = [
     # #83 U2 edge table
 
     # #84 U8 network view
+    "pt_analysis.endpoints.network",  # U8: network view's nodes and edges
 
     # #85 U3 pair inspector
 

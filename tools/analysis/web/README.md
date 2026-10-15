@@ -33,6 +33,8 @@ pnpm dev                                              # here: the page with hot 
 | `src/main.ts` | Page layout (Analysis header, navigation bar) and the hash router |
 | `src/router.ts` | Routes are `#/<route>?<params>` |
 | `src/views/` | One file per view |
+| `src/selection.ts` | The selected Infections, shared by every view: `getSelection`, `select`, `subscribeSelection` |
+| `src/network.ts` | The network view's logic: threshold filter, timeline layout, search, q colours, tooltips |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
 
 ## Add a view
@@ -76,3 +78,16 @@ line under their own slot merge without conflicts.
   strings `"Infinity"`, `"-Infinity"` and `"NaN"`. Read such fields with `num()` from `src/api.ts`.
 - Use the `CONTEXT.md` and `doc/analysis-gui.md` terms in labels and code: Chain (one Run of the Analysis), Draw,
   Sampling iteration, Infection, Locus, Allele. Never sample, step, sweep, or chain for a replicate.
+
+## Views
+
+- **Network** (`#/network?threshold=&layout=force|timeline&order=q|lanes`, U8): Infections as nodes coloured by q,
+  pooled Edge marginals as directed edges (parent to child) whose width is the marginal. The threshold slider hides
+  edges below it in the browser; `/api/network` loads every edge at or above its floor (0.01) once. The force-directed
+  layout runs ForceAtlas2 in a web worker for 5 seconds, weighted by the marginal (Run layout runs it again). The
+  timeline puts each Infection at its observation time and draws its 95% posterior infection-time interval as a bar
+  behind it; rows are ranked by q (lowest at the bottom) or packed into lanes in which no two spans overlap. Hover
+  an edge for its per-Chain marginals and lag, a node for its q and times. The search box centres on an Infection
+  (exact id, else prefix, else substring). Click selects an Infection, shift-click adds or removes one, a click on
+  the background clears; the selection is in `src/selection.ts` for other views to read. Rendered with sigma.js
+  (WebGL) over graphology.
