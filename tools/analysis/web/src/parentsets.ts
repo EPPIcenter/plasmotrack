@@ -1,0 +1,76 @@
+// The parent-set panel's data: /api/parent-sets' payload, sorting its rows and the summary line. No DOM here.
+
+export interface ParentSetRow {
+  infection: string;
+  /** exp of the entropy of the Infection's pooled Parent-set weights. */
+  effective_size: number;
+  /** Sets in the credible collection at the level. */
+  credible_size: number;
+  /** Whether the true set is in the credible collection; null without truth. */
+  covered: boolean | null;
+  /** The modal set's pooled weight. */
+  top_probability: number;
+  /** The same for the null-model Analysis, when the manifest names one. */
+  null_effective_size?: number;
+  null_credible_size?: number;
+  null_covered?: boolean | null;
+  null_top_probability?: number;
+}
+
+export type ParentSetKey = keyof ParentSetRow;
+
+export interface ParentSetFit {
+  fit: "posterior" | "null";
+  label: string;
+  /** The fit summary's columns: mean and median credible collection size and coverage with the level's suffix,
+   *  and mean_top_parent_set_probability. */
+  summary: Record<string, number | null>;
+}
+
+export interface ParentSetsPayload {
+  level: number;
+  truth: boolean;
+  fits: ParentSetFit[];
+  rows: ParentSetRow[];
+}
+
+/** The fit summary's suffix for a credible level: `_80` at 0.8, else `_a<percent>` (`_a095` at 0.95). */
+export function levelSuffix(level: number): string {
+  return Math.abs(level - 0.8) < 1e-9 ? "_80" : `_a${String(Math.round(100 * level)).padStart(3, "0")}`;
+}
+
+const numeric = (s: string) => /^-?\d+(\.\d+)?$/.test(s);
+
+function compareIds(a: string, b: string): number {
+  return numeric(a) && numeric(b) ? Number(a) - Number(b) : a.localeCompare(b);
+}
+
+/** A sorted copy. Infection ids sort as numbers when they all are; booleans sort false before true; rows without a
+ *  value go last either way; ties keep Infection order. */
+export function sortRows(rows: readonly ParentSetRow[], key: ParentSetKey, descending: boolean): ParentSetRow[] {
+  const sign = descending ? -1 : 1;
+  return [...rows].sort((a, b) => {
+    if (key === "infection") return sign * compareIds(a.infection, b.infection);
+    const x = a[key];
+    const y = b[key];
+    const missingX = x === null || x === undefined;
+    const missingY = y === null || y === undefined;
+    if (missingX || missingY) return missingX === missingY ? compareIds(a.infection, b.infection) : missingX ? 1 : -1;
+    return sign * (Number(x) - Number(y)) || compareIds(a.infection, b.infection);
+  });
+}
+
+const FIT_NAMES = { posterior: "Posterior", null: "Null model" };
+
+/** One sentence per fit: mean and median credible collection size, coverage (with truth), mean top probability. */
+export function summaryLine(fit: ParentSetFit, level: number): string {
+  const suffix = levelSuffix(level);
+  const s = fit.summary;
+  const mean = s[`mean_credible_parent_set_size${suffix}`];
+  const median = s[`median_credible_parent_set_size${suffix}`];
+  const coverage = s[`credible_parent_set_coverage${suffix}`];
+  const top = s.mean_top_parent_set_probability;
+  let line = `${FIT_NAMES[fit.fit]}: credible collection at ${level} has ${mean?.toFixed(2) ?? "–"} sets on average (median ${median ?? "–"})`;
+  if (coverage !== null && coverage !== undefined) line += `, holds the true set for ${(100 * coverage).toFixed(1)}% of Infections`;
+  return `${line}; mean top set probability ${top?.toFixed(3) ?? "–"}`;
+}

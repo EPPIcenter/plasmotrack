@@ -74,6 +74,7 @@ comes from `parent_set_members` over both Phases.
 | `functional_draws` | iteration, psi_edge, mean_q, mean_entropy, `mean_<class>` per class | one per Draw |
 | `genotype_summary` | infection, locus, allele, presence | one per Infection and Allele of `structure/loci` |
 | `genotype_mode` | infection, locus, alleles, draws, fraction, rank | one per Infection, Locus and Latent genotype a Draw had |
+| `out_degree_draws` | iteration, infection, out_degree | one per Draw and Infection |
 | `coi` | iteration, infection, coi | one per Draw and Infection |
 
 - `n_observed` counts a set's observed parents (members that are Infection ids). `has_unobserved` says whether the
@@ -106,6 +107,8 @@ comes from `parent_set_members` over both Phases.
   bitstring a Draw had at a Locus with the number (`draws`) and fraction of Draws that had it, ranked from 1 by
   Draws then bitstring: rank 1 is the posterior mode and its `fraction` the agreement. The other rows are kept so
   that Chains pool exactly, by summing `draws`.
+- `out_degree_draws` has each Infection as a source: its expected number of observed children at a Draw, the sum
+  of the Edge marginals from it, 0 where it is no Infection's parent. Its mean over Infections is psi_edge too.
 - `coi` is the COI at a Draw: the largest Allele count (the number of `1` characters) over the Loci of the
   Infection's Latent genotype.
 
@@ -191,11 +194,74 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/edges` | `{chains, rows}`: per edge, child, parent, unobserved, its trace quantity (group, name), pooled, spread, switches, ess and per Chain `{mean, switches}` |
 | `GET /api/pair?a=&b=` | the pair inspector's panels for Infections A and B (below) |
 | `GET /api/infection?id=` | the infection card's panels for one Infection (below); 404 for an unknown id |
+| `GET /api/epi` | the epi data's key, columns with types, ids matching no Infection, Infections without a row |
+| `GET /api/functionals[?column=][&level=0.8]` | the functionals overall, or per stratum of an epi column |
 
-A quantity is a group and name of the convergence table. Burn-in rows come only on request and only for the groups
+| `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
+
+A quantity is a group and name of the convergence table, or a functional of one stratum: group `functionals`,
+a per-Draw functional name (below), `stratum_column=C` (empty for every Infection) and `stratum=V` (left out for the
+Infections with no value of C), on `/api/trace` and `/api/range` alike. Burn-in rows come only on request and only for the groups
 read from the store's Traces (log posterior to allele frequency); edges, unobserved-source inclusion and functionals
 come from the derived tables, which hold Draws only. The trace and range queries are in `pt_analysis.traces`. The
 manifest's optional `label` names the Analysis on the page (default: the manifest's directory name).
+
+### The network view
+
+`GET /api/network` gives the network view its nodes and edges, from `pt_analysis.network`. Each node is an Infection
+of the input, in input order: `id`, `observation_time` and `symptomatic` from the input JSON; `q`, its
+unobserved-source inclusion pooled over every Draw of every Chain (from `infection_draws`); and `infection_time`,
+`{lower, median, upper}`: the observation time minus the 97.5%, 50% and 2.5% quantiles (R type 7) of
+`infection_duration` from the `infections` Trace, pooled over Chains. Each edge is an `edges` entry from an observed
+parent whose pooled marginal (summed over every Chain's Draws, divided by the Draws in all) is at least `floor`
+(default 0.01, in [0, 1]): `child`, `parent`, `marginal`, `chains` (each Chain's mean, in the order of the payload's
+`chains`) and `lag` (child's observation time minus the parent's). Edges come largest first. Edges from the
+unobserved source are left out; `q` carries them.
+
+### Accuracy against truth (U6)
+
+With a `truth` file in the manifest, the **Ranking** page draws the directed and undirected precision-recall curves
+of the posterior Edge marginals against the true network, with the null-model Analysis and the pairwise scores
+overlaid when the manifest names them, and a table of their metrics. The **Parent sets** page lists, per Infection,
+the effective parent-set size, the credible collection's size at a level (0.8 by default), whether the true set is in
+it, and the modal set's probability, beside the null-model fit, with a summary line per fit. It works without truth,
+less the coverage column.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/ranking` | realised truth, and per fit (posterior, null, IBD) its directed and undirected metrics and curve; 404 without truth |
+| `GET /api/parent-sets[?level=0.8]` | per fit its summary columns, and one row per Infection, `null_` columns for the null fit |
+
+The definitions follow the thesis pipeline's per-fit summary (`remote/R/final_analysis/R`), with weights pooled as in
+the rest of this package:
+
+- **Truth** is the simulation's JSON (gzipped when named `.gz`, read by `pt_analysis.inputs`): `network: [{src,
+  dest}]` and `nodes: [{id, ...}]`. True edges are those with both ends among the Analysis's Infections. An
+  Infection's true Parent set is its true parents among the Infections, plus the unobserved source when it is a root
+  or has a true parent outside them; it matches a fitted set whose Latent parent `<id>_copy` is read as `<id>`.
+  `n_true_cases` counts the truth's nodes, `n_observed_cases` the Infections, `true_average_outdegree` is true edges
+  per Infection and `true_unobserved_source_proportion` the share of Infections whose true set has the unobserved
+  source.
+- **Edge scores** are the posterior transmission matrix's observed entries: weight summed over every Draw of every
+  Chain, divided by the number of Draws (not the R pipeline's mean over Draws with a row). Scores are clipped to [0, 1]
+  and rounded to 10 decimals. The directed universe is every ordered pair of distinct Infections, a missing score
+  counting 0; the undirected universe is every unordered pair, scored by the sum of its two directions clipped to 1,
+  and true when a true edge joins it either way.
+- **Ranking metrics**, directed and undirected: the precision-recall curve at each distinct score (tied pairs enter
+  together); `average_precision` = sum of the recall gained at each breakpoint times the precision there; `pr_auc` =
+  trapezoid area with (recall 0, precision 1) prepended; `top_k_precision` = precision of every pair scoring at least
+  the k-th highest score, k the number of true edges (ties included); `n_edge_universe`, `n_true_edges`,
+  `n_distinct_scores`.
+- **Baselines**: the null-model Analysis (`null_model`) is scored the same way against the same truth. The pairwise
+  scores CSV (`pairwise_scores`) has columns `a, b, score`, one row per pair of Infection ids in either order (the
+  largest score of a pair's rows counts; pairs without a row score 0; ids outside the Analysis are ignored), and is
+  ranked undirected only.
+- **Parent-set metrics**: an Infection's sets are pooled over Chains (matched by members), ranked by weight. Its
+  effective size is exp of the entropy of the pooled weights, its credible collection the smallest prefix with mass at
+  least the level (as `functionals.credible_collection`), its top probability the modal set's weight. The summary
+  columns are `mean_credible_parent_set_size_80`, `median_credible_parent_set_size_80`,
+  `credible_parent_set_coverage_80` and `mean_top_parent_set_probability`; a level other than 0.8 has the suffix
+  `_a<percent>`, for example `_a095`.
 
 ### The pair inspector
 
@@ -238,6 +304,39 @@ Pooled values weight each Chain by its Draws. The input and truth files may be g
   (means over its Draws) and pooled.
 
 `web/README.md` says how to develop the frontend and how to add a view.
+
+## Epi data and functionals by stratum
+
+The manifest's optional `epi` CSV has one row per Infection. The key is the column named `infection`, or the first
+column when none is; keys are read as text. DuckDB's CSV inspection types every other column: `date` (dates and
+timestamps, written as ISO dates), `numeric`, or `categorical` (anything else, booleans included). Keys that are no
+Infection of the Analysis are reported, not an error; a repeated key is an error. `pt_analysis.epi.load_epi`.
+
+Any column is a stratum: one stratum per distinct value, in the column's own order, plus one of the Infections with
+no value (no row, or an empty cell) when there are any. A column the CSV does not have is an error naming it.
+`pt_analysis.strata.stratified_functionals(analysis, column)` gives per stratum (or overall, without a column):
+
+| Field | What it is |
+|---|---|
+| `n` | Infections in the stratum |
+| `psi_map` | number of Infections whose modal set names an Infection of the stratum, over `n` |
+| `size_range` | [psi_lo, psi_hi] at the level (0.8): the min and max observed-parent count in each of the stratum's Infections' credible collections, averaged |
+| `psi_edge` | per Draw, the stratum's Infections' summed `out_degree`, over `n` |
+| `mean_q` | per Draw, the mean `q` of the stratum's Infections |
+| `classes` | per Draw, the mean weight of each composition class |
+| `multi_source_augmented`, `multi_source_observed` | per Draw, the mean multi-source probabilities |
+
+Which way an Infection counts follows the manuscript's Zanzibar summaries (`summarize_zanzibar_functionals.R`):
+out-degree (psi_edge, psi_MAP) by the Infection as a source, so a stratum's psi_edge is how many observed Infections
+its Infections infect on average; everything else by the Infection as a recipient, from its own Parent sets. Every
+mean is over all of the stratum's Infections, those with no weight included, so the strata's values weighted by `n`
+average back to the overall value, Draw by Draw.
+
+The per-Draw functionals are `psi_edge`, `mean_q`, `mean_<class>`, `mean_multi_source_augmented` and
+`mean_multi_source_observed`; each has an estimate, the mean over every Draw of every Chain, and an interval, the
+2.5% and 97.5% type-7 quantiles (R's default) of the same pooled values. psi_MAP and the size range come from Parent-set
+weights pooled over every Draw of every Chain, matching sets across Chains by their members, and have no interval.
+`pt_analysis.strata.stratum_series` gives a stratum's per-Draw functional per Chain, which the trace panel shows.
 
 ## Summarise a Run
 
@@ -343,6 +442,17 @@ functionals.map_graph(store)                     # {infection: RankedSet} of mod
 functionals.psi_map(store)
 functionals.size_range(store, level=0.8)         # (psi_lo, psi_hi)
 functionals.credible_collection(store, "3", level=0.8)   # [RankedSet(set_id, members, weight, rank, ...), ...]
+
+from pt_analysis import metrics
+
+truth = metrics.analysis_truth(analysis)         # Truth: edges, parent_sets, n_true_cases, ...; None without truth
+metrics.edge_scores(analysis)                    # {(parent, child): pooled Edge marginal}
+metrics.edge_rankings(analysis, truth)           # {"directed": Ranking, "undirected": Ranking}
+metrics.ranking_fits(analysis, truth)            # posterior, null and IBD Rankings, as the manifest names them
+metrics.rank(scores, truth_flags)                # Ranking of any scores: curve, average_precision, pr_auc, ...
+metrics.parent_set_rows(analysis, truth, 0.8)    # [InfectionParentSets(infection, effective_size, credible_size,
+                                                 #   covered, top_probability), ...]
+metrics.fit_summary_metrics(analysis, truth)     # {fit-summary column name: value} for the ranking and parent sets
 ```
 
 The benchmark scripts run in this environment:

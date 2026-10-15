@@ -47,8 +47,9 @@ export interface Trace {
   chains: ChainTrace[];
 }
 
-export async function getTrace(group: string, name: string, burnIn: boolean): Promise<Trace> {
-  const trace = await getJson<Trace>("/api/trace", { group, name, burn_in: String(burnIn) });
+/** `extra` carries further parameters of the quantity, such as a functional's stratum (`stratum_column`, `stratum`). */
+export async function getTrace(group: string, name: string, burnIn: boolean, extra: Params = {}): Promise<Trace> {
+  const trace = await getJson<Trace>("/api/trace", { ...extra, group, name, burn_in: String(burnIn) });
   for (const c of trace.chains) c.value = c.value.map((v) => num(v) as number);
   return trace;
 }
@@ -62,8 +63,8 @@ export interface RangeDiagnostics {
 }
 
 /** ESS and R-hat over the Draws with Sampling iteration in [first, last]; either end open when null. */
-export async function getRange(group: string, name: string, first: number | null, last: number | null) {
-  const params: Params = { group, name };
+export async function getRange(group: string, name: string, first: number | null, last: number | null, extra: Params = {}) {
+  const params: Params = { ...extra, group, name };
   if (first !== null) params.first = String(Math.ceil(first));
   if (last !== null) params.last = String(Math.floor(last));
   const r = await getJson<RangeDiagnostics>("/api/range", params);

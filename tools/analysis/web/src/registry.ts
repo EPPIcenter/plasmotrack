@@ -10,16 +10,20 @@ export const views: ViewEntry[] = [
   { route: "edges", title: "Edges", nav: true, load: () => import("./views/edges") },
 
   // #84 U8 network view
+  { route: "network", title: "Network", nav: true, load: () => import("./views/network") },
 
   // #85 U3 pair inspector
   { route: "pair", title: "Pair", nav: true, load: () => import("./views/pair") },
 
   // #86 #87 U9 functionals panel
+  { route: "functionals", title: "Functionals", nav: true, load: () => import("./views/functionals") },
 
   // #88 U10 infection card
   { route: "infection", title: "Infection", nav: true, load: () => import("./views/infection") },
 
   // #89 #90 U6 truth overlay, error table, ranking and parent-set panels
+  { route: "ranking", title: "Ranking", nav: true, load: () => import("./views/ranking") },
+  { route: "parentsets", title: "Parent sets", nav: true, load: () => import("./views/parentsets") },
 
   // #91 U7 cohort view
 
