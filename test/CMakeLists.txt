@@ -67,6 +67,7 @@ set(MODEL_TRANSMISSION_TESTS
     src/impl/RunRecorderTest.cpp
     src/impl/RegisteredSamplerTest.cpp
     src/impl/QuantityTest.cpp
+    src/impl/StudyTest.cpp
     src/impl/ReplicaExchangeTest.cpp
     src/impl/CheckpointTest.cpp
     src/impl/RunDriverTest.cpp

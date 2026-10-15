@@ -9,6 +9,7 @@
 #include "core/samplers/specialized/InformedOrderJumpSampler.h"
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/State.h"
+#include "../../../impl/Studies.h"
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
@@ -22,6 +23,7 @@
 #include <vector>
 
 using namespace transmission_nets::impl::Model;
+using namespace transmission_nets::test::studies;
 using transmission_nets::core::samplers::specialized::InformedOrderJumpSampler;
 
 namespace {
@@ -44,21 +46,16 @@ namespace {
         return static_cast<int>(std::ranges::count_if(BOUNDARIES, [&](const double b) { return d > b; }));
     }
 
-    nlohmann::json makeInput() {
-        nlohmann::json input;
-        input["loci"].push_back({{"locus", "L0"}, {"num_alleles", 3}, {"allele_freqs", {1.0 / 3, 1.0 / 3, 1.0 / 3}}});
-        auto node = [&](const std::string& id, const double time, const std::vector<std::string>& parents) {
-            input["nodes"].push_back({{"id", id},
-                                      {"observation_time", time},
-                                      {"symptomatic", true},
-                                      {"observed_genotype", {{{"locus", "L0"}, {"genotype", "110"}}}},
-                                      {"allowed_parents", parents}});
+    Study makeStudy() {
+        Study study{.loci = {uniformLocus("L0", 3)}, .symptomaticInfectionDurations = flatDurations(DAYS), .asymptomaticInfectionDurations = flatDurations(DAYS)};
+        auto infection = [&](const std::string& id, const double time, const std::vector<std::string>& parents) {
+            study.infections.push_back({.id = id, .observationTime = time, .observedGenotypes = {{"L0", "110"}}, .permittedParents = parents});
         };
-        node("a", 410, {"y"});
-        node("b", 425, {"y"});
-        node("c", 440, {"y"});
-        node("y", 450, {"a", "b", "c"});
-        return input;
+        infection("a", 410, {"y"});
+        infection("b", 425, {"y"});
+        infection("c", 440, {"y"});
+        infection("y", 450, {"a", "b", "c"});
+        return study;
     }
 
     struct Fixture {
@@ -68,23 +65,13 @@ namespace {
         std::vector<std::shared_ptr<InfectionEvent>> partners;
 
         Fixture() {
-            const std::vector<double> idp(DAYS, 1.0 / DAYS);
-            state = std::make_shared<State>(studyFromJson(makeInput(), idp, idp), rng);
+            state = std::make_shared<State>(makeStudy(), rng);
             for (const auto& id : {"a", "b", "c"}) {
-                auto infection = state->infections[index(id)];
+                auto infection = state->infection(id);
                 infection->infectionDuration()->initializeValue(10);
                 partners.push_back(infection);
             }
-            y = state->infections[index("y")];
-        }
-
-        size_t index(const std::string& id) const {
-            for (size_t i = 0; i < state->infections.size(); ++i) {
-                if (state->infections[i]->id() == id) {
-                    return i;
-                }
-            }
-            throw std::out_of_range(id);
+            y = state->infection("y");
         }
     };
 

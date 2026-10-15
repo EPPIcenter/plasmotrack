@@ -10,6 +10,7 @@
 #include "core/samplers/genetics/StrainCountSampler.h"
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/State.h"
+#include "../../../impl/Studies.h"
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
@@ -21,6 +22,7 @@
 #include <vector>
 
 using namespace transmission_nets::impl::Model;
+using namespace transmission_nets::test::studies;
 using transmission_nets::core::samplers::genetics::StrainCountSampler;
 
 namespace {
@@ -36,16 +38,12 @@ namespace {
         return wa.at(a.serialize()) + wb.at(b.serialize()) - 0.4 * std::abs(ca - cb);
     }
 
-    nlohmann::json makeInput() {
-        nlohmann::json input;
-        input["loci"].push_back({{"locus", "L0"}, {"num_alleles", 3}, {"allele_freqs", {1.0 / 3, 1.0 / 3, 1.0 / 3}}});
-        input["loci"].push_back({{"locus", "L1"}, {"num_alleles", 3}, {"allele_freqs", {1.0 / 3, 1.0 / 3, 1.0 / 3}}});
-        input["nodes"].push_back({{"id", "x"},
-                                  {"observation_time", 400},
-                                  {"symptomatic", true},
-                                  {"observed_genotype", {{{"locus", "L0"}, {"genotype", "011"}}, {{"locus", "L1"}, {"genotype", "000"}}}},
-                                  {"allowed_parents", nlohmann::json::array()}});
-        return input;
+    // One Infection with two Loci: two Alleles observed at L0, nothing at L1.
+    Study makeStudy() {
+        return {.loci                           = {uniformLocus("L0", 3), uniformLocus("L1", 3)},
+                .infections                     = {{.id = "x", .observationTime = 400, .observedGenotypes = {{"L0", "011"}, {"L1", "000"}}}},
+                .symptomaticInfectionDurations  = flatDurations(),
+                .asymptomaticInfectionDurations = flatDurations()};
     }
 
     struct Fixture {
@@ -55,8 +53,7 @@ namespace {
         std::shared_ptr<LocusImpl> l0, l1;
 
         Fixture() {
-            const std::vector<double> idp(60, 1.0 / 60);
-            state = std::make_shared<State>(studyFromJson(makeInput(), idp, idp), rng);
+            state = std::make_shared<State>(makeStudy(), rng);
             x     = state->infections[0];
             l0    = state->loci.at("L0");
             l1    = state->loci.at("L1");

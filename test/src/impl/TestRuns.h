@@ -18,6 +18,8 @@
 #include "impl/model/Model/RunRecorder.h"
 #include "impl/model/Model/Study.h"
 
+#include "Studies.h"
+
 #include <nlohmann/json.hpp>
 
 #include <unistd.h>
@@ -39,16 +41,9 @@ namespace transmission_nets::test::runs {
     namespace fs = std::filesystem;
     using Engine = checkpoint::Engine;
 
-    inline nlohmann::json exampleInput() {
-        std::ifstream in(EXAMPLE_INPUT_PATH);
-        return nlohmann::json::parse(in);
-    }
-
-    inline const std::vector<double> IDP(60, 1.0 / 60);
-
     // The example input with flat IDPs as a Study, loaded once.
     inline const Study& study() {
-        static const Study loaded = studyFromJson(exampleInput(), IDP, IDP);
+        static const Study loaded = studies::exampleStudy();
         return loaded;
     }
 

@@ -6,6 +6,8 @@
 
 #include "gtest/gtest.h"
 
+#include "Studies.h"
+
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/SamplerSet.h"
 #include "impl/model/Model/State.h"
@@ -23,17 +25,13 @@
 #include <vector>
 
 using namespace transmission_nets::impl::Model;
+using namespace transmission_nets::test::studies;
 
 namespace {
-    nlohmann::json exampleInput() {
-        std::ifstream in(EXAMPLE_INPUT_PATH);
-        return nlohmann::json::parse(in);
-    }
 
     std::vector<std::string> samplerIdsForSeed(const unsigned int seed) {
-        const std::vector<double> idp(60, 1.0 / 60);
         auto rng   = std::make_shared<boost::random::mt19937>(seed);
-        auto state = std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng);
+        auto state = std::make_shared<State>(exampleStudy(), rng);
         auto model = std::make_shared<Model>(state);
         SamplerSet<Model> samplers(state, model, rng);
         return samplers.ids();
@@ -92,17 +90,16 @@ TEST(SamplerIdsTest, IdsAreTheSameForEveryChainAndRunFromTheSameInput) {
 // Analysts read ids in the acceptance Block, so a target names its Infection by the Infection's id from the input, not
 // by its position.
 TEST(SamplerIdsTest, TargetsNameTheInfectionByItsId) {
-    auto input = exampleInput();
+    auto study = exampleStudy();
     const std::map<std::string, std::string> renamed{{"1", "pf0594"}, {"2", "pf1207"}, {"3", "pf0031"}};
-    for (auto& node : input["nodes"]) {
-        node["id"] = renamed.at(node["id"].get<std::string>());
-        for (auto& parent : node["allowed_parents"]) {
-            parent = renamed.at(parent.get<std::string>());
+    for (auto& infection : study.infections) {
+        infection.id = renamed.at(infection.id);
+        for (auto& parent : infection.permittedParents) {
+            parent = renamed.at(parent);
         }
     }
-    const std::vector<double> idp(60, 1.0 / 60);
     auto rng   = std::make_shared<boost::random::mt19937>(1);
-    auto state = std::make_shared<State>(studyFromJson(input, idp, idp), rng);
+    auto state = std::make_shared<State>(study, rng);
     auto model = std::make_shared<Model>(state);
     SamplerSet<Model> samplers(state, model, rng);
     const auto& ids = samplers.ids();
@@ -123,9 +120,8 @@ TEST(SamplerIdsTest, TargetsNameTheInfectionByItsId) {
 // Each sampler counts the Metropolis-Hastings proposals it makes and accepts, cumulatively over the Run, so that the
 // Run recorder can build acceptance Blocks as differences over each Window.
 TEST(SamplerCountsTest, EachUpdateCountsOneProposalAndAnAcceptedProposalChangesTheValue) {
-    const std::vector<double> idp(60, 1.0 / 60);
     auto rng   = std::make_shared<boost::random::mt19937>(7);
-    auto state = std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng);
+    auto state = std::make_shared<State>(exampleStudy(), rng);
     auto model = std::make_shared<Model>(state);
     SamplerSet<Model> samplers(state, model, rng);
 
@@ -158,9 +154,8 @@ TEST(SamplerCountsTest, EachUpdateCountsOneProposalAndAnAcceptedProposalChangesT
 }
 
 TEST(SamplerCountsTest, RestoredCountsContinueFromWhereTheyWere) {
-    const std::vector<double> idp(60, 1.0 / 60);
     auto rng   = std::make_shared<boost::random::mt19937>(7);
-    auto state = std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng);
+    auto state = std::make_shared<State>(exampleStudy(), rng);
     auto model = std::make_shared<Model>(state);
     SamplerSet<Model> samplers(state, model, rng);
     auto& meanCoi = samplers.sampler("ConstrainedContinuousRandomWalk/mean_coi");
@@ -182,7 +177,7 @@ namespace {
 
         explicit Chain(const unsigned int seed, const std::vector<double>& idp = std::vector<double>(60, 1.0 / 60))
             : rng(std::make_shared<boost::random::mt19937>(seed)),
-              state(std::make_shared<State>(studyFromJson(exampleInput(), idp, idp), rng)),
+              state(std::make_shared<State>(exampleStudy(idp), rng)),
               model(std::make_shared<Model>(state)),
               samplers(state, model, rng) {}
 
@@ -212,7 +207,7 @@ TEST(AdaptationStateTest, AdaptingSamplersExposeTheirProposalScales) {
     EXPECT_TRUE(anyScaleMoved);
 
     const auto as1 = chain.sampler("SALTSampler/allele_frequencies/AS1").adaptationState();
-    EXPECT_EQ(as1.scales.size(), studyFromJson(exampleInput(), {}, {}).loci[0].alleles);
+    EXPECT_EQ(as1.scales.size(), exampleStudy().loci[0].alleles);
 
     EXPECT_TRUE(chain.sampler("ParentRelinkSampler/infection/1").adaptationState().scales.empty());
 }
