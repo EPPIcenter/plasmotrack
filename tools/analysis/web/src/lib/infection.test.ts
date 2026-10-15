@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coiBars, density, heatmapCells, infectionTables, setLabel, type GenotypeLocus, type InfectionResponse } from "./infection";
+import { coiBars, density, differingLoci, heatmapCells, infectionTables, setBars, setLabel, type GenotypeLocus, type InfectionResponse } from "./infection";
 
 describe("genotype heatmap", () => {
   const loci: GenotypeLocus[] = [
@@ -87,11 +87,11 @@ describe("infectionTables", () => {
     observation_time: 40,
     quantities: { false_positives: quantity, false_negatives: quantity, duration: { ...quantity, group: "infections", name: "duration/9" }, infection_time: quantity },
     coi: { chains: [], distribution: [{ coi: 2, draws: 3, fraction: 0.75 }] },
-    genotype: { loci: [{ locus: "L1", alleles: 2, observed: "10", presence: [0.9, 0.125] }] },
+    genotype: { loci: [{ locus: "L1", alleles: 2, observed: "10", presence: [0.9, 0.125], mode: "11", mode_fraction: 0.6 }] },
     parent_sets: { level: 0.8, pooled: [{ ...set, chains: [] }], chains: [{ chain: "A", sets: [{ ...set, weight: 0.5 }] }] },
     parents: [{ child: "9", parent: "3", unobserved: false, group: "edge", name: "9<-3", pooled: 0.6, spread: 0.1, ess: "NaN", chains: [{ chain: "A", mean: 0.55 }] }],
     children: [],
-    summary: { q: 0.4, expected_observed_parents: 0.6, entropy: 0.7, effective_size: 2.0, chains: [{ chain: "A", q: 0.45, expected_observed_parents: 0.55, entropy: 0.6, effective_size: 1.8 }] },
+    summary: { q: 0.4, expected_observed_parents: 0.6, entropy: 0.7, effective_size: 2.0, posterior_entropy: 0.9, posterior_effective_size: 2.5, chains: [{ chain: "A", q: 0.45, expected_observed_parents: 0.55, entropy: 0.6, effective_size: 1.8, posterior_entropy: 0.8, posterior_effective_size: 2.2 }] },
   };
   const tables = Object.fromEntries(infectionTables(card).map((t) => [t.part, t.table]));
   const records = (part: string) => tables[part]!.rows.map((r) => Object.fromEntries(tables[part]!.columns.map((c, i) => [c, r[i]])));
@@ -99,14 +99,14 @@ describe("infectionTables", () => {
   it("writes each section's numbers unrounded under the payload's field names, the pooled rows with no Chain", () => {
     expect(Object.keys(tables)).toEqual(["summary", "quantities", "coi", "genotype", "parent_sets", "parents", "children"]);
     expect(records("summary")).toEqual([
-      { infection: "9", chain: "A", q: 0.45, expected_observed_parents: 0.55, entropy: 0.6, effective_size: 1.8 },
-      { infection: "9", chain: null, q: 0.4, expected_observed_parents: 0.6, entropy: 0.7, effective_size: 2.0 },
+      { infection: "9", chain: "A", q: 0.45, expected_observed_parents: 0.55, entropy: 0.6, effective_size: 1.8, posterior_entropy: 0.8, posterior_effective_size: 2.2 },
+      { infection: "9", chain: null, q: 0.4, expected_observed_parents: 0.6, entropy: 0.7, effective_size: 2.0, posterior_entropy: 0.9, posterior_effective_size: 2.5 },
     ]);
     expect(records("quantities")[2]).toEqual({ quantity: "duration", group: "infections", name: "duration/9", lower: 1, median: 2, upper: 3 });
     expect(records("coi")).toEqual([{ coi: 2, draws: 3, fraction: 0.75 }]);
     expect(records("genotype")).toEqual([
-      { locus: "L1", observed: "10", allele: 0, presence: 0.9 },
-      { locus: "L1", observed: "10", allele: 1, presence: 0.125 },
+      { locus: "L1", observed: "10", mode: "11", allele: 0, presence: 0.9 },
+      { locus: "L1", observed: "10", mode: "11", allele: 1, presence: 0.125 },
     ]);
     expect(records("parent_sets").map((r) => [r.chain, r.members, r.weight])).toEqual([[null, "3 9_copy", 0.625], ["A", "3 9_copy", 0.5]]);
     expect(records("parents")).toEqual([
@@ -114,5 +114,32 @@ describe("infectionTables", () => {
       { child: "9", parent: "3", unobserved: false, chain: null, mean: 0.6, spread: 0.1, ess: NaN },
     ]);
     expect(records("children")).toEqual([]);
+  });
+});
+
+describe("differingLoci", () => {
+  it("keeps the observed Loci whose Latent mode is not the Observed genotype", () => {
+    const loci: GenotypeLocus[] = [
+      { locus: "A", alleles: 2, observed: "01", presence: [0, 1], mode: "01", mode_fraction: 1 },
+      { locus: "B", alleles: 2, observed: "01", presence: [0.6, 1], mode: "11", mode_fraction: 0.6 },
+      { locus: "C", alleles: 2, observed: null, presence: [1, 0], mode: "10", mode_fraction: 1 },
+    ];
+    expect(differingLoci(loci).map((l) => l.locus)).toEqual(["B"]);
+  });
+});
+
+describe("setBars", () => {
+  const sets = [
+    { members: ["1"], class: "observed_1", weight: 0.6, credible: true, rank: 1, cumulative_mass: 0.6, chains: [{ chain: "c1", weight: 0.7 }, { chain: "c2", weight: 0.5 }] },
+    { members: ["9_copy"], class: "unobserved_only", weight: 0.3, credible: true, rank: 2, cumulative_mass: 0.9, chains: [{ chain: "c1", weight: 0.2 }, { chain: "c2", weight: 0.4 }] },
+    { members: ["2"], class: "observed_1", weight: 0.1, credible: false, rank: 3, cumulative_mass: 1, chains: [{ chain: "c1", weight: 0.1 }, { chain: "c2", weight: 0.1 }] },
+  ];
+
+  it("labels the largest sets, with each Chain's weight, and sums the rest", () => {
+    const { bars, rest } = setBars(sets, "9", 2);
+    expect(bars.map((b) => b.label)).toEqual(["{1}", "{unobserved}"]);
+    expect(bars[0]).toMatchObject({ weight: 0.6, credible: true, class: "observed_1", spread: expect.closeTo(0.2, 9) });
+    expect(bars[1]!.chains).toEqual([{ chain: "c1", weight: 0.2 }, { chain: "c2", weight: 0.4 }]);
+    expect(rest).toEqual({ count: 1, mass: 0.1 });
   });
 });

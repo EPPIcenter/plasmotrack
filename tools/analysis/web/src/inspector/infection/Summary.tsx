@@ -1,5 +1,5 @@
-// The Infection Inspector's Summary tab: q, expected observed parents, entropy and effective size (pooled and per
-// Chain), COI, posterior infection time, observation time, epi values, the most probable parents and the mixing of
+// The Infection Inspector's Summary tab: q, expected observed parents, entropy and effective size (of the posterior's
+// mean Parent-set weights, and the mean of each Draw's; pooled and per Chain), COI, posterior infection time, observation time, epi values, the most probable parents and the mixing of
 // the per-Infection quantities.
 
 import { useMemo, type ReactNode } from "react";
@@ -13,6 +13,9 @@ import { useTheme } from "../../app/theme";
 import { formatNumber, formatProbability } from "../../lib/format";
 import { chainColour } from "../../lib/palette";
 import type { InspectorProps } from "../registry";
+
+const POSTERIOR = "Entropy of the Parent-set weights averaged over Draws (and its exponential): the spread of the posterior over Parent sets";
+const PER_DRAW = "Mean over Draws of the entropy of each Draw's Parent-set weights (and of its exponential): the spread given one Draw's state";
 
 /** The convergence groups of an Infection's own quantities, each named by the Infection's id. */
 const GROUPS = ["unobserved-source inclusion", "false positive rate", "false negative rate", "infection duration"];
@@ -74,8 +77,10 @@ export default function Summary({ entity }: InspectorProps<"infection">) {
             <EntityLink entity={q} title="Trace of q">{formatProbability(s.q)}</EntityLink>
           </Row>
           <Row label="Expected observed parents">{formatNumber(s.expected_observed_parents, 3)}</Row>
-          <Row label="Parent-set entropy">{formatNumber(s.entropy, 3)}</Row>
-          <Row label="Effective parent-set size">{formatNumber(s.effective_size, 3)}</Row>
+          <Row label="Parent-set entropy, posterior" title={POSTERIOR}>{formatNumber(s.posterior_entropy, 3)}</Row>
+          <Row label="Parent-set entropy, per Draw (mean)" title={PER_DRAW}>{formatNumber(s.entropy, 3)}</Row>
+          <Row label="Effective parent-set size, posterior" title={POSTERIOR}>{formatNumber(s.posterior_effective_size, 3)}</Row>
+          <Row label="Effective parent-set size, per Draw (mean)" title={PER_DRAW}>{formatNumber(s.effective_size, 3)}</Row>
           <Row label="COI (median)">{coiMedian ?? "–"}</Row>
           <Row label="Infection time (median)">
             {formatNumber(time.median)}
@@ -86,14 +91,14 @@ export default function Summary({ entity }: InspectorProps<"infection">) {
       </Section>
 
       <Section title="Per Chain">
-        <table className="w-full text-table tabular-nums">
+        <table className="w-full text-table tabular-nums" aria-label="Per Chain">
           <thead className="text-ink-2">
             <tr>
               <th className="text-left font-medium">Chain</th>
               <th className="text-right font-medium">q</th>
               <th className="text-right font-medium" title="Expected observed parents">E[parents]</th>
-              <th className="text-right font-medium">Entropy</th>
-              <th className="text-right font-medium" title="Effective parent-set size">Eff. size</th>
+              <th className="text-right font-medium" title={`Effective parent-set size, posterior: ${POSTERIOR}`}>Eff. size</th>
+              <th className="text-right font-medium" title={`Effective parent-set size, per Draw: ${PER_DRAW}`}>per Draw</th>
             </tr>
           </thead>
           <tbody>
@@ -105,12 +110,16 @@ export default function Summary({ entity }: InspectorProps<"infection">) {
                 </td>
                 <td className="num">{formatProbability(c.q)}</td>
                 <td className="num">{formatNumber(c.expected_observed_parents, 3)}</td>
-                <td className="num">{formatNumber(c.entropy, 3)}</td>
-                <td className="num">{formatNumber(c.effective_size, 3)}</td>
+                <td className="num">{formatNumber(c.posterior_effective_size, 3)}</td>
+                <td className="num text-ink-2">{formatNumber(c.effective_size, 3)}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        <p className="mt-1 text-axis text-muted">
+          Posterior: of the mean Parent-set weights, so it counts Draws that disagree on the set. Per Draw: each Draw's
+          weights given its Ordering and genotypes, averaged; 1 when every Draw is sure of one set, even a different one.
+        </p>
       </Section>
 
       <Section title="Most probable parents">

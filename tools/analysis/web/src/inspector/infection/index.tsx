@@ -1,4 +1,4 @@
-// The Infection Inspector: one module per tab. Summary is built; the other tabs' modules are placeholders to replace.
+// The Infection Inspector: one module per tab (Summary, Parents, Children, Genotype, Traces); Summary loads eagerly.
 
 import { lazy } from "react";
 import type { InspectorProps } from "../registry";

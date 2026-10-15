@@ -1,6 +1,7 @@
 // The table every workspace uses: TanStack Table for sorting and column sizing, TanStack Virtual for rows, so tens
 // of thousands of rows scroll smoothly. Sticky header, sort indicators, column resize by dragging a header's right
-// edge, numeric columns right-aligned with tabular numerals, 24 px rows, row hover and click callbacks.
+// edge, numeric columns right-aligned with tabular numerals, 24 px rows, row hover and click callbacks, and an
+// optional second header row (`below`) for a column's distribution strip or filter.
 //
 // Columns are described with the small `Column` type below rather than TanStack's own, so workspaces need not know
 // the library: `value` is what sorts (null and NaN sort last), `cell` what shows (the value by default).
@@ -35,6 +36,8 @@ export interface Column<T extends RowData> {
   sortable?: boolean;
   /** Sort descending on the first click (largest first). */
   descFirst?: boolean;
+  /** Shown under the header in a second sticky header row, e.g. a distribution strip or a filter box. */
+  below?: ReactNode;
 }
 
 export type { RowData, SortingState };
@@ -144,7 +147,8 @@ export function DataTable<T extends RowData>({
       aria-rowcount={model.length}
       onMouseLeave={() => onRowHover?.(null)}
     >
-      <div role="rowgroup" className="sticky top-0 z-10 flex border-b border-line bg-surface" style={{ minWidth: total }}>
+      <div role="rowgroup" className="sticky top-0 z-10 border-b border-line bg-surface" style={{ minWidth: total }}>
+      <div className="flex">
         {headers.map((h) => {
           const sorted = h.column.getIsSorted();
           const meta = h.column.columnDef.meta as { numeric?: boolean; title?: string } | undefined;
@@ -177,6 +181,16 @@ export function DataTable<T extends RowData>({
           );
         })}
         <div className="flex-1" />
+      </div>
+      {columns.some((c) => c.below !== undefined) && (
+        <div className="flex">
+          {headers.map((h) => (
+            <div key={h.id} className="shrink-0 px-1 pb-1" style={{ width: `var(${slot.get(h.column.id)})` }}>
+              {columns.find((c) => c.id === h.column.id)?.below}
+            </div>
+          ))}
+        </div>
+      )}
       </div>
       {model.length === 0 ? (
         <p className="p-3 text-muted">{emptyText}</p>

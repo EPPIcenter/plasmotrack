@@ -208,6 +208,7 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/edges` | `{chains, rows}`: per edge, child, parent, unobserved, its trace quantity (group, name), pooled, spread, switches, ess and per Chain `{mean, switches}` |
 | `GET /api/pair?a=&b=` | the pair inspector's panels for Infections A and B (below) |
 | `GET /api/infection?id=` | the infection card's panels for one Infection (below); 404 for an unknown id |
+| `GET /api/infections` | the Infections table: one columnar row per Infection (below) |
 | `GET /api/epi` | the epi data's key, columns with types, ids matching no Infection, Infections without a row |
 | `GET /api/functionals[?column=][&level=0.8]` | the functionals overall, or per stratum of an epi column |
 | `GET /api/flows[?column=][&min_infections=1]` | attribution, enrichment and net flow per stratum (below) |
@@ -340,8 +341,9 @@ The Infection Inspector (`?sel=infection:ID`) shows what the posterior says abou
   50% and 97.5% quantiles (R type 7) over every Chain's Draws, and its trace quantity (`group`, `name`; none for
   infection time).
 - `coi`: the COI per Draw per Chain from the `coi` table, and its distribution over every Chain's Draws.
-- `genotype`: per Locus in the input's order, its Allele count, the Observed genotype (null where unobserved) and the
-  posterior presence of each Allele pooled over Chains from `genotype_summary`.
+- `genotype`: per Locus in the input's order, its Allele count, the Observed genotype (null where unobserved), the
+  posterior presence of each Allele pooled over Chains from `genotype_summary`, and the Latent genotype's posterior
+  mode (`mode`, pooled over Chains from `genotype_mode`) with the fraction of Draws that have it (`mode_fraction`).
 - `parent_sets`: per Chain, the Infection's Parent sets from `set_summary` with members, composition class, pooled
   weight, rank, cumulative mass and whether the set is in the credible collection at level 0.8
   (`functionals.credible_collection`, as `pt-analysis credible` prints it); and pooled over Chains
@@ -350,7 +352,22 @@ The Infection Inspector (`?sel=infection:ID`) shows what the posterior says abou
 - `parents` and `children`: the Edge marginals with the Infection as child (the unobserved source included) and as
   parent, from `edge_stats`: pooled, spread, ESS, per-Chain means and the trace quantity; largest first.
 - `summary`: q, the expected observed-parent count, entropy and effective size from `infection_draws`, per Chain
-  (means over its Draws) and pooled.
+  (means over its Draws) and pooled; and `posterior_entropy` and `posterior_effective_size`, of the mean Parent-set
+  weights (the Chain's, and the pooled sets'). The two differ when each Draw is sure of a Parent set but the Draws
+  disagree on which: the per-Draw mean is then 0 (effective size 1) while the posterior one counts the disagreement.
+
+### The Infections table
+
+`/api/infections` (`pt_analysis.infections`) returns `{chains, columns, q_chains, epi_columns}`: every list in
+`columns` has one value per Infection in input order, computed in DuckDB over every Chain's derived tables at once:
+observation time and symptomatic flag; the posterior infection time (`infection_time_lower`, `_median`, `_upper`);
+`q` pooled with its `q_ess` and `q_rhat` from the convergence table and each Chain's mean in `q_chains`;
+`expected_observed_parents`; `multi_source` and `multi_source_observed`; `posterior_entropy` and
+`posterior_effective_size` of the pooled Parent-set weights, `entropy` and `effective_size` per Draw (means); the pooled
+MAP Parent set (`top_set` members, `top_set_class`, `top_set_probability`); the observed parent with the largest
+pooled Edge marginal (`top_parent`, `top_parent_marginal`); the expected out-degree (`out_degree`); the median COI;
+the worst pooled R-hat over the Infection's false positive and negative rates, duration, q and parent edges
+(`worst_rhat`, `worst_rhat_group`, `worst_rhat_name`); and each epi column as `epi:<name>`, as text.
 
 `web/README.md` says how to develop the frontend and how to add a view.
 
