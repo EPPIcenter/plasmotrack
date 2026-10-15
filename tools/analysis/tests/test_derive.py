@@ -208,7 +208,36 @@ def test_psi_edge_is_the_mean_over_infections_of_expected_observed_parents(store
         assert f["mean_unobserved_only"] == pytest.approx(sum(r["unobserved_only"] for r in infections) / 3)
 
 
-TABLES = ["set_classes", "edges", "set_summary", "infection_draws", "functional_draws"]
+TABLES = ["set_classes", "edges", "set_summary", "infection_draws", "functional_draws", "genotype_summary",
+          "genotype_mode"]
+
+
+# Latent genotype bitstrings per Draw, read from the golden stores: Infection 1 is 00001000 at AS1 in every Draw of
+# both; Infection 3 at AS11 is 000000010000 in every single-chain Draw and in 8 of 10 replica-exchange Draws, and
+# 000100000000 in the other 2.
+def test_genotype_summary_holds_posterior_presence_per_allele(store):
+    derive(store)
+    rows = read(store, "genotype_summary", "infection, locus, allele")
+    assert len(rows) == 3 * 20  # every Infection at every Allele of structure/loci (8 at AS1, 12 at AS11)
+    presence = {(inf, locus, allele): p for inf, locus, allele, p in rows}
+    assert [presence[("1", "AS1", k)] for k in range(8)] == [0, 0, 0, 0, 1, 0, 0, 0]
+    as11 = [presence[("3", "AS11", k)] for k in range(12)]
+    if store.path.name == "single-chain":
+        assert as11 == [0] * 7 + [1] + [0] * 4
+    else:
+        assert as11 == pytest.approx([0, 0, 0, 0.2, 0, 0, 0, 0.8, 0, 0, 0, 0])
+
+
+def test_genotype_mode_ranks_each_locus_bitstrings_with_the_mode_first(store):
+    derive(store)
+    rows = read(store, "genotype_mode", "infection, locus, rank")
+    assert [r for r in rows if r[:2] == ("1", "AS1")] == [("1", "AS1", "00001000", 10, 1.0, 1)]
+    got = [r for r in rows if r[:2] == ("3", "AS11")]
+    if store.path.name == "single-chain":
+        assert got == [("3", "AS11", "000000010000", 10, 1.0, 1)]
+    else:
+        assert got == [("3", "AS11", "000000010000", 8, 0.8, 1), ("3", "AS11", "000100000000", 2, 0.2, 2)]
+    assert len({r[:2] for r in rows}) == 6
 
 
 def test_the_manifest_records_the_closed_windows_per_phase_and_the_package_version(store):
@@ -254,4 +283,6 @@ def test_a_run_still_in_burn_in_has_no_edges_or_pooled_weights(store):
     assert read(store, "set_summary", "infection") == []
     assert read(store, "infection_draws", "iteration") == []
     assert read(store, "functional_draws", "iteration") == []
+    assert read(store, "genotype_summary", "infection") == []
+    assert read(store, "genotype_mode", "infection") == []
     assert len(read(store, "set_classes", "infection")) == 9

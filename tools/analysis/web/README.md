@@ -35,7 +35,24 @@ pnpm dev                                              # here: the page with hot 
 | `src/views/` | One file per view |
 | `src/selection.ts` | The selected Infections, shared by every view: `getSelection`, `select`, `subscribeSelection` |
 | `src/network.ts` | The network view's logic: threshold filter, timeline layout, search, q colours, tooltips |
+| `src/pair.ts` | The pair inspector's URL state (`#/pair?a=&b=`), response types and differing-Loci count |
 | `src/convergence.ts`, `src/ranks.ts`, `src/virtual-list.ts`, `src/format.ts` | Logic the views share, tested without a DOM |
+| `src/ranking.ts`, `src/parentsets.ts` | The ranking and parent-set views' payload types, curves, metrics table, sorting and summary line, tested without a DOM |
+| `src/edges.ts` | The edge table's rows, sorting and filtering, tested without a DOM |
+| `src/sampler.ts` | The sampler panel's types and logic: samplers grouped by type, Run events placed on the time axes, the ladder, the target band |
+
+## Views
+
+| Route | View |
+|---|---|
+| `#/convergence` | U1 convergence table: one row per quantity, sorted by ESS or R-hat, filtered by group and name |
+| `#/trace?group=&name=` | U1 trace panel of one quantity |
+| `#/edges[?child=][&parent=][&unobserved=0][&sort=][&desc=1]` | U2 edge table: pooled Edge marginal, spread, switch count, ESS and per-Chain mean and switch count; sorts by every column (`sort` is a column, or `mean:<chain>` and `switches:<chain>`), filters by exact child and parent id, hides the unobserved source with `unobserved=0`; a row opens its trace panel |
+| `#/network[?threshold=][&layout=force\|timeline][&order=q\|lanes]` | U8 network view: Infections coloured by q, pooled Edge marginals as edges parent → child with width by marginal, loaded once at or above the server floor (0.01) and hidden below the slider's threshold in the browser. Force-directed layout (ForceAtlas2 in a web worker, 5 s, weighted by marginal) or timeline (x = observation time, the 95% posterior infection-time interval as a bar behind each node, rows ranked by q or packed lanes). Hover for per-Chain marginals and lag or a node's q and times; search centres on an Infection; click selects, shift-click adds or removes, into `src/selection.ts`, which the edge table follows |
+| `#/sampler[?chain=][&band_lo=&band_hi=]` | U4 sampler panel of one Chain: acceptance per sampler per Window by type with the target band, swap acceptance per temperature pair, the ladder, burn-in-end proposal variances, and Run events as rules on every time axis |
+| `#/pair?a=&b=` | U3 pair inspector: order per Chain with its trace, both Edge marginals, co-inclusion, genotypes per Locus with differing Loci highlighted, infection times and lag. Link to it with `ctx.navigate("pair", pairParams({ a, b }))` |
+| `#/ranking` | Ranking against truth (U6): directed and undirected precision-recall curves, posterior solid, null-model dashed, IBD dotted, a dotted grey line at the random ranking's precision; metrics table below |
+| `#/parentsets?level=0.8` | Parent sets (U6): per Infection effective size, credible size, whether the true set is in the credible collection, top probability, and the same for the null fit; sortable by any column; a summary line per fit |
 
 ## Add a view
 
@@ -79,15 +96,3 @@ line under their own slot merge without conflicts.
 - Use the `CONTEXT.md` and `doc/analysis-gui.md` terms in labels and code: Chain (one Run of the Analysis), Draw,
   Sampling iteration, Infection, Locus, Allele. Never sample, step, sweep, or chain for a replicate.
 
-## Views
-
-- **Network** (`#/network?threshold=&layout=force|timeline&order=q|lanes`, U8): Infections as nodes coloured by q,
-  pooled Edge marginals as directed edges (parent to child) whose width is the marginal. The threshold slider hides
-  edges below it in the browser; `/api/network` loads every edge at or above its floor (0.01) once. The force-directed
-  layout runs ForceAtlas2 in a web worker for 5 seconds, weighted by the marginal (Run layout runs it again). The
-  timeline puts each Infection at its observation time and draws its 95% posterior infection-time interval as a bar
-  behind it; rows are ranked by q (lowest at the bottom) or packed into lanes in which no two spans overlap. Hover
-  an edge for its per-Chain marginals and lag, a node for its q and times. The search box centres on an Infection
-  (exact id, else prefix, else substring). Click selects an Infection, shift-click adds or removes one, a click on
-  the background clears; the selection is in `src/selection.ts` for other views to read. Rendered with sigma.js
-  (WebGL) over graphology.

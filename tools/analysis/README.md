@@ -58,12 +58,12 @@ prints, for each Run, its closed Windows per Phase and its Draw count.
 
 ```sh
 uv run pt-analysis derive RUN_DIR          # one Run
-uv run pt-analysis derive analysis.json    # every Run of an Analysis, then the Analysis's convergence table
+uv run pt-analysis derive analysis.json    # every Run of an Analysis, then the Analysis's convergence and edge statistics tables
 ```
 
-writes Parquet tables under `RUN_DIR/derived/`. `edges`, `set_summary`, `infection_draws` and `functional_draws`
-come from the sampling Phase, so every weight is a Draw's; `set_classes` comes from `parent_set_members` over both
-Phases.
+writes Parquet tables under `RUN_DIR/derived/`. `edges`, `set_summary`, `infection_draws`, `functional_draws`,
+`genotype_summary` and `genotype_mode` come from the sampling Phase, so every row comes from Draws; `set_classes`
+comes from `parent_set_members` over both Phases.
 
 | Table | Columns | Rows |
 |---|---|---|
@@ -72,6 +72,8 @@ Phases.
 | `set_summary` | infection, set_id, weight, rank, cumulative_mass | one per Parent set with weight in some Draw |
 | `infection_draws` | iteration, infection, q, expected_observed_parents, entropy, effective_size, one column per class, multi_source_augmented, multi_source_observed | one per Draw and Infection |
 | `functional_draws` | iteration, psi_edge, mean_q, mean_entropy, `mean_<class>` per class | one per Draw |
+| `genotype_summary` | infection, locus, allele, presence | one per Infection and Allele of `structure/loci` |
+| `genotype_mode` | infection, locus, alleles, draws, fraction, rank | one per Infection, Locus and Latent genotype a Draw had |
 
 - `n_observed` counts a set's observed parents (members that are Infection ids). `has_unobserved` says whether the
   unobserved source, the Infection's Latent parent (`<id>_copy`), is a member.
@@ -98,6 +100,11 @@ Phases.
 - `functional_draws` averages `infection_draws` over Infections per Draw. `psi_edge`, the edge-sum, is the mean of
   `expected_observed_parents`; `mean_q`, `mean_entropy` and `mean_<class>` are the means of the others. The 95%
   interval of a functional is the 2.5% and 97.5% quantiles of its column over Draws.
+- `genotype_summary` and `genotype_mode` read the `latent_genotypes` Trace, whose bitstring has character k for
+  Allele k. `presence` is the fraction of Draws whose Latent genotype has the Allele. `genotype_mode` lists every
+  bitstring a Draw had at a Locus with the number (`draws`) and fraction of Draws that had it, ranked from 1 by
+  Draws then bitstring: rank 1 is the posterior mode and its `fraction` the agreement. The other rows are kept so
+  that Chains pool exactly, by summing `draws`.
 
 `derived/manifest.json` records the closed Windows per Phase the tables came from and the package version that wrote
 them. `derive` does nothing when both match the store and this package, and replaces every table otherwise, for
@@ -136,6 +143,24 @@ the benchmark scripts used:
 - `split_rhat`: each chain's two halves, every half truncated to the shortest half's length n; sqrt(((n-1)/n W +
   B/n) / W) over the halves; infinite when every half is constant but the halves differ.
 
+### The edge statistics table
+
+`edge_stats.parquet`, beside `convergence.parquet`, has columns child, parent, unobserved, chain, mean, switches,
+spread, ess: for every (child, parent) with a row in some Chain's `edges`, one row per Chain with Draws and a pooled
+row (`chain` null). `unobserved` marks the unobserved source as parent (the child's Latent parent id).
+
+- A Chain row's `mean` is the edge's weight summed over the Chain's Draws and divided by their number (0 at Draws
+  without a row); its `switches` is the number of adjacent Draws at which the weight crossed one half, one Draw above
+  0.5 and the other at or below it. A Chain with no row of the edge has mean 0 and no switches.
+- The pooled row's `mean` is the pooled Edge marginal, the mean over every Draw of every Chain; `switches` sums the
+  Chains' switch counts; `spread` is the largest Chain mean minus the smallest; `ess` is the pooled ESS the
+  convergence table gives the edge (group `edge`, or `unobserved-source inclusion` for the unobserved source, whose
+  edge marginal is the child's q). `spread` and `ess` are null on Chain rows.
+
+From Python, `pt_analysis.edge_stats.edge_table(analysis)` gives the rows as `EdgeStats` (child, parent,
+unobserved, pooled, spread, switches, ess, and per Chain a `ChainEdge(mean, switches)`), with the edge's trace
+quantity as `group` and `name`.
+
 ## Serve the analysis GUI
 
 ```sh
@@ -149,12 +174,19 @@ Chain's ESS, sorted by clicking the ESS or R-hat header and filtered by group an
 trace panel: one line per Chain over Sampling iterations, burn-in greyed on request, a rank-normalised histogram per
 Chain, and ESS and R-hat for the Draws in the range brushed on the trace.
 
+The edge table (`#/edges`) has one row per (child, parent) of the `edge_stats` table: pooled Edge marginal,
+between-Chain spread, summed switch count, ESS, and each Chain's mean and switch count. Every column sorts; sort by
+spread for Chains that disagree and by switch count for edges locked within each Chain. It filters by child id and
+parent id (exact) and shows or hides the unobserved source. Clicking a row opens the edge's trace panel.
+
 | Endpoint | Returns |
 |---|---|
 | `GET /api/analysis` | label, Draws per Chain and in all, Infections, Loci |
 | `GET /api/convergence` | `{rows}`: the convergence table's rows |
 | `GET /api/trace?group=&name=[&burn_in=true]` | per Chain, `iteration`, `phase` and `value` lists of a quantity |
 | `GET /api/range?group=&name=[&first=][&last=]` | ESS per Chain, pooled ESS and split R-hat over the Draws with Sampling iteration in [first, last] |
+| `GET /api/edges` | `{chains, rows}`: per edge, child, parent, unobserved, its trace quantity (group, name), pooled, spread, switches, ess and per Chain `{mean, switches}` |
+| `GET /api/pair?a=&b=` | the pair inspector's panels for Infections A and B (below) |
 
 | `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
 
@@ -174,6 +206,70 @@ parent whose pooled marginal (summed over every Chain's Draws, divided by the Dr
 (default 0.01, in [0, 1]): `child`, `parent`, `marginal`, `chains` (each Chain's mean, in the order of the payload's
 `chains`) and `lag` (child's observation time minus the parent's). Edges come largest first. Edges from the
 unobserved source are left out; `q` carries them.
+
+### Accuracy against truth (U6)
+
+With a `truth` file in the manifest, the **Ranking** page draws the directed and undirected precision-recall curves
+of the posterior Edge marginals against the true network, with the null-model Analysis and the pairwise scores
+overlaid when the manifest names them, and a table of their metrics. The **Parent sets** page lists, per Infection,
+the effective parent-set size, the credible collection's size at a level (0.8 by default), whether the true set is in
+it, and the modal set's probability, beside the null-model fit, with a summary line per fit. It works without truth,
+less the coverage column.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/ranking` | realised truth, and per fit (posterior, null, IBD) its directed and undirected metrics and curve; 404 without truth |
+| `GET /api/parent-sets[?level=0.8]` | per fit its summary columns, and one row per Infection, `null_` columns for the null fit |
+
+The definitions follow the thesis pipeline's per-fit summary (`remote/R/final_analysis/R`), with weights pooled as in
+the rest of this package:
+
+- **Truth** is the simulation's JSON (gzipped when named `.gz`, read by `pt_analysis.inputs`): `network: [{src,
+  dest}]` and `nodes: [{id, ...}]`. True edges are those with both ends among the Analysis's Infections. An
+  Infection's true Parent set is its true parents among the Infections, plus the unobserved source when it is a root
+  or has a true parent outside them; it matches a fitted set whose Latent parent `<id>_copy` is read as `<id>`.
+  `n_true_cases` counts the truth's nodes, `n_observed_cases` the Infections, `true_average_outdegree` is true edges
+  per Infection and `true_unobserved_source_proportion` the share of Infections whose true set has the unobserved
+  source.
+- **Edge scores** are the posterior transmission matrix's observed entries: weight summed over every Draw of every
+  Chain, divided by the number of Draws (not the R pipeline's mean over Draws with a row). Scores are clipped to [0, 1]
+  and rounded to 10 decimals. The directed universe is every ordered pair of distinct Infections, a missing score
+  counting 0; the undirected universe is every unordered pair, scored by the sum of its two directions clipped to 1,
+  and true when a true edge joins it either way.
+- **Ranking metrics**, directed and undirected: the precision-recall curve at each distinct score (tied pairs enter
+  together); `average_precision` = sum of the recall gained at each breakpoint times the precision there; `pr_auc` =
+  trapezoid area with (recall 0, precision 1) prepended; `top_k_precision` = precision of every pair scoring at least
+  the k-th highest score, k the number of true edges (ties included); `n_edge_universe`, `n_true_edges`,
+  `n_distinct_scores`.
+- **Baselines**: the null-model Analysis (`null_model`) is scored the same way against the same truth. The pairwise
+  scores CSV (`pairwise_scores`) has columns `a, b, score`, one row per pair of Infection ids in either order (the
+  largest score of a pair's rows counts; pairs without a row score 0; ids outside the Analysis are ignored), and is
+  ranked undirected only.
+- **Parent-set metrics**: an Infection's sets are pooled over Chains (matched by members), ranked by weight. Its
+  effective size is exp of the entropy of the pooled weights, its credible collection the smallest prefix with mass at
+  least the level (as `functionals.credible_collection`), its top probability the modal set's weight. The summary
+  columns are `mean_credible_parent_set_size_80`, `median_credible_parent_set_size_80`,
+  `credible_parent_set_coverage_80` and `mean_top_parent_set_probability`; a level other than 0.8 has the suffix
+  `_a<percent>`, for example `_a095`.
+
+### The pair inspector
+
+`#/pair?a=A&b=B` shows why two Infections sit in one order. `/api/pair` returns, from `pt_analysis.pair.inspect_pair`:
+
+- `order`: per Chain, the per-Draw indicator that A precedes B in the `ordering` Trace, its mean P(A before B) and
+  the switches, adjacent Draws at which the order changes (as `summary --pairs` counts them); pooled over all Draws.
+- `edges`: per Chain and pooled, the Edge marginals B <- A (`a_to_b`) and A <- B (`b_to_a`), the mean over Draws of
+  `edges`; 0 where the edge never has a row.
+- `co_inclusion`: per third Infection with a Parent set holding both, the summed `set_summary` weight of those sets
+  per Chain and pooled.
+- `genotypes`: per Locus in the input's order, Observed A and B from the input (null where unobserved), each Latent
+  posterior mode and its agreement pooled over Chains from `genotype_mode`, whether the modes differ, and with a
+  truth file in the manifest the true Latent genotypes (`flat_latent_genotype`); the count of differing Loci.
+- `times`: for each, the observation time and the posterior infection time, observation time minus the median and
+  the 97.5% and 2.5% quantiles (R type 7) of `infection_duration` over all Draws; the lag, B's observation time minus
+  A's.
+
+Pooled values weight each Chain by its Draws. The input and truth files may be gzipped (`pt_analysis.inputs`).
 
 `web/README.md` says how to develop the frontend and how to add a view.
 
@@ -216,6 +312,38 @@ derives what is not current, then prints three sections:
 `tools/benchmark/chain_summary.py RUN_DIR` writes `RUN_DIR/chain_summary.json`, an Analysis of the stores
 `RUN_DIR/chain<K>`, and prints this summary of it.
 
+## The sampler panel
+
+The page's Samplers view (U4) shows, for one Chain at a time: acceptance rate per sampler over Windows, one small
+multiple per sampler type with a line per target and a target band shaded (0.15 to 0.5 unless set on the page); swap
+acceptance per temperature pair over Windows; the temperature ladder at each adaptation and the final ladder; the
+proposal variances at burn-in end; and the Run events below as rules on every time axis, with a table of them.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/sampler[?chain=]` | one Chain's (default the first) `windows`, `acceptance`, `swaps`, `ladder`, `burn_in_ended` and `events` |
+
+`pt_analysis.sampler` reads them from one store. Blocks hold counts per Window, not per Draw, so they are read over
+both Phases; every row carries its Window's Phase and Sampling-iteration range.
+
+| Function | Rows |
+|---|---|
+| `acceptance(store)` | per sampler per Window: window, phase, first_iteration, last_iteration, sampler, type, target, accepted, proposed, rate |
+| `swaps(store)` | per temperature pair per Window: the Window fields, temperature_pair, accepted, attempted, rate; `[]` for one chain |
+| `ladder(store)` | per `temperatures_adapted` event: iteration, phase, applied, temperatures (by slot), barriers (by pair) |
+| `burn_in_end(store)` | the `burn_in_ended` event: iteration, proposal_variances (sampler id to one variance per proposal scale), temperatures; None before burn-in ends |
+| `marked_events(store)` | `non_finite_value`, `interrupted`, `burn_in_ended`, `run_resumed` and `run_ended` events: iteration, phase, window, wall_time, type, payload (parsed) |
+| `panel(store)` | all of the above and the closed Windows, as the endpoint returns them |
+
+- `type` and `target` come from `structure/samplers`. `rate` is accepted over proposed (or attempted), null when
+  there were none; acceptance counts only the Hot chain.
+- On the page every time axis is in Sampling iterations over the closed Windows, so a rule sits at the same x on
+  each plot: a Window's Block is drawn at the middle of its iterations, the ladder at each adaptation's iteration.
+  Rules for non-finite values are red, for interrupts amber, the rest grey and dashed; the tooltip names each event
+  and its payload.
+- A type with more targets than the categorical palette's eight colours draws them as thin grey lines, named in the
+  tooltip.
+
 ## Use from Python
 
 ```python
@@ -249,6 +377,17 @@ functionals.map_graph(store)                     # {infection: RankedSet} of mod
 functionals.psi_map(store)
 functionals.size_range(store, level=0.8)         # (psi_lo, psi_hi)
 functionals.credible_collection(store, "3", level=0.8)   # [RankedSet(set_id, members, weight, rank, ...), ...]
+
+from pt_analysis import metrics
+
+truth = metrics.analysis_truth(analysis)         # Truth: edges, parent_sets, n_true_cases, ...; None without truth
+metrics.edge_scores(analysis)                    # {(parent, child): pooled Edge marginal}
+metrics.edge_rankings(analysis, truth)           # {"directed": Ranking, "undirected": Ranking}
+metrics.ranking_fits(analysis, truth)            # posterior, null and IBD Rankings, as the manifest names them
+metrics.rank(scores, truth_flags)                # Ranking of any scores: curve, average_precision, pr_auc, ...
+metrics.parent_set_rows(analysis, truth, 0.8)    # [InfectionParentSets(infection, effective_size, credible_size,
+                                                 #   covered, top_probability), ...]
+metrics.fit_summary_metrics(analysis, truth)     # {fit-summary column name: value} for the ranking and parent sets
 ```
 
 The benchmark scripts run in this environment:
