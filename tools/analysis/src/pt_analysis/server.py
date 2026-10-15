@@ -40,6 +40,7 @@ ENDPOINTS = [
     # #91 U7 cohort view
 
     # #92 U4 sampler panel
+    "pt_analysis.endpoints.sampler",  # U4: acceptance, swaps, ladder, proposal variances, Run events
 
     # #94 U5 comparison of Analyses
 

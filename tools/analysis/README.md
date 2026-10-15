@@ -202,6 +202,38 @@ derives what is not current, then prints three sections:
 `tools/benchmark/chain_summary.py RUN_DIR` writes `RUN_DIR/chain_summary.json`, an Analysis of the stores
 `RUN_DIR/chain<K>`, and prints this summary of it.
 
+## The sampler panel
+
+The page's Samplers view (U4) shows, for one Chain at a time: acceptance rate per sampler over Windows, one small
+multiple per sampler type with a line per target and a target band shaded (0.15 to 0.5 unless set on the page); swap
+acceptance per temperature pair over Windows; the temperature ladder at each adaptation and the final ladder; the
+proposal variances at burn-in end; and the Run events below as rules on every time axis, with a table of them.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/sampler[?chain=]` | one Chain's (default the first) `windows`, `acceptance`, `swaps`, `ladder`, `burn_in_ended` and `events` |
+
+`pt_analysis.sampler` reads them from one store. Blocks hold counts per Window, not per Draw, so they are read over
+both Phases; every row carries its Window's Phase and Sampling-iteration range.
+
+| Function | Rows |
+|---|---|
+| `acceptance(store)` | per sampler per Window: window, phase, first_iteration, last_iteration, sampler, type, target, accepted, proposed, rate |
+| `swaps(store)` | per temperature pair per Window: the Window fields, temperature_pair, accepted, attempted, rate; `[]` for one chain |
+| `ladder(store)` | per `temperatures_adapted` event: iteration, phase, applied, temperatures (by slot), barriers (by pair) |
+| `burn_in_end(store)` | the `burn_in_ended` event: iteration, proposal_variances (sampler id to one variance per proposal scale), temperatures; None before burn-in ends |
+| `marked_events(store)` | `non_finite_value`, `interrupted`, `burn_in_ended`, `run_resumed` and `run_ended` events: iteration, phase, window, wall_time, type, payload (parsed) |
+| `panel(store)` | all of the above and the closed Windows, as the endpoint returns them |
+
+- `type` and `target` come from `structure/samplers`. `rate` is accepted over proposed (or attempted), null when
+  there were none; acceptance counts only the Hot chain.
+- On the page every time axis is in Sampling iterations over the closed Windows, so a rule sits at the same x on
+  each plot: a Window's Block is drawn at the middle of its iterations, the ladder at each adaptation's iteration.
+  Rules for non-finite values are red, for interrupts amber, the rest grey and dashed; the tooltip names each event
+  and its payload.
+- A type with more targets than the categorical palette's eight colours draws them as thin grey lines, named in the
+  tooltip.
+
 ## Use from Python
 
 ```python
