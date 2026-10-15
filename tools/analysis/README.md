@@ -194,7 +194,7 @@ Chain's ESS, sorted by clicking the ESS or R-hat header and filtered by group an
 trace panel: one line per Chain over Sampling iterations, burn-in greyed on request, a rank-normalised histogram per
 Chain, and ESS and R-hat for the Draws in the range brushed on the trace.
 
-The edge table (`#/edges`) has one row per (child, parent) of the `edge_stats` table: pooled Edge marginal,
+The edge table (the Edges workspace, `/edges`) has one row per (child, parent) of the `edge_stats` table: pooled Edge marginal,
 between-Chain spread, summed switch count, ESS, and each Chain's mean and switch count. Every column sorts; sort by
 spread for Chains that disagree and by switch count for edges locked within each Chain. It filters by child id and
 parent id (exact) and shows or hides the unobserved source. Clicking a row opens the edge's trace panel.
@@ -312,7 +312,7 @@ the rest of this package:
 
 ### The pair inspector
 
-`#/pair?a=A&b=B` shows why two Infections sit in one order. `/api/pair` returns, from `pt_analysis.pair.inspect_pair`:
+The pair Inspector (`?sel=pair:A,B`) shows why two Infections sit in one order. `/api/pair` returns, from `pt_analysis.pair.inspect_pair`:
 
 - `order`: per Chain, the per-Draw indicator that A precedes B, read from the `ordering` Trace on demand, and from
   the derived `order_pairs` the Draws, P(A before B) and the switches, adjacent Draws at which the order changes (as
@@ -332,7 +332,7 @@ Pooled values weight each Chain by its Draws. The input and truth files may be g
 
 ### The infection card
 
-`#/infection?id=ID` shows what the posterior says about one Infection. `/api/infection` returns, from
+The Infection Inspector (`?sel=infection:ID`) shows what the posterior says about one Infection. `/api/infection` returns, from
 `pt_analysis.infection.card`:
 
 - `quantities`: `false_positives`, `false_negatives` and `duration` from the `infections` Trace, and
@@ -389,7 +389,7 @@ weights pooled over every Draw of every Chain, matching sets across Chains by th
 
 ### Flows, lags and spatial scale
 
-`pt_analysis.flows` (view `#/flows`, endpoints in `pt_analysis.endpoints.flows`) follows the manuscript's Zanzibar
+`pt_analysis.flows` (the Flows workspace, `/flows`; endpoints in `pt_analysis.endpoints.flows`) follows the manuscript's Zanzibar
 results. Everything is a function of the pooled Edge marginals Q[i, j] (summed over every Draw of every Chain, over
 the number of Draws) and q; sums of Q are expected edge counts. Strata are those above, the no-value stratum included.
 
@@ -554,7 +554,7 @@ every Analysis must record the same `input` hash in its manifest's `input_sha256
 `DifferentInputs`, naming each Analysis and the start of its hash. The first Analysis is primary: every view and
 endpoint above reads it, unchanged. Labels repeated between Analyses get ` (2)`, ` (3)` appended.
 
-The comparison view (`#/compare`) is the convergence table with one column group per Analysis (pooled ESS and split
+The Compare workspace (`/compare`) is the convergence table with one column group per Analysis (pooled ESS and split
 R-hat, sortable by any column, filtered by group and name), and a log-log scatter of per-quantity ESS of Analysis X
 against Y (selectors for X and Y; the dashed line is equal ESS). Hovering a dot names the quantity; clicking it or a
 table row shows its trace in both Analyses, each with a link to its full trace panel.

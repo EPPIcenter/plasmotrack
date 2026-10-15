@@ -16,12 +16,12 @@ const MARK: Partial<Record<Level, string>> = { warning: "border-t-warning", crit
 
 export function KpiStrip({ items }: { items: Kpi[] }) {
   return (
-    <dl className="grid border-b border-l border-line" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(118px, 1fr))` }}>
+    <dl className="flex flex-wrap border-b border-l border-line">
       {items.map((k) => (
         <div
           key={k.label}
           title={k.title}
-          className={`flex min-w-0 flex-col border-r border-t-2 border-line border-t-transparent bg-surface px-2.5 py-1.5 ${MARK[k.level ?? "ok"] ?? ""}`}
+          className={`flex min-w-0 flex-[1_0_112px] flex-col border-r border-t-2 border-line border-t-transparent bg-surface px-2.5 py-1.5 ${MARK[k.level ?? "ok"] ?? ""}`}
         >
           <dt className="truncate text-axis text-muted">{k.label}</dt>
           <dd className="truncate text-[15px] font-semibold leading-5">{k.value}</dd>
