@@ -222,15 +222,6 @@ namespace transmission_nets::impl::Model::checkpoint {
             refuse(fmt::format("checkpoint of Run {} does not fit this input: {}", checkpoint.identity.runId, e.what()));
         }
 
-        // Once burn-in has ended, barriers still pending can't be told apart by pair: the ladder works out each pair's
-        // attempts from burn-in iterations that run back to back, and Sampling iterations have alternated the pairs
-        // since. A Run started from here begins its own.
-        if (checkpoint.position.phase == Phase::Sampling) {
-            auto exchange = ensemble->exchangeState();
-            std::ranges::fill(exchange.swapBarriers, 0.0);
-            exchange.barrierIterations = 0;
-            ensemble->restoreExchangeState(exchange);
-        }
         return ensemble;
     }
 }// namespace transmission_nets::impl::Model::checkpoint

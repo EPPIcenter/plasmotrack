@@ -333,7 +333,8 @@ adaptation state. The checkpoint may be `checkpoint-burn-in.cbor` or `checkpoint
 - The temperature ladder is the checkpoint's, recorded in `started_from`; `-g` is ignored, and the manifest has no
   `gradient`. Resuming such a Run refuses `-g`.
 - It runs its own `-b` burn-in from the saved State (`-b 0` is allowed) and numbers iterations from 0. Iteration 0 is
-  the saved State.
+  the saved State. The ladder adapts on the iterations a fresh Run's does, from a clean slate: swap barriers the
+  source Run had pending are not carried over.
 
 ## Reading a store
 
