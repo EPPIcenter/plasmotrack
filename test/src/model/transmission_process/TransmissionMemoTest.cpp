@@ -10,7 +10,7 @@
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
 #include "core/containers/ParentSet.h"
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 #include "core/datatypes/Simplex.h"
 #include "core/parameters/Parameter.h"
 #include "model/transmission_process/TransmissionMemo.h"
@@ -29,11 +29,9 @@ namespace {
     constexpr int MAX_PARENTS = 2;
     constexpr int MAX_STRAINS = 12;
     constexpr int MAX_COI     = 20;
-
-    using Genetics    = AllelesBitSet<128>;
-    using InfectionEvent = transmission_nets::core::containers::Infection<Genetics>;
+    using InfectionEvent = transmission_nets::core::containers::Infection<>;
     using Frequencies = AlleleFrequencyContainer<Simplex, Locus>;
-    using Memo        = TransmissionMemo<MAX_PARENTS, MAX_STRAINS, MAX_COI, Genetics, InfectionEvent, Locus, Frequencies>;
+    using Memo        = TransmissionMemo<MAX_PARENTS, MAX_STRAINS, MAX_COI, InfectionEvent, Locus, Frequencies>;
     using Kernel      = Memo::Kernel;
     using Variant     = Memo::Variant;
 
@@ -59,7 +57,7 @@ namespace {
         static void setLatent(const std::shared_ptr<InfectionEvent>& inf, const std::shared_ptr<Locus>& locus, const std::string& bits) {
             auto genotype = inf->latentGenotype(locus);
             genotype->saveState(1);
-            genotype->setValue(Genetics(bits));
+            genotype->setValue(Genotype(bits));
             genotype->acceptState();
         }
         void setFrequencies(const std::shared_ptr<Locus>& locus, const std::vector<double>& values) const {
@@ -103,8 +101,8 @@ TEST(TransmissionMemoTest, LocusTermsAndParentSetSumsAreSharedByIdenticalGenotyp
     const auto child  = f.infection("child", "110", "1100");
     const auto twin   = f.infection("twin", "110", "1100");
     const auto parent = f.infection("parent", "110", "1100");
-    const Genetics childAt0 = child->latentGenotype(f.loci[0])->value(), parentAt0 = parent->latentGenotype(f.loci[0])->value();
-    const std::vector<const Genetics*> parents{&parentAt0};
+    const Genotype childAt0 = child->latentGenotype(f.loci[0])->value(), parentAt0 = parent->latentGenotype(f.loci[0])->value();
+    const std::vector<const Genotype*> parents{&parentAt0};
     EXPECT_EQ(&f.memo.locusTerm(Variant::ObservedParents, childAt0, parents, nullptr), &f.memo.locusTerm(Variant::ObservedParents, childAt0, parents, nullptr));
 
     const ParentSet<InfectionEvent> parentSet{parent};
@@ -127,7 +125,7 @@ TEST(TransmissionMemoTest, TheStrainCountTableFollowsItsParameterThroughChangeAn
 TEST(TransmissionMemoTest, LatentLocusTablesAtEarlierFrequenciesStayAvailable) {
     Fixture f;
     f.memo.beginBatch();
-    const Genetics child("110");
+    const Genotype child("110");
     const auto before = f.memo.frequencyId(f.loci[0]);
     const auto atBefore = f.memo.locusTable(before, child, {}).terms;
     f.setFrequencies(f.loci[0], {0.2, 0.3, 0.5});
@@ -147,8 +145,8 @@ TEST(TransmissionMemoTest, ThePlainObservedParentsTermIsTheKernelsSumOverLoci) {
     Kernel kernel;
     Kernel::StrainSums sums{};
     for (const auto& locus : f.loci) {
-        const Genetics parentAt = parent->latentGenotype(locus)->value();
-        const std::vector<const Genetics*> parents{&parentAt};
+        const Genotype parentAt = parent->latentGenotype(locus)->value();
+        const std::vector<const Genotype*> parents{&parentAt};
         sums.add(kernel.locusTerm(Variant::ObservedParents, child->latentGenotype(locus)->value(), parents, nullptr));
     }
     const double expected = Kernel::strainSummedLogLikelihood(sums, 1, Kernel::strainCountTable(1.7));

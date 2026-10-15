@@ -8,7 +8,7 @@
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
 #include "core/containers/ParentSet.h"
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 
 #include <array>
 #include <memory>
@@ -43,7 +43,7 @@ namespace {
 }// namespace
 
 TEST(UidOrderTest, ParentSetsIterateInConstructionOrder) {
-    using InfectionEvent = Infection<AllelesBitSet<8>>;
+    using InfectionEvent = Infection<>;
     constexpr size_t n   = 6;
     DescendingAddresses<InfectionEvent, n> infections([](void* slot, const size_t i) {
         return new (slot) InfectionEvent("inf" + std::to_string(i), 10.0 + i);
@@ -62,7 +62,7 @@ TEST(UidOrderTest, ParentSetsIterateInConstructionOrder) {
 }
 
 TEST(UidOrderTest, GenotypeMapsIterateInConstructionOrder) {
-    using InfectionEvent = Infection<AllelesBitSet<8>>;
+    using InfectionEvent = Infection<>;
     constexpr size_t n   = 5;
     DescendingAddresses<Locus, n> loci([](void* slot, const size_t i) {
         return new (slot) Locus("L" + std::to_string(i), 4);
@@ -72,7 +72,7 @@ TEST(UidOrderTest, GenotypeMapsIterateInConstructionOrder) {
 
     InfectionEvent infection("inf", 10.0);
     for (const size_t i : {2, 4, 0, 3, 1}) {
-        infection.addLatentGenetics(expected[i], AllelesBitSet<8>("0100"));
+        infection.addLatentGenetics(expected[i], Genotype("0100"));
     }
     // loci() keeps insertion order; the per-locus genotype maps are ordered by key.
     std::vector<std::shared_ptr<Locus>> order;

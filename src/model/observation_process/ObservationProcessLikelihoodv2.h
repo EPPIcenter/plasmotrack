@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV2_H
 #define TRANSMISSION_NETWORKS_APP_OBSERVATIONPROCESSLIKELIHOODV2_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/abstract/observables/Dependency.h"
 #include "core/computation/PartialLikelihood.h"
 #include "core/datatypes/Data.h"
@@ -19,18 +20,17 @@ namespace transmission_nets::model::observation_process {
      * total number of alleles present at a marker.
      */
 
-    template<typename GeneticsImpl>
     class ObservationProcessLikelihoodv2 : public core::computation::PartialLikelihood {
-        static constexpr auto truePositiveCount  = &GeneticsImpl::truePositiveCount;
-        static constexpr auto falsePositiveCount = &GeneticsImpl::falsePositiveCount;
-        static constexpr auto trueNegativeCount  = &GeneticsImpl::trueNegativeCount;
-        static constexpr auto falseNegativeCount = &GeneticsImpl::falseNegativeCount;
+        static constexpr auto truePositiveCount  = &core::datatypes::Genotype::truePositiveCount;
+        static constexpr auto falsePositiveCount = &core::datatypes::Genotype::falsePositiveCount;
+        static constexpr auto trueNegativeCount  = &core::datatypes::Genotype::trueNegativeCount;
+        static constexpr auto falseNegativeCount = &core::datatypes::Genotype::falseNegativeCount;
 
     public:
         using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
         ObservationProcessLikelihoodv2(
-                std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics,
-                std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics,
+                std::shared_ptr<core::datatypes::Data<core::datatypes::Genotype>> observedGenetics,
+                std::shared_ptr<core::parameters::Parameter<core::datatypes::Genotype>> latentGenetics,
                 p_Parameterdouble expectedFalsePositives,
                 p_Parameterdouble expectedFalseNegatives,
                 bool null_model = false);
@@ -39,18 +39,17 @@ namespace transmission_nets::model::observation_process {
         std::string identifier() override;
 
     private:
-        std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observed_genetics_;
-        std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latent_genetics_;
+        std::shared_ptr<core::datatypes::Data<core::datatypes::Genotype>> observed_genetics_;
+        std::shared_ptr<core::parameters::Parameter<core::datatypes::Genotype>> latent_genetics_;
         p_Parameterdouble expected_false_positives_;
         p_Parameterdouble expected_false_negatives_;
         unsigned int total_alleles_;
         bool null_model_;
     };
 
-    template<typename GeneticsImpl>
-    ObservationProcessLikelihoodv2<GeneticsImpl>::ObservationProcessLikelihoodv2(
-            std::shared_ptr<core::datatypes::Data<GeneticsImpl>> observedGenetics,
-            std::shared_ptr<core::parameters::Parameter<GeneticsImpl>> latentGenetics,
+    inline ObservationProcessLikelihoodv2::ObservationProcessLikelihoodv2(
+            std::shared_ptr<core::datatypes::Data<core::datatypes::Genotype>> observedGenetics,
+            std::shared_ptr<core::parameters::Parameter<core::datatypes::Genotype>> latentGenetics,
             p_Parameterdouble expectedFalsePositives,
             p_Parameterdouble expectedFalseNegatives,
             bool null_model
@@ -64,13 +63,11 @@ namespace transmission_nets::model::observation_process {
         this->value();
     }
 
-    template<typename GeneticsImpl>
-    std::string ObservationProcessLikelihoodv2<GeneticsImpl>::identifier() {
+    inline std::string ObservationProcessLikelihoodv2::identifier() {
         return {"ObservationProcessLikelihoodv2"};
     }
 
-    template<typename GeneticsImpl>
-    core::computation::Likelihood ObservationProcessLikelihoodv2<GeneticsImpl>::value() {
+    inline core::computation::Likelihood ObservationProcessLikelihoodv2::value() {
         if (null_model_) {
             value_ = 0;
             this->setClean();

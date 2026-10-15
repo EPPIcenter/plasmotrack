@@ -17,6 +17,7 @@
 #ifndef TRANSMISSION_NETWORKS_TEST_MARGINALLATENTPARENTREFERENCE_H
 #define TRANSMISSION_NETWORKS_TEST_MARGINALLATENTPARENTREFERENCE_H
 
+#include "core/datatypes/Genotype.h"
 #include "model/transmission_process/source_transmission_process/SourceOverlap.h"
 
 #include <algorithm>
@@ -36,9 +37,8 @@ namespace transmission_nets::model::transmission_process::marginal {
 
     // A representative latent-parent genotype with G ∩ C = U and |G \ C| = w: U's alleles and the first w alleles
     // outside C. The locus term depends on G only through U and |G|.
-    template<typename Genetics>
-    Genetics representative(const unsigned int totalAlleles, const std::vector<unsigned int>& childAlleles, const unsigned int mask, unsigned int w) {
-        Genetics g(static_cast<int>(totalAlleles));
+    inline core::datatypes::Genotype representative(const unsigned int totalAlleles, const std::vector<unsigned int>& childAlleles, const unsigned int mask, unsigned int w) {
+        core::datatypes::Genotype g(static_cast<int>(totalAlleles));
         g.reset();// the size constructor sets the last allele
         std::bitset<256> inChild;
         for (unsigned int c = 0; c < childAlleles.size(); ++c) {
@@ -59,7 +59,7 @@ namespace transmission_nets::model::transmission_process::marginal {
     // log g(k, m) at one locus. `logTerm(latentGenotype)` gives the model's locus term for the parent set with the
     // latent parent carrying that genotype: log f(m) for m = 1..MAX_STRAINS, or nullopt when the parent set is
     // impossible.
-    template<int MAX_COI, int MAX_STRAINS, typename Genetics, typename LogTermFn>
+    template<int MAX_COI, int MAX_STRAINS, typename LogTermFn>
     LocusTable<MAX_COI, MAX_STRAINS> locusTable(const SourceOverlap& overlap, const unsigned int totalAlleles, LogTermFn&& logTerm) {
         std::array<double, (MAX_COI + 1) * MAX_STRAINS> g{};
         g.fill(0.0);
@@ -79,7 +79,7 @@ namespace transmission_nets::model::transmission_process::marginal {
                 if (not any) {
                     continue;
                 }
-                const std::optional<std::array<double, MAX_STRAINS>> term = logTerm(representative<Genetics>(totalAlleles, childAlleles, mask, w));
+                const std::optional<std::array<double, MAX_STRAINS>> term = logTerm(representative(totalAlleles, childAlleles, mask, w));
                 if (not term) {
                     continue;
                 }

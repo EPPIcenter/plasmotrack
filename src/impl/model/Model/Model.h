@@ -34,7 +34,7 @@ namespace transmission_nets::impl::Model {
         double temperature;
 
         // Observation Process
-        std::vector<std::shared_ptr<model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>>> observationProcessLikelihoodList{};
+        std::vector<std::shared_ptr<model::observation_process::ObservationProcessLikelihoodv2>> observationProcessLikelihoodList{};
 
         // Parent Set Size Likelihood
         std::shared_ptr<ParentSetSizeLikelihoodImpl> parentSetSizeLikelihood;

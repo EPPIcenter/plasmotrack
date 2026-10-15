@@ -18,6 +18,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_TRANSMISSIONMEMO_H
 #define TRANSMISSION_NETWORKS_APP_TRANSMISSIONMEMO_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/containers/ParentSet.h"
 #include "core/parameters/Parameter.h"
 #include "model/transmission_process/TransmissionKernel.h"
@@ -33,10 +34,13 @@
 
 namespace transmission_nets::model::transmission_process {
 
-    template<int MAX_PARENTS, int MAX_STRAINS, int MAX_COI, typename GeneticsImpl, typename InfectionImpl, typename LocusImpl, typename AlleleFrequencyContainer>
+    template<int MAX_PARENTS, int MAX_STRAINS, int MAX_COI, typename InfectionImpl, typename LocusImpl, typename AlleleFrequencyContainer>
     class TransmissionMemo {
     public:
-        using Kernel           = TransmissionKernel<MAX_PARENTS, MAX_STRAINS, MAX_COI, GeneticsImpl>;
+        using Genotype = core::datatypes::Genotype;
+
+    public:
+        using Kernel           = TransmissionKernel<MAX_PARENTS, MAX_STRAINS, MAX_COI>;
         using Likelihood       = typename Kernel::Likelihood;
         using Variant          = typename Kernel::Variant;
         using LocusTerm        = typename Kernel::LocusTerm;
@@ -179,7 +183,7 @@ namespace transmission_nets::model::transmission_process {
 
         // One locus' term from the genotypes at it: the child's, the observed parents' in parent-set order, and the
         // latent parent's (null for the observed-parents variant). Valid until the next beginBatch().
-        const LocusTerm& locusTerm(const Variant variant, const GeneticsImpl& child, const std::span<const GeneticsImpl* const> parents, const GeneticsImpl* latentParent) {
+        const LocusTerm& locusTerm(const Variant variant, const core::datatypes::Genotype& child, const std::span<const core::datatypes::Genotype* const> parents, const core::datatypes::Genotype* latentParent) {
             LocusTermKey key{.variant = variant, .numParents = static_cast<unsigned int>(parents.size() + (latentParent != nullptr ? 1 : 0))};
             key.genotypes[0] = child;
             size_t slot      = 1;
@@ -207,7 +211,7 @@ namespace transmission_nets::model::transmission_process {
 
         // log g(k, m) at a locus for the child genotype and the observed parents' genotypes (none for the latent
         // parent alone), at the frequencies with the given id. Valid until the next call.
-        const LocusTable& locusTable(const FrequencyId frequencyId, const GeneticsImpl& child, const std::span<const GeneticsImpl* const> parents) {
+        const LocusTable& locusTable(const FrequencyId frequencyId, const core::datatypes::Genotype& child, const std::span<const core::datatypes::Genotype* const> parents) {
             auto& slot = slotFor(frequencyId);
             auto key   = genotypeKey(child, parents);
             if (const auto it = slot.tables.find(key); it != slot.tables.end()) {
@@ -263,7 +267,7 @@ namespace transmission_nets::model::transmission_process {
         struct LocusTermKey {
             Variant variant;
             unsigned int numParents;
-            std::array<GeneticsImpl, MAX_PARENTS + 2> genotypes{};
+            std::array<core::datatypes::Genotype, MAX_PARENTS + 2> genotypes{};
             bool operator==(const LocusTermKey& rhs) const = default;
         };
         struct LocusTermKeyHash {
@@ -282,11 +286,11 @@ namespace transmission_nets::model::transmission_process {
             }
             // The child, the observed parents and, where the variant has one, the latent parent last.
             const unsigned int numObserved   = key.variant == Variant::ObservedParents ? key.numParents : key.numParents - 1;
-            const GeneticsImpl* latentParent = key.variant == Variant::ObservedParents ? nullptr : &key.genotypes[key.numParents];
+            const core::datatypes::Genotype* latentParent = key.variant == Variant::ObservedParents ? nullptr : &key.genotypes[key.numParents];
             for (unsigned int p = 0; p < numObserved; ++p) {
                 parentPointers_[p] = &key.genotypes[p + 1];
             }
-            return locusTerms_.emplace(key, kernel_.locusTerm(key.variant, key.genotypes[0], std::span<const GeneticsImpl* const>(parentPointers_.data(), numObserved), latentParent)).first->second;
+            return locusTerms_.emplace(key, kernel_.locusTerm(key.variant, key.genotypes[0], std::span<const core::datatypes::Genotype* const>(parentPointers_.data(), numObserved), latentParent)).first->second;
         }
 
         // Genome-level memo. Re-evaluating a parent set means summing locus terms over every locus, but in a clonal
@@ -297,7 +301,7 @@ namespace transmission_nets::model::transmission_process {
             GenomeId id;
         };
         struct GenomeHash {
-            std::size_t operator()(const std::vector<GeneticsImpl>& genome) const noexcept {
+            std::size_t operator()(const std::vector<core::datatypes::Genotype>& genome) const noexcept {
                 std::size_t h = genome.size();
                 for (const auto& genotype : genome) {
                     h = (h * 0x100000001b3ULL) ^ genotype.hash();
@@ -389,7 +393,7 @@ namespace transmission_nets::model::transmission_process {
         // The latent locus tables: see the memoised layers in doc/marginal-latent-parent.md.
         struct GenotypeKey {
             unsigned int numParents = 0;// observed parents
-            std::array<GeneticsImpl, MAX_PARENTS + 1> genotypes{};// child, then the observed parents
+            std::array<core::datatypes::Genotype, MAX_PARENTS + 1> genotypes{};// child, then the observed parents
             bool operator==(const GenotypeKey&) const = default;
         };
         struct GenotypeKeyHash {
@@ -402,7 +406,7 @@ namespace transmission_nets::model::transmission_process {
             }
         };
         struct GeneticsHash {
-            std::size_t operator()(const GeneticsImpl& g) const noexcept { return g.hash(); }
+            std::size_t operator()(const core::datatypes::Genotype& g) const noexcept { return g.hash(); }
         };
         // The tables and Source overlaps at one locus for one frequency id. Each locus keeps the few most recently used
         // ids: an allele-frequency proposal needs the tables at the current and the proposed frequencies, and tables at
@@ -414,7 +418,7 @@ namespace transmission_nets::model::transmission_process {
             std::uint64_t lastUse = 0;
             std::unordered_map<GenotypeKey, LocusTable, GenotypeKeyHash> tables{};
             std::unordered_map<GenotypeKey, LocusTable, GenotypeKeyHash> olderTables{};
-            std::unordered_map<GeneticsImpl, marginal::SourceOverlap, GeneticsHash> overlaps{};
+            std::unordered_map<core::datatypes::Genotype, marginal::SourceOverlap, GeneticsHash> overlaps{};
         };
         static constexpr int SLOTS_PER_LOCUS = 4;
         using LocusStore                     = std::array<FrequencySlot, SLOTS_PER_LOCUS>;
@@ -463,7 +467,7 @@ namespace transmission_nets::model::transmission_process {
 
         using FTable = typename Kernel::FTable;
 
-        static GenotypeKey genotypeKey(const GeneticsImpl& child, const std::span<const GeneticsImpl* const> parents) {
+        static GenotypeKey genotypeKey(const core::datatypes::Genotype& child, const std::span<const core::datatypes::Genotype* const> parents) {
             GenotypeKey key{.numParents = static_cast<unsigned int>(parents.size())};
             key.genotypes[0] = child;
             for (size_t p = 0; p < parents.size(); ++p) {
@@ -472,7 +476,7 @@ namespace transmission_nets::model::transmission_process {
             return key;
         }
 
-        const FTable& fTable(const GenotypeKey& key, const GeneticsImpl& child, const std::span<const GeneticsImpl* const> parents) {
+        const FTable& fTable(const GenotypeKey& key, const core::datatypes::Genotype& child, const std::span<const core::datatypes::Genotype* const> parents) {
             if (const auto it = fTables_.find(key); it != fTables_.end()) {
                 return it->second;
             }
@@ -507,18 +511,18 @@ namespace transmission_nets::model::transmission_process {
         bool tableValid_    = false;
 
         // Scratch.
-        std::array<const GeneticsImpl*, MAX_PARENTS + 1> parentPointers_{};
-        std::vector<GeneticsImpl> genomeScratch_{};
+        std::array<const core::datatypes::Genotype*, MAX_PARENTS + 1> parentPointers_{};
+        std::vector<core::datatypes::Genotype> genomeScratch_{};
 
         // Caches are per instance (one per chain); all keys are pure functions of genotype content.
         std::unordered_map<LocusTermKey, LocusTerm, LocusTermKeyHash> locusTerms_{};
         std::unordered_map<StrainSumKey, StrainSums, StrainSumKeyHash> strainSums_{};
-        std::unordered_map<std::vector<GeneticsImpl>, GenomeId, GenomeHash> genomeIds_{};
+        std::unordered_map<std::vector<core::datatypes::Genotype>, GenomeId, GenomeHash> genomeIds_{};
         std::unordered_map<std::vector<const void*>, GenomeId, LocusOrderHash> locusOrderIds_{};
         std::unordered_map<int, InfectionGenome> infectionGenomes_{};
         std::unordered_map<int, GenomeId> infectionLocusOrders_{};
 #ifndef NDEBUG
-        std::vector<const std::vector<GeneticsImpl>*> genomesById_{};
+        std::vector<const std::vector<core::datatypes::Genotype>*> genomesById_{};
 #endif
         std::uint64_t generation_ = 0;
         std::unordered_map<FrequencyKey, FrequencyId, FrequencyKeyHash> frequencyIds_{};

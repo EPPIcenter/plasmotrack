@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PARENTSETGENOTYPEPROPOSAL_H
 #define TRANSMISSION_NETWORKS_APP_PARENTSETGENOTYPEPROPOSAL_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/containers/UidLess.h"
 #include "core/utils/generators/CombinationIndicesGenerator.h"
 
@@ -31,13 +32,13 @@ namespace transmission_nets::core::samplers::genetics {
      * carried by a chosen parent is then present with probability 1 - fpRate if observed in the child and fnRate if
      * not, and every allele no chosen parent carries is absent.
      */
-    template<typename GeneticsImpl, size_t N, typename Engine>
-    GeneticsImpl proposeLocus(const std::array<const GeneticsImpl*, N>& parents, const size_t numParents, const GeneticsImpl& observed, Engine& rng, const double fnRate, const double fpRate) {
+    template<size_t N, typename Engine>
+    core::datatypes::Genotype proposeLocus(const std::array<const core::datatypes::Genotype*, N>& parents, const size_t numParents, const core::datatypes::Genotype& observed, Engine& rng, const double fnRate, const double fpRate) {
         auto carried = observed;
         carried.reset();
         auto proposal = carried;
         for (size_t p = 0; p < numParents; ++p) {
-            carried = GeneticsImpl::any(carried, *parents[p]);
+            carried = core::datatypes::Genotype::any(carried, *parents[p]);
             if (const unsigned int count = parents[p]->totalPositiveCount(); count > 0) {
                 boost::random::uniform_int_distribution<unsigned int> pick(0, count - 1);
                 unsigned int skip = pick(rng);
@@ -63,41 +64,41 @@ namespace transmission_nets::core::samplers::genetics {
      * have contributed (each one in the child): every carried allele is drawn independently, except that a
      * contributed allele is present with probability 1 instead of its draw's.
      */
-    template<typename GeneticsImpl, size_t N>
-    double logLocusProposalProb(const std::array<const GeneticsImpl*, N>& parents, const size_t numParents, const GeneticsImpl& child, const GeneticsImpl& observed, const double fnRate, const double fpRate) {
+    template<size_t N>
+    double logLocusProposalProb(const std::array<const core::datatypes::Genotype*, N>& parents, const size_t numParents, const core::datatypes::Genotype& child, const core::datatypes::Genotype& observed, const double fnRate, const double fpRate) {
         auto carried = child;
         carried.reset();
         for (size_t p = 0; p < numParents; ++p) {
-            carried = GeneticsImpl::any(carried, *parents[p]);
+            carried = core::datatypes::Genotype::any(carried, *parents[p]);
         }
-        if (GeneticsImpl::falsePositiveCount(carried, child) > 0) {
+        if (core::datatypes::Genotype::falsePositiveCount(carried, child) > 0) {
             return -std::numeric_limits<double>::infinity();// the child has an allele no chosen parent carries
         }
 
         // Every carried allele drawn independently.
-        const auto presentObserved    = GeneticsImpl::truePositiveCount(child, observed);
-        const auto presentUnobserved  = GeneticsImpl::falseNegativeCount(child, observed);
-        const auto absentObserved     = GeneticsImpl::truePositiveCount(carried, observed) - presentObserved;
-        const auto absentUnobserved   = GeneticsImpl::falseNegativeCount(carried, observed) - presentUnobserved;
+        const auto presentObserved    = core::datatypes::Genotype::truePositiveCount(child, observed);
+        const auto presentUnobserved  = core::datatypes::Genotype::falseNegativeCount(child, observed);
+        const auto absentObserved     = core::datatypes::Genotype::truePositiveCount(carried, observed) - presentObserved;
+        const auto absentUnobserved   = core::datatypes::Genotype::falseNegativeCount(carried, observed) - presentUnobserved;
         const double logIndependent   = presentObserved * std::log(1.0 - fpRate) + absentObserved * std::log(fpRate) +
                                         presentUnobserved * std::log(fnRate) + absentUnobserved * std::log(1.0 - fnRate);
 
         // Each carrying parent's possible contributions: its alleles that are in the child.
-        auto nextAllele = [](const GeneticsImpl& alleles, unsigned int from) {
+        auto nextAllele = [](const core::datatypes::Genotype& alleles, unsigned int from) {
             while (from < alleles.totalAlleles() and not alleles.allele(from)) {
                 ++from;
             }
             return from;
         };
-        std::array<const GeneticsImpl*, N> carrying{};
-        std::array<GeneticsImpl, N> inChild{};
+        std::array<const core::datatypes::Genotype*, N> carrying{};
+        std::array<core::datatypes::Genotype, N> inChild{};
         std::array<unsigned int, N> choice{};// the contributed allele, as an index
         size_t numCarrying = 0;
         for (size_t p = 0; p < numParents; ++p) {
             if (parents[p]->totalPositiveCount() == 0) {
                 continue;
             }
-            inChild[numCarrying] = GeneticsImpl::shared(*parents[p], child);
+            inChild[numCarrying] = core::datatypes::Genotype::shared(*parents[p], child);
             if (inChild[numCarrying].totalPositiveCount() == 0) {
                 return -std::numeric_limits<double>::infinity();// this parent contributed nothing
             }
@@ -143,10 +144,9 @@ namespace transmission_nets::core::samplers::genetics {
      * genotype, the observed one (empty where nothing was observed), and the presence rate proposeLocus() uses for
      * carried alleles the observation lacks (fnRate, or UNOBSERVED_LOCUS_PRESENCE where nothing was observed).
      */
-    template<typename GeneticsImpl>
     struct ProposalTarget {
-        std::vector<GeneticsImpl> latent{};
-        std::vector<GeneticsImpl> observed{};
+        std::vector<core::datatypes::Genotype> latent{};
+        std::vector<core::datatypes::Genotype> observed{};
         std::vector<double> presence{};
 
         template<typename InfectionEventImpl>
@@ -175,8 +175,8 @@ namespace transmission_nets::core::samplers::genetics {
     };
 
     // `other`'s latent genotypes at `infection`'s loci, in infection.latentGenotype() order.
-    template<typename InfectionEventImpl, typename GeneticsImpl>
-    void latentGenotypesAlong(const InfectionEventImpl& infection, const InfectionEventImpl& other, std::vector<GeneticsImpl>& out) {
+    template<typename InfectionEventImpl>
+    void latentGenotypesAlong(const InfectionEventImpl& infection, const InfectionEventImpl& other, std::vector<core::datatypes::Genotype>& out) {
         out.clear();
         const auto& theirs = other.latentGenotype();
         auto it            = theirs.begin();
@@ -240,8 +240,8 @@ namespace transmission_nets::core::samplers::genetics {
 
         for (const auto& locus : infection->loci()) {
             auto genotype = infection->latentGenotype(locus);
-            using Genetics = std::remove_cvref_t<decltype(genotype->value())>;
-            std::array<const Genetics*, MaxParentSetSize + 1> parents{};
+            using Genotype = std::remove_cvref_t<decltype(genotype->value())>;
+            std::array<const Genotype*, MaxParentSetSize + 1> parents{};
             size_t numChosen = 0;
             if (withLatent) {
                 parents[numChosen++] = &latentParent->latentGenotype(locus)->value();
@@ -249,7 +249,7 @@ namespace transmission_nets::core::samplers::genetics {
             for (const auto idx : chosen) {
                 parents[numChosen++] = &parentSet.begin()[idx]->latentGenotype(locus)->value();
             }
-            Genetics proposal;
+            Genotype proposal;
             if (infection->observedGenotype().contains(locus)) {
                 proposal = proposeLocus(parents, numChosen, infection->observedGenotype(locus)->value(), rng, fnRate, fpRate);
             } else {

@@ -153,12 +153,12 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
                 return -std::numeric_limits<double>::infinity();
             }
             const auto frequencies = state->alleleFrequencies->alleleFrequencies(locus)->value().frequencies();
-            std::vector<const GeneticsImpl*> parents;
+            std::vector<const Genotype*> parents;
             for (const auto& p : observed) {
                 parents.push_back(&p->latentGenotype(locus)->value());
             }
-            const auto table = marginal::locusTable<MAX_COI, MAX_STRAINS, GeneticsImpl>(marginal::SourceOverlap(frequencies, childAlleles, MAX_COI), locus->totalAlleles(), [&](const GeneticsImpl& g) -> std::optional<std::array<double, MAX_STRAINS>> {
-                const auto& term = memo->locusTerm(variant, child, std::span<const GeneticsImpl* const>(parents), &g);
+            const auto table = marginal::locusTable<MAX_COI, MAX_STRAINS>(marginal::SourceOverlap(frequencies, childAlleles, MAX_COI), locus->totalAlleles(), [&](const Genotype& g) -> std::optional<std::array<double, MAX_STRAINS>> {
+                const auto& term = memo->locusTerm(variant, child, std::span<const Genotype* const>(parents), &g);
                 if (term.impossible) {
                     return std::nullopt;
                 }
@@ -281,7 +281,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
         auto childGenotype  = infection->latentGenotype(locus);
         auto parentGenotype = parent->latentGenotype(locus);
         auto step           = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
-        step.change(*parentGenotype, GeneticsImpl(randomBits(locus->totalAlleles())));
+        step.change(*parentGenotype, Genotype(randomBits(locus->totalAlleles())));
         step.change(*childGenotype, parentGenotype->value());
         if (std::isfinite(step.value()) && unif(*rng) < 0.5) {
             step.accept();
@@ -388,7 +388,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
             const auto& loci      = infection->loci();
             const auto& locus     = loci[k % loci.size()];
             auto genotype         = infection->latentGenotype(locus);
-            perturb(genotype, GeneticsImpl(randomBits(locus->totalAlleles())));
+            perturb(genotype, Genotype(randomBits(locus->totalAlleles())));
         }
     }
 
@@ -401,7 +401,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
         const auto& locus     = infection->loci()[j % infection->loci().size()];
         auto genotype         = infection->latentGenotype(locus);
         genotype->saveState(1);
-        genotype->setValue(GeneticsImpl(randomBits(locus->totalAlleles())));
+        genotype->setValue(Genotype(randomBits(locus->totalAlleles())));
         model->value();
         genotype->restoreState(1);
         model->value();

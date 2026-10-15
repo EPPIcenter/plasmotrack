@@ -8,7 +8,7 @@
 #include "core/containers/AllowedRelationships.h"
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler4.h"
 
 #include <boost/random.hpp>
@@ -20,8 +20,8 @@
 using namespace transmission_nets::core;
 
 namespace {
-    using Genetics  = datatypes::AllelesBitSet<128>;
-    using Infection = containers::Infection<Genetics>;
+    using Genotype  = datatypes::Genotype;
+    using Infection = containers::Infection<>;
 
     struct FlatTarget {
         double value() { return 0.0; }
@@ -35,9 +35,9 @@ TEST(RandomAllelesBitSetSampler4Test, FlatTargetLeavesEveryAlleleEquallyLikely) 
     auto a = std::make_shared<Infection>("a", 10.0);
     auto b = std::make_shared<Infection>("b", 20.0);
     auto c = std::make_shared<Infection>("c", 30.0);
-    a->addGenetics(locus, Genetics("10"), Genetics("10"));
-    b->addGenetics(locus, Genetics("10"), Genetics("10"));
-    c->addGenetics(locus, Genetics("01"), Genetics("01"));
+    a->addGenetics(locus, Genotype("10"), Genotype("10"));
+    b->addGenetics(locus, Genotype("10"), Genotype("10"));
+    c->addGenetics(locus, Genotype("01"), Genotype("01"));
     auto latentParent = std::make_shared<Infection>(*a);
 
     auto relationships = std::make_shared<containers::AllowedRelationships<Infection>>();
@@ -49,7 +49,7 @@ TEST(RandomAllelesBitSetSampler4Test, FlatTargetLeavesEveryAlleleEquallyLikely) 
 
     auto rng    = std::make_shared<boost::random::mt19937>(20261008);
     auto target = std::make_shared<FlatTarget>();
-    samplers::genetics::RandomAllelesBitSetSampler4<FlatTarget, boost::random::mt19937, Infection, Genetics, containers::Locus>
+    samplers::genetics::RandomAllelesBitSetSampler4<FlatTarget, boost::random::mt19937, Infection, containers::Locus>
             sampler(a, latentParent, locus, relationships, target, rng, 20);
 
     for (int i = 0; i < 10000; ++i) {
