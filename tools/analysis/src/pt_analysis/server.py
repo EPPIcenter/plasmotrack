@@ -1,8 +1,9 @@
 """The local HTTP backend of `pt-analysis serve`: the built frontend as static files, and a JSON API over an Analysis.
 
 Each module named in `ENDPOINTS` serves one view's data: it exports `ROUTES`, a list of Starlette routes under
-`/api/`, whose handlers find the Analysis at `request.app.state.analysis`. A new view's backend is one module in
-`pt_analysis/endpoints/` plus its line under its use case's comment in `ENDPOINTS`.
+`/api/`, whose handlers find the Analysis with `pt_analysis.endpoints.requested_analysis(request)`: the primary
+(`request.app.state.analysis`), or the open Analysis the request names with `analysis=LABEL`. A new view's backend is
+one module in `pt_analysis/endpoints/` plus its line under its use case's comment in `ENDPOINTS`.
 """
 
 import importlib
@@ -19,6 +20,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from pt_analysis.derive import derive_analysis
+from pt_analysis.endpoints import UnknownAnalysis, unknown_analysis
 
 # The frontend's build output, `tools/analysis/web/dist/` (`pnpm build` in `tools/analysis/web/`).
 STATIC_DIR = Path(__file__).resolve().parents[2] / "web" / "dist"
@@ -83,7 +85,7 @@ def not_built(request):
 def create_app(analysis, static_dir=STATIC_DIR, analyses=None):
     """A Starlette app over `analysis`, deriving its tables first if they are not current. `analyses`, label ->
     Analysis with `analysis` first, opens further Analyses of the same input for comparison (U5, `pt_analysis.compare`);
-    every endpoint reads `analysis`, the primary, unless it takes an `analysis` parameter."""
+    every endpoint reads `analysis`, the primary, unless the request names another with `analysis=LABEL`."""
     analyses = dict(analyses) if analyses else {analysis.label: analysis}
     for other in analyses.values():
         derive_analysis(other)
@@ -93,7 +95,8 @@ def create_app(analysis, static_dir=STATIC_DIR, analyses=None):
         routes.append(Mount("/", AppFiles(directory=static_dir, html=True)))
     else:
         routes.append(Route("/", not_built))
-    app = Starlette(routes=routes, middleware=[Middleware(GZipMiddleware, minimum_size=1000)])
+    app = Starlette(routes=routes, middleware=[Middleware(GZipMiddleware, minimum_size=1000)],
+                    exception_handlers={UnknownAnalysis: unknown_analysis})
     app.state.analysis = analysis
     app.state.analyses = analyses
     return app

@@ -8,7 +8,7 @@
 
 from starlette.routing import Route
 
-from pt_analysis.endpoints import error, json
+from pt_analysis.endpoints import error, json, requested_analysis
 from pt_analysis.infection import UnknownInfection, card
 
 
@@ -17,7 +17,7 @@ async def infection(request):
     if not infection_id:
         return error("the infection card needs an Infection id")
     try:
-        return json(card(request.app.state.analysis, infection_id))
+        return json(card(requested_analysis(request), infection_id))
     except UnknownInfection as e:
         return error(str(e), 404)
 

@@ -16,11 +16,11 @@ is remembered until a Chain closes another Window.
 from starlette.routing import Route
 
 from pt_analysis import overview as compute
-from pt_analysis.endpoints import error, json, memo
+from pt_analysis.endpoints import error, json, memo, requested_analysis
 
 
 async def status(request):
-    return json(compute.status(request.app.state.analysis, len(getattr(request.app.state, "analyses", {}) or [1])))
+    return json(compute.status(requested_analysis(request), len(getattr(request.app.state, "analyses", {}) or [1])))
 
 
 async def overview(request):
@@ -29,7 +29,7 @@ async def overview(request):
         band = (float(params.get("band_lo", compute.BAND[0])), float(params.get("band_hi", compute.BAND[1])))
     except ValueError:
         return error("band_lo and band_hi are acceptance rates between 0 and 1")
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     return json(memo(request, ("overview", band), lambda: compute.overview(analysis, band)))
 
 

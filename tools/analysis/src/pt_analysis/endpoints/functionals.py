@@ -18,7 +18,7 @@ from dataclasses import asdict
 
 from starlette.routing import Route
 
-from pt_analysis.endpoints import error, json, memo
+from pt_analysis.endpoints import error, json, memo, requested_analysis
 from pt_analysis.epi import EpiError, load_epi
 from pt_analysis.strata import LEVEL, labels, stratified_functionals
 
@@ -27,7 +27,7 @@ async def epi(request):
     """The epi data's key and columns with their types, the keys that are no Infection (`unmatched`), the
     Infections without a row (`missing`) and the number of Infections with a row."""
     try:
-        data = load_epi(request.app.state.analysis)
+        data = load_epi(requested_analysis(request))
     except EpiError as e:
         return error(str(e))
     if data is None:
@@ -38,7 +38,7 @@ async def epi(request):
 
 
 async def functionals(request):
-    analysis = request.app.state.analysis
+    analysis = requested_analysis(request)
     column = request.query_params.get("column") or None
     try:
         level = float(request.query_params.get("level", LEVEL))
