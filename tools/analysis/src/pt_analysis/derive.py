@@ -18,6 +18,7 @@ An Analysis's own derived tables go in `<manifest stem>.derived/` beside its man
 Run's directory and closed Windows; `derive_analysis` derives every Run first, then rewrites them when that changes:
 
     convergence   group, name, chain, ess, rhat
+    edge_stats    child, parent, unobserved, chain, mean, switches, spread, ess   (see `pt_analysis.edge_stats`)
 """
 
 # The SQL below names DuckDB relations held in local variables (`FROM parent_sets`); DuckDB finds them by name in
@@ -300,6 +301,17 @@ def convergence(analysis):
 
 
 ANALYSIS_TABLES = {"convergence": convergence}
+
+
+def edge_stats(analysis):
+    """U2's per-edge statistics over the Chains, in `pt_analysis.edge_stats`; written after `convergence`, whose ESS
+    it reads."""
+    from pt_analysis import edge_stats
+
+    return edge_stats.compute(analysis)
+
+
+ANALYSIS_TABLES["edge_stats"] = edge_stats
 
 
 def analysis_dir(analysis):
