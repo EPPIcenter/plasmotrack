@@ -30,7 +30,6 @@ import {
   type TimelineLayout,
   type Tooltip,
 } from "../network";
-import { views } from "../registry";
 import { formatRoute } from "../router";
 import { clearSelection, getSelection, select, subscribeSelection } from "../selection";
 import type { RenderView } from "../view";
@@ -343,11 +342,8 @@ const render: RenderView = (root, ctx) => {
       info.className = "selection-info";
       const names = [...selected].slice(0, 5).join(", ") + (selected.size > 5 ? ", …" : "");
       info.append(`Selected: ${names} `);
-      // HOOK(#83, edge table): the edge table reads the shared selection (src/selection.ts) and shows only edges
-      // touching it. This link opens it once that view is registered under the route "edges".
-      if (views.some((v) => v.route === "edges")) {
-        info.append(Object.assign(document.createElement("a"), { href: formatRoute("edges"), textContent: "edge table" }), " ");
-      }
+      // The edge table (#83) reads the shared selection and keeps only edges touching it.
+      info.append(Object.assign(document.createElement("a"), { href: formatRoute("edges"), textContent: "Their edges" }), " ");
       const clear = Object.assign(document.createElement("button"), { type: "button", textContent: "Clear" });
       clear.addEventListener("click", () => clearSelection());
       info.append(clear);

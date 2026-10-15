@@ -45,6 +45,9 @@ export interface Filter {
   parent: string;
   /** Whether rows whose parent is the unobserved source are kept. */
   unobserved: boolean;
+  /** Infections selected in the network view (src/selection.ts): when non-empty, only edges with the child or the
+   * parent among them are kept. */
+  selection?: ReadonlySet<string>;
 }
 
 export function edgeRows(json: readonly EdgeJson[]): EdgeRow[] {
@@ -82,10 +85,12 @@ export function sortEdges(rows: readonly EdgeRow[], sort: Sort): EdgeRow[] {
 export function filterEdges(rows: readonly EdgeRow[], filter: Filter): EdgeRow[] {
   const child = filter.child.trim();
   const parent = filter.parent.trim();
+  const selection = filter.selection?.size ? filter.selection : null;
   return rows.filter(
     (r) =>
       (child === "" || r.child === child) &&
       (parent === "" || r.parent === parent) &&
-      (filter.unobserved || !r.unobserved),
+      (filter.unobserved || !r.unobserved) &&
+      (!selection || selection.has(r.child) || selection.has(r.parent)),
   );
 }

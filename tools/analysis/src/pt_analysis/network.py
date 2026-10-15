@@ -10,19 +10,10 @@ Pooling is over Chain x Draw: a pooled mean is the sum over every Chain's Draws 
 all, and quantiles are over the pooled per-Draw values (R type 7).
 """
 
-import gzip
-import json
-
+from pt_analysis import inputs
 from pt_analysis.derive import derive_analysis, derived, table
 
 DEFAULT_FLOOR = 0.01
-
-
-def read_input(path):
-    """The engine input JSON at `path`, gzipped or not."""
-    opener = gzip.open if str(path).endswith(".gz") else open
-    with opener(path, "rt") as f:
-        return json.load(f)
 
 
 def _views(analysis, name, relation_of):
@@ -49,12 +40,12 @@ def network(analysis, floor=DEFAULT_FLOOR):
         FROM ({durations_query}) GROUP BY infection""").fetchall()}
 
     nodes = []
-    for node in read_input(analysis.input)["nodes"]:
+    for id, node in inputs.nodes(analysis.input).items():
         time = node["observation_time"]
-        quantiles = durations.get(node["id"])
+        quantiles = durations.get(id)
         interval = None if quantiles is None else dict(zip(("lower", "median", "upper"), (time - d for d in quantiles)))
-        nodes.append({"id": node["id"], "observation_time": time, "symptomatic": node.get("symptomatic", True),
-                      "q": q.get(node["id"]), "infection_time": interval})
+        nodes.append({"id": id, "observation_time": time, "symptomatic": node.get("symptomatic", True),
+                      "q": q.get(id), "infection_time": interval})
 
     observation_time = {n["id"]: n["observation_time"] for n in nodes}
     return {"chains": list(analysis.runs), "floor": floor, "nodes": nodes,

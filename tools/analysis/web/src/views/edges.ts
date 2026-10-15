@@ -5,6 +5,7 @@
 import { getJson } from "../api";
 import { edgeRows, filterEdges, sortEdges, type EdgeJson, type EdgeRow, type SortKey } from "../edges";
 import { formatEss } from "../format";
+import { getSelection, subscribeSelection } from "../selection";
 import type { RenderView } from "../view";
 import { virtualList } from "../virtual-list";
 
@@ -31,12 +32,15 @@ const render: RenderView = (root, ctx) => {
   const childInput = el("input", { type: "search", placeholder: "Child id", value: ctx.params.get("child") ?? "" });
   const parentInput = el("input", { type: "search", placeholder: "Parent id", value: ctx.params.get("parent") ?? "" });
   const unobserved = el("input", { type: "checkbox", checked: ctx.params.get("unobserved") !== "0" });
+  // The Infections selected in the network view (#84): when there are any, the table keeps their edges unless unticked.
+  const selected = el("input", { type: "checkbox", checked: true });
+  const selectedLabel = el("label", {}, selected, " Selected Infections only");
   const count = el("span", { className: "muted" });
   const header = el("div", { className: "table-row table-header" });
   header.style.gridTemplateColumns = columns;
   const body = el("div", { className: "table-body" });
   root.append(
-    el("div", { className: "toolbar" }, childInput, parentInput, el("label", {}, unobserved, " Unobserved source"), count),
+    el("div", { className: "toolbar" }, childInput, parentInput, el("label", {}, unobserved, " Unobserved source"), selectedLabel, count),
     el("div", { className: "table" }, header, body),
   );
 
@@ -99,7 +103,11 @@ const render: RenderView = (root, ctx) => {
   const list = virtualList<EdgeRow>(body, ROW_HEIGHT, renderRow);
 
   function update() {
-    const filter = { child: childInput.value, parent: parentInput.value, unobserved: unobserved.checked };
+    const selection = getSelection();
+    selectedLabel.hidden = selection.size === 0;
+    selectedLabel.lastChild!.textContent = ` Selected Infections only (${[...selection].slice(0, 5).join(", ")}${selection.size > 5 ? ", …" : ""})`;
+    const filter = { child: childInput.value, parent: parentInput.value, unobserved: unobserved.checked,
+                     selection: selected.checked ? selection : undefined };
     const shown = sortEdges(filterEdges(all, filter), { key: sortKey, descending });
     count.textContent = `${shown.length.toLocaleString()} of ${all.length.toLocaleString()} edges`;
     drawHeader();
@@ -115,6 +123,8 @@ const render: RenderView = (root, ctx) => {
   childInput.addEventListener("input", update);
   parentInput.addEventListener("input", update);
   unobserved.addEventListener("change", update);
+  selected.addEventListener("change", update);
+  const unsubscribe = subscribeSelection(() => all.length && update());
   count.textContent = "Loading the edge table…";
 
   getJson<{ rows: EdgeJson[] }>("/api/edges")
@@ -124,7 +134,10 @@ const render: RenderView = (root, ctx) => {
     })
     .catch((e: Error) => (count.textContent = `Could not load the edge table: ${e.message}`));
 
-  return () => list.destroy();
+  return () => {
+    unsubscribe();
+    list.destroy();
+  };
 };
 
 export default render;
