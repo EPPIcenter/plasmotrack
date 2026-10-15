@@ -293,20 +293,24 @@ export interface NodeColours {
   legend: ColourLegend;
 }
 
+/** Node colours of a categorical column: the categorical palette without its orange, which the network view keeps
+ * for the selected Infections and their edges. */
+export const CATEGORY_COLOURS = CHAIN_COLOURS.filter((c) => c !== "#eb6834");
+
 const short = (x: number) => String(Number(x.toPrecision(3)));
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 /** Each node's colour under `key`, and the legend. q runs along the ramp from 0 to 1; a numeric or date column and
  * the posterior quantities from their smallest to their largest value; a categorical column takes the categorical
- * palette in the column's value order, or an ordinal ramp when it has more values than the palette. No value: grey. */
+ * palette in the column's value order, or an ordinal ramp when it has more values than the palette (seven). No value: grey. */
 export function nodeColours(payload: NetworkPayload, key: ColourKey): NodeColours {
   const colours = new Map<string, string>();
   const column = key.startsWith("epi:") ? payload.epi_columns?.find((c) => c.name === key.slice(4)) : undefined;
 
   if (column?.type === "categorical") {
     const values = column.values.filter((v): v is string => v !== null);
-    const palette = values.length <= CHAIN_COLOURS.length
-      ? values.map((_, i) => CHAIN_COLOURS[i]!)
+    const palette = values.length <= CATEGORY_COLOURS.length
+      ? values.map((_, i) => CATEGORY_COLOURS[i]!)
       : values.map((_, i) => rampColour(i / (values.length - 1)));
     const byValue = new Map(values.map((v, i) => [v, palette[i]!]));
     let missing = 0;

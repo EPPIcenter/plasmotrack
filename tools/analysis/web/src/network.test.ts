@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CHAIN_COLOURS } from "./format";
 import {
+  CATEGORY_COLOURS,
   colourOptions,
   EdgeThreshold,
   edgeTooltip,
@@ -247,9 +247,10 @@ describe("epi strata and colours", () => {
 
   it("colour a categorical column by the categorical palette in the column's value order, no value grey", () => {
     const { colours, legend } = nodeColours(payload, "epi:district");
-    expect([...colours.values()]).toEqual([CHAIN_COLOURS[0], CHAIN_COLOURS[1], NO_Q, NO_Q]);
+    expect([...colours.values()]).toEqual([CATEGORY_COLOURS[0], CATEGORY_COLOURS[1], NO_Q, NO_Q]);
+    expect(CATEGORY_COLOURS).not.toContain("#eb6834"); // the selection's colour
     expect(legend).toEqual({ kind: "categories", label: "district", missing: 2,
-      items: [{ label: "North", colour: CHAIN_COLOURS[0] }, { label: "South", colour: CHAIN_COLOURS[1] }] });
+      items: [{ label: "North", colour: CATEGORY_COLOURS[0] }, { label: "South", colour: CATEGORY_COLOURS[1] }] });
   });
 
   it("colour more categories than the palette holds along an ordinal ramp", () => {

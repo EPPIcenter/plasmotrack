@@ -458,7 +458,12 @@ const render: RenderView = (root, ctx) => {
       stratumValue.hidden = !column;
       stratumValue.replaceChildren(...(column?.values ?? []).map((v) =>
         el("option", { value: v ?? NONE, textContent: stratumLabel(column!.name, v) })));
-      if (column && stratum?.column === column.name) stratumValue.value = stratum.value ?? NONE;
+      if (column && stratum?.column === column.name) {
+        // A stratum the URL names but the column does not list (no Infection without a value): shown, and empty.
+        if (!column.values.includes(stratum.value))
+          stratumValue.append(el("option", { value: stratum.value ?? NONE, textContent: stratumLabel(column.name, stratum.value) }));
+        stratumValue.value = stratum.value ?? NONE;
+      }
     }
     fillValues();
 
