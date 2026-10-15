@@ -28,8 +28,9 @@ namespace transmission_nets::impl::Model::checkpoint {
     Checkpoint capture(const Ensemble& ensemble, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds);
 
     // Builds an ensemble from `checkpoint` and the Run's input, with `runRng` as its top-level engine, continued from
-    // where the checkpoint left it. Throws Refused for a checkpoint that doesn't fit the input. Whether it fits the Run
-    // is the Run recipe's to check.
+    // where the checkpoint left it, pending ladder barriers included; a new Run started from it calls
+    // restartBurnIn(). Throws Refused for a checkpoint that doesn't fit the input. Whether it fits the Run is the Run
+    // recipe's to check.
     std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint,
                                       const std::shared_ptr<Engine>& runRng,
                                       const nlohmann::json& input,

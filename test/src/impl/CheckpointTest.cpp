@@ -284,7 +284,9 @@ TEST(CheckpointTest, RestoreRefusesAnInputWithOtherLoci) {
     EXPECT_THROW(checkpoint::restore(checkpoint::load(file), std::make_shared<Engine>(1), nlohmann::json::parse(renamed), idp, idp, false, 1), Refused);
 }
 
-TEST(CheckpointTest, ACheckpointSavedWhileSamplingRestoresNoPendingLadderBarriers) {
+// A checkpoint restores the exchange state as saved, pending ladder barriers included, whatever the Phase: a resumed
+// Run continues exactly, and a Run started from the checkpoint restarts its burn-in itself.
+TEST(CheckpointTest, ACheckpointSavedWhileSamplingRestoresItsPendingLadderBarriers) {
     TempDir dir;
     const auto file = dir.path / "checkpoint.cbor";
     // Burn-in ends 3 iterations after the adaptation at 15, leaving barriers pending, then sampling alternates the pairs.
@@ -292,13 +294,10 @@ TEST(CheckpointTest, ACheckpointSavedWhileSamplingRestoresNoPendingLadderBarrier
     for (int ii = 0; ii < 5; ++ii) {
         original.ensemble->sample();
     }
-    ASSERT_GT(original.ensemble->exchangeState().barrierIterations, 0);
+    const auto saved = original.ensemble->exchangeState();
+    ASSERT_GT(saved.barrierIterations, 0);
     const checkpoint::RunPosition sampling{.iteration = 23, .phase = checkpoint::Phase::Sampling, .lastClosedWindow = 0, .burnInRemaining = 0, .samplingRemaining = 10};
     checkpoint::save(checkpoint::capture(*original.ensemble, identity(), sampling, {}), file);
 
-    const auto exchange = restoredFrom(file).ensemble->exchangeState();
-
-    EXPECT_EQ(exchange.barrierIterations, 0);
-    EXPECT_EQ(exchange.swapBarriers, (std::vector<double>{0.0, 0.0, 0.0}));
-    EXPECT_EQ(exchange.temperatures, original.ensemble->exchangeState().temperatures);
+    EXPECT_EQ(restoredFrom(file).ensemble->exchangeState(), saved);
 }
