@@ -281,7 +281,7 @@ export default function NetworkWorkspace() {
   const offerSources = (overlay?.sources.length ?? 0) > 1;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-2 [contain:inline-size]">
+    <div className="flex h-full min-h-0 flex-col gap-2 p-2">
       <Group orientation="horizontal" className="min-h-0 flex-1" id="network">
         <Split id="graph" minSize={420} defaultSize="70" className="flex min-w-0">
           <Panel

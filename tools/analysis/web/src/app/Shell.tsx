@@ -35,7 +35,7 @@ export function Shell() {
         <Rail />
         <Group orientation="horizontal" className="min-w-0 flex-1" id="shell">
           <Panel id="workspace" minSize={360} className="min-w-0">
-            <main className="h-full min-h-0 overflow-auto" aria-label="Workspace">
+            <main className="h-full min-h-0 overflow-auto [contain:inline-size]" aria-label="Workspace">
               <Suspense fallback={<p className="p-3 text-muted">Loading…</p>}>
                 <Outlet />
               </Suspense>

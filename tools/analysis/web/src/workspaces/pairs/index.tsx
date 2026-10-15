@@ -122,7 +122,7 @@ export default function PairsWorkspace() {
   const q = search.query;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-2 [contain:inline-size]">
+    <div className="flex h-full min-h-0 flex-col gap-2 p-2">
       <Group orientation="horizontal" className="min-h-0 flex-1" id="pairs">
         <Split id="list" minSize={360} defaultSize="50" className="flex min-w-0">
           <Panel

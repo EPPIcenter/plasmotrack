@@ -106,7 +106,7 @@ export default function EdgesWorkspace() {
   const input = "h-5 w-24 rounded-[3px] border border-line bg-surface px-1.5 text-axis";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-2 [contain:inline-size]">
+    <div className="flex h-full min-h-0 flex-col gap-2 p-2">
       <Group orientation="horizontal" className="min-h-0 flex-1" id="edges">
         <Split id="table" minSize={420} defaultSize="62" className="flex min-w-0">
           <Panel
