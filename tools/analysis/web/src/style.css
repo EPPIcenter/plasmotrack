@@ -55,6 +55,10 @@ table.data tr.differs td:first-child { box-shadow: inset 3px 0 var(--flag); font
 table.data td.num { text-align: right; }
 table.data td.clickable { cursor: pointer; }
 table.data td.clickable:hover { background: var(--hover); }
+.cohort-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.2em; }
+.cohort-grid section > div, .boxes, .scatter { min-width: 0; }
+.fit-detail:empty { display: none; }
+.fit-detail { margin: 0.4em 0; display: flex; gap: 0.6em; align-items: baseline; flex-wrap: wrap; }
 .bar-track { display: inline-block; width: 8em; height: 0.7em; background: var(--hover); vertical-align: middle; }
 .bar-track .bar { display: block; height: 100%; background: var(--accent); }
 .infection figure { margin: 0; }

@@ -41,7 +41,9 @@ An Analysis is a set of Runs of one input, described by a JSON manifest. Paths a
   "epi": "epi.csv",
   "pairwise_scores": "ibd.csv",
   "null_model": "../null/analysis.json",
-  "timings": "timings.json"
+  "timings": "timings.json",
+  "factors": {"run_key": "biological__fp0.05__sp0__r00.5__coi1__high__sim0__s0", "fit_type": "posterior", "...": "..."},
+  "cohort": "cohort.parquet"
 }
 ```
 
@@ -443,6 +445,57 @@ both Phases; every row carries its Window's Phase and Sampling-iteration range.
   and its payload.
 - A type with more targets than the categorical palette's eight colours draws them as thin grey lines, named in the
   tooltip.
+
+## Fit summaries and the cohort (U7)
+
+```sh
+uv run pt-analysis summarize analysis.json [--out row.parquet] [--edges [PATH]]
+uv run pt-analysis cohort ROWS_DIR|GLOB ... --out cohort.parquet
+uv run pt-analysis manifests-from-rerun ROOT --inputs DIR --out DIR [--symptomatic-idp F] [--asymptomatic-idp F]
+```
+
+`summarize` writes one row per Analysis with exactly the 70 columns of the thesis pipeline's
+`simulation_fit_summary.rds`, in its order: character columns as strings, counts (`simulation_index`, `seed`,
+`n_true_cases`, `n_observed_cases` and the six `*_n_*` ranking counts) as int64, the rest double. Without `--out` it
+prints the row. `pt_analysis.fit_summary.SCHEMA` is the schema.
+
+- Simulation factors (`run_key` to `fit_type`) come from the manifest's optional `factors` object; null without it.
+- Truth, ranking and parent-set columns are those of the ranking panel (`metrics.fit_summary_metrics`); null
+  without a truth file, except the credible-collection sizes and top probability, which need no truth.
+- Functionals are per-Draw means over the Analysis's Infections, pooled over every Draw of every Chain: the estimate
+  is their mean and `_lower`/`_upper` their 2.5% and 97.5% type-7 quantiles. `estimated_average_outdegree` is
+  psi_edge, `estimated_unobserved_source_proportion` mean q; `mean_observed_only_probability`,
+  `mean_mixed_observed_unobserved_probability` and `mean_unobserved_only_probability` sum the composition classes
+  without the unobserved source, with it, and with no observed parent; entropy and effective parent sets are from
+  `infection_draws`. `mean_no_parent_probability` and its interval are 0: the empty set never occurs in a store.
+- Errors are estimate minus truth, with its absolute value and square.
+
+With `--edges`, `summarize` also writes the per-edge rows beside the row (`row.edges.parquet`, or the path given):
+`run_key`, `missingness_condition`, `fit_type`, `parent`, `child`, `score` (the pooled Edge marginal as the ranking
+scores it) and `truth`, one per ordered pair of Infections with a positive score or a true edge. Pairs neither
+scored nor true are left out; there are `directed_n_edge_universe` less these rows of them.
+
+`cohort` concatenates row files (a directory's `*.parquet`, files or globs; `*.edges.parquet` are not rows) into one
+file, adding a last column `manifest`, the summarised Analysis's manifest path relative to the cohort file (from the
+row file's metadata). Their per-edge files go into `cohort.edges.parquet`. A file whose columns are not the fit
+summary's is an error naming it.
+
+`manifests-from-rerun` reads the thesis rerun's layout, `ROOT/<model>/<sim>/chain<N>` with `<model>` one of `full`,
+`partial` and `null` and `<sim>` the simulation's path under the inputs directory, and writes
+`OUT/<model>/<sim>.json` per fit with at least one Chain store: the Chains, the input (`<sim>_to_run.json.gz`, or
+`<sim>_to_run_partially_obs.json.gz` for partial), the IDPs (default `symptomatic_idp.csv` and
+`asymptomatic_idp.csv` beside the inputs directory), the truth (`<sim>.json.gz`) and the factors parsed from `<sim>`
+as `parse_run_ids.R` does (`simple_` marks the simplified model; panels low, med and high have 5, 10 and 20 alleles
+per Locus). full is `missingness_condition` full and `fit_type` posterior, partial missing_50 and posterior, null
+full and null_prior. The full fit names the null fit of its simulation as its null-model Analysis.
+
+On the cluster, a SLURM array runs `summarize --out rows/<n>.parquet --edges` per manifest, then `cohort rows
+--out cohort.parquet` makes one file to pull to the laptop.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/cohort[?file=PATH][&bins=10]` | the manifest's `cohort` (or `file`, relative to the manifest): `columns` ({name, kind}), `data` by column, and `calibration`, per cohort row and Edge-marginal bin the per-edge count, true count and summed score; 404 without a cohort |
+| `POST /api/cohort/open?row=N[&file=PATH]` | serves row N's Analysis with `pt-analysis serve` on a free port (once per manifest) and returns its `url` |
 
 ## Compare Analyses
 

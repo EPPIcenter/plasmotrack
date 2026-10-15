@@ -46,6 +46,7 @@ ENDPOINTS = [
     "pt_analysis.endpoints.truth",  # U6: truth overlay of the network view, error table
 
     # #91 U7 cohort view
+    "pt_analysis.endpoints.cohort",  # U7: cohort of fit summaries, calibration counts, opening a fit's Analysis
 
     # #92 U4 sampler panel
     "pt_analysis.endpoints.sampler",  # U4: acceptance, swaps, ladder, proposal variances, Run events
