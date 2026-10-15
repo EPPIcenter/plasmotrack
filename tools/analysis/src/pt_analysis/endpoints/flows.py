@@ -1,4 +1,4 @@
-"""Flows between strata, lags and spatial scale for the functionals panel (U9, #87). See `pt_analysis.flows` for
+"""Flows between strata, lags and spatial scale for the functionals panel (U9). See `pt_analysis.flows` for
 the definitions.
 
     GET /api/flows[?column=C][&min_infections=N]

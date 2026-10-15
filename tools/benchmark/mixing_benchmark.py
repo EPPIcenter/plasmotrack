@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Mixing benchmark: effective samples per second of sampling, from a burned-in state.
 
-    mixing_benchmark.py run --model BIN --input JSON --symptomatic-idp F --asymptomatic-idp F --start CHECKPOINT --out DIR
-                            [--runs K --burnin B --samples S --seed N]
+    mixing_benchmark.py run --model BIN --input JSON --symptomatic-idp F --asymptomatic-idp F --start CHECKPOINT
+                            --out DIR [--runs K --burnin B --samples S --seed N]
     mixing_benchmark.py analyze --out DIR
 
 `run` starts every Run with `--start-from` on the same checkpoint (`--start`): a Run's `checkpoint-burn-in.cbor`, or a
@@ -145,8 +145,10 @@ def analyze(args):
     for run_groups in traces:
         run_groups["top parent edge"] = {k: v for k, v in run_groups.pop("_edges", {}).items() if k in top_edges}
 
-    print(f"{len(run_dirs)} runs, {draws} draws, {seconds:.0f} s of sampling ({seconds / max(draws, 1):.1f} s per sweep)\n")
-    print(f"{'group':<24}{'series':>8}{'ESS median':>12}{'ESS min':>10}{'ESS/s median':>14}{'ESS/s min':>11}{'R-hat>1.1':>11}{'R-hat max':>11}")
+    print(f"{len(run_dirs)} runs, {draws} draws, {seconds:.0f} s of sampling "
+          f"({seconds / max(draws, 1):.1f} s per sweep)\n")
+    print(f"{'group':<24}{'series':>8}{'ESS median':>12}{'ESS min':>10}{'ESS/s median':>14}{'ESS/s min':>11}"
+          f"{'R-hat>1.1':>11}{'R-hat max':>11}")
     report = {}
     for group in traces[0]:
         names = sorted(set().union(*(set(t.get(group, {})) for t in traces)))
@@ -163,14 +165,16 @@ def analyze(args):
         if not totals:
             continue
         report[group] = {"series": len(totals), "ess_median": statistics.median(totals), "ess_min": min(totals),
-                         "ess_per_s_median": statistics.median(totals) / seconds, "ess_per_s_min": min(totals) / seconds,
+                         "ess_per_s_median": statistics.median(totals) / seconds,
+                         "ess_per_s_min": min(totals) / seconds,
                          "rhat_max": max(rhats) if rhats else None,
                          "rhat_above_1_1": sum(r > 1.1 for r in rhats) / len(rhats) if rhats else None}
         g = report[group]
         rhat = f"{g['rhat_max']:.3g}" if g["rhat_max"] is not None else "-"
         above = f"{g['rhat_above_1_1']:.0%}" if g["rhat_above_1_1"] is not None else "-"
         print(f"{group:<24}{g['series']:>8}{g['ess_median']:>12.1f}{g['ess_min']:>10.1f}{g['ess_per_s_median']:>14.4f}{g['ess_per_s_min']:>11.4f}{above:>11}{rhat:>11}")
-    (out / "report.json").write_text(json.dumps({"draws": draws, "sampling_seconds": seconds, "groups": report}, indent=2))
+    (out / "report.json").write_text(
+        json.dumps({"draws": draws, "sampling_seconds": seconds, "groups": report}, indent=2))
 
 
 def main():
@@ -182,7 +186,8 @@ def main():
     r.add_argument("--symptomatic-idp", required=True)
     r.add_argument("--asymptomatic-idp", required=True)
     r.add_argument("--start", required=True,
-                   help="checkpoint every Run starts from: checkpoint-burn-in.cbor or checkpoint.cbor, or a Run directory for its checkpoint.cbor")
+                   help="checkpoint every Run starts from: checkpoint-burn-in.cbor or checkpoint.cbor, "
+                        "or a Run directory for its checkpoint.cbor")
     r.add_argument("--out", required=True)
     r.add_argument("--runs", type=int, default=6)
     r.add_argument("--burnin", type=int, default=40)

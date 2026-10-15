@@ -2,7 +2,7 @@
 
 Each module named in `ENDPOINTS` serves one view's data: it exports `ROUTES`, a list of Starlette routes under
 `/api/`, whose handlers find the Analysis at `request.app.state.analysis`. A new view's backend is one module in
-`pt_analysis/endpoints/` plus its line in its ticket's slot of `ENDPOINTS`.
+`pt_analysis/endpoints/` plus its line under its use case's comment in `ENDPOINTS`.
 """
 
 import importlib
@@ -25,33 +25,33 @@ STATIC_DIR = Path(__file__).resolve().parents[2] / "web" / "dist"
 ENDPOINTS = [
     "pt_analysis.endpoints.analysis",  # U1: Analysis summary, convergence table
     "pt_analysis.endpoints.traces",  # U1: trace panel, ESS and R-hat over a Draw range
-    # #83 U2 edge table
+    # U2 edge table
     "pt_analysis.endpoints.edges",  # U2: edge table
 
-    # #84 U8 network view
+    # U8 network view
     "pt_analysis.endpoints.network",  # U8: network view's nodes and edges
 
-    # #85 U3 pair inspector
+    # U3 pair inspector
     "pt_analysis.endpoints.pair",  # U3: order, edges, co-inclusion, genotypes and infection times of a pair
 
-    # #86 #87 U9 functionals panel
-    "pt_analysis.endpoints.functionals",  # #86: epi columns, functionals overall and per stratum
-    "pt_analysis.endpoints.flows",  # #87: attribution, enrichment, net flow, lags, spatial scale
+    # U9 functionals panel
+    "pt_analysis.endpoints.functionals",  # U9: epi columns, functionals overall and per stratum
+    "pt_analysis.endpoints.flows",  # U9: attribution, enrichment, net flow, lags, spatial scale
 
-    # #88 U10 infection card
+    # U10 infection card
     "pt_analysis.endpoints.infection",  # U10: one Infection's posteriors, genotype, Parent sets and edges
 
-    # #89 #90 U6 truth overlay, ranking
+    # U6 truth overlay, ranking
     "pt_analysis.endpoints.ranking",  # U6: ranking and parent-set metrics against truth
     "pt_analysis.endpoints.truth",  # U6: truth overlay of the network view, error table
 
-    # #91 U7 cohort view
+    # U7 cohort view
     "pt_analysis.endpoints.cohort",  # U7: cohort of fit summaries, calibration counts, opening a fit's Analysis
 
-    # #92 U4 sampler panel
+    # U4 sampler panel
     "pt_analysis.endpoints.sampler",  # U4: acceptance, swaps, ladder, proposal variances, Run events
 
-    # #94 U5 comparison of Analyses
+    # U5 comparison of Analyses
     "pt_analysis.endpoints.compare",  # U5: the open Analyses, their convergence side by side
 
 ]

@@ -1,4 +1,4 @@
-"""The flows, lags and spatial-scale endpoints of the functionals panel (U9, #87)."""
+"""The flows, lags and spatial-scale endpoints of the functionals panel (U9)."""
 
 import pytest
 from test_flows import E12, E13, E23, EPI, MEAN_Q, PSI_EDGE
