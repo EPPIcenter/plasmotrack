@@ -5,6 +5,8 @@
 
 #include "gtest/gtest.h"
 
+#include "Studies.h"
+
 #include "core/io/MemoryStoreSink.h"
 #include "impl/model/Model/Checkpoint.h"
 #include "impl/model/Model/EnsembleCheckpoint.h"
@@ -25,16 +27,12 @@
 #include <vector>
 
 using namespace transmission_nets::impl::Model;
+using namespace transmission_nets::test::studies;
 using transmission_nets::core::io::MemoryStoreSink;
 
 namespace {
     using Engine = boost::random::mt19937;
 
-    nlohmann::json exampleInput() {
-        std::ifstream in(EXAMPLE_INPUT_PATH);
-        return nlohmann::json::parse(in);
-    }
-    const std::vector<double> idp(60, 1.0 / 60);
 
     const std::vector<std::string> SCALARS{"mean_coi", "mean_strains_tx", "parent_set_size_prob"};
     const std::vector<std::string> PER_INFECTION{"expected_false_positives", "expected_false_negatives", "infection_duration"};
@@ -46,14 +44,14 @@ namespace {
 }// namespace
 
 TEST(QuantityTest, ScalarsAndPerInfectionValuesAreNamedInEnumerationOrder) {
-    const State state(exampleInput(), idp, idp, std::make_shared<Engine>(1));
+    const State state(exampleStudy(), std::make_shared<Engine>(1));
     EXPECT_EQ(state.scalarNames(), SCALARS);
     EXPECT_EQ(state.perInfectionNames(), PER_INFECTION);
 }
 
 TEST(QuantityTest, EveryScalarAndPerInfectionQuantityIsASamplersTarget) {
     auto rng   = std::make_shared<Engine>(1);
-    auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
+    auto state = std::make_shared<State>(exampleStudy(), rng);
     auto model = std::make_shared<Model>(state);
     const SamplerSet<Model> samplers(state, model, rng);
     const auto& ids = samplers.ids();
@@ -68,7 +66,7 @@ TEST(QuantityTest, EveryScalarAndPerInfectionQuantityIsASamplersTarget) {
 
 TEST(QuantityTest, TraceColumnsAreTheQuantityNamesInEnumerationOrder) {
     auto rng   = std::make_shared<Engine>(1);
-    auto state = std::make_shared<State>(exampleInput(), idp, idp, rng);
+    auto state = std::make_shared<State>(exampleStudy(), rng);
     auto model = std::make_shared<Model>(state);
     const SamplerSet<Model> samplers(state, model, rng);
 
@@ -89,7 +87,7 @@ TEST(QuantityTest, TraceColumnsAreTheQuantityNamesInEnumerationOrder) {
 
 TEST(QuantityTest, CheckpointKeysAreTheQuantityNames) {
     auto rng = std::make_shared<Engine>(1);
-    const Ensemble ensemble(1, 0.5, rng, false, 1, exampleInput(), idp, idp);
+    const Ensemble ensemble(1, 0.5, rng, false, 1, exampleStudy());
     const auto saved = checkpoint::capture(ensemble, {.runId = "run-q", .inputHash = "sha256:x", .engineVersion = "1.0.0"}, {.iteration = 0, .phase = checkpoint::Phase::BurnIn, .lastClosedWindow = 0, .burnInRemaining = 1, .samplingRemaining = 1}, {});
 
     const auto& state = saved.ensemble.replicas.at(0).state;

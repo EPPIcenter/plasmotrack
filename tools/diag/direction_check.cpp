@@ -7,7 +7,8 @@
 // tool reports the pair's terms and the duration prior in the chain's order, then with one of the two moved to the
 // other side of the other, at several durations. Every change is undone after it is evaluated.
 
-#include "core/io/parse_json.h"
+#include "impl/model/Model/Study.h"
+#include <nlohmann/json.hpp>
 #include "core/io/utils.h"
 #include "impl/model/Model/Checkpoint.h"
 #include "impl/model/Model/EnsembleCheckpoint.h"
@@ -126,12 +127,13 @@ int main(int argc, char** argv) {
         fmt::print(stderr, "usage: {} INPUT SYMPTOMATIC_IDP ASYMPTOMATIC_IDP CHECKPOINT A B\n", argv[0]);
         return 2;
     }
-    const auto input = core::io::loadJSON(core::io::decompressGzipFile(argv[1]));
+    const auto input = nlohmann::json::parse(core::io::decompressGzipFile(argv[1]));
     const auto sIdp  = core::io::loadVectorFromFile<core::computation::Probability>(argv[2]);
     const auto aIdp  = core::io::loadVectorFromFile<core::computation::Probability>(argv[3]);
+    const auto study  = studyFromJson(input, sIdp, aIdp);
     const auto saved = checkpoint::load(argv[4]);
     auto runRng      = std::make_shared<checkpoint::Engine>(1);
-    auto ensemble    = checkpoint::restore(saved, runRng, input, sIdp, aIdp, false, 1);
+    auto ensemble    = checkpoint::restore(saved, runRng, study, false, 1);
     const auto& hot  = ensemble->hotChain();
     Checker c{hot.state, hot.model};
 

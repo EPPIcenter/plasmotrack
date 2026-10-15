@@ -79,7 +79,7 @@ TEST(RunAssemblyTest, AResumedRunKeepsItsManifestAndStartsWhereItsCheckpointLeft
     const auto saved = finishedRun(store, dir.path, newRecipe(dir.path, plan));
 
     const Provenance later{.runId = "run-2", .cliArguments = {"later"}, .gitCommit = "def456"};
-    auto run = assemble(resumeRecipe(store, dir.path, {.burnIn = 5, .samples = 10}), inputs(), saved, std::make_unique<SharedSink>(store), unread(), later, fixedClock);
+    auto run = assemble(resumeRecipe(store, dir.path, {.burnIn = 5, .samples = 10}), study(), saved, std::make_unique<SharedSink>(store), unread(), later, fixedClock);
 
     EXPECT_EQ(run.manifest.runId, "run-1");
     EXPECT_EQ(run.manifest.cliArguments, PROVENANCE.cliArguments);

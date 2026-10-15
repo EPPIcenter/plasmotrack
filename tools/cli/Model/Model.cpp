@@ -3,7 +3,6 @@
 //
 
 #include "core/io/ParquetStoreSink.h"
-#include "core/io/parse_json.h"
 #include "core/io/utils.h"
 #include "core/utils/InterruptWatcher.h"
 #include "core/utils/Sha256.h"
@@ -12,8 +11,10 @@
 #include "impl/model/Model/Progress.h"
 #include "impl/model/Model/RunAssembly.h"
 #include "impl/model/Model/RunRecipe.h"
+#include "impl/model/Model/Study.h"
 
 #include <boost/program_options.hpp>
+#include <nlohmann/json.hpp>
 
 #include <fmt/core.h>
 
@@ -183,17 +184,18 @@ int main(int argc, char** argv) {
             progress.notice("Running the null model (no genetics)");
         }
 
-        Model::Inputs inputs{.symptomaticIdp = symptomatic_idp, .asymptomaticIdp = asymptomatic_idp};
+        nlohmann::json document;
         if (nodesFile.extension() == ".gz") {
-            std::vector<char> decompressed = decompressGzipFile(nodesFile);
-            inputs.input                   = loadJSON(decompressed);
+            const std::vector<char> decompressed = decompressGzipFile(nodesFile);
+            document                             = nlohmann::json::parse(decompressed);
         } else {
             std::ifstream inputFile{nodesFile};
-            inputs.input = loadJSON<std::ifstream&>(inputFile);
+            document = nlohmann::json::parse(inputFile);
         }
+        const auto study = Model::studyFromJson(document, symptomatic_idp, asymptomatic_idp);
 
         const Model::Provenance provenance{.runId = Model::newRunId(), .cliArguments = std::vector<std::string>(argv, argv + argc), .gitCommit = TRANSMISSION_NETWORKS_GIT_COMMIT};
-        driving = run.emplace(Model::assemble(recipe, inputs, saved, std::make_unique<ParquetStoreSink>(recipe.store), progress, provenance)).driver.get();
+        driving = run.emplace(Model::assemble(recipe, study, saved, std::make_unique<ParquetStoreSink>(recipe.store), progress, provenance)).driver.get();
         if (!resuming) {
             progress.notice(fmt::format("Seed Used: {}", run->manifest.seed));
         }

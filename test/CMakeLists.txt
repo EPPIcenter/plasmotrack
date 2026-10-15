@@ -47,7 +47,6 @@ set(CORE_UTILS_TESTS
     src/core/utils/InterruptWatcherTest.cpp
     src/core/utils/RandomSequenceTests.cpp
     src/core/utils/CombinationsWithRepetitionsGeneratorTest.cpp
-    src/core/utils/ParseJSONTests.cpp
     src/core/utils/ProbAnyMissingTests.cpp
     src/core/utils/NumericsTest.cpp
 )
@@ -68,6 +67,7 @@ set(MODEL_TRANSMISSION_TESTS
     src/impl/RunRecorderTest.cpp
     src/impl/RegisteredSamplerTest.cpp
     src/impl/QuantityTest.cpp
+    src/impl/StudyTest.cpp
     src/impl/ReplicaExchangeTest.cpp
     src/impl/CheckpointTest.cpp
     src/impl/RunDriverTest.cpp

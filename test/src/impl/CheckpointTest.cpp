@@ -7,6 +7,8 @@
 
 #include "gtest/gtest.h"
 
+#include "Studies.h"
+
 #include "impl/model/Model/Checkpoint.h"
 #include "impl/model/Model/EnsembleCheckpoint.h"
 
@@ -24,16 +26,10 @@
 
 using namespace transmission_nets::impl::Model;
 namespace fs = std::filesystem;
+using namespace transmission_nets::test::studies;
 
 namespace {
     using Engine = boost::random::mt19937;
-
-    nlohmann::json exampleInput() {
-        std::ifstream in(EXAMPLE_INPUT_PATH);
-        return nlohmann::json::parse(in);
-    }
-
-    const std::vector<double> idp(60, 1.0 / 60);
 
     struct Run {
         std::shared_ptr<Engine> rng;
@@ -43,7 +39,7 @@ namespace {
     // An ensemble past the start of sampler adaptation (iteration 20), with swaps between its temperature slots.
     Run burnedIn(const int numChains, const unsigned int seed, const int iterations = 40) {
         auto rng      = std::make_shared<Engine>(seed);
-        auto ensemble = std::make_unique<Ensemble>(numChains, 0.5, rng, false, 1, exampleInput(), idp, idp);
+        auto ensemble = std::make_unique<Ensemble>(numChains, 0.5, rng, false, 1, exampleStudy());
         for (int ii = 0; ii < iterations; ++ii) {
             ensemble->burnin();
         }
@@ -66,7 +62,7 @@ namespace {
 
     Run restoredFrom(const fs::path& file, const unsigned int seed = 99) {
         auto rng = std::make_shared<Engine>(seed);
-        auto ensemble = checkpoint::restore(checkpoint::load(file), rng, exampleInput(), idp, idp, false, 1);
+        auto ensemble = checkpoint::restore(checkpoint::load(file), rng, exampleStudy(), false, 1);
         return {rng, std::move(ensemble)};
     }
 }// namespace
@@ -276,12 +272,17 @@ TEST(CheckpointTest, RestoreRefusesAnInputWithOtherLoci) {
     const auto file = dir.path / "checkpoint.cbor";
     auto original = burnedIn(1, 19, 5);
     checkpoint::save(checkpoint::capture(*original.ensemble, identity(), position(), {}), file);
-    std::string renamed = exampleInput().dump();
-    for (size_t at = renamed.find("AS11"); at != std::string::npos; at = renamed.find("AS11", at)) {
-        renamed.replace(at, 4, "AS99");
+    auto renamed          = exampleStudy();
+    renamed.loci[1].label = "AS99";
+    for (auto& infection : renamed.infections) {
+        for (auto& genotype : infection.observedGenotypes) {
+            if (genotype.locus == "AS11") {
+                genotype.locus = "AS99";
+            }
+        }
     }
 
-    EXPECT_THROW(checkpoint::restore(checkpoint::load(file), std::make_shared<Engine>(1), nlohmann::json::parse(renamed), idp, idp, false, 1), Refused);
+    EXPECT_THROW(checkpoint::restore(checkpoint::load(file), std::make_shared<Engine>(1), renamed, false, 1), Refused);
 }
 
 // A checkpoint restores the exchange state as saved, pending ladder barriers included, whatever the Phase: a resumed
