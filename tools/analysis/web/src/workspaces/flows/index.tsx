@@ -288,7 +288,7 @@ function Moved({ l, column }: { l: Lags; column: string | null }) {
           <span key={m.quantity} className="mr-2 tabular-nums font-semibold">{m.quantity} {fmt(m.before)} → {fmt(m.after)}</span>
         ))}
       </p>
-      <table aria-label="Functionals with the mass beyond the cutoff moved" className="w-full whitespace-nowrap text-table tabular-nums">
+      <table aria-label="Functionals with the mass beyond the cutoff moved" className="w-full whitespace-nowrap text-table tabular-nums [&_td]:px-2 [&_th]:px-2">
         <thead>
           <tr className="h-6 border-b border-line text-left text-ink-2">
             <th className="font-medium">Stratum</th>
