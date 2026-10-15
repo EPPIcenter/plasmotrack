@@ -21,3 +21,6 @@
   border-radius: 4px; padding: 0.4em 0.6em; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.network-legend .truth-only { display: none; }
+.truth-shown .network-legend .truth-only { display: inline-flex; }
+.network-legend .dash-swatch { width: 2em; height: 0; border-top: 2px dashed; display: inline-block; }
