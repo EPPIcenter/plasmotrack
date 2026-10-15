@@ -18,7 +18,8 @@ Runs (which counts disagreement between Runs as variance), split R-hat and the s
 samples per second of sampling time summed over Runs. It reads only closed Windows, those with a marker under
 `_closed/`, so a killed Run is read up to its last closed Window. The store layout is described in doc/store-layout.md.
 
-Needs pyarrow (`pip install pyarrow`); otherwise standard library only.
+Reads stores through the `pt_analysis` package in tools/analysis, which owns the closed-Window reader rule. Run it in
+that package's environment: `uv run --project tools/analysis python tools/benchmark/mixing_benchmark.py ...`.
 """
 
 import argparse
@@ -31,9 +32,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-import pyarrow as pa
-import pyarrow.compute as pc
-import pyarrow.parquet as pq
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "analysis" / "src"))
+from pt_analysis.store import Store  # noqa: E402
 
 
 def checkpoint_path(start):
@@ -64,62 +64,26 @@ def run(args):
     for run_dir, seed, console, proc in started:
         proc.wait()
         console.close()
-        timings[run_dir.name] = {"exit": proc.returncode, "seed": seed, **sampling_time(run_dir)}
+        timings[run_dir.name] = {"exit": proc.returncode, "seed": seed, **Store(run_dir).sampling_time()}
     (out / "timings.json").write_text(json.dumps(timings, indent=2))
     print(json.dumps(timings, indent=2))
 
 
-# --- the store ------------------------------------------------------------------------------------------------------
-
-def closed_windows(run_dir):
-    """The Windows a reader may use: those whose commit marker exists. In-flight files are dot-prefixed."""
-    closed = run_dir / "_closed"
-    if not closed.is_dir():
-        return []
-    return sorted(json.loads(p.read_text())["window"] for p in closed.glob("window-*"))
-
-
-def read_table(run_dir, table, windows):
-    """One table over the given closed Windows, or None if it has no rows in them. A Window in which a table has no
-    rows has no file for it."""
-    files = [run_dir / table / f"window-{w:06d}.parquet" for w in windows]
-    parts = [pq.read_table(f) for f in files if f.exists()]
-    return pa.concat_tables(parts) if parts else None
-
-
-def sampling_rows(table):
-    """The sampling-Phase rows of a Trace or of the events table, in Sampling iteration order."""
-    if table is None:
-        return []
-    table = table.filter(pc.equal(table["phase"], "sampling"))
-    return table.take(pc.sort_indices(table, [("iteration", "ascending")])).to_pylist()
-
-
-def sampling_time(run_dir):
-    """Wall time and Sampling iterations of the sampling Phase, summed over the `window_closed` events."""
-    closes = [json.loads(e["payload"]) for e in sampling_rows(read_table(run_dir, "events", closed_windows(run_dir)))
-              if e["type"] == "window_closed"]
-    samples = sum(c["sampling_iterations"] for c in closes)
-    return {"sampling_seconds": sum(c["seconds"] for c in closes) if samples else None, "samples": samples}
-
-
 # --- traces ---------------------------------------------------------------------------------------------------------
 
-def parent_set_traces(run_dir, windows, groups):
+def parent_set_traces(store, groups):
     """Per Sampling iteration: the probability of each Infection's Latent parent alone, and each observed parent's
     marginal probability. Parent sets below the Run's floor are not in the store and count as 0."""
-    latent_parent = {r["infection"]: r["latent_parent"]
-                     for r in pq.read_table(run_dir / "structure" / "infections.parquet").to_pylist()}
+    latent_parent = dict(store.structure("infections").project("infection, latent_parent").fetchall())
     latent_parents = set(latent_parent.values())
     members = defaultdict(list)  # Parent set members by (Infection, set_id), from every closed Window of both Phases
-    member_rows = read_table(run_dir, "parent_set_members", windows)
-    for r in member_rows.to_pylist() if member_rows is not None else []:
+    for r in store.rows("parent_set_members"):
         members[(r["infection"], r["set_id"])].append(r["member"])
 
     iterations = defaultdict(set)
     no_parent = defaultdict(lambda: defaultdict(float))
     marginals = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
-    for r in sampling_rows(read_table(run_dir, "parent_sets", windows)):
+    for r in store.rows("parent_sets"):
         child, it, prob = r["infection"], r["iteration"], r["prob"]
         iterations[child].add(it)
         parents = members[(child, r["set_id"])]
@@ -137,25 +101,25 @@ def parent_set_traces(run_dir, windows, groups):
 
 def run_traces(run_dir):
     """Every traced quantity of one Run's sampling Phase, as {group: {name: series}}."""
-    windows = closed_windows(run_dir)
+    store = Store(run_dir)
     groups = defaultdict(dict)
 
-    scalars = sampling_rows(read_table(run_dir, "run_scalars", windows))
+    scalars = store.rows("run_scalars")
     groups["log posterior"]["log posterior"] = [r["prior"] + r["likelihood"] for r in scalars]
     for name in ["mean_coi", "mean_strains_tx", "parent_set_size_prob"]:
         groups["global scalars"][name] = [r[name] for r in scalars]
 
-    infections = sampling_rows(read_table(run_dir, "infections", windows))
+    infections = store.rows("infections")
     for column, group in [("expected_false_positives", "false positive rate"),
                           ("expected_false_negatives", "false negative rate"),
                           ("infection_duration", "infection duration")]:
         for r in infections:
             groups[group].setdefault(r["infection"], []).append(r[column])
 
-    for r in sampling_rows(read_table(run_dir, "allele_frequencies", windows)):
+    for r in store.rows("allele_frequencies"):
         groups["allele frequency"].setdefault(f"{r['locus']}[{r['allele']}]", []).append(r["frequency"])
 
-    parent_set_traces(run_dir, windows, groups)
+    parent_set_traces(store, groups)
     return groups
 
 

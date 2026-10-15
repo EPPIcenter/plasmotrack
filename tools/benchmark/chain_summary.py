@@ -6,7 +6,8 @@
 Reports, per group of quantities, the multi-chain effective sample size and split R-hat (as mixing_benchmark.py
 analyze does, without timings); for each pair A:B, how often each chain had A infected before B and how often that
 order changed between logged draws; and, per infection, its most probable parent pooled over chains and the largest
-difference between chains in any of its parent probabilities. Standard library only.
+difference between chains in any of its parent probabilities. Reads stores through mixing_benchmark.py, so it needs
+the tools/analysis environment: `uv run --project tools/analysis python tools/benchmark/chain_summary.py ...`.
 """
 
 import argparse

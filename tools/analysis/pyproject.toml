@@ -1,0 +1,25 @@
+[project]
+name = "pt-analysis"
+version = "0.1.0"
+description = "Reads plasmotrack Run stores and Analysis manifests under the closed-Window reader rule."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=1.1",
+    "pyarrow>=17",
+]
+
+[project.scripts]
+pt-analysis = "pt_analysis.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[build-system]
+requires = ["uv_build>=0.8,<1"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

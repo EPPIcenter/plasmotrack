@@ -99,3 +99,11 @@ optimize/
 .agents/
 skills-lock.json
 .claude/
+
+## Python and web tooling
+.venv/
+__pycache__/
+node_modules/
+
+## Derived tables written beside a store by the analysis tools
+derived/
