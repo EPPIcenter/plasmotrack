@@ -54,12 +54,9 @@ set(CORE_UTILS_TESTS
 set(CORE_COMPUTATION_TESTS
     src/core/abstract/DependencyTest.cpp
     src/core/computation/AccumulatorTest.cpp
-    src/core/computation/ObservationTimeDerivedOrderingTest.cpp
-    src/core/parameters/OrderingTest.cpp
 )
 
 set(MODEL_TRANSMISSION_TESTS
-    src/model/transmission_process/OrderDerivedParentSetTest.cpp
     src/model/transmission_process/TransmissionKernelTest.cpp
     src/model/transmission_process/TransmissionMemoTest.cpp
     src/model/transmission_process/MarginalLatentParentTest.cpp

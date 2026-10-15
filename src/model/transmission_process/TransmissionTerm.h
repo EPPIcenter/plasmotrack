@@ -8,7 +8,7 @@
 #define TRANSMISSION_NETWORKS_APP_TRANSMISSIONTERM_H
 
 
-#include "core/computation/OrderDerivedParentSet.h"
+#include "core/containers/ParentSet.h"
 #include "core/abstract/observables/Dependency.h"
 #include "core/computation/PartialLikelihood.h"
 #include "core/config.h"
@@ -44,7 +44,7 @@ namespace transmission_nets::model::transmission_process {
         Likelihood totalLlik = 0;
     };
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
     class TransmissionTerm : public core::computation::PartialLikelihood {
         static_assert(ParentSetMaxCardinality == 1 or ParentSetMaxCardinality == 2, "parent sets are enumerated for at most two observed parents");
 
@@ -63,7 +63,7 @@ namespace transmission_nets::model::transmission_process {
                                         std::shared_ptr<COIProbabilityImpl> coiProb,
                                         std::shared_ptr<ParentSetSizeLikelihoodImpl> psp,
                                         std::shared_ptr<InfectionEventImpl> child,
-                                        std::shared_ptr<ParentSetImpl> parent_set,
+                                        std::shared_ptr<OrderingImpl> ordering,
                                         std::shared_ptr<InfectionEventImpl> latent_parent,
                                         bool null_model = false);
 
@@ -79,7 +79,7 @@ namespace transmission_nets::model::transmission_process {
         std::shared_ptr<COIProbabilityImpl> coiProb_;
         std::shared_ptr<ParentSetSizeLikelihoodImpl> psp_;
         std::shared_ptr<InfectionEventImpl> child_;
-        std::shared_ptr<ParentSetImpl> parentSet_;
+        std::shared_ptr<OrderingImpl> ordering_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
 
         bool null_model_ = false;
@@ -277,20 +277,20 @@ namespace transmission_nets::model::transmission_process {
         std::string lastUpdated_ = "None";
     };
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::TransmissionTerm(
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::TransmissionTerm(
             std::shared_ptr<MemoImpl> memo,
             std::shared_ptr<COIProbabilityImpl> coiProb,
             std::shared_ptr<ParentSetSizeLikelihoodImpl> psp,
             std::shared_ptr<InfectionEventImpl> child,
-            std::shared_ptr<ParentSetImpl> parent_set,
+            std::shared_ptr<OrderingImpl> ordering,
             std::shared_ptr<InfectionEventImpl> latent_parent,
             const bool null_model)
         : memo_(std::move(memo)),
           coiProb_(std::move(coiProb)),
           psp_(std::move(psp)),
           child_(std::move(child)),
-          parentSet_(std::move(parent_set)),
+          ordering_(std::move(ordering)),
           latentParent_(std::move(latent_parent)),
           null_model_(null_model) {
 
@@ -336,30 +336,26 @@ namespace transmission_nets::model::transmission_process {
         });
         core::abstract::dependsOn(this, child_, [this]() { lastUpdated_ = "child updated"; });
 
-        // Saved, accepted and restored with every parent the parent set could hold, whose genotype changes the
-        // cache records; a parent's change reaches the term through the parent set, if it is a member.
-        for (const auto& parent : parentSet_->allowedParents_) {
+        // Saved, accepted and restored with every parent the study permits, whose genotype changes the cache
+        // records; the Ordering relays a change of a parent that is a Candidate parent now.
+        for (const auto& parent : ordering_->permittedParents(child_)) {
             parent->add_latent_genotype_pre_change_listener([=, this, parent = parent.get()](const auto& locus, const auto& previous) {
                 recordChange(parent, locus, previous);
             });
             core::abstract::savesWith(this, parent);
         }
-
-        // The parent set marks itself dirty before each of these events, which is what marks this term dirty.
-        core::abstract::dependsOn(this, parentSet_, [this]() { lastUpdated_ = "parent set updated"; });
-        parentSet_->add_element_changed_listener([=, this]([[maybe_unused]] const auto& parent) {
+        ordering_->add_keyed_candidate_genotype_changed_listener(child_, [this]() {
             lastUpdated_ = "parent updated";
+            setDirty();
         });
 
-        // Parents joining or leaving the parent set change the classes, which the next evaluation recomputes.
-        parentSet_->add_element_added_listener([=, this]([[maybe_unused]] const auto& parent) {
-            lastUpdated_           = "parent added";
+        // The cache holds the parents it last grouped, so it is saved and restored with the Ordering; parents joining
+        // or leaving the Candidate parents change the classes, which the next evaluation recomputes.
+        core::abstract::savesWith(this, ordering_);
+        ordering_->add_keyed_candidates_changed_listener(child_, [this]() {
+            lastUpdated_           = "candidate parents changed";
             parentsMayHaveChanged_ = true;
-        });
-
-        parentSet_->add_element_removed_listener([=, this]([[maybe_unused]] const auto& parent) {
-            lastUpdated_           = "parent removed";
-            parentsMayHaveChanged_ = true;
+            setDirty();
         });
 
         this->addPostSaveHook([=, this](const auto savedStateID) { this->postSaveState(savedStateID); });
@@ -371,8 +367,8 @@ namespace transmission_nets::model::transmission_process {
         this->TransmissionTerm::value();
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    size_t TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::numEntries(const size_t numClasses) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    size_t TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::numEntries(const size_t numClasses) {
         size_t combinations = numClasses;
         if constexpr (ParentSetMaxCardinality == 2) {
             combinations += numClasses * (numClasses + 1) / 2;
@@ -380,8 +376,8 @@ namespace transmission_nets::model::transmission_process {
         return 1 + 2 * combinations;
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    size_t TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::combinationIndex(const std::span<const unsigned int> classes) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    size_t TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::combinationIndex(const std::span<const unsigned int> classes) {
         if constexpr (ParentSetMaxCardinality == 1) {
             return classes[0];
         }
@@ -391,8 +387,8 @@ namespace transmission_nets::model::transmission_process {
         return classes.size() == 1 ? block : block + 1 + classes[0];
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::resizeEntries(LikelihoodCache& cache, const size_t numClasses) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::resizeEntries(LikelihoodCache& cache, const size_t numClasses) {
         const size_t size = numEntries(numClasses);
         cache.sums.resize(size);
         cache.latentSums.resize((size + 1) / 2);
@@ -409,8 +405,8 @@ namespace transmission_nets::model::transmission_process {
         }
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::copyEntry(LikelihoodCache& to, const size_t toPosition, const LikelihoodCache& from, const size_t fromPosition) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::copyEntry(LikelihoodCache& to, const size_t toPosition, const LikelihoodCache& from, const size_t fromPosition) {
         if (toPosition % 2 == 0) {
             to.latentSums[toPosition / 2] = from.latentSums[fromPosition / 2];
         } else {
@@ -424,8 +420,8 @@ namespace transmission_nets::model::transmission_process {
         to.weights[toPosition]         = from.weights[fromPosition];
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    bool TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::regroupOne(const ParentSet& ps, const InfectionEventImpl* changed) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    bool TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::regroupOne(const ParentSet& ps, const InfectionEventImpl* changed) {
         const auto& current = cache();
         const auto found    = std::lower_bound(current.parents.begin(), current.parents.end(), changed, core::containers::UidLess{});
         if (found == current.parents.end() or *found != changed) {
@@ -506,8 +502,8 @@ namespace transmission_nets::model::transmission_process {
         return true;
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::regroup(const ParentSet& ps, const bool parentSetMayHaveChanged) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::regroup(const ParentSet& ps, const bool parentSetMayHaveChanged) {
         const auto& current       = cache();
         const size_t n            = ps.size();
         const size_t oldClasses   = current.classSize.size();
@@ -673,8 +669,8 @@ namespace transmission_nets::model::transmission_process {
         slots_[cacheIndex_]  = cacheIndex_;
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::updateMultiplicities(LikelihoodCache& cache) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::updateMultiplicities(LikelihoodCache& cache) {
         auto set = [&](const size_t position, const Likelihood logMultiplicity) {
             if (cache.logMultiplicity[position] == logMultiplicity) {
                 return;
@@ -702,8 +698,8 @@ namespace transmission_nets::model::transmission_process {
         });
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::degrade(const unsigned char state, const bool latentOnly) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::degrade(const unsigned char state, const bool latentOnly) {
         if (cache().valid.empty()) {
             return;
         }
@@ -717,8 +713,8 @@ namespace transmission_nets::model::transmission_process {
         }
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::recordChange(const InfectionEventImpl* infection, const LocusPtr& locus, const Genetics& previous) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::recordChange(const InfectionEventImpl* infection, const LocusPtr& locus, const Genetics& previous) {
         const auto& current = cache();
         if (null_model_ or current.valid.empty()) {
             return;
@@ -740,8 +736,8 @@ namespace transmission_nets::model::transmission_process {
         changed.stale = true;
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::applyChanges(LikelihoodCache& current) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::applyChanges(LikelihoodCache& current) {
         // Samplers that propose whole genomes set every locus, mostly to the value it already has, so only the loci
         // whose genotypes differ from those summed are changed loci.
         changedLoci_.clear();
@@ -884,8 +880,8 @@ namespace transmission_nets::model::transmission_process {
         current.changes.clear();
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::syncFrequencyGeneration(LikelihoodCache& current) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::syncFrequencyGeneration(LikelihoodCache& current) {
         if (current.frequencyGeneration == memo_->generation() and current.frequencyIds.size() == child_->loci().size()) {
             return;
         }
@@ -900,8 +896,8 @@ namespace transmission_nets::model::transmission_process {
         current.stale = true;
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::applyFrequencyChanges(LikelihoodCache& current) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::applyFrequencyChanges(LikelihoodCache& current) {
         const size_t numClasses = current.classSize.size();
         std::array<const Genetics*, ParentSetMaxCardinality> combinationGenotypes{};
         for (const size_t l : pendingFrequencyLoci_) {
@@ -949,8 +945,8 @@ namespace transmission_nets::model::transmission_process {
         }
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    typename TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::LatentSums TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::latentSumsFromScratch(const LikelihoodCache& current, const std::span<const InfectionEventImpl* const> parents) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    typename TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::LatentSums TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::latentSumsFromScratch(const LikelihoodCache& current, const std::span<const InfectionEventImpl* const> parents) {
         LatentSums sums{};
         const auto& loci = child_->loci();
         for (size_t l = 0; l < loci.size(); ++l) {
@@ -968,8 +964,8 @@ namespace transmission_nets::model::transmission_process {
         return sums;
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::updateGroup(LikelihoodCache& current, LogSumExpGroup& group, const size_t first) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::updateGroup(LikelihoodCache& current, LogSumExpGroup& group, const size_t first) {
         constexpr Likelihood negInf = -std::numeric_limits<Likelihood>::infinity();
         const size_t numEntries     = current.lliks.size();
         auto term                   = [&](const size_t i) { return current.valid[i] == INVALID ? negInf : current.lliks[i] + current.logMultiplicity[i]; };
@@ -1020,8 +1016,8 @@ namespace transmission_nets::model::transmission_process {
         group.logSum       = maxTerm + std::log(sum);
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    Likelihood TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::combine(const LikelihoodCache& current) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    Likelihood TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::combine(const LikelihoodCache& current) {
         // log( W0 + sum_S E_L[ W(S ∪ {L}) ] ): the latent parent is drawn from the Source whether or not it infected
         // the infection, so summing it out leaves the sets without it as they are.
         const Likelihood withoutLatent = current.groups[0].logSum;
@@ -1033,16 +1029,16 @@ namespace transmission_nets::model::transmission_process {
         return maxTerm + std::log(std::exp(withoutLatent - maxTerm) + std::exp(withLatent - maxTerm));
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    std::string TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::identifier() {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    std::string TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::identifier() {
         auto out = fmt::format("TransmissionTerm<{}>", child_->id());
         return out;
     }
 
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
     Likelihood
-    TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::value() {
+    TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::value() {
         if (this->isDirty() and not cache().stale and not parentsMayHaveChanged_ and not frequenciesMayHaveChanged_) {
             // Nothing the entries depend on changed: recombine the groups' sums.
             this->value_ = combine(cache());
@@ -1059,7 +1055,7 @@ namespace transmission_nets::model::transmission_process {
                 }
                 return *coiLogProbsRead;
             };
-            const auto& ps           = parentSet_->members();
+            const auto& ps           = ordering_->candidateParents(child_);
             const bool parentChanged = std::ranges::any_of(cache().changes, [&](const auto& change) {
                 return change.infection != child_.get();
             });
@@ -1220,33 +1216,33 @@ namespace transmission_nets::model::transmission_process {
     }
 
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::postSaveState([[maybe_unused]] int savedStateId) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::postSaveState([[maybe_unused]] int savedStateId) {
         slots_[cacheIndex_ + 1] = slots_[cacheIndex_];
         cacheIndex_++;
     }
 
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::postRestoreState([[maybe_unused]] int savedStateId) {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::postRestoreState([[maybe_unused]] int savedStateId) {
         cacheIndex_--;
     }
 
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::postAcceptState() {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::postAcceptState() {
         if (slots_[cacheIndex_] != 0) {
             std::swap(caches_[0], caches_[slots_[cacheIndex_]]);
         }
         cacheIndex_ = 0;
     }
 
-    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename ParentSetImpl>
-    ParentSetDist<InfectionEventImpl> TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, ParentSetImpl>::calcParentSetDist() {
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    ParentSetDist<InfectionEventImpl> TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::calcParentSetDist() {
         ParentSetDist<InfectionEventImpl> dist{};
         dist.totalLlik          = this->value();
         const auto& current     = cache();
-        const auto tmpPs        = parentSet_->value();
+        const auto& tmpPs       = ordering_->candidateParents(child_);
         const size_t totalNodes = tmpPs.size();
         ParentSet ps{};
         ps.insert(latentParent_);
