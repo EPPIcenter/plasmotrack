@@ -37,6 +37,18 @@ def test_serving_derives_the_convergence_table_and_returns_its_rows(client, gold
          "rhat": pytest.approx(1.2643097719105674)}]
 
 
+def test_the_convergence_table_follows_a_chain_that_closed_another_window_while_serving(client, golden_analysis):
+    # Hide chain2's last sampling Window, so the served table is derived without it, then close it again.
+    marker = golden_analysis.runs["chain2"].path / "_closed" / "window-000002"
+    aside = marker.with_name("aside")
+    marker.rename(aside)
+    before = {r["chain"]: r["ess"] for r in client.get("/api/convergence").json()["rows"][:3]}
+    aside.rename(marker)
+    after = {r["chain"]: r["ess"] for r in client.get("/api/convergence").json()["rows"][:3]}
+    assert after["chain2"] == pytest.approx(7.44641539328075)
+    assert before["chain2"] != after["chain2"]
+
+
 DRAWS = [25, 30, 35, 40, 45, 50, 55, 60, 65, 70]
 
 # Per-Draw values computed with R arrow from the golden stores (exploration notes), chain1 then chain2.

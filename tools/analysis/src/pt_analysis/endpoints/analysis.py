@@ -2,7 +2,7 @@
 
 from starlette.routing import Route
 
-from pt_analysis.derive import analysis_dir
+from pt_analysis.derive import derived_analysis
 from pt_analysis.endpoints import json
 
 
@@ -19,10 +19,9 @@ async def summary(request):
 
 async def convergence(request):
     """The convergence table as rows {group, name, chain, ess, rhat}, in its stored order (groups in display order,
-    names sorted, each quantity's Chain rows then its pooled row with chain null)."""
-    analysis = request.app.state.analysis
-    store = next(iter(analysis.runs.values()))
-    table = store.connection.read_parquet(str(analysis_dir(analysis) / "convergence.parquet")).to_arrow_table()
+    names sorted, each quantity's Chain rows then its pooled row with chain null), derived again first when a Chain
+    has closed another Window."""
+    table = derived_analysis(request.app.state.analysis, "convergence").to_arrow_table()
     return json({"rows": table.to_pylist()})
 
 
