@@ -23,6 +23,9 @@ export function select(id: string, { add = false }: { add?: boolean } = {}) {
   publish(next);
 }
 
+/** Select exactly these Infections, replacing the selection (an edge's two ends, from the edge table). */
+export const selectOnly = (ids: Iterable<string>) => publish(new Set(ids));
+
 export const clearSelection = () => publish(new Set());
 
 /** Call `listener` with the selection after every change; returns the function that stops it. */

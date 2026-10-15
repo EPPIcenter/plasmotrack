@@ -22,7 +22,8 @@ import {
   type Spatial,
 } from "../flows";
 import { stratumLabel, type Interval } from "../functionals";
-import type { Params } from "../router";
+import { stratumParams as networkStratum } from "../network";
+import { formatRoute, type Params } from "../router";
 import type { RenderView } from "../view";
 
 interface EpiColumns {
@@ -47,6 +48,7 @@ const render: RenderView = (root, ctx) => {
   const minimum = el("input", { type: "number", min: "1", step: "1", value: ctx.params.get("min_infections") ?? "1", style: "width: 5em" });
   const status = el("span", { className: "muted" });
   const attribution = el("div");
+  const strataLinks = el("p", { className: "muted" });
   const enrichment = el("div");
   const net = el("div");
   const lagPlot = el("div");
@@ -64,6 +66,7 @@ const render: RenderView = (root, ctx) => {
     el("h3", {}, "Attribution"),
     el("p", { className: "muted" }, "Of each recipient stratum's attributed parent mass (expected observed parents plus q), the share from each source stratum and from the unobserved source. Rows sum to one."),
     attribution,
+    strataLinks,
     el("h3", {}, "Flow enrichment"),
     el("p", { className: "muted" }, "Share of edge mass in each source × recipient cell over the share of candidate pairs (the input's allowed_parents) in it; above one, flow concentrates beyond what candidate relatedness places there. Fill clipped to [0.25, 4]; grey cells have no candidate pair. Labels are expected edge counts."),
     enrichment,
@@ -93,7 +96,14 @@ const render: RenderView = (root, ctx) => {
     ctx.replaceParams(params);
   }
 
+  /** A stratum's label, linking to the network view filtered to its Infections. */
+  const stratumLink = (col: string, value: string | null) =>
+    el("a", { href: formatRoute("network", networkStratum({ column: col, value })), title: "Open the network view of this stratum" }, stratumLabel(col, value));
+
   function drawFlows(f: Flows) {
+    const col = f.column;
+    strataLinks.replaceChildren(...(col === null ? [] : ["Open a stratum in the network view: ",
+      ...f.strata.flatMap((s, i) => [...(i ? [" · "] : []), stratumLink(col, s.value)])]));
     const a = attributionCells(f);
     attribution.replaceChildren(Plot.plot({
       width: Math.max(360, 140 + a.sources.length * 90),
@@ -187,7 +197,7 @@ const render: RenderView = (root, ctx) => {
       el("table", { className: "data" },
         el("thead", {}, el("tr", {}, ...["Stratum", "n", "ψ_edge [95%]", "ψ_edge moved [95%]", "mean q [95%]", "mean q moved [95%]"].map((h) => el("th", {}, h)))),
         el("tbody", {}, ...rows.map((s, k) => el("tr", {},
-          el("td", {}, k === 0 ? "All Infections" : stratumLabel(column.value || null, s.value)),
+          el("td", {}, k === 0 || !column.value ? "All Infections" : stratumLink(column.value, s.value)),
           el("td", { className: "num" }, String(s.n)),
           ...[s.psi_edge, s.psi_edge_moved, s.mean_q, s.mean_q_moved].map((i) => el("td", { className: "num" }, fmtInterval(i))),
         )))),

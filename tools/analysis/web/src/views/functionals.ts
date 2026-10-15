@@ -19,6 +19,8 @@ import {
   type Functionals,
   type Interval,
 } from "../functionals";
+import { stratumParams } from "../network";
+import { formatRoute } from "../router";
 import type { RenderView } from "../view";
 
 interface EpiColumns {
@@ -122,6 +124,13 @@ const render: RenderView = (root, ctx) => {
     return td;
   }
 
+  /** A stratum's label, linking to the network view filtered to its Infections. */
+  function stratumCell(column: string | null, value: string | null) {
+    const label = stratumLabel(column, value);
+    return el("td", {}, column === null ? label
+      : el("a", { href: formatRoute("network", stratumParams({ column, value })), title: "Open the network view of this stratum" }, label));
+  }
+
   function drawTables(f: Functionals) {
     const order = stackOrder(f.classes);
     const ms = multiSourceRows(f);
@@ -129,7 +138,7 @@ const render: RenderView = (root, ctx) => {
       el("thead", {}, el("tr", {}, ...["Stratum", "n", "ψ_MAP", `Size range (${f.level})`, "ψ_edge [95%]", "mean q [95%]",
         "Multi-source, augmented [95%]", "Multi-source, observed [95%]"].map((h) => el("th", {}, h)))),
       el("tbody", {}, ...f.strata.map((s, k) => el("tr", {},
-        el("td", {}, stratumLabel(f.column, s.value)),
+        stratumCell(f.column, s.value),
         el("td", { className: "num" }, String(s.n)),
         cell(fmt(s.psi_map), f.column, s.value, null, "A point summary: no per-Draw series"),
         cell(s.size_range ? `[${fmt(s.size_range[0])}, ${fmt(s.size_range[1])}]` : "–", f.column, s.value, null, "A point summary: no per-Draw series"),
@@ -141,7 +150,7 @@ const render: RenderView = (root, ctx) => {
     const classes = el("table", { className: "data" },
       el("thead", {}, el("tr", {}, el("th", {}, "Stratum"), ...order.map((c) => el("th", {}, `${classLabel(c)} [95%]`)))),
       el("tbody", {}, ...f.strata.map((s) => el("tr", {},
-        el("td", {}, stratumLabel(f.column, s.value)),
+        stratumCell(f.column, s.value),
         ...order.map((c) => cell(fmtInterval(s.classes[c] ?? null), f.column, s.value, `mean_${c}`)),
       ))));
     tables.replaceChildren(el("h3", {}, "Functionals"), summary, el("h3", {}, "Composition classes"), classes);

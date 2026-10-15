@@ -1,8 +1,10 @@
-// U8 network view: Infections as nodes coloured by q, pooled Edge marginals above a threshold slider as edges whose
-// width is the marginal. Two layouts: force-directed (ForceAtlas2 in a web worker) and a timeline with observation
-// time on x and each Infection's posterior infection-time interval drawn as a bar behind its node. Hover shows an
-// edge's per-Chain marginals and lag, or a node's q and times; the search box centres on an Infection; clicking
-// selects Infections (shift-click adds) in the shared selection other views read.
+// U8 network view: Infections as nodes coloured by q (or a posterior per-Infection quantity, or an epi column),
+// pooled Edge marginals above a threshold slider as edges whose width is the marginal. Two layouts: force-directed
+// (ForceAtlas2 in a web worker) and a timeline with observation time on x and each Infection's posterior
+// infection-time interval drawn as a bar behind its node. A stratum filter keeps one epi stratum's Infections and the
+// edges between them. Hover shows an edge's per-Chain marginals and lag, or a node's q, times and epi values; the
+// search box centres on an Infection; clicking a node selects it (shift-click adds) in the shared selection other
+// views read, double-clicking opens its infection card, and clicking an edge opens the pair inspector.
 // With truth (U6, #89): a Truth toggle draws true edges in green by marginal and false edges at or above the threshold
 // dashed, and an edge-set selector swaps the posterior for the null-model posterior or the pairwise scores (IBD) on
 // the same nodes.
@@ -16,24 +18,36 @@ import FA2Layout from "graphology-layout-forceatlas2/worker";
 import type SigmaRenderer from "sigma";
 import { getJson } from "../api";
 import { el } from "../dom";
+import { stratumLabel } from "../functionals";
+import { infectionParams } from "../infection";
 import {
+  colourOptions,
   EdgeThreshold,
   edgeKey,
   edgeTooltip,
   findNode,
   graphData,
   NO_Q,
+  nodeColours,
   nodeTooltip,
   Q_RAMP,
+  readColour,
+  readStratum,
+  stratumParams,
+  stratumPayload,
   timelineLayout,
+  type ColourKey,
+  type ColourLegend,
   type EdgeAttributes,
   type NetworkEdge,
   type NetworkNode,
   type NetworkPayload,
   type NodeAttributes,
+  type Stratum,
   type TimelineLayout,
   type Tooltip,
 } from "../network";
+import { pairParams } from "../pair";
 import { formatRoute } from "../router";
 import { clearSelection, getSelection, select, subscribeSelection } from "../selection";
 import {
@@ -72,6 +86,8 @@ const render: RenderView = (root, ctx) => {
   let order: Order = ctx.params.get("order") === "lanes" ? "lanes" : "q";
   let source = (ctx.params.get("source") ?? "posterior") as Source;
   let truthShown = ctx.params.get("truth") === "1";
+  let colour: ColourKey = "q"; // read against the payload's epi columns once it loads
+  let stratum: Stratum | null = readStratum(ctx.params);
 
   root.innerHTML = `
     <div class="toolbar network-toolbar">
@@ -85,6 +101,9 @@ const render: RenderView = (root, ctx) => {
       <button type="button" class="run-force">Run layout</button>
       <label class="truth-control" hidden><input type="checkbox" class="truth"> Truth</label>
       <label class="source-control" hidden>Edges <select class="source"></select></label>
+      <label>Colour <select class="colour"></select></label>
+      <label class="stratum-control" hidden>Stratum <select class="stratum-column"></select>
+        <select class="stratum-value"></select></label>
       <form class="search"><input type="search" placeholder="Infection id" list="network-ids" aria-label="Find an Infection">
         <datalist id="network-ids"></datalist><button type="submit">Find</button></form>
       <span class="selection-info"></span>
@@ -100,6 +119,9 @@ const render: RenderView = (root, ctx) => {
   const orderSelect = $<HTMLSelectElement>(".order");
   const runForce = $<HTMLButtonElement>(".run-force");
   const searchInput = $<HTMLInputElement>(".search input");
+  const colourSelect = $<HTMLSelectElement>(".colour");
+  const stratumColumn = $<HTMLSelectElement>(".stratum-column");
+  const stratumValue = $<HTMLSelectElement>(".stratum-value");
   layoutSelect.value = layout;
   orderSelect.value = order;
 
@@ -116,13 +138,19 @@ const render: RenderView = (root, ctx) => {
     ctx.replaceParams({
       threshold: String(threshold), layout, ...(layout === "timeline" ? { order } : {}),
       ...(source !== "posterior" ? { source } : {}), ...(truthShown ? { truth: "1" } : {}),
+      ...(colour !== "q" ? { colour } : {}), ...stratumParams(stratum),
     });
   }
 
   function draw(payload: NetworkPayload, Sigma: typeof SigmaRenderer): () => void {
     const nodesById = new Map(payload.nodes.map((n) => [n.id, n]));
     const edgesByKey = new Map(payload.edges.map((e) => [edgeKey(e), e]));
-    const index = new EdgeThreshold(payload.edges);
+    const columns = payload.epi_columns ?? [];
+    if (stratum && !columns.some((c) => c.name === stratum!.column)) stratum = null;
+    colour = readColour(ctx.params, payload);
+    // The stratum's Infections and the edges between them; every Infection without a stratum.
+    let shown = stratumPayload(payload, stratum);
+    let index = new EdgeThreshold(shown.edges);
     // The truth overlay's edge sets once loaded, and the one drawn instead of the payload's edges, if any.
     let overlay: TruthNetworkPayload | null = null;
     let overlaySource: OverlaySource | null = null;
@@ -130,16 +158,31 @@ const render: RenderView = (root, ctx) => {
     const dashed = new Set<string>();
     const dashColours = new Map<string, string>();
     let alive = true;
-    const ids = payload.nodes.map((n) => n.id);
-    $("#network-ids").replaceChildren(...ids.map((id) => el("option", { value: id })));
+    let ids: string[] = [];
 
     slider.min = String(payload.floor);
     threshold = Math.max(threshold, payload.floor);
     slider.value = String(threshold);
-    drawLegend();
 
     const graph = new Graph<NodeAttributes, EdgeAttributes>({ type: "directed", multi: false });
-    graph.import(graphData(payload));
+
+    /** Put the shown Infections in the graph, coloured, and refill the search list. Edges come from useEdges. */
+    function importNodes() {
+      graph.clear();
+      graph.import({ nodes: graphData({ ...shown, edges: [] }).nodes });
+      recolour();
+      ids = shown.nodes.map((n) => n.id);
+      $("#network-ids").replaceChildren(...ids.map((id) => el("option", { value: id })));
+    }
+
+    function recolour() {
+      const { colours, legend } = nodeColours(payload, colour);
+      graph.updateEachNodeAttributes((id, attributes) => ({ ...attributes, color: colours.get(id) ?? NO_Q }));
+      drawLegend(legend);
+    }
+
+    importNodes();
+    graph.import({ edges: graphData(shown).edges });
 
     let hoveredNode: string | null = null;
     let hoveredEdge: string | null = null;
@@ -151,7 +194,7 @@ const render: RenderView = (root, ctx) => {
       defaultEdgeType: "arrow",
       enableEdgeEvents: true,
       zIndex: true,
-      labelRenderedSizeThreshold: payload.nodes.length <= 60 ? 0 : 9,
+      labelRenderedSizeThreshold: shown.nodes.length <= 60 ? 0 : 9,
       nodeReducer: (node, data) => {
         const out: Partial<typeof data> & { highlighted?: boolean; zIndex?: number } = { ...data };
         if (selected.has(node)) Object.assign(out, { size: data.size * 1.6, highlighted: true, zIndex: 2 });
@@ -281,7 +324,8 @@ const render: RenderView = (root, ctx) => {
       overlaySource = next;
       overlayByKey = new Map(next?.edges.map((e) => [edgeKey(e), e]) ?? []);
       graph.clearEdges();
-      graph.import({ edges: next ? overlayEdges(next) : graphData(payload).edges });
+      const edges = next ? overlayEdges(next).filter((e) => graph.hasNode(e.source) && graph.hasNode(e.target)) : graphData(shown).edges;
+      graph.import({ edges });
       root.classList.toggle("truth-shown", Boolean(truthShown && overlay?.truth));
       showThreshold();
       renderer.refresh();
@@ -336,35 +380,36 @@ const render: RenderView = (root, ctx) => {
 
     /** The timeline in graph units, its width set by the stage's aspect ratio so rows fill the height. */
     function timelineRows(): TimelineLayout {
-      const probe = timelineLayout(payload.nodes, { width: 1, laneHeight: 1, order });
+      const probe = timelineLayout(shown.nodes, { width: 1, laneHeight: 1, order });
       let rows = 1;
       for (const p of probe.positions.values()) rows = Math.max(rows, p.y + 1);
       const { width, height } = renderer.getDimensions();
-      return timelineLayout(payload.nodes, { width: rows * (width / Math.max(1, height)), laneHeight: 1, order });
+      return timelineLayout(shown.nodes, { width: rows * (width / Math.max(1, height)), laneHeight: 1, order });
     }
 
     // --- Controls --------------------------------------------------------------------------------------------------
 
     function showThreshold() {
       $(".threshold-value").textContent = threshold.toFixed(3);
+      const of = stratum ? ` in ${stratum.column} ${stratumLabel(stratum.column, stratum.value)}` : "";
+      const infections = `${shown.nodes.length.toLocaleString()} Infections${of}`;
       if (overlaySource) {
         const known = truthShown && overlay?.truth;
         $(".status").textContent =
           `${shownCount(overlaySource.edges, threshold, truthShown).toLocaleString()} of ` +
           `${overlaySource.edges.length.toLocaleString()} edges of ${SOURCE_NAMES[overlaySource.source]} ` +
-          `(${overlaySource.label}) shown, ${payload.nodes.length.toLocaleString()} Infections. ` +
+          `(${overlaySource.label}) shown, ${infections}. ` +
           (known
             ? `True edges are drawn whatever their score, false edges at or above the threshold dashed. ${matchText(overlay!.truth!)}.`
             : `Edges below ${overlay!.floor} are not loaded.`);
         return;
       }
-      const shown = index.count(threshold);
-      $(".status").textContent = payload.edges.length
-        ? `${shown.toLocaleString()} of ${index.total.toLocaleString()} edges shown, ${payload.nodes.length.toLocaleString()} Infections. ` +
+      const count = index.count(threshold);
+      $(".status").textContent = shown.edges.length
+        ? `${count.toLocaleString()} of ${index.total.toLocaleString()} edges shown, ${infections}. ` +
           `Edges from the unobserved source are not drawn; q, its inclusion, colours the nodes. ` +
           `Edges below ${payload.floor} are not loaded.`
-        : `No edge from an observed parent has a pooled marginal of ${payload.floor} or more; ` +
-          `${payload.nodes.length.toLocaleString()} Infections.`;
+        : `No edge from an observed parent has a pooled marginal of ${payload.floor} or more; ${infections}.`;
     }
 
     const onSlider = () => {
@@ -398,6 +443,48 @@ const render: RenderView = (root, ctx) => {
       renderer.getCamera().animate({ x: display.x, y: display.y, ratio: 0.25 }, { duration: 500 });
       renderer.refresh({ skipIndexation: true });
     };
+
+    // Colour and stratum controls, from the payload's epi columns.
+    colourSelect.replaceChildren(...colourOptions(payload).map((o) => el("option", { value: o.key, textContent: o.label })));
+    colourSelect.value = colour;
+    $<HTMLLabelElement>(".stratum-control").hidden = columns.length === 0;
+    stratumColumn.replaceChildren(el("option", { value: "", textContent: "every Infection" }),
+      ...columns.map((c) => el("option", { value: c.name, textContent: c.name })));
+    stratumColumn.value = stratum?.column ?? "";
+    // A value option's value is the stratum value, or "\u0000" for the Infections with no value.
+    const NONE = "\u0000";
+    function fillValues() {
+      const column = columns.find((c) => c.name === stratumColumn.value);
+      stratumValue.hidden = !column;
+      stratumValue.replaceChildren(...(column?.values ?? []).map((v) =>
+        el("option", { value: v ?? NONE, textContent: stratumLabel(column!.name, v) })));
+      if (column && stratum?.column === column.name) stratumValue.value = stratum.value ?? NONE;
+    }
+    fillValues();
+
+    const onColour = () => {
+      colour = colourSelect.value;
+      saveParams();
+      recolour();
+      renderer.refresh({ skipIndexation: true });
+    };
+    const onStratum = (event: Event) => {
+      if (event.target === stratumColumn) fillValues();
+      stratum = stratumColumn.value
+        ? { column: stratumColumn.value, value: stratumValue.value === NONE ? null : stratumValue.value }
+        : null;
+      saveParams();
+      hoveredNode = hoveredEdge = found = null;
+      tooltip.hidden = true;
+      shown = stratumPayload(payload, stratum);
+      index = new EdgeThreshold(shown.edges);
+      importNodes();
+      useEdges();
+      applyLayout(true);
+    };
+    colourSelect.addEventListener("change", onColour);
+    stratumColumn.addEventListener("change", onStratum);
+    stratumValue.addEventListener("change", onStratum);
 
     slider.addEventListener("input", onSlider);
     slider.addEventListener("change", onSliderDone);
@@ -446,6 +533,14 @@ const render: RenderView = (root, ctx) => {
       renderer.refresh({ skipIndexation: true });
     });
     renderer.on("clickNode", ({ node, event }) => select(node, { add: event.original.shiftKey }));
+    renderer.on("doubleClickNode", ({ node, event }) => {
+      event.preventSigmaDefault();
+      ctx.navigate("infection", infectionParams(node));
+    });
+    renderer.on("clickEdge", ({ edge }) => {
+      const [parent, child] = graph.extremities(edge);
+      ctx.navigate("pair", pairParams({ a: parent, b: child }));
+    });
     renderer.on("clickStage", ({ event }) => {
       if (!event.original.shiftKey) clearSelection();
     });
@@ -454,14 +549,18 @@ const render: RenderView = (root, ctx) => {
       const info = $(".selection-info");
       info.replaceChildren();
       if (!selected.size) {
-        info.textContent = "Click an Infection to select it; shift-click to add.";
+        info.textContent = "Click an Infection to select it, shift-click to add, double-click for its infection card; click an edge for the pair inspector.";
         info.className = "selection-info muted";
         return;
       }
       info.className = "selection-info";
-      const names = [...selected].slice(0, 5).join(", ") + (selected.size > 5 ? ", …" : "");
-      info.append(`Selected: ${names} `);
-      // The edge table (#83) reads the shared selection and keeps only edges touching it.
+      info.append("Selected: ");
+      [...selected].slice(0, 5).forEach((id, i) => {
+        if (i) info.append(", ");
+        info.append(el("a", { href: formatRoute("infection", infectionParams(id)), title: `Open the infection card of ${id}` }, id));
+      });
+      info.append(selected.size > 5 ? ", … " : " ");
+      // The edge table reads the shared selection and keeps only edges touching it.
       info.append(el("a", { href: formatRoute("edges"), textContent: "Their edges" }), " ");
       const clear = el("button", { type: "button", textContent: "Clear" });
       clear.addEventListener("click", () => clearSelection());
@@ -508,7 +607,6 @@ const render: RenderView = (root, ctx) => {
           el("option", { value: s.source, textContent: `${SOURCE_NAMES[s.source]} (${s.label})` })));
         sourceSelect.value = source;
         $<HTMLLabelElement>(".source-control").hidden = o.sources.length < 2;
-        drawLegend();
         useEdges();
       })
       .catch(() => {}); // no overlay: the posterior's edges as before
@@ -517,6 +615,9 @@ const render: RenderView = (root, ctx) => {
       alive = false;
       stopForce();
       truthBox.removeEventListener("change", onTruth);
+      colourSelect.removeEventListener("change", onColour);
+      stratumColumn.removeEventListener("change", onStratum);
+      stratumValue.removeEventListener("change", onStratum);
       sourceSelect.removeEventListener("change", onSource);
       unsubscribe();
       resize.disconnect();
@@ -524,20 +625,25 @@ const render: RenderView = (root, ctx) => {
     };
   }
 
-  function drawLegend() {
-    const gradient = `linear-gradient(to right, ${Q_RAMP.join(", ")})`;
-    $(".network-legend").innerHTML = `
-      <span class="legend-item">q, unobserved-source inclusion
-        <span class="q-scale"><span class="q-ramp" style="background: ${gradient}"></span>
-        <span class="q-ticks"><span>0</span><span>0.5</span><span>1</span></span></span></span>
-      <span class="legend-item"><span class="swatch" style="background: ${NO_Q}"></span> no q</span>
-      <span class="legend-item"><span class="swatch" style="background: ${SELECTED}"></span> selected and its edges</span>
-      <span class="legend-item">edge width: pooled Edge marginal, parent → child</span>
-      <span class="legend-item timeline-only"><span class="bar-swatch"></span> 95% posterior infection-time interval</span>
-      <span class="legend-item truth-only">true edge, by score
-        <span class="q-scale"><span class="q-ramp" style="background: linear-gradient(to right, ${TRUE_RAMP.join(", ")})"></span>
-        <span class="q-ticks"><span>0</span><span>0.5</span><span>1</span></span></span></span>
-      <span class="legend-item truth-only"><span class="dash-swatch" style="border-color: ${FALSE_COLOUR}"></span> false edge at or above the threshold</span>`;
+  function drawLegend(legend: ColourLegend) {
+    const scale = (ramp: readonly string[], lower: string, upper: string) => el("span", { className: "q-scale" },
+      el("span", { className: "q-ramp", style: `background: linear-gradient(to right, ${ramp.join(", ")})` }),
+      el("span", { className: "q-ticks" }, el("span", {}, lower), el("span", {}, upper)));
+    const swatch = (colour: string) => el("span", { className: "swatch", style: `background: ${colour}` });
+    const item = (...children: (Node | string)[]) => el("span", { className: "legend-item" }, ...children);
+    const nodes = legend.kind === "ramp"
+      ? [item(legend.label, scale(Q_RAMP, legend.lower, legend.upper))]
+      : [item(`${legend.label}:`), ...legend.items.map((i) => item(swatch(i.colour), i.label))];
+    if (legend.missing) nodes.push(item(swatch(NO_Q), ` no ${legend.label.startsWith("q,") ? "q" : legend.label} (${legend.missing.toLocaleString()})`));
+    $(".network-legend").replaceChildren(
+      ...nodes,
+      item(swatch(SELECTED), " selected and its edges"),
+      item("edge width: pooled Edge marginal, parent → child"),
+      el("span", { className: "legend-item timeline-only" }, el("span", { className: "bar-swatch" }), " 95% posterior infection-time interval"),
+      el("span", { className: "legend-item truth-only" }, "true edge, by score", scale(TRUE_RAMP, "0", "1")),
+      el("span", { className: "legend-item truth-only" }, el("span", { className: "dash-swatch", style: `border-color: ${FALSE_COLOUR}` }),
+        " false edge at or above the threshold"),
+    );
   }
 
   return () => {

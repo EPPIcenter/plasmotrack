@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { clearSelection, getSelection, select, subscribeSelection } from "./selection";
+import { clearSelection, getSelection, select, selectOnly, subscribeSelection } from "./selection";
 
 afterEach(() => clearSelection());
 
@@ -31,5 +31,11 @@ describe("the shared Infection selection", () => {
     unsubscribe();
     select("3");
     expect(seen).toEqual([["2"], ["1", "2"], []]);
+  });
+
+  it("selects a set of Infections at once, replacing the selection (an edge's two ends)", () => {
+    select("5");
+    selectOnly(["1", "3"]);
+    expect([...getSelection()].sort()).toEqual(["1", "3"]);
   });
 });

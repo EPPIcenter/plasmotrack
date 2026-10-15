@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { EdgeThreshold, edgeTooltip, findNode, graphData, nodeTooltip, qColour, timelineLayout, type NetworkEdge, type NetworkNode } from "./network";
+import { CHAIN_COLOURS } from "./format";
+import {
+  colourOptions,
+  EdgeThreshold,
+  edgeTooltip,
+  findNode,
+  graphData,
+  NO_Q,
+  nodeColours,
+  nodeTooltip,
+  qColour,
+  Q_RAMP,
+  readColour,
+  readStratum,
+  stratumParams,
+  stratumPayload,
+  thresholdFor,
+  timelineLayout,
+  type NetworkEdge,
+  type NetworkNode,
+  type NetworkPayload,
+} from "./network";
+import { formatRoute, parseRoute } from "./router";
 
 const edge = (child: string, parent: string, marginal: number): NetworkEdge => ({
   child, parent, marginal, chains: [marginal, marginal], lag: 1,
@@ -181,5 +203,107 @@ describe("hover tooltips", () => {
       rows: [["q", "0.169"], ["observed", "350.5"], ["infection time", "300.5 – 346.3 (median 323.4)"],
              ["symptomatic", "yes"]],
     });
+  });
+});
+
+describe("epi strata and colours", () => {
+  const withEpi = (n: NetworkNode, epi: Record<string, string | null>): NetworkNode => ({ ...n, epi });
+  const payload: NetworkPayload = {
+    chains: ["chain1"], floor: 0.01,
+    epi_columns: [
+      { name: "district", type: "categorical", values: ["North", "South", null] },
+      { name: "age", type: "numeric", values: ["4", "30"] },
+      { name: "visit", type: "date", values: ["2024-01-01", "2024-03-01"] },
+    ],
+    nodes: [
+      withEpi(node("1", 10, 0.5, 0, 9), { district: "North", age: "4", visit: "2024-01-01" }),
+      withEpi(node("2", 20, 0, 10, 19), { district: "South", age: "30", visit: "2024-03-01" }),
+      withEpi(node("3", 30, 1, 20, 29), { district: null, age: null, visit: null }),
+      node("4", 40, null, 30, 39),
+    ],
+    edges: [
+      { child: "2", parent: "1", marginal: 0.5, chains: [0.5], lag: 10 },
+      { child: "3", parent: "1", marginal: 0.4, chains: [0.4], lag: 20 },
+    ],
+  };
+
+  it("offer q, the posterior per-Infection quantities and every epi column as node colours", () => {
+    expect(colourOptions(payload).map((o) => o.key)).toEqual(["q", "infection_time", "observation_time", "epi:district", "epi:age", "epi:visit"]);
+    expect(colourOptions({ ...payload, epi_columns: undefined }).map((o) => o.key)).toEqual(["q", "infection_time", "observation_time"]);
+  });
+
+  it("read the colour from the URL, falling back to q for one the payload does not have", () => {
+    expect(readColour(new URLSearchParams("colour=epi:district"), payload)).toBe("epi:district");
+    expect(readColour(new URLSearchParams("colour=epi:nothing"), payload)).toBe("q");
+    expect(readColour(new URLSearchParams(), payload)).toBe("q");
+  });
+
+  it("colour q on its ramp, unchanged", () => {
+    const { colours, legend } = nodeColours(payload, "q");
+    expect(colours.get("1")).toBe(qColour(0.5));
+    expect(colours.get("4")).toBe(NO_Q);
+    expect(legend).toMatchObject({ kind: "ramp", lower: "0", upper: "1", missing: 1 });
+  });
+
+  it("colour a categorical column by the categorical palette in the column's value order, no value grey", () => {
+    const { colours, legend } = nodeColours(payload, "epi:district");
+    expect([...colours.values()]).toEqual([CHAIN_COLOURS[0], CHAIN_COLOURS[1], NO_Q, NO_Q]);
+    expect(legend).toEqual({ kind: "categories", label: "district", missing: 2,
+      items: [{ label: "North", colour: CHAIN_COLOURS[0] }, { label: "South", colour: CHAIN_COLOURS[1] }] });
+  });
+
+  it("colour more categories than the palette holds along an ordinal ramp", () => {
+    const values = Array.from({ length: 12 }, (_, i) => `v${i}`);
+    const many: NetworkPayload = { ...payload, epi_columns: [{ name: "village", type: "categorical", values }],
+      nodes: values.map((v, i) => withEpi(node(String(i), i, 0, 0, 1), { village: v })) };
+    const { colours } = nodeColours(many, "epi:village");
+    expect(colours.get("0")).toBe(Q_RAMP[0]);
+    expect(colours.get("11")).toBe(Q_RAMP[Q_RAMP.length - 1]);
+  });
+
+  it("colour a numeric or date column, or a posterior quantity, along the ramp from its smallest to its largest value", () => {
+    const age = nodeColours(payload, "epi:age");
+    expect([age.colours.get("1"), age.colours.get("2"), age.colours.get("3")]).toEqual([Q_RAMP[0], Q_RAMP[Q_RAMP.length - 1], NO_Q]);
+    expect(age.legend).toMatchObject({ kind: "ramp", label: "age", lower: "4", upper: "30", missing: 2 });
+    const visit = nodeColours(payload, "epi:visit");
+    expect(visit.colours.get("2")).toBe(Q_RAMP[Q_RAMP.length - 1]);
+    expect(visit.legend).toMatchObject({ lower: "2024-01-01", upper: "2024-03-01" });
+    const observed = nodeColours(payload, "observation_time");
+    expect([observed.colours.get("1"), observed.colours.get("4")]).toEqual([Q_RAMP[0], Q_RAMP[Q_RAMP.length - 1]]);
+    expect(observed.legend).toMatchObject({ lower: "10.0", upper: "40.0", missing: 0 });
+  });
+
+  it("keep a stratum's Infections and the edges between them", () => {
+    const north = stratumPayload(payload, { column: "district", value: "North" });
+    expect(north.nodes.map((n) => n.id)).toEqual(["1"]);
+    expect(north.edges).toEqual([]);
+    // The Infections with no value: a null value or no epi row at all.
+    const none = stratumPayload(payload, { column: "district", value: null });
+    expect(none.nodes.map((n) => n.id)).toEqual(["3", "4"]);
+    expect(stratumPayload(payload, null)).toBe(payload);
+  });
+
+  it("put the stratum in the URL as the trace panel does: no stratum parameter for the Infections with no value", () => {
+    const round = (s: { column: string; value: string | null } | null) => readStratum(parseRoute(formatRoute("network", stratumParams(s))).params);
+    expect(stratumParams({ column: "district", value: "North" })).toEqual({ stratum_column: "district", stratum: "North" });
+    expect(stratumParams({ column: "district", value: null })).toEqual({ stratum_column: "district" });
+    expect(stratumParams(null)).toEqual({});
+    expect(round({ column: "district", value: "North & South" })).toEqual({ column: "district", value: "North & South" });
+    expect(round({ column: "district", value: null })).toEqual({ column: "district", value: null });
+    expect(round({ column: "district", value: "" })).toEqual({ column: "district", value: "" });
+    expect(round(null)).toBeNull();
+  });
+
+  it("give a node's tooltip its epi values", () => {
+    expect(nodeTooltip(payload.nodes[0]!).rows.slice(-3)).toEqual([["district", "North"], ["age", "4"], ["visit", "2024-01-01"]]);
+    expect(nodeTooltip(payload.nodes[2]!).rows.slice(-1)).toEqual([["visit", "–"]]);
+  });
+});
+
+describe("the threshold that shows an edge", () => {
+  it("is at or just below its marginal, to three decimals", () => {
+    expect(thresholdFor(0.8347)).toBe(0.834);
+    expect(thresholdFor(0.5)).toBe(0.5);
+    expect(thresholdFor(0.0004)).toBe(0);
   });
 });
