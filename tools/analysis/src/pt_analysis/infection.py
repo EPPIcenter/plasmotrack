@@ -7,14 +7,12 @@ Parent sets per Chain and pooled, with members, composition class and the credib
 Edge marginals; and its q, entropy and effective parent-set size. Pooled values weight each Chain by its Draws.
 """
 
-# The SQL below names DuckDB relations held in local variables (`FROM trace`); DuckDB finds them by name in the
-# calling frame (a replacement scan), so those variables are used even though nothing else reads them.
-
-from pt_analysis import functionals, inputs
+from pt_analysis import functionals, inputs, times
+from pt_analysis.chains import infection_ids, pooled_mean
 from pt_analysis.derive import derived, derived_analysis, table
-from pt_analysis.pair import infections, pooled, quantile
-
-LEVEL = functionals.LEVEL
+from pt_analysis.parent_sets import LEVEL, pooled_sets
+from pt_analysis.quantiles import quantiles
+from pt_analysis.sql import literal
 
 # The card's quantities from the `infections` Trace: key, column, and the convergence table's group of its trace.
 TRACE_QUANTITIES = [("false_positives", "expected_false_positives", "false positive rate"),
@@ -30,26 +28,27 @@ def series_summary(chains, group, name):
     """A quantity's per-Chain series and the 2.5%, 50% and 97.5% quantiles (R type 7) of its values pooled over every
     Chain's Draws (None without Draws)."""
     values = [v for c in chains for v in c["value"]]
-    lower, median, upper = (quantile(values, p) for p in (0.025, 0.5, 0.975)) if values else (None, None, None)
+    lower, median, upper = quantiles(values, (0.025, 0.5, 0.975)) if values else (None, None, None)
     return {"group": group, "name": name, "chains": chains, "lower": lower, "median": median, "upper": upper}
 
 
 def quantities(analysis, infection, observation_time):
     """{false_positives, false_negatives, duration, infection_time}: each a `series_summary`. Infection time is the
-    observation time minus the duration at each Draw; it has no trace in the convergence table (group None)."""
+    observation time minus the duration at each Draw, its quantiles the posterior infection time of
+    `times.infection_times`; it has no trace in the convergence table (group None)."""
     per_chain = {key: [] for key, *_ in TRACE_QUANTITIES}
-    times = []
+    series = []
     for label, store in analysis.runs.items():
-        trace = table(store, "infections")
-        rows = store.connection.execute("""
-            SELECT iteration, expected_false_positives, expected_false_negatives, infection_duration FROM trace
-            WHERE infection = $i ORDER BY iteration""", {"i": infection}).fetchall()
+        rows = table(store, "infections").filter(f"infection = {literal(infection)}").project(
+            "iteration, expected_false_positives, expected_false_negatives, infection_duration").order(
+            "iteration").fetchall()
         iterations = [r[0] for r in rows]
         for k, (key, *_) in enumerate(TRACE_QUANTITIES):
             per_chain[key].append({"chain": label, "iteration": iterations, "value": [r[k + 1] for r in rows]})
-        times.append({"chain": label, "iteration": iterations, "value": [observation_time - r[3] for r in rows]})
+        series.append({"chain": label, "iteration": iterations, "value": [observation_time - r[3] for r in rows]})
     out = {key: series_summary(per_chain[key], group, infection) for key, _, group in TRACE_QUANTITIES}
-    out["infection_time"] = series_summary(times, None, None)
+    interval = times.infection_times(analysis, [infection]).get(infection, dict.fromkeys(("lower", "median", "upper")))
+    out["infection_time"] = {"group": None, "name": None, "chains": series, **interval}
     return out
 
 
@@ -58,9 +57,8 @@ def coi(analysis, infection):
     [{coi, draws, fraction}] by COI."""
     chains, counts = [], {}
     for label, store in analysis.runs.items():
-        relation = derived(store, "coi")
-        rows = store.connection.execute("SELECT iteration, coi FROM relation WHERE infection = $i ORDER BY iteration",
-                                        {"i": infection}).fetchall()
+        rows = derived(store, "coi").filter(f"infection = {literal(infection)}").project("iteration, coi").order(
+            "iteration").fetchall()
         chains.append({"chain": label, "iteration": [r[0] for r in rows], "coi": [r[1] for r in rows]})
         for _, value in rows:
             counts[value] = counts.get(value, 0) + 1
@@ -78,9 +76,8 @@ def genotype(analysis, infection):
     presence, draws = {}, {}
     for label, store in analysis.runs.items():
         draws[label] = store.draws()
-        summary = derived(store, "genotype_summary")
-        for locus, allele, p in store.connection.execute(
-                "SELECT locus, allele, presence FROM summary WHERE infection = $i", {"i": infection}).fetchall():
+        for locus, allele, p in derived(store, "genotype_summary").filter(f"infection = {literal(infection)}").project(
+                "locus, allele, presence").fetchall():
             presence.setdefault((locus, allele), {})[label] = p
     total = sum(draws.values())
     observed = inputs.genotypes(inputs.nodes(analysis.input)[infection].get("observed_genotype"))
@@ -100,43 +97,32 @@ def set_row(s, credible):
 
 
 def parent_sets(analysis, infection, level=LEVEL):
-    """The Infection's Parent sets per Chain, ranked by pooled weight over the Chain's Draws (`set_summary`), with
-    members, composition class, cumulative mass and whether the set is in the Chain's credible collection at `level`
-    (`functionals.credible_collection`). Also pooled over Chains: each set's weight per Chain weighted by the Chain's
-    Draws, sets matched across Chains by their members (a set's id is the first Chain's), ranked and with the
-    credible collection by the same rule."""
-    chains, by_members, draws = [], {}, {}
+    """The Infection's Parent sets per Chain, ranked by the Chain's weights (`parent_sets.ranked_sets`), with members,
+    composition class, cumulative mass and whether the set is in the Chain's credible collection at `level`. Also
+    pooled over Chains (`parent_sets.pooled_sets`): each set's weight per Chain and pooled, ranked by the same MAP
+    rule and with the credible collection by the same prefix rule; a pooled set's id is the first Chain's that has
+    it."""
+    chains = []
     for label, store in analysis.runs.items():
-        draws[label] = store.draws()
         sets = functionals.ranked_sets(store, infection=infection)
         credible = {s.set_id for s in functionals.credible_collection(store, infection, level)}
         chains.append({"chain": label, "sets": [set_row(s, s.set_id in credible) for s in sets]})
-        for s in sets:
-            entry = by_members.setdefault(s.members, {"set": s, "weights": {}})
-            entry["weights"][label] = s.weight
-    total = sum(draws.values())
-    rows = []
-    for entry in by_members.values():
-        weights = [{"chain": label, "weight": entry["weights"].get(label, 0.0)} for label in analysis.runs]
-        rows.append({**set_row(entry["set"], False), "chains": weights,
-                     "weight": sum(w["weight"] * draws[w["chain"]] for w in weights) / total})
-    rows.sort(key=lambda r: (-r["weight"], r["set_id"]))
-    mass = 0.0
-    for rank, r in enumerate(rows, 1):
-        r["credible"] = mass < level - functionals.TOLERANCE
-        mass += r["weight"]
-        r.update(rank=rank, cumulative_mass=mass)
-    return {"level": level, "pooled": rows, "chains": chains}
+    pooled = []
+    for s in pooled_sets(analysis, level, infection).get(infection, []):
+        pooled.append({"set_id": next(iter(s.set_ids.values())), "members": list(s.members),
+                       "n_observed": s.n_observed, "class": s.composition, "weight": s.weight, "rank": s.rank,
+                       "cumulative_mass": s.cumulative_mass, "credible": s.credible,
+                       "chains": [{"chain": label, "weight": w} for label, w in s.chains.items()]})
+    return {"level": level, "pooled": pooled, "chains": chains}
 
 
 def edge_marginals(analysis, infection):
     """The Infection's parent Edge marginals (it is the child; the unobserved source is its Latent parent id) and
     child Edge marginals (it is the parent), from the `edge_stats` table: pooled, spread, ESS and per Chain mean, with
     the trace quantity (group, name) of each; largest pooled first."""
-    stats = derived_analysis(analysis, "edge_stats")
-    rows = analysis.runs[next(iter(analysis.runs))].connection.execute("""
-        SELECT child, parent, unobserved, chain, mean, spread, ess FROM stats
-        WHERE child = $i OR (parent = $i AND NOT unobserved)""", {"i": infection}).fetchall()
+    rows = derived_analysis(analysis, "edge_stats").filter(
+        f"child = {literal(infection)} OR (parent = {literal(infection)} AND NOT unobserved)").project(
+        "child, parent, unobserved, chain, mean, spread, ess").fetchall()
     edges = {}
     for child, parent, unobserved, chain, mean, spread, ess in rows:
         edge = edges.setdefault((child, parent), {
@@ -164,13 +150,11 @@ def summary(analysis, infection):
     chains, draws = [], {}
     for label, store in analysis.runs.items():
         draws[label] = store.draws()
-        relation = derived(store, "infection_draws")
-        means = store.connection.execute(
-            f"SELECT {', '.join(f'avg({c})' for c in SUMMARY)} FROM relation WHERE infection = $i",
-            {"i": infection}).fetchone()
+        means = derived(store, "infection_draws").filter(f"infection = {literal(infection)}").aggregate(
+            ", ".join(f"avg({c})" for c in SUMMARY)).fetchone()
         chains.append({"chain": label, **dict(zip(SUMMARY, means))})
     with_draws = [c for c in chains if c["q"] is not None]
-    return {"chains": chains, **{c: pooled(with_draws, c, draws) for c in SUMMARY}}
+    return {"chains": chains, **{c: pooled_mean(with_draws, c, draws) for c in SUMMARY}}
 
 
 def card(analysis, infection, level=LEVEL):
@@ -187,7 +171,7 @@ def card(analysis, infection, level=LEVEL):
         children     likewise, with the Infection as parent
         summary      {chains: [{chain, q, expected_observed_parents, entropy, effective_size}], and each pooled}
     """
-    if infection not in infections(analysis):
+    if infection not in infection_ids(analysis):
         raise UnknownInfection(f"no Infection {infection} in the Analysis")
     observation_time = inputs.nodes(analysis.input)[infection]["observation_time"]
     parents, children = edge_marginals(analysis, infection)

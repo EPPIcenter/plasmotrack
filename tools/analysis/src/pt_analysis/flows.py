@@ -11,18 +11,17 @@ value. Definitions follow the manuscript's Zanzibar results (`scripts/summarize_
 - Enrichment: per source x recipient cell, the cell's share of all edge mass over its share of the candidate pairs
   (the input's `allowed_parents`); no value where the cell has no candidate pair.
 - Net flow: per stratum, expected out-edges minus in-edges, counting only edges between different strata.
-- Lag: child minus parent observation time, from the input. Reassigning beyond a lag moves the mass of every edge
-  with lag above the cutoff to the unobserved source, Draw by Draw: psi_edge drops by the moved mass over n and mean
-  q rises by the same amount, the manuscript's accounting (q then counts attributed mass, and an Infection's moved q
-  can exceed one). Per stratum, psi_edge counts the stratum's Infections as sources and q as recipients, as in
-  `pt_analysis.strata`.
+- Lag: child minus parent observation time, from the input (`pt_analysis.times`). Reassigning beyond a lag moves the
+  mass of every edge with lag above the cutoff to the unobserved source, Draw by Draw: psi_edge drops by the moved
+  mass over n and mean q rises by it, the manuscript's accounting, except that each Infection's q is clamped at 1 at
+  every Draw that gains moved mass. q is a probability; unclamped, an Infection whose sets hold both a moved parent
+  and its Latent parent would count that weight twice and could pass 1. So mean q rises by at most the moved mass
+  over n. Per stratum,
+  psi_edge counts the stratum's Infections as sources and q as recipients, as in `pt_analysis.strata`.
 - Spatial scale: edge mass by where the source lives relative to the recipient, for a unit column nested in a parent
   column: `same_unit` (same unit and same parent unit, so a unit name reused in two parent units is two units),
   `same_parent` (same parent unit, another unit), `other` (anything else, a missing value included).
 """
-
-# The SQL below names DuckDB relations held in local variables (`FROM edges`); DuckDB finds them by name in the
-# calling frame (a replacement scan), so those variables are used even though nothing else reads them.
 
 import math
 import statistics
@@ -33,7 +32,10 @@ import pyarrow as pa
 from pt_analysis.derive import derived, table
 from pt_analysis.epi import EpiError, load_epi
 from pt_analysis.inputs import nodes
-from pt_analysis.strata import Interval, interval, strata
+from pt_analysis.quantiles import Interval, interval
+from pt_analysis.sql import Scope
+from pt_analysis.strata import strata
+from pt_analysis import times
 
 BINS = 30
 RELATIONS = ("same_unit", "same_parent", "other")
@@ -115,13 +117,12 @@ def _draws(analysis):
     return sum(store.draws() for store in analysis.runs.values())
 
 
-def _marked_edges(store):
-    """The Run's derived `edges` with `latent`: whether the parent is the child's Latent parent."""
-    edges = derived(store, "edges")
-    latent = store.structure("infections")
-    return store.connection.sql("""
+def _marked_edges(store, s):
+    """The Run's derived `edges` with `latent`: whether the parent is the child's Latent parent; named in scope `s`."""
+    return s.name(s.sql(f"""
         SELECT e.iteration, e.child, e.parent, e.prob, e.parent = l.latent_parent AS latent
-        FROM edges e JOIN latent l ON l.infection = e.child""")
+        FROM {s.name(derived(store, "edges"))} e JOIN {s.name(store.structure("infections"))} l
+             ON l.infection = e.child"""))
 
 
 def pooled(analysis):
@@ -131,9 +132,9 @@ def pooled(analysis):
     if not total:
         return edges, q
     for store in analysis.runs.values():
-        marked = _marked_edges(store)
-        for child, parent, latent, mass in store.connection.sql("""
-                SELECT child, parent, latent, sum(prob) FROM marked GROUP BY ALL""").fetchall():
+        with Scope(store.connection) as s:
+            rows = s.rows(f"SELECT child, parent, latent, sum(prob) FROM {_marked_edges(store, s)} GROUP BY ALL")
+        for child, parent, latent, mass in rows:
             if latent:
                 q[child] = q.get(child, 0.0) + mass / total
             else:
@@ -142,10 +143,9 @@ def pooled(analysis):
 
 
 def lags(analysis):
-    """{(parent, child): child's minus parent's observation time} for every pair of input nodes with times."""
-    times = {i: node.get("observation_time") for i, node in nodes(analysis.input).items()}
-    return lambda parent, child: (None if times.get(parent) is None or times.get(child) is None
-                                  else times[child] - times[parent])
+    """lag(parent, child): the child's minus the parent's observation time (`times.lag`), None without both."""
+    observed = times.observation_times(analysis)
+    return lambda parent, child: times.lag(observed, parent, child)
 
 
 def candidate_pairs(analysis):
@@ -253,15 +253,15 @@ def median_duration(analysis):
         return None
     sums = {}
     for store in analysis.runs.values():
-        durations = table(store, "infections")
-        for infection, s in store.connection.sql("""
-                SELECT infection, sum(infection_duration) FROM durations GROUP BY ALL""").fetchall():
+        for infection, s in table(store, "infections").aggregate("infection, sum(infection_duration)",
+                                                                 "infection").fetchall():
             sums[infection] = sums.get(infection, 0.0) + s
     return statistics.median(s / total for s in sums.values()) if sums else None
 
 
 def _reassigned_draws(analysis, groups, max_lag):
-    """Per stratum, per Draw of every Chain: (psi_edge, psi_edge moved, mean q, mean q moved)."""
+    """Per stratum, per Draw of every Chain: (psi_edge, psi_edge moved, mean q, mean q moved), q moved clamped at 1
+    per Infection."""
     lag = lags(analysis)
     edges, _ = pooled(analysis)
     beyond = [(p, c) for (p, c) in edges if (x := lag(p, c)) is not None and x > max_lag]
@@ -272,28 +272,31 @@ def _reassigned_draws(analysis, groups, max_lag):
     n = [len(infections) for infections in groups]
     result = [[] for _ in groups]
     for store in analysis.runs.values():
-        marked = _marked_edges(store)
-        members = store.connection.from_arrow(membership)
-        far = store.connection.from_arrow(moved)
-        rows = store.connection.sql("""
-            WITH e AS (SELECT m.*, f.child IS NOT NULL AND NOT m.latent AS beyond
-                       FROM marked m LEFT JOIN far f USING (parent, child)),
-                 draws AS (SELECT DISTINCT iteration FROM e),
-                 grid AS (SELECT d.iteration, s.stratum FROM draws d CROSS JOIN (SELECT DISTINCT stratum FROM members) s),
-                 source AS (SELECT e.iteration, s.stratum, sum(e.prob) AS out_mass,
-                                   coalesce(sum(e.prob) FILTER (WHERE e.beyond), 0) AS out_moved
-                            FROM e JOIN members s ON s.infection = e.parent WHERE NOT e.latent GROUP BY ALL),
-                 recipient AS (SELECT e.iteration, s.stratum,
-                                      coalesce(sum(e.prob) FILTER (WHERE e.latent), 0) AS q_mass,
-                                      coalesce(sum(e.prob) FILTER (WHERE e.beyond), 0) AS in_moved
-                               FROM e JOIN members s ON s.infection = e.child GROUP BY ALL)
-            SELECT g.stratum, coalesce(o.out_mass, 0), coalesce(o.out_moved, 0), coalesce(r.q_mass, 0),
-                   coalesce(r.in_moved, 0)
-            FROM grid g LEFT JOIN source o USING (iteration, stratum) LEFT JOIN recipient r USING (iteration, stratum)
-            ORDER BY g.iteration, g.stratum""").fetchall()
-        for k, out_mass, out_moved, q_mass, in_moved in rows:
-            result[k].append((out_mass / n[k], (out_mass - out_moved) / n[k], q_mass / n[k],
-                              (q_mass + in_moved) / n[k]))
+        with Scope(store.connection) as s:
+            members = s.name(membership)
+            rows = s.rows(f"""
+                WITH e AS (SELECT m.*, f.child IS NOT NULL AND NOT m.latent AS beyond
+                           FROM {_marked_edges(store, s)} m LEFT JOIN {s.name(moved)} f USING (parent, child)),
+                     draws AS (SELECT DISTINCT iteration FROM e),
+                     grid AS (SELECT d.iteration, s.stratum
+                              FROM draws d CROSS JOIN (SELECT DISTINCT stratum FROM {members}) s),
+                     source AS (SELECT e.iteration, s.stratum, sum(e.prob) AS out_mass,
+                                       coalesce(sum(e.prob) FILTER (WHERE e.beyond), 0) AS out_moved
+                                FROM e JOIN {members} s ON s.infection = e.parent WHERE NOT e.latent GROUP BY ALL),
+                     child AS (SELECT iteration, child, coalesce(sum(prob) FILTER (WHERE latent), 0) AS q,
+                                      coalesce(sum(prob) FILTER (WHERE beyond), 0) AS moved
+                               FROM e GROUP BY ALL),
+                     recipient AS (SELECT c.iteration, s.stratum, sum(c.q) AS q_mass,
+                                          sum(CASE WHEN c.moved > 0 THEN least(c.q + c.moved, 1.0) ELSE c.q END)
+                                              AS q_moved
+                                   FROM child c JOIN {members} s ON s.infection = c.child GROUP BY ALL)
+                SELECT g.stratum, coalesce(o.out_mass, 0), coalesce(o.out_moved, 0), coalesce(r.q_mass, 0),
+                       coalesce(r.q_moved, 0)
+                FROM grid g LEFT JOIN source o USING (iteration, stratum)
+                     LEFT JOIN recipient r USING (iteration, stratum)
+                ORDER BY g.iteration, g.stratum""")
+        for k, out_mass, out_moved, q_mass, q_moved in rows:
+            result[k].append((out_mass / n[k], (out_mass - out_moved) / n[k], q_mass / n[k], q_moved / n[k]))
     return result
 
 

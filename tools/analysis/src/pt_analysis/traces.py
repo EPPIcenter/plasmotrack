@@ -11,6 +11,7 @@ import re
 
 from pt_analysis.derive import GROUPS, derived, table
 from pt_analysis.diagnostics import multichain_ess, split_rhat
+from pt_analysis.sql import Scope
 from pt_analysis.store import BOTH_PHASES, SAMPLING
 
 # Groups read from the store's Traces, which have burn-in rows.
@@ -33,12 +34,12 @@ class UnknownQuantity(TraceError):
 
 def _rows(store, query, params, relations):
     """Rows (iteration, phase, value) of `query` in Sampling-iteration order, as a dict of lists, or None if empty.
-    `relations` maps the names the query reads from to DuckDB relations."""
-    connection = store.connection
-    for alias, relation in relations.items():
-        relation.create_view(alias, replace=True)
-    rows = connection.execute(f"SELECT iteration, phase, value::DOUBLE FROM ({query}) ORDER BY iteration",
-                              params).fetchall()
+    `relations` maps the placeholder names the query reads from (`pt_trace_source`, `pt_trace_draws`) to DuckDB
+    relations, each named on the connection for this query only (`pt_analysis.sql.Scope`)."""
+    with Scope(store.connection) as s:
+        for placeholder, relation in relations.items():
+            query = query.replace(placeholder, s.name(relation))
+        rows = s.rows(f"SELECT iteration, phase, value::DOUBLE FROM ({query}) ORDER BY iteration", params)
     if not rows:
         return None
     iteration, phase, value = (list(column) for column in zip(*rows))

@@ -226,7 +226,7 @@ def test_out_degree_draws_give_each_infection_its_expected_observed_children_per
 
 
 TABLES = ["set_classes", "edges", "set_summary", "infection_draws", "functional_draws", "genotype_summary",
-          "genotype_mode", "out_degree_draws", "coi"]
+          "genotype_mode", "out_degree_draws", "coi", "order_pairs"]
 
 
 # Latent genotype bitstrings per Draw, read from the golden stores: Infection 1 is 00001000 at AS1 in every Draw of
@@ -255,6 +255,24 @@ def test_genotype_mode_ranks_each_locus_bitstrings_with_the_mode_first(store):
     else:
         assert got == [("3", "AS11", "000000010000", 8, 0.8, 1), ("3", "AS11", "000100000000", 2, 0.2, 2)]
     assert len({r[:2] for r in rows}) == 6
+
+
+def test_order_pairs_count_draws_with_i_first_and_switches_per_pair_of_infections(store):
+    # In both golden stores the Ordering is 1, 2, 3 at every Draw (chain_summary: "1 before 2: 10/10 (changes 0)").
+    derive(store)
+    assert read(store, "order_pairs", "i, j") == [("1", "2", 10, 10, 0), ("1", "3", 10, 10, 0), ("2", "3", 10, 10, 0)]
+
+
+def test_order_pairs_count_the_switches_of_an_order_that_flips(store):
+    # Swap Infections 1 and 2 at Draws 35 and 40 (the third and fourth): 2 before 1 there, so two changes of order.
+    window = store.path / "ordering" / "window-000001.parquet"
+    swapped = window.with_name("swapped.parquet")
+    duckdb.sql(f"""COPY (SELECT * REPLACE (CASE WHEN iteration IN (35, 40) AND infection IN ('1', '2')
+                                               THEN 1 - rank ELSE rank END AS rank)
+                        FROM '{window}') TO '{swapped}' (FORMAT parquet)""")
+    swapped.replace(window)
+    derive(store)
+    assert read(store, "order_pairs", "i, j")[0] == ("1", "2", 10, 8, 2)
 
 
 def test_the_manifest_records_the_closed_windows_per_phase_and_the_package_version(store):
@@ -303,4 +321,5 @@ def test_a_run_still_in_burn_in_has_no_edges_or_pooled_weights(store):
     assert read(store, "genotype_summary", "infection") == []
     assert read(store, "genotype_mode", "infection") == []
     assert read(store, "out_degree_draws", "iteration") == []
+    assert read(store, "order_pairs", "i, j") == []
     assert len(read(store, "set_classes", "infection")) == 9

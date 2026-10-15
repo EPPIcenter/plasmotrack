@@ -14,73 +14,63 @@ Pooling is over Chain x Draw: a pooled mean is the sum over every Chain's Draws 
 all, and quantiles are over the pooled per-Draw values (R type 7).
 """
 
+from functools import reduce
+
 from pt_analysis import inputs
-from pt_analysis.derive import derive_analysis, derived, table
+from pt_analysis.derive import derive_analysis, derived
 from pt_analysis.epi import load_epi
+from pt_analysis.sql import Scope
+from pt_analysis.times import infection_times, lag, observation_times
 
 DEFAULT_FLOOR = 0.01
 
 
-def _views(analysis, name, relation_of):
-    """Create one DuckDB view per Chain over `relation_of(store)` and return a UNION ALL query over them, with the
-    Chain's position in the Analysis as column `chain`."""
-    parts = []
-    for k, store in enumerate(analysis.runs.values()):
-        view = f"pt_network_{name}_{k}"
-        relation_of(store).create_view(view, replace=True)
-        parts.append(f"SELECT {k} AS chain, * FROM {view}")
-    return " UNION ALL ".join(parts)
+def _union(analysis, relation_of):
+    """`relation_of(store)` of every Chain, with the Chain's position in the Analysis as column `chain`, as one
+    relation (UNION ALL)."""
+    return reduce(lambda a, b: a.union(b), (relation_of(store).project(f"{k} AS chain, *")
+                                            for k, store in enumerate(analysis.runs.values())))
 
 
 def network(analysis, floor=DEFAULT_FLOOR):
-    """The network payload of `analysis`: {"chains", "floor", "nodes", "edges"}. See the module docstring."""
+    """The network payload of `analysis`: {"chains", "floor", "nodes", "edges", "epi_columns"}. See the module
+    docstring."""
     derive_analysis(analysis)
     connection = next(iter(analysis.runs.values())).connection
-    draws_query = _views(analysis, "infection_draws", lambda s: derived(s, "infection_draws"))
-    q = dict(connection.sql(f"SELECT infection, avg(q) FROM ({draws_query}) GROUP BY infection").fetchall())
-    durations_query = _views(analysis, "infections", lambda s: table(s, "infections"))
-    durations = {infection: quantiles for infection, *quantiles in connection.sql(f"""
-        SELECT infection, quantile_cont(infection_duration, 0.975), quantile_cont(infection_duration, 0.5),
-               quantile_cont(infection_duration, 0.025)
-        FROM ({durations_query}) GROUP BY infection""").fetchall()}
-
+    q = dict(_union(analysis, lambda s: derived(s, "infection_draws")).aggregate("infection, avg(q)", "infection")
+             .fetchall())
+    intervals = infection_times(analysis)
     epi = load_epi(analysis)
     columns = list(epi.columns) if epi is not None else []
     values = {column: epi.values(column) for column in columns}
     nodes = []
     for id, node in inputs.nodes(analysis.input).items():
-        time = node["observation_time"]
-        quantiles = durations.get(id)
-        interval = None if quantiles is None else dict(zip(("lower", "median", "upper"), (time - d for d in quantiles)))
-        nodes.append({"id": id, "observation_time": time, "symptomatic": node.get("symptomatic", True),
-                      "q": q.get(id), "infection_time": interval,
+        nodes.append({"id": id, "observation_time": node["observation_time"],
+                      "symptomatic": node.get("symptomatic", True), "q": q.get(id),
+                      "infection_time": intervals.get(id),
                       "epi": {column: values[column].get(id) for column in columns}})
-
-    observation_time = {n["id"]: n["observation_time"] for n in nodes}
     epi_columns = [{"name": c, "type": epi.columns[c], "values": epi.stratum_values(c)} for c in columns]
     return {"chains": list(analysis.runs), "floor": floor, "nodes": nodes, "epi_columns": epi_columns,
-            "edges": _edges(analysis, connection, floor, observation_time)}
+            "edges": _edges(analysis, connection, floor, observation_times(analysis))}
 
 
-def _edges(analysis, connection, floor, observation_time):
+def _edges(analysis, connection, floor, times):
     """Edges from observed parents whose pooled marginal is at least `floor`, largest first."""
     draws = [store.draws() for store in analysis.runs.values()]
     if not sum(draws):
         return []
-    edges_query = _views(analysis, "edges", lambda s: derived(s, "edges"))
-    latent_query = _views(analysis, "latent", lambda s: s.structure("infections").select("latent_parent"))
-    rows = connection.execute(f"""
-        WITH totals AS (
-            SELECT chain, child, parent, sum(prob) AS total FROM ({edges_query})
-            WHERE parent NOT IN (SELECT latent_parent FROM ({latent_query}))
-            GROUP BY ALL)
-        SELECT child, parent, sum(total) / ? AS marginal, map(list(chain), list(total))
-        FROM totals GROUP BY child, parent HAVING sum(total) / ? >= ?
-        ORDER BY marginal DESC, child, parent""", [sum(draws), sum(draws), floor]).fetchall()
-    edges = []
-    for child, parent, marginal, totals in rows:
-        chains = [totals.get(k, 0.0) / n if n else None for k, n in enumerate(draws)]
-        lag = (observation_time[child] - observation_time[parent]
-               if child in observation_time and parent in observation_time else None)
-        edges.append({"child": child, "parent": parent, "marginal": marginal, "chains": chains, "lag": lag})
-    return edges
+    with Scope(connection) as s:
+        edges = s.name(_union(analysis, lambda st: derived(st, "edges")))
+        latent = s.name(_union(analysis, lambda st: st.structure("infections").select("latent_parent")))
+        rows = s.rows(f"""
+            WITH totals AS (
+                SELECT chain, child, parent, sum(prob) AS total FROM {edges}
+                WHERE parent NOT IN (SELECT latent_parent FROM {latent})
+                GROUP BY ALL)
+            SELECT child, parent, sum(total) / $draws AS marginal, map(list(chain), list(total))
+            FROM totals GROUP BY child, parent HAVING sum(total) / $draws >= $floor
+            ORDER BY marginal DESC, child, parent""", {"draws": sum(draws), "floor": floor})
+    return [{"child": child, "parent": parent, "marginal": marginal,
+             "chains": [totals.get(k, 0.0) / n if n else None for k, n in enumerate(draws)],
+             "lag": lag(times, parent, child)}
+            for child, parent, marginal, totals in rows]

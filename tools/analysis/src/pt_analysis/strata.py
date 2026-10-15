@@ -19,9 +19,6 @@ values over every Draw of every Chain; its interval is their 2.5% and 97.5% quan
 the manuscript's pipeline. psi_MAP and the size range come from the pooled Parent-set weights and have no interval.
 """
 
-# The SQL below names DuckDB relations held in local variables (`FROM idraws`); DuckDB finds them by name in the
-# calling frame (a replacement scan), so those variables are used even though nothing else reads them.
-
 import math
 from dataclasses import dataclass, field
 
@@ -29,41 +26,15 @@ import pyarrow as pa
 
 from pt_analysis.derive import class_labels, derived
 from pt_analysis.epi import EpiError, load_epi
+from pt_analysis.parent_sets import LEVEL, pooled_sets
+from pt_analysis.quantiles import Interval, interval
+from pt_analysis.sql import Scope
 
-LEVEL = 0.8
-# A prefix closes when its mass reaches the level within this tolerance, as `functionals` and the R scripts do.
-TOLERANCE = 1e-12
-PROBABILITIES = (0.025, 0.975)
 MULTI_SOURCE = ("multi_source_augmented", "multi_source_observed")
 
 
 class StrataError(Exception):
     """A per-Draw functional or a stratum value the Analysis does not have."""
-
-
-@dataclass(frozen=True)
-class Interval:
-    """A functional's mean over Draws and its 95% MCMC interval."""
-
-    mean: float
-    lower: float
-    upper: float
-
-
-def quantile(ordered, p):
-    """Type-7 quantile of sorted values: (n - 1) p of the way along them, interpolated linearly."""
-    h = (len(ordered) - 1) * p
-    below = math.floor(h)
-    above = min(below + 1, len(ordered) - 1)
-    return ordered[below] + (h - below) * (ordered[above] - ordered[below])
-
-
-def interval(values):
-    """The mean of `values` and their 2.5% and 97.5% type-7 quantiles; None without values."""
-    if not values:
-        return None
-    ordered = sorted(values)
-    return Interval(sum(values) / len(values), *(quantile(ordered, p) for p in PROBABILITIES))
 
 
 @dataclass(frozen=True)
@@ -119,79 +90,42 @@ def per_draw(analysis, groups):
     result = {}
     for label, store in analysis.runs.items():
         idraws = derived(store, "infection_draws")
-        odraws = derived(store, "out_degree_draws")
-        members = store.connection.from_arrow(membership)
         present = set(idraws.columns)
         sums = ", ".join(f'sum("{c}") AS "{c}"' if c in present else f'0.0 AS "{c}"'
                          for c in ["q", *classes, *MULTI_SOURCE])
-        rows = store.connection.sql(f"""
-            WITH r AS (SELECT d.iteration, s.stratum, {sums}
-                       FROM idraws d JOIN members s USING (infection) GROUP BY ALL),
-                 o AS (SELECT d.iteration, s.stratum, sum(d.out_degree) AS out_degree
-                       FROM odraws d JOIN members s USING (infection) GROUP BY ALL)
-            SELECT o.iteration, o.stratum, o.out_degree, r.* EXCLUDE (iteration, stratum)
-            FROM o LEFT JOIN r USING (iteration, stratum) ORDER BY o.iteration, o.stratum""").fetchall()
+        with Scope(store.connection) as sc:
+            members = sc.name(membership)
+            rows = sc.rows(f"""
+                WITH r AS (SELECT d.iteration, s.stratum, {sums}
+                           FROM {sc.name(idraws)} d JOIN {members} s USING (infection) GROUP BY ALL),
+                     o AS (SELECT d.iteration, s.stratum, sum(d.out_degree) AS out_degree
+                           FROM {sc.name(derived(store, "out_degree_draws"))} d JOIN {members} s USING (infection)
+                           GROUP BY ALL)
+                SELECT o.iteration, o.stratum, o.out_degree, r.* EXCLUDE (iteration, stratum)
+                FROM o LEFT JOIN r USING (iteration, stratum) ORDER BY o.iteration, o.stratum""")
         result[label] = [(iteration, k, dict(zip(names, (0.0 if v is None else v / n[k] for v in values))))
                          for iteration, k, *values in rows]
     return result, names
 
 
-def pooled_sets(analysis, level=LEVEL):
-    """Per Infection, from Parent-set weights pooled over every Draw of every Chain: the observed parents of its
-    modal set, and the min and max observed-parent count in its credible collection at `level` (the smallest prefix
-    of its sets by pooled weight with mass at least `level`, or all of them). {infection: (parents, k_lo, k_hi)}.
-
-    Sets are matched across Chains by their members, since set ids are each Run's own; ties in weight go to the
-    members in text order."""
-    pooled = None
-    total = sum(store.draws() for store in analysis.runs.values())
-    for store in analysis.runs.values():
-        draws = store.draws()
-        if not draws:
-            continue
-        summary = derived(store, "set_summary")
-        classes = derived(store, "set_classes")
-        members = store.table("parent_set_members")
-        latent = store.structure("infections")
-        weighted = store.connection.sql(f"""
-            WITH m AS (SELECT infection, set_id, list_sort(list(member)) AS members,
-                              list_sort(list(member) FILTER (WHERE member <> l.latent_parent)) AS parents
-                       FROM members JOIN latent l USING (infection) GROUP BY ALL)
-            SELECT s.infection, m.members::VARCHAR AS key, coalesce(m.parents, []) AS parents, c.n_observed,
-                   s.weight * {draws} AS mass
-            FROM summary s JOIN m USING (infection, set_id) JOIN classes c USING (infection, set_id)""")
-        pooled = weighted if pooled is None else pooled.union(weighted)
-    if pooled is None:
-        return {}
-    rows = pooled.query("pooled", f"""
-        WITH sets AS (SELECT infection, key, any_value(parents) AS parents, any_value(n_observed) AS n_observed,
-                             sum(mass) / {total} AS weight FROM pooled GROUP BY infection, key),
-             ranked AS (SELECT *, row_number() OVER w AS rank,
-                               coalesce(sum(weight) OVER (w ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0)
-                                   AS mass_before
-                        FROM sets WINDOW w AS (PARTITION BY infection ORDER BY weight DESC, key))
-        SELECT infection, any_value(parents) FILTER (WHERE rank = 1),
-               min(n_observed) FILTER (WHERE mass_before < {level} - {TOLERANCE}),
-               max(n_observed) FILTER (WHERE mass_before < {level} - {TOLERANCE})
-        FROM ranked GROUP BY infection""").fetchall()
-    return {infection: (parents, lo, hi) for infection, parents, lo, hi in rows}
-
-
 def map_and_size_range(analysis, groups, level=LEVEL):
     """Per stratum, (psi_MAP, (psi_lo, psi_hi)): the mean over its Infections of the number of children whose modal
-    set names them, and of their own k_lo and k_hi. None where no Chain has Draws."""
+    set names them, and of their own k_lo and k_hi, the min and max observed-parent count in their credible
+    collection at `level`. From the Parent sets pooled over every Draw of every Chain (`parent_sets.pooled_sets`);
+    None where no Chain has Draws."""
     sets = pooled_sets(analysis, level)
     if not sets:
         return [(None, None) for _ in groups]
     children = {}
-    for parents, _, _ in sets.values():
-        for parent in parents:
+    for ranked in sets.values():
+        for parent in ranked[0].parents:
             children[parent] = children.get(parent, 0) + 1
+    counts = {i: [s.n_observed for s in ranked if s.credible] for i, ranked in sets.items()}
     result = []
     for infections in groups:
         n = len(infections)
         result.append((sum(children.get(i, 0) for i in infections) / n,
-                       (sum(sets[i][1] for i in infections) / n, sum(sets[i][2] for i in infections) / n)))
+                       (sum(min(counts[i]) for i in infections) / n, sum(max(counts[i]) for i in infections) / n)))
     return result
 
 
@@ -210,7 +144,8 @@ def stratified_functionals(analysis, column=None, epi=None, level=LEVEL):
     for k, (value, infections) in enumerate(found):
         p = {name: interval(values) for name, values in pooled[k].items()}
         result.append(Stratum(
-            value=value, n=len(infections), psi_map=points[k][0], size_range=points[k][1], psi_edge=p["psi_edge"], mean_q=p["mean_q"],
+            value=value, n=len(infections), psi_map=points[k][0], size_range=points[k][1], psi_edge=p["psi_edge"],
+            mean_q=p["mean_q"],
             classes={name.removeprefix("mean_"): p[name] for name in names[2:-2]},
             multi_source_augmented=p["mean_multi_source_augmented"],
             multi_source_observed=p["mean_multi_source_observed"]))

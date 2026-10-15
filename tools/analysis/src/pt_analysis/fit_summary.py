@@ -7,7 +7,7 @@ rerun's rows unchanged. Character columns are strings, counts int64, the rest do
 - Realised truth, edge ranking and parent-set columns are `metrics.fit_summary_metrics`; null without truth.
 - Functionals are per-Draw means over the Analysis's Infections (`strata.per_draw` over the one stratum of every
   Infection, and `infection_draws` for entropy and effective size), pooled over every Draw of every Chain: the
-  estimate is their mean, `_lower` and `_upper` their 2.5% and 97.5% type-7 quantiles (`strata.interval`).
+  estimate is their mean, `_lower` and `_upper` their 2.5% and 97.5% type-7 quantiles (`quantiles.interval`).
   `average_outdegree` is psi_edge; `unobserved_source` is mean q; `observed_only`, `mixed_observed_unobserved` and
   `unobserved_only` sum the composition classes without the unobserved source, with it, and with no observed parent.
 - `mean_no_parent_probability` and its interval are 0: it is the weight of the empty set, which a store never has.
@@ -23,8 +23,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from pt_analysis import metrics, strata
+from pt_analysis.quantiles import interval
 from pt_analysis.derive import derived
-from pt_analysis.functionals import LEVEL
+from pt_analysis.parent_sets import LEVEL
 
 FACTORS = [
     ("run_key", pa.string()), ("simulation_model", pa.string()), ("total_nodes", pa.float64()),
@@ -79,10 +80,8 @@ def per_draw_functionals(analysis):
     classes = [name for name in names if name.startswith("mean_observed_") or name == "mean_unobserved_only"]
     values = {estimate: [] for estimate, _ in FUNCTIONALS}
     for label, store in analysis.runs.items():
-        idraws = derived(store, "infection_draws")
-        entropy = dict((it, (h, e)) for it, h, e in store.connection.sql(f"""
-            SELECT iteration, sum(entropy) / {n}, sum(effective_size) / {n} FROM idraws GROUP BY iteration
-            """).fetchall())
+        entropy = {it: (h / n, e / n) for it, h, e in derived(store, "infection_draws").aggregate(
+            "iteration, sum(entropy), sum(effective_size)", "iteration").fetchall()}
         for iteration, _, v in draws[label]:
             observed = [c for c in classes if c != "mean_unobserved_only"]
             h, e = entropy.get(iteration, (0.0, 0.0))
@@ -118,7 +117,7 @@ def summarize(analysis, level=LEVEL):
     row = dict.fromkeys(SCHEMA.names)
     row.update(factor_values(analysis))
     for (estimate, prefix), (_, values) in zip(FUNCTIONALS, per_draw_functionals(analysis).items(), strict=True):
-        found = strata.interval(values)
+        found = interval(values)
         if found is not None:
             row[estimate], row[f"{prefix}_lower"], row[f"{prefix}_upper"] = found.mean, found.lower, found.upper
     truth = metrics.analysis_truth(analysis)

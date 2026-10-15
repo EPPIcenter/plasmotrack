@@ -1,17 +1,17 @@
 """The pair inspector's data (U3): why do Infections A and B sit in one order?
 
-For a pair (A, B) of an Analysis: per Chain, the fraction of Draws at which A precedes B in the Ordering, how often
-that order changes between adjacent Draws, and the per-Draw indicator series; both Edge marginals per Chain (B <- A
+For a pair (A, B) of an Analysis: per Chain, the fraction of Draws at which A precedes B in the Ordering and how often
+that order changes between adjacent Draws (from the derived `order_pairs`), and the per-Draw indicator series (read
+from the `ordering` Trace on demand); both Edge marginals per Chain (B <- A
 and A <- B); the co-inclusion of A and B in each third Infection's Parent sets; genotypes per Locus (Observed from the
 input, Latent posterior mode with its agreement, true Latent genotype when the Analysis has truth); and each
 Infection's posterior infection time and the lag between their observation times.
 """
 
-# The SQL below names DuckDB relations held in local variables (`FROM edges`); DuckDB finds them by name in the
-# calling frame (a replacement scan), so those variables are used even though nothing else reads them.
-
-from pt_analysis import inputs
+from pt_analysis import inputs, times
+from pt_analysis.chains import infection_ids, pooled_mean
 from pt_analysis.derive import derived, table
+from pt_analysis.sql import Scope, literal
 from pt_analysis.summary import ordered_before, pair_order
 
 
@@ -32,28 +32,37 @@ def order_summary(iterations, before):
             "probability": count / draws if draws else None, "switches": switches}
 
 
-def pooled(chains, key, draws):
-    """The mean over every Chain's Draws of a per-Chain mean `key`, weighting each Chain by its Draws; None without
-    Draws."""
-    total = sum(draws[c["chain"]] for c in chains)
-    return sum(c[key] * draws[c["chain"]] for c in chains) / total if total else None
-
-
 def order_iterations(store, a):
     """The Sampling iterations of the Draws at which Infection `a` has a place in the Ordering, in order."""
     ordering = store.table("ordering")
     if ordering is None:
         return []
-    rows = store.connection.execute("SELECT iteration FROM ordering WHERE infection = $a ORDER BY iteration",
-                                    {"a": a}).fetchall()
-    return [iteration for (iteration,) in rows]
+    return [iteration for (iteration,) in ordering.filter(f"infection = {literal(a)}").project("iteration")
+            .order("iteration").fetchall()]
+
+
+def order_counts(store, a, b):
+    """(Draws with both A and B in the Ordering, Draws with A first, switches) from the Run's derived `order_pairs`,
+    which holds each pair once, ids in text order; (0, 0, 0) when the pair has no row."""
+    i, j = sorted((a, b))
+    found = derived(store, "order_pairs").filter(f"i = {literal(i)} AND j = {literal(j)}").project(
+        "draws, before, switches").fetchone()
+    if found is None:
+        return 0, 0, 0
+    draws, before, switches = found
+    return draws, before if a == i else draws - before, switches
 
 
 def pair_order_chains(analysis, a, b):
-    """The order of A and B per Chain (`order_summary`, with `chain` the Chain's label) and P(A before B) pooled over
-    every Chain's Draws (None without Draws). Reads the `ordering` Trace as `summary.ordered_before` does."""
-    chains = [{"chain": label, **order_summary(order_iterations(store, a), ordered_before(store, a, b))}
-              for label, store in analysis.runs.items()]
+    """The order of A and B per Chain, with `chain` the Chain's label: the per-Draw indicator series of
+    `order_summary`, read from the `ordering` Trace as `summary.ordered_before` does, and the counts and probability
+    from `order_pairs`. Also P(A before B) pooled over every Chain's Draws (None without Draws)."""
+    chains = []
+    for label, store in analysis.runs.items():
+        draws, before, switches = order_counts(store, a, b)
+        series = order_summary(order_iterations(store, a), ordered_before(store, a, b))
+        chains.append({**series, "chain": label, "draws": draws, "before_count": before,
+                       "probability": before / draws if draws else None, "switches": switches})
     draws = sum(c["draws"] for c in chains)
     return {"chains": chains, "probability": sum(c["before_count"] for c in chains) / draws if draws else None}
 
@@ -64,14 +73,15 @@ def edge_marginals(analysis, a, b):
     chains, draws = [], {}
     for label, store in analysis.runs.items():
         draws[label] = store.draws()
-        edges = derived(store, "edges")
-        found = dict(store.connection.execute("""
-            SELECT parent, sum(prob) FROM edges
-            WHERE (child = $b AND parent = $a) OR (child = $a AND parent = $b) GROUP BY parent""",
-                                              {"a": a, "b": b}).fetchall())
+        with Scope(store.connection) as s:
+            found = dict(s.rows(f"""
+                SELECT parent, sum(prob) FROM {s.name(derived(store, "edges"))}
+                WHERE (child = $b AND parent = $a) OR (child = $a AND parent = $b) GROUP BY parent""",
+                                {"a": a, "b": b}))
         n = max(draws[label], 1)
         chains.append({"chain": label, "a_to_b": found.get(a, 0.0) / n, "b_to_a": found.get(b, 0.0) / n})
-    return {"chains": chains, "a_to_b": pooled(chains, "a_to_b", draws), "b_to_a": pooled(chains, "b_to_a", draws)}
+    return {"chains": chains, "a_to_b": pooled_mean(chains, "a_to_b", draws),
+            "b_to_a": pooled_mean(chains, "b_to_a", draws)}
 
 
 def co_inclusion(analysis, a, b):
@@ -80,19 +90,19 @@ def co_inclusion(analysis, a, b):
     per_infection, draws = {}, {}
     for label, store in analysis.runs.items():
         draws[label] = store.draws()
-        sets = derived(store, "set_summary")
-        members = table(store, "parent_set_members")
-        rows = store.connection.execute("""
-            WITH both_sets AS (SELECT infection, set_id FROM members WHERE member IN ($a, $b)
-                               GROUP BY ALL HAVING count(DISTINCT member) = 2)
-            SELECT s.infection, sum(s.weight) FROM sets s JOIN both_sets USING (infection, set_id)
-            WHERE s.infection NOT IN ($a, $b) GROUP BY s.infection""", {"a": a, "b": b}).fetchall()
+        with Scope(store.connection) as s:
+            rows = s.rows(f"""
+                WITH both_sets AS (SELECT infection, set_id FROM {s.name(table(store, "parent_set_members"))}
+                                   WHERE member IN ($a, $b) GROUP BY ALL HAVING count(DISTINCT member) = 2)
+                SELECT s.infection, sum(s.weight) FROM {s.name(derived(store, "set_summary"))} s
+                     JOIN both_sets USING (infection, set_id)
+                WHERE s.infection NOT IN ($a, $b) GROUP BY s.infection""", {"a": a, "b": b})
         for infection, weight in rows:
             per_infection.setdefault(infection, {})[label] = weight
     out = []
     for infection, weights in per_infection.items():
         chains = [{"chain": label, "weight": weights.get(label, 0.0)} for label in analysis.runs]
-        out.append({"infection": infection, "weight": pooled(chains, "weight", draws), "chains": chains})
+        out.append({"infection": infection, "weight": pooled_mean(chains, "weight", draws), "chains": chains})
     return sorted(out, key=lambda r: (-r["weight"], r["infection"]))
 
 
@@ -101,9 +111,8 @@ def latent_modes(analysis, infection):
     bitstring most Draws of all Chains had (ties to the smaller bitstring) and the fraction of Draws that had it."""
     counts = {}
     for store in analysis.runs.values():
-        modes = derived(store, "genotype_mode")
-        for locus, alleles, draws in store.connection.execute(
-                "SELECT locus, alleles, draws FROM modes WHERE infection = $i", {"i": infection}).fetchall():
+        for locus, alleles, draws in derived(store, "genotype_mode").filter(
+                f"infection = {literal(infection)}").project("locus, alleles, draws").fetchall():
             by_alleles = counts.setdefault(locus, {})
             by_alleles[alleles] = by_alleles.get(alleles, 0) + draws
     out = {}
@@ -139,43 +148,15 @@ def genotype_rows(analysis, a, b):
     return {"rows": rows, "differing": sum(r["differs"] for r in rows), "truth": truth is not None}
 
 
-def quantile(values, p):
-    """The p quantile of `values` by linear interpolation between order statistics at (n - 1) p (R's type 7)."""
-    values = sorted(values)
-    h = (len(values) - 1) * p
-    lo = int(h)
-    return values[lo] + (h - lo) * (values[min(lo + 1, len(values) - 1)] - values[lo])
-
-
-def infection_time(analysis, infection, observation_time):
-    """An Infection's posterior infection time: its observation time minus the median, 97.5% and 2.5% quantiles of
-    its `infection_duration` pooled over every Chain's Draws, as {observation_time, median, lower, upper} (None
-    without Draws)."""
-    durations = []
-    for store in analysis.runs.values():
-        trace = table(store, "infections")
-        durations += [d for (d,) in store.connection.execute(
-            "SELECT infection_duration FROM trace WHERE infection = $i", {"i": infection}).fetchall()]
-    if not durations:
-        return {"observation_time": observation_time, "median": None, "lower": None, "upper": None}
-    return {"observation_time": observation_time, "median": observation_time - quantile(durations, 0.5),
-            "lower": observation_time - quantile(durations, 0.975),
-            "upper": observation_time - quantile(durations, 0.025)}
-
-
 def infection_times(analysis, a, b):
-    """Each Infection's `infection_time` and the lag, B's observation time minus A's, from the input (which gives
-    every Infection an observation time)."""
-    node = inputs.nodes(analysis.input)
-    observed = {i: node[i]["observation_time"] for i in (a, b)}
-    return {"a": infection_time(analysis, a, observed[a]), "b": infection_time(analysis, b, observed[b]),
-            "lag": observed[b] - observed[a]}
-
-
-def infections(analysis):
-    """The Infection ids of every Chain of `analysis`."""
-    return {infection for store in analysis.runs.values()
-            for (infection,) in store.structure("infections").project("infection").fetchall()}
+    """Each Infection's observation time and posterior infection time ({observation_time, median, lower, upper},
+    from `times.infection_times`; None without Draws) and the lag, B's observation time minus A's, from the input
+    (which gives every Infection an observation time)."""
+    observed = times.observation_times(analysis)
+    intervals = times.infection_times(analysis, (a, b))
+    empty = {"median": None, "lower": None, "upper": None}
+    return {"a": {"observation_time": observed[a], **intervals.get(a, empty)},
+            "b": {"observation_time": observed[b], **intervals.get(b, empty)}, "lag": times.lag(observed, a, b)}
 
 
 def inspect_pair(analysis, a, b):
@@ -190,7 +171,7 @@ def inspect_pair(analysis, a, b):
     """
     if a == b:
         raise PairError(f"a pair needs two Infections, not {a} twice")
-    known = infections(analysis)
+    known = infection_ids(analysis)
     for infection in (a, b):
         if infection not in known:
             raise UnknownInfection(f"no Infection {infection} in the Analysis")

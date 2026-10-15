@@ -1,4 +1,4 @@
-"""Flows, lags and spatial scale per stratum of an epi column (U9, #87), on the golden stores as a two-Chain
+"""Flows, lags and spatial scale per stratum of an epi column (U9), on the golden stores as a two-Chain
 Analysis with a constructed epi CSV. Expected values are hand-computed from the exploration notes' R arrow oracles:
 pooled over both Chains' 20 Draws, edge 1->3 is (0.89138 + 0.7757) / 2, edge 1->2 is (0.00267 + 0.00315) / 2, edge
 2->3 is the weight of Infection 3's sets holding 2, and q is 1, 1 and (0.1125 + 0.2262) / 2.
@@ -105,6 +105,14 @@ def test_reassigning_mass_beyond_a_lag_moves_edge_1_to_3_to_the_unobserved_sourc
     assert result.overall.mean_q_moved.mean == pytest.approx(MEAN_Q + E13 / 3, rel=1e-3)
 
 
+def test_reassigned_q_is_clamped_to_one_per_infection(analysis):
+    # Beyond lag 0 every edge moves. Unclamped, Infection 3's q plus its moved in-edges exceeds 1 (a set holding 1
+    # and 3_copy counts in both), as does Infection 2's (q 1 plus edge 1->2); clamped, all three reach exactly 1.
+    moved = reassign(analysis, max_lag=0).overall.mean_q_moved
+    assert (moved.mean, moved.lower, moved.upper) == (pytest.approx(1.0), pytest.approx(1.0), pytest.approx(1.0))
+    assert moved.upper <= 1.0
+
+
 def test_reassigning_beyond_the_largest_lag_moves_nothing(analysis):
     result = reassign(analysis, max_lag=116.4263)
     assert result.moved_mass == 0
@@ -115,7 +123,10 @@ def test_reassigned_functionals_per_stratum_count_sources_for_psi_edge_and_recip
     by = cells(reassign(analysis, max_lag=100, column="district").strata, lambda s: s.value)
     # Edge 1->3: its source 1 and its recipient 3 are both North, n = 2.
     assert by["North"].psi_edge.mean - by["North"].psi_edge_moved.mean == pytest.approx(E13 / 2, rel=1e-3)
-    assert by["North"].mean_q_moved.mean - by["North"].mean_q.mean == pytest.approx(E13 / 2, rel=1e-3)
+    # q rises by the moved mass less the weight that would push Infection 3's q past 1: its sets holding both 1 and
+    # 3_copy, {1, 3_copy} 0.00287 and {1, 2, 3_copy} 1.2e-5 pooled (test_metrics), counted in q and in edge 1->3.
+    assert by["North"].mean_q_moved.mean - by["North"].mean_q.mean == pytest.approx(
+        (E13 - 0.00287 - 1.2e-5) / 2, rel=1e-3)
     assert by["South"].psi_edge_moved == by["South"].psi_edge
     assert by["South"].mean_q_moved == by["South"].mean_q
 

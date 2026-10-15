@@ -140,14 +140,15 @@ def test_with_truth_the_true_latent_genotypes_are_shown_too(tmp_path):
         ("00001100", "00001000"), ("000000110000", "000000110000")]
 
 
-def test_infection_times_are_observation_time_minus_duration_quantiles_and_the_lag_is_observation_b_minus_a(golden_analysis):
+def test_infection_times_are_observation_time_minus_duration_quantiles_and_the_lag_is_observation_b_minus_a(
+        golden_analysis):
     """examples/example_input.json observes Infection 1 at 234.0737 and 3 at 350.5. Durations are pooled over both
     Chains' Draws; the interval is the observation time minus the 97.5% and 2.5% duration quantiles (R type 7)."""
     times = inspect_pair(golden_analysis, "1", "3")["times"]
     assert times["lag"] == pytest.approx(350.5 - 234.0737)
     for infection, key, observed in (("1", "a", 234.0737), ("3", "b", 350.5)):
-        durations = [r["infection_duration"] for store in golden_analysis.runs.values() for r in store.rows("infections")
-                     if r["infection"] == infection]
+        durations = [r["infection_duration"] for store in golden_analysis.runs.values()
+                     for r in store.rows("infections") if r["infection"] == infection]
         assert len(durations) == 20
         got = times[key]
         assert got["observation_time"] == observed

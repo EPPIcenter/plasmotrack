@@ -58,7 +58,8 @@ def weighted(strata, get):
 
 
 FUNCTIONALS = {"psi_map": lambda s: s.psi_map, "psi_lo": lambda s: s.size_range[0],
-               "psi_hi": lambda s: s.size_range[1], "psi_edge": lambda s: s.psi_edge.mean, "mean_q": lambda s: s.mean_q.mean,
+               "psi_hi": lambda s: s.size_range[1], "psi_edge": lambda s: s.psi_edge.mean,
+               "mean_q": lambda s: s.mean_q.mean,
                "multi_source_augmented": lambda s: s.multi_source_augmented.mean,
                "multi_source_observed": lambda s: s.multi_source_observed.mean,
                **{c: (lambda c: lambda s: s.classes[c].mean)(c) for c in

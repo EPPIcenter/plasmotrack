@@ -165,7 +165,8 @@ def test_observation_process_and_duration_per_chain_and_pooled_quantiles(golden_
         pooled = [r[column] for label in rows for r in rows[label]]
         assert (q["lower"], q["median"], q["upper"]) == pytest.approx(
             tuple(quantile_type_7(pooled, p) for p in (0.025, 0.5, 0.975)))
-    assert (quantities["false_positives"]["group"], quantities["false_positives"]["name"]) == ("false positive rate", "3")
+    false_positives = quantities["false_positives"]
+    assert (false_positives["group"], false_positives["name"]) == ("false positive rate", "3")
     assert quantities["infection_time"]["group"] is None
     # Infection 3 is observed at 350.5; infection time is that minus the duration, so its quantiles swap ends.
     duration, time = quantities["duration"], quantities["infection_time"]

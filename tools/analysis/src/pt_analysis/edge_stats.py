@@ -19,6 +19,7 @@ from dataclasses import dataclass, replace
 import pyarrow as pa
 
 from pt_analysis.derive import analysis_dir, derived, derived_analysis, table
+from pt_analysis.sql import Scope
 
 
 @dataclass(frozen=True)
@@ -57,22 +58,24 @@ class ChainEdge:
     switches: int
 
 
-def chain_edge_stats(edges, draws):
-    """{(child, parent): ChainEdge} for one Chain, from its `edges` relation (iteration, child, parent, prob) and the
-    Sampling iterations of its Draws. Computed in DuckDB over every Draw of every edge with a row in the Chain."""
+def chain_edge_stats(connection, edges, draws):
+    """{(child, parent): ChainEdge} for one Chain, from its `edges` relation (iteration, child, parent, prob) on
+    `connection` and the Sampling iterations of its Draws. Computed in DuckDB over every Draw of every edge with a
+    row in the Chain."""
     if not draws:
         return {}
-    iterations = ", ".join(str(int(d)) for d in draws)
-    rows = edges.query("pt_edges", f"""
-        WITH draws AS (SELECT unnest([{iterations}]) AS iteration),
-             pairs AS (SELECT DISTINCT child, parent FROM pt_edges),
-             dense AS (SELECT child, parent, iteration, coalesce(e.prob, 0) AS prob
-                       FROM pairs CROSS JOIN draws LEFT JOIN pt_edges e USING (child, parent, iteration)),
-             flagged AS (SELECT child, parent, prob, prob > 0.5 AS above,
-                                lag(prob > 0.5) OVER (PARTITION BY child, parent ORDER BY iteration) AS before
-                         FROM dense)
-        SELECT child, parent, avg(prob), count(*) FILTER (WHERE above <> before)
-        FROM flagged GROUP BY ALL""").fetchall()
+    with Scope(connection) as s:
+        edges = s.name(edges)
+        rows = s.rows(f"""
+            WITH pairs AS (SELECT DISTINCT child, parent FROM {edges}),
+                 dense AS (SELECT child, parent, iteration, coalesce(e.prob, 0) AS prob
+                           FROM pairs CROSS JOIN {s.name(pa.table({"iteration": pa.array(draws, pa.int64())}))}
+                                LEFT JOIN {edges} e USING (child, parent, iteration)),
+                 flagged AS (SELECT child, parent, prob, prob > 0.5 AS above,
+                                    lag(prob > 0.5) OVER (PARTITION BY child, parent ORDER BY iteration) AS before
+                             FROM dense)
+            SELECT child, parent, avg(prob), count(*) FILTER (WHERE above <> before)
+            FROM flagged GROUP BY ALL""")
     return {(child, parent): ChainEdge(mean, switches) for child, parent, mean, switches in rows}
 
 
@@ -108,7 +111,7 @@ def compute(analysis):
     per_chain, draws, latent_parents = {}, {}, set()
     for label, store in analysis.runs.items():
         iterations = [i for (i,) in table(store, "run_scalars").aggregate("iteration").fetchall()]
-        per_chain[label] = chain_edge_stats(derived(store, "edges"), iterations)
+        per_chain[label] = chain_edge_stats(store.connection, derived(store, "edges"), iterations)
         draws[label] = len(iterations)
         latent_parents |= {p for (p,) in store.structure("infections").project("latent_parent").fetchall()}
     store = next(iter(analysis.runs.values()))

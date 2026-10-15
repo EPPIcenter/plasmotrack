@@ -3,13 +3,11 @@ another, and how far the Chains agree on each Infection's parents. Reads the der
 they are not current) and, for pairs, the `ordering` Trace.
 """
 
-# The SQL below names DuckDB relations held in local variables (`FROM edges`); DuckDB finds them by name in the
-# calling frame (a replacement scan), so those variables are used even though nothing else reads them.
-
 import statistics
 from dataclasses import dataclass
 
 from pt_analysis.derive import GROUPS, derive_analysis, derived, derived_analysis
+from pt_analysis.sql import Scope
 
 # The key, beside the observed parents' ids, of the probability that an Infection's set holds no observed parent.
 UNOBSERVED_ONLY = "(unobserved only)"
@@ -69,9 +67,11 @@ def ordered_before(store, a, b):
     ordering = store.table("ordering")
     if ordering is None:
         return []
-    rows = store.connection.execute("""
-        SELECT x.rank < y.rank FROM ordering x JOIN ordering y USING (iteration)
-        WHERE x.infection = $a AND y.infection = $b ORDER BY iteration""", {"a": a, "b": b}).fetchall()
+    with Scope(store.connection) as s:
+        name = s.name(ordering)
+        rows = s.rows(f"""
+            SELECT x.rank < y.rank FROM {name} x JOIN {name} y USING (iteration)
+            WHERE x.infection = $a AND y.infection = $b ORDER BY iteration""", {"a": a, "b": b})
     return [before for (before,) in rows]
 
 
@@ -81,15 +81,15 @@ def parent_probabilities(store):
     draws = store.draws()
     if not draws:
         return {}
-    edges = derived(store, "edges")
     infection_draws = derived(store, "infection_draws")
-    latent = store.structure("infections")
     unobserved = "unobserved_only" if "unobserved_only" in infection_draws.columns else "0"
-    out = {infection: {UNOBSERVED_ONLY: p} for infection, p in store.connection.sql(f"""
-        SELECT infection, sum({unobserved}) / {draws} FROM infection_draws GROUP BY infection""").fetchall()}
-    for child, parent, p in store.connection.sql(f"""
-            SELECT child, parent, sum(prob) / {draws} FROM edges
-            WHERE parent NOT IN (SELECT latent_parent FROM latent) GROUP BY ALL""").fetchall():
+    out = {infection: {UNOBSERVED_ONLY: p} for infection, p in infection_draws.aggregate(
+        f"infection, sum({unobserved}) / {draws}", "infection").fetchall()}
+    with Scope(store.connection) as s:
+        rows = s.rows(f"""
+            SELECT child, parent, sum(prob) / {draws} FROM {s.name(derived(store, "edges"))}
+            WHERE parent NOT IN (SELECT latent_parent FROM {s.name(store.structure("infections"))}) GROUP BY ALL""")
+    for child, parent, p in rows:
         out.setdefault(child, {UNOBSERVED_ONLY: 0.0})[parent] = p
     return out
 

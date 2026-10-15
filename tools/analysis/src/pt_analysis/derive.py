@@ -15,6 +15,7 @@ and does nothing otherwise. Tables are computed from the sampling Phase, so ever
     genotype_mode     infection, locus, alleles, draws, fraction, rank
     out_degree_draws  iteration, infection, out_degree
     coi               iteration, infection, coi
+    order_pairs       i, j, draws, before, switches
 
 An Analysis's own derived tables go in `<manifest stem>.derived/` beside its manifest, with a manifest recording each
 Run's directory and closed Windows; `derive_analysis` derives every Run first, then rewrites them when that changes:
@@ -23,8 +24,8 @@ Run's directory and closed Windows; `derive_analysis` derives every Run first, t
     edge_stats    child, parent, unobserved, chain, mean, switches, spread, ess   (see `pt_analysis.edge_stats`)
 """
 
-# The SQL below names DuckDB relations held in local variables (`FROM parent_sets`); DuckDB finds them by name in
-# the calling frame (a replacement scan), so those variables are used even though nothing else reads them.
+# Each table is computed by a function of the store and a `Scope` (`pt_analysis.sql`) that names the relations its SQL
+# reads; `derive` writes the table before the scope closes.
 
 import json
 import os
@@ -35,6 +36,7 @@ import pyarrow.parquet as pq
 
 from pt_analysis import __version__
 from pt_analysis.diagnostics import multichain_ess, split_rhat
+from pt_analysis.sql import Scope
 from pt_analysis.store import BOTH_PHASES
 
 # Columns the derivations read, for a table with no rows in the closed Windows (a Run still in burn-in has no
@@ -48,6 +50,7 @@ COLUMNS = {
                    "expected_false_negatives": "DOUBLE", "infection_duration": "DOUBLE"},
     "allele_frequencies": {"iteration": "BIGINT", "locus": "VARCHAR", "allele": "BIGINT", "frequency": "DOUBLE"},
     "latent_genotypes": {"iteration": "BIGINT", "infection": "VARCHAR", "locus": "VARCHAR", "alleles": "VARCHAR"},
+    "ordering": {"iteration": "BIGINT", "infection": "VARCHAR", "rank": "BIGINT"},
 }
 
 
@@ -67,40 +70,40 @@ CLASS_LABEL = """CASE WHEN n_observed = 0 THEN 'unobserved_only'
                      ELSE 'observed_' || n_observed || CASE WHEN has_unobserved THEN '_unobserved' ELSE '' END END"""
 
 
-def set_classes(store):
+def set_classes(store, s):
     """Every Parent set of the Run with its observed-parent count, whether the unobserved source (the Infection's
     Latent parent) is a member, and its composition class."""
-    members = table(store, "parent_set_members")
-    infections = store.structure("infections")
-    sets = store.connection.sql("""
-        SELECT m.infection, m.set_id,
-               count(*) FILTER (WHERE m.member <> i.latent_parent) AS n_observed,
-               bool_or(m.member = i.latent_parent) AS has_unobserved
-        FROM members m JOIN infections i USING (infection)
-        GROUP BY ALL""")
-    return store.connection.sql(f'SELECT *, {CLASS_LABEL} AS "class" FROM sets ORDER BY infection, set_id')
+    members = s.name(table(store, "parent_set_members"))
+    infections = s.name(store.structure("infections"))
+    return s.sql(f"""
+        WITH sets AS (
+            SELECT m.infection, m.set_id,
+                   count(*) FILTER (WHERE m.member <> i.latent_parent) AS n_observed,
+                   bool_or(m.member = i.latent_parent) AS has_unobserved
+            FROM {members} m JOIN {infections} i USING (infection)
+            GROUP BY ALL)
+        SELECT *, {CLASS_LABEL} AS "class" FROM sets ORDER BY infection, set_id""")
 
 
-def edges(store):
+def edges(store, s):
     """Per Draw, each entry of the conditional transmission matrix: the summed weight of the child's Parent sets that
     contain the parent. The unobserved source is the child's Latent parent id. A parent with no row at a Draw has
     weight 0 there: the store drops sets below the Run's floor."""
-    parent_sets = table(store, "parent_sets")
-    members = table(store, "parent_set_members")
-    return store.connection.sql("""
+    return s.sql(f"""
         SELECT p.iteration, p.infection AS child, m.member AS parent, sum(p.prob) AS prob
-        FROM parent_sets p JOIN members m USING (infection, set_id)
+        FROM {s.name(table(store, "parent_sets"))} p JOIN {s.name(table(store, "parent_set_members"))} m
+             USING (infection, set_id)
         GROUP BY ALL ORDER BY iteration, child, parent""")
 
 
-def set_summary(store):
+def set_summary(store, s):
     """Each Infection's Parent sets by pooled weight: the sum of the set's weight over Draws divided by the number of
     Draws (a set with no row at a Draw has weight 0 there), ranked from 1 by weight descending then set_id, with the
     cumulative weight down the ranking. Sets with no weight at any Draw are left out."""
-    parent_sets = table(store, "parent_sets")
+    parent_sets = s.name(table(store, "parent_sets"))
     draws = store.draws()
-    return store.connection.sql(f"""
-        WITH pooled AS (SELECT infection, set_id, sum(prob) / {draws} AS weight FROM parent_sets GROUP BY ALL),
+    return s.sql(f"""
+        WITH pooled AS (SELECT infection, set_id, sum(prob) / {draws} AS weight FROM {parent_sets} GROUP BY ALL),
         ranked AS (SELECT *, row_number() OVER (PARTITION BY infection ORDER BY weight DESC, set_id) AS rank
                    FROM pooled)
         SELECT *, sum(weight) OVER (PARTITION BY infection ORDER BY rank) AS cumulative_mass
@@ -110,24 +113,24 @@ def set_summary(store):
 def class_labels(store):
     """The composition class labels of the Run's Parent sets, by observed-parent count, each count's sets without the
     unobserved source first, `unobserved_only` last."""
-    classes = set_classes(store)
-    rows = store.connection.sql("""
-        SELECT DISTINCT "class", n_observed, has_unobserved FROM classes
-        ORDER BY n_observed = 0, n_observed, has_unobserved""").fetchall()
+    with Scope(store.connection) as s:
+        rows = s.rows(f"""
+            SELECT DISTINCT "class", n_observed, has_unobserved FROM {s.name(set_classes(store, s))}
+            ORDER BY n_observed = 0, n_observed, has_unobserved""")
     return [label for label, *_ in rows]
 
 
-def infection_draws(store):
+def infection_draws(store, s):
     """Per Draw and Infection, functions of its Parent-set weights: unobserved-source inclusion q (the weight of sets
     containing the Latent parent), the expected observed-parent count, the entropy of the weights and its exponential
     (the effective parent-set size), the weight of each composition class present in the Run (a column per class
     label, 0 where the Infection has no set of that class), and the multi-source probabilities: the weight of sets
     with more than one member (augmented) and with more than one observed parent (observed only)."""
-    parent_sets = table(store, "parent_sets")
-    classes = set_classes(store)
+    parent_sets = s.name(table(store, "parent_sets"))
+    classes = s.name(set_classes(store, s))
     columns = "".join(f',\n               coalesce(sum(p.prob) FILTER (WHERE c."class" = \'{label}\'), 0) AS "{label}"'
                       for label in class_labels(store))
-    return store.connection.sql(f"""
+    return s.sql(f"""
         SELECT p.iteration, p.infection,
                coalesce(sum(p.prob) FILTER (WHERE c.has_unobserved), 0) AS q,
                sum(p.prob * c.n_observed) AS expected_observed_parents,
@@ -136,76 +139,92 @@ def infection_draws(store):
                coalesce(sum(p.prob) FILTER (WHERE c.n_observed + c.has_unobserved::INTEGER > 1), 0)
                    AS multi_source_augmented,
                coalesce(sum(p.prob) FILTER (WHERE c.n_observed > 1), 0) AS multi_source_observed
-        FROM parent_sets p JOIN classes c USING (infection, set_id)
+        FROM {parent_sets} p JOIN {classes} c USING (infection, set_id)
         GROUP BY ALL ORDER BY iteration, infection""")
 
 
-def functional_draws(store):
+def functional_draws(store, s):
     """Per Draw, means over Infections of `infection_draws`: the edge-sum psi_edge (the mean expected observed-parent
     count, the conditional transmission matrix's observed entries summed and divided by the number of Infections),
     mean q, mean entropy and the mean weight of each composition class, as `mean_<class label>`."""
-    draws = infection_draws(store)
+    draws = s.name(infection_draws(store, s))
     columns = "".join(f', avg("{label}") AS "mean_{label}"' for label in class_labels(store))
-    return store.connection.sql(f"""
+    return s.sql(f"""
         SELECT iteration, avg(expected_observed_parents) AS psi_edge, avg(q) AS mean_q, avg(entropy) AS mean_entropy
                {columns}
-        FROM draws GROUP BY iteration ORDER BY iteration""")
+        FROM {draws} GROUP BY iteration ORDER BY iteration""")
 
 
-def out_degree_draws(store):
+def out_degree_draws(store, s):
     """Per Draw and Infection, its expected number of observed children: the summed Edge marginals from it to every
     other Infection, 0 where it is no Infection's parent at that Draw. The Infection as a source, where
     `infection_draws` has it as a recipient; both average to psi_edge over Infections."""
-    parent_sets = table(store, "parent_sets")
-    observed = edges(store)
-    infections = store.structure("infections")
-    return store.connection.sql("""
-        WITH draws AS (SELECT DISTINCT iteration FROM parent_sets),
-             grid AS (SELECT d.iteration, i.infection FROM draws d CROSS JOIN infections i)
+    parent_sets = s.name(table(store, "parent_sets"))
+    observed = s.name(edges(store, s))
+    infections = s.name(store.structure("infections"))
+    return s.sql(f"""
+        WITH draws AS (SELECT DISTINCT iteration FROM {parent_sets}),
+             grid AS (SELECT d.iteration, i.infection FROM draws d CROSS JOIN {infections} i)
         SELECT g.iteration, g.infection, coalesce(sum(o.prob), 0) AS out_degree
-        FROM grid g LEFT JOIN observed o ON o.iteration = g.iteration AND o.parent = g.infection
+        FROM grid g LEFT JOIN {observed} o ON o.iteration = g.iteration AND o.parent = g.infection
         GROUP BY ALL ORDER BY iteration, infection""")
 
 
-def genotype_summary(store):
+def genotype_summary(store, s):
     """Per Infection, Locus and Allele (every Allele of `structure/loci`), the posterior presence: the fraction of
     Draws whose Latent genotype has the Allele. Character k of a `latent_genotypes` bitstring is Allele k."""
-    latent = table(store, "latent_genotypes")
-    loci = store.structure("loci")
+    latent = s.name(table(store, "latent_genotypes"))
+    loci = s.name(store.structure("loci"))
     draws = store.draws()
-    return store.connection.sql(f"""
+    return s.sql(f"""
         SELECT g.infection, g.locus, l.allele,
                count(*) FILTER (WHERE substr(g.alleles, l.allele::INTEGER + 1, 1) = '1') / {max(draws, 1)} AS presence
-        FROM latent g JOIN loci l USING (locus)
+        FROM {latent} g JOIN {loci} l USING (locus)
         GROUP BY ALL ORDER BY infection, locus, allele""")
 
 
-def genotype_mode(store):
+def genotype_mode(store, s):
     """Per Infection and Locus, every Latent genotype bitstring a Draw had, with the number and fraction of Draws that
     had it, ranked from 1 by Draws descending then bitstring. Rank 1 is the posterior mode and its fraction the
     agreement; the other rows let Chains be pooled exactly by summing `draws`."""
-    latent = table(store, "latent_genotypes")
+    latent = s.name(table(store, "latent_genotypes"))
     draws = store.draws()
-    return store.connection.sql(f"""
-        WITH counts AS (SELECT infection, locus, alleles, count(*) AS draws FROM latent GROUP BY ALL)
+    return s.sql(f"""
+        WITH counts AS (SELECT infection, locus, alleles, count(*) AS draws FROM {latent} GROUP BY ALL)
         SELECT *, draws / {max(draws, 1)} AS fraction,
                row_number() OVER (PARTITION BY infection, locus ORDER BY draws DESC, alleles) AS rank
         FROM counts ORDER BY infection, locus, rank""")
 
 
-def coi(store):
+def coi(store, s):
     """Per Draw and Infection, the COI: the largest Allele count (the number of `1` characters of the bitstring) over
     the Loci of the Infection's Latent genotype at that Draw."""
-    latent = table(store, "latent_genotypes")
-    return store.connection.sql("""
+    return s.sql(f"""
         SELECT iteration, infection, max(length(replace(alleles, '0', ''))) AS coi
-        FROM latent GROUP BY ALL ORDER BY iteration, infection""")
+        FROM {s.name(table(store, "latent_genotypes"))} GROUP BY ALL ORDER BY iteration, infection""")
+
+
+def order_pairs(store, s):
+    """Per pair of Infections i < j (ids in text order) placed in the Ordering at the same Draws, the number of those
+    Draws, of the Draws with i before j, and the switches: adjacent Draws at which the order changes. P(i before j)
+    is before / draws and P(j before i) its complement; the per-Draw indicator of one pair is read from `ordering` on
+    demand (`pt_analysis.pair`)."""
+    ordering = s.name(table(store, "ordering"))
+    return s.sql(f"""
+        WITH pairs AS (SELECT x.iteration, x.infection AS i, y.infection AS j, x.rank < y.rank AS before
+                       FROM {ordering} x JOIN {ordering} y USING (iteration) WHERE x.infection < y.infection),
+             flagged AS (SELECT i, j, before, lag(before) OVER (PARTITION BY i, j ORDER BY iteration) AS previous
+                         FROM pairs)
+        SELECT i, j, count(*) AS draws, count(*) FILTER (WHERE before) AS before,
+               count(*) FILTER (WHERE before <> previous) AS switches
+        FROM flagged GROUP BY ALL ORDER BY i, j""")
 
 
 TABLES = {"set_classes": set_classes, "edges": edges, "set_summary": set_summary, "infection_draws": infection_draws,
           "functional_draws": functional_draws, "genotype_summary": genotype_summary, "genotype_mode": genotype_mode,
           "out_degree_draws": out_degree_draws}
 TABLES["coi"] = coi  # U10 infection card
+TABLES["order_pairs"] = order_pairs  # U3 pair inspector
 
 
 def source(store):
@@ -240,7 +259,8 @@ def derive(store):
     manifest.unlink(missing_ok=True)
     for name, compute in TABLES.items():
         partial = out / f".{name}.parquet"
-        compute(store).write_parquet(str(partial))
+        with Scope(store.connection) as s:
+            compute(store, s).write_parquet(str(partial))
         os.replace(partial, out / f"{name}.parquet")
     partial = out / ".manifest.json"
     partial.write_text(json.dumps(source(store), indent=2) + "\n")
@@ -269,38 +289,44 @@ def chain_series(store):
     Sampling-iteration order. Edges from observed parents are named `child<-parent` and are 0 at Draws where the
     child's sets containing the parent are all below the floor; unobserved-source inclusion is named by Infection."""
     derive(store)
-    scalars = table(store, "run_scalars")
-    infections = table(store, "infections")
-    frequencies = table(store, "allele_frequencies")
-    edges = derived(store, "edges")
-    infection_draws = derived(store, "infection_draws")
-    functional_draws = derived(store, "functional_draws")
-    latent = store.structure("infections")
+    with Scope(store.connection) as s:
+        return _chain_series(store, s)
+
+
+def _chain_series(store, s):
+    scalars = s.name(table(store, "run_scalars"))
+    infections = s.name(table(store, "infections"))
+    frequencies = s.name(table(store, "allele_frequencies"))
+    edges = s.name(derived(store, "edges"))
+    infection_draws = s.name(derived(store, "infection_draws"))
+    functional_draws = s.name(derived(store, "functional_draws"))
+    latent = s.name(store.structure("infections"))
     queries = {
-        "log posterior": "SELECT 'log posterior' AS name, iteration, prior + likelihood AS value FROM scalars",
-        "global scalars": """
-            UNPIVOT (SELECT iteration, mean_coi, mean_strains_tx, parent_set_size_prob FROM scalars)
+        "log posterior": f"SELECT 'log posterior' AS name, iteration, prior + likelihood AS value FROM {scalars}",
+        "global scalars": f"""
+            UNPIVOT (SELECT iteration, mean_coi, mean_strains_tx, parent_set_size_prob FROM {scalars})
             ON mean_coi, mean_strains_tx, parent_set_size_prob INTO NAME name VALUE value""",
-        "false positive rate": "SELECT infection AS name, iteration, expected_false_positives AS value FROM infections",
-        "false negative rate": "SELECT infection AS name, iteration, expected_false_negatives AS value FROM infections",
-        "infection duration": "SELECT infection AS name, iteration, infection_duration AS value FROM infections",
-        "allele frequency": """
-            SELECT locus || '[' || allele || ']' AS name, iteration, frequency AS value FROM frequencies""",
-        "edge": """
-            WITH observed AS (SELECT * FROM edges WHERE parent NOT IN (SELECT latent_parent FROM latent)),
-                 draws AS (SELECT DISTINCT iteration FROM scalars),
+        "false positive rate": f"""
+            SELECT infection AS name, iteration, expected_false_positives AS value FROM {infections}""",
+        "false negative rate": f"""
+            SELECT infection AS name, iteration, expected_false_negatives AS value FROM {infections}""",
+        "infection duration": f"SELECT infection AS name, iteration, infection_duration AS value FROM {infections}",
+        "allele frequency": f"""
+            SELECT locus || '[' || allele || ']' AS name, iteration, frequency AS value FROM {frequencies}""",
+        "edge": f"""
+            WITH observed AS (SELECT * FROM {edges} WHERE parent NOT IN (SELECT latent_parent FROM {latent})),
+                 draws AS (SELECT DISTINCT iteration FROM {scalars}),
                  pairs AS (SELECT DISTINCT child, parent FROM observed)
             SELECT child || '<-' || parent AS name, iteration, coalesce(o.prob, 0) AS value
             FROM pairs CROSS JOIN draws LEFT JOIN observed o USING (child, parent, iteration)""",
-        "unobserved-source inclusion": "SELECT infection AS name, iteration, q AS value FROM infection_draws",
-        "functionals": """
-            UNPIVOT (SELECT iteration, psi_edge, mean_q, mean_entropy FROM functional_draws)
+        "unobserved-source inclusion": f"SELECT infection AS name, iteration, q AS value FROM {infection_draws}",
+        "functionals": f"""
+            UNPIVOT (SELECT iteration, psi_edge, mean_q, mean_entropy FROM {functional_draws})
             ON psi_edge, mean_q, mean_entropy INTO NAME name VALUE value""",
     }
     series = {}
     for group, query in queries.items():
-        rows = store.connection.sql(f"""
-            SELECT name, list(value::DOUBLE ORDER BY iteration) FROM ({query}) GROUP BY name""").fetchall()
+        rows = s.rows(f"SELECT name, list(value::DOUBLE ORDER BY iteration) FROM ({query}) GROUP BY name")
         series.update({(group, name): values for name, values in rows})
     return series
 

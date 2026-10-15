@@ -13,14 +13,14 @@ DRAWS = [10, 20, 30, 40, 50, 60]
 
 
 def edges(*rows):
-    """An in-memory `edges` table of (iteration, child, parent, prob) rows."""
+    """A connection and an in-memory `edges` table on it of (iteration, child, parent, prob) rows."""
     connection = duckdb.connect()
-    return connection.sql("SELECT * FROM (VALUES " + ", ".join(
+    return connection, connection.sql("SELECT * FROM (VALUES " + ", ".join(
         f"({i}, '{c}', '{p}', {w}::DOUBLE)" for i, c, p, w in rows) + ") t(iteration, child, parent, prob)")
 
 
 def test_a_chain_gives_each_edge_its_mean_over_draws_and_its_crossings_of_one_half():
-    got = chain_edge_stats(edges(
+    got = chain_edge_stats(*edges(
         # 9 <- 1 locked near 1: no crossing.
         *[(d, "9", "1", 0.99) for d in DRAWS],
         # 9 <- 2 above, below, above, below, above, above: four crossings.
@@ -32,12 +32,12 @@ def test_a_chain_gives_each_edge_its_mean_over_draws_and_its_crossings_of_one_ha
 
 def test_a_draw_without_a_row_is_zero_for_the_mean_and_the_crossings():
     # Rows only at 10 and 30: 0.9, (0), 0.9, (0), (0), (0) has three crossings and mean 1.8 / 6.
-    got = chain_edge_stats(edges((10, "9", "1", 0.9), (30, "9", "1", 0.9)), DRAWS)
+    got = chain_edge_stats(*edges((10, "9", "1", 0.9), (30, "9", "1", 0.9)), DRAWS)
     assert got == {("9", "1"): ChainEdge(mean=pytest.approx(0.3), switches=3)}
 
 
 def test_exactly_one_half_is_not_above_it():
-    got = chain_edge_stats(edges(*[(d, "9", "1", w) for d, w in zip(DRAWS, [0.4, 0.5, 0.4, 0.5, 0.6, 0.5])]), DRAWS)
+    got = chain_edge_stats(*edges(*[(d, "9", "1", w) for d, w in zip(DRAWS, [0.4, 0.5, 0.4, 0.5, 0.6, 0.5])]), DRAWS)
     assert got[("9", "1")].switches == 2
 
 

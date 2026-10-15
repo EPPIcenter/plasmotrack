@@ -19,7 +19,6 @@ import re
 import subprocess
 import sys
 import threading
-from pathlib import Path
 
 from starlette.concurrency import run_in_threadpool
 from starlette.routing import Route

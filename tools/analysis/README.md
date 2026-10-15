@@ -64,7 +64,7 @@ uv run pt-analysis derive analysis.json    # every Run of an Analysis, then the 
 ```
 
 writes Parquet tables under `RUN_DIR/derived/`. `edges`, `set_summary`, `infection_draws`, `functional_draws`,
-`genotype_summary`, `genotype_mode` and `coi` come from the sampling Phase, so every row comes from Draws; `set_classes`
+`genotype_summary`, `genotype_mode`, `coi` and `order_pairs` come from the sampling Phase, so every row comes from Draws; `set_classes`
 comes from `parent_set_members` over both Phases.
 
 | Table | Columns | Rows |
@@ -78,6 +78,7 @@ comes from `parent_set_members` over both Phases.
 | `genotype_mode` | infection, locus, alleles, draws, fraction, rank | one per Infection, Locus and Latent genotype a Draw had |
 | `out_degree_draws` | iteration, infection, out_degree | one per Draw and Infection |
 | `coi` | iteration, infection, coi | one per Draw and Infection |
+| `order_pairs` | i, j, draws, before, switches | one per pair of Infections i < j (text order) placed at the same Draws |
 
 - `n_observed` counts a set's observed parents (members that are Infection ids). `has_unobserved` says whether the
   unobserved source, the Infection's Latent parent (`<id>_copy`), is a member.
@@ -92,7 +93,9 @@ comes from `parent_set_members` over both Phases.
   conditional transmission matrix.
 - `weight` in `set_summary` is the pooled weight: the set's weight summed over Draws and divided by the number of
   Draws, the manuscript's estimator, not a mean over the Draws where the set has a row. Sets are ranked from 1 by
-  weight descending, then set_id; `cumulative_mass` is the running sum down the ranking.
+  weight descending, then set_id; `cumulative_mass` is the running sum down the ranking. The summaries that read it
+  (`pt_analysis.parent_sets`) rank by the MAP rule instead, weight descending then the members tuple, which differs
+  only between sets of equal weight.
 - `infection_draws` holds functions of one Infection's Parent-set weights at one Draw: `q`, the unobserved-source
   inclusion (weight of sets containing the Latent parent); `expected_observed_parents` (weight times `n_observed`,
   summed); `entropy` (minus the sum of weight times its log) and `effective_size` (exp of the entropy); the weight of
@@ -113,6 +116,15 @@ comes from `parent_set_members` over both Phases.
   of the Edge marginals from it, 0 where it is no Infection's parent. Its mean over Infections is psi_edge too.
 - `coi` is the COI at a Draw: the largest Allele count (the number of `1` characters) over the Loci of the
   Infection's Latent genotype.
+- `order_pairs` comes from the `ordering` Trace joined to itself on iteration: per pair, the Draws at which both
+  Infections have a place, how many of them have i before j (`before`; P(i before j) is `before / draws` and
+  P(j before i) its complement) and the switches, adjacent Draws at which the order changes. One pair's per-Draw
+  indicator is read from `ordering` on demand.
+
+Every query names the relations it reads through `pt_analysis.sql.Scope`, which registers them on the package's own
+DuckDB connection (`pt_analysis.store.CONNECTION`, not DuckDB's default one) under fresh names until the query has
+run. Nothing is left registered between queries, and replacement scans (SQL reading a Python variable by name) are
+switched off on that connection.
 
 `derived/manifest.json` records the closed Windows per Phase the tables came from and the package version that wrote
 them. `derive` does nothing when both match the store and this package, and replaces every table otherwise, for
@@ -215,11 +227,14 @@ manifest's optional `label` names the Analysis on the page (default: the manifes
 
 The header's **SVG**, **PNG** and **CSV** buttons export the view on screen. SVG is the view's SVG elements and
 canvases where they are on screen (a table view, which has neither, is drawn from its HTML); PNG is the same picture
-at twice the screen's resolution on white. CSV is one file per table the view shows, as shown; the convergence table,
-the edge table, the parent-set panel and the comparison of Analyses instead write every row their filters keep, in
-the order shown, with the package's column names (`convergence`: group, name, chain, ess, rhat; `edge_stats`: child,
-parent, unobserved, chain, mean, switches, spread, ess; parent sets: the `/api/parent-sets` row keys; comparison:
-analysis, then each Analysis's pooled `convergence` row, and ess_per_second with timings). Missing values are empty cells and
+at twice the screen's resolution on white. CSV is one file per table the view shows, holding the package's numbers
+unrounded under the package's column names, not the text on screen: the convergence table, the edge table, the
+parent-set panel and the comparison of Analyses write every row their filters keep, in the order shown
+(`convergence`: group, name, chain, ess, rhat; `edge_stats`: child, parent, unobserved, chain, mean, switches,
+spread, ess; parent sets: the `/api/parent-sets` row keys; comparison: analysis, then each Analysis's pooled
+`convergence` row, with ess_per_second and ess_per_instruction where timed), and the functionals, flows, infection
+card, pair inspector, error table, sampler panel and cohort views write their API payload's fields, an interval as
+three columns (`<field>_mean`, `<field>_lower`, `<field>_upper`). Missing values are empty cells and
 non-finite numbers `Inf`, `-Inf`, `NaN`, as R's `read.csv` reads them. File names are
 `<label>_<route>[_<key>=<value>...][_<table heading>].<ext>`, for example `golden_edges_sort=pooled_desc=1.csv`.
 
@@ -254,7 +269,7 @@ less the coverage column.
 | `GET /api/truth-network[?floor=0.01]` | the network view's truth overlay: how truth ids matched, and per edge set (posterior, null, IBD) every true edge and the false edges scoring at least `floor` |
 | `GET /api/errors[?source=posterior][&threshold=0.5]` | the error table of one edge set at a threshold (below); 404 without truth or when the manifest names no such source |
 
-The truth overlay and error table (`pt_analysis.truth_overlay`, #89) reuse `metrics`' truth, Edge marginals and
+The truth overlay and error table (`pt_analysis.truth_overlay`) reuse `metrics`' truth, Edge marginals and
 pairwise scores. An edge set is the posterior, the null-model Analysis or the pairwise scores (IBD, undirected: a
 pair's score is the larger of its rows, and it is true when a true edge joins it either way). `match` reports the
 Analysis's Infections the truth file has no node for, and the simulated Infections the input does not observe. An
@@ -287,9 +302,10 @@ the rest of this package:
   scores CSV (`pairwise_scores`) has columns `a, b, score`, one row per pair of Infection ids in either order (the
   largest score of a pair's rows counts; pairs without a row score 0; ids outside the Analysis are ignored), and is
   ranked undirected only.
-- **Parent-set metrics**: an Infection's sets are pooled over Chains (matched by members), ranked by weight. Its
-  effective size is exp of the entropy of the pooled weights, its credible collection the smallest prefix with mass at
-  least the level (as `functionals.credible_collection`), its top probability the modal set's weight. The summary
+- **Parent-set metrics**: an Infection's sets are pooled over Chains (matched by members) and ranked by the MAP rule,
+  weight descending then members (`parent_sets.pooled_sets`). Its effective size is exp of the entropy of the pooled
+  weights, its credible collection the smallest prefix with mass at least the level (the same rule as
+  `functionals.credible_collection`), its top probability the modal set's weight. The summary
   columns are `mean_credible_parent_set_size_80`, `median_credible_parent_set_size_80`,
   `credible_parent_set_coverage_80` and `mean_top_parent_set_probability`; a level other than 0.8 has the suffix
   `_a<percent>`, for example `_a095`.
@@ -298,8 +314,9 @@ the rest of this package:
 
 `#/pair?a=A&b=B` shows why two Infections sit in one order. `/api/pair` returns, from `pt_analysis.pair.inspect_pair`:
 
-- `order`: per Chain, the per-Draw indicator that A precedes B in the `ordering` Trace, its mean P(A before B) and
-  the switches, adjacent Draws at which the order changes (as `summary --pairs` counts them); pooled over all Draws.
+- `order`: per Chain, the per-Draw indicator that A precedes B, read from the `ordering` Trace on demand, and from
+  the derived `order_pairs` the Draws, P(A before B) and the switches, adjacent Draws at which the order changes (as
+  `summary --pairs` counts them); P(A before B) pooled over all Draws.
 - `edges`: per Chain and pooled, the Edge marginals B <- A (`a_to_b`) and A <- B (`b_to_a`), the mean over Draws of
   `edges`; 0 where the edge never has a row.
 - `co_inclusion`: per third Infection with a Parent set holding both, the summed `set_summary` weight of those sets
@@ -308,8 +325,8 @@ the rest of this package:
   posterior mode and its agreement pooled over Chains from `genotype_mode`, whether the modes differ, and with a
   truth file in the manifest the true Latent genotypes (`flat_latent_genotype`); the count of differing Loci.
 - `times`: for each, the observation time and the posterior infection time, observation time minus the median and
-  the 97.5% and 2.5% quantiles (R type 7) of `infection_duration` over all Draws; the lag, B's observation time minus
-  A's.
+  the 97.5% and 2.5% quantiles (R type 7) of `infection_duration` over all Draws (`times.infection_times`, as the
+  network view and the infection card take it); the lag, B's observation time minus A's.
 
 Pooled values weight each Chain by its Draws. The input and truth files may be gzipped (`pt_analysis.inputs`).
 
@@ -327,8 +344,9 @@ Pooled values weight each Chain by its Draws. The input and truth files may be g
   posterior presence of each Allele pooled over Chains from `genotype_summary`.
 - `parent_sets`: per Chain, the Infection's Parent sets from `set_summary` with members, composition class, pooled
   weight, rank, cumulative mass and whether the set is in the credible collection at level 0.8
-  (`functionals.credible_collection`, as `pt-analysis credible` prints it); and pooled over Chains, sets matched by
-  members, ranked, with the credible collection by the same rule.
+  (`functionals.credible_collection`, as `pt-analysis credible` prints it); and pooled over Chains
+  (`parent_sets.pooled_sets`), sets matched by members, ranked by the same MAP rule, with the credible collection by
+  the same prefix rule.
 - `parents` and `children`: the Edge marginals with the Infection as child (the unobserved source included) and as
   parent, from `edge_stats`: pooled, spread, ESS, per-Chain means and the trace quantity; largest first.
 - `summary`: q, the expected observed-parent count, entropy and effective size from `infection_draws`, per Chain
@@ -385,8 +403,10 @@ the number of Draws) and q; sums of Q are expected edge counts. Strata are those
 | `reassign(analysis, max_lag, column=None)` | the mass of every edge with lag above `max_lag` moved to the unobserved source, Draw by Draw: moved mass and share, and psi_edge and mean q before and after with 95% intervals, overall and per stratum |
 | `spatial_scale(analysis, unit, parent, max_lag=None)` | edge mass and share with lag at most `max_lag` whose source is in the recipient's unit (`same_unit`), its parent unit only (`same_parent`), or elsewhere (`other`) |
 
-Reassigning lowers psi_edge by the moved mass over n and raises mean q by the same amount, the manuscript's
-accounting, so q then counts attributed mass and can exceed one for an Infection. Per stratum, psi_edge counts the
+Reassigning lowers psi_edge by the moved mass over n and raises mean q by it, the manuscript's accounting, except
+that each Infection's q is clamped at 1 at every Draw that gains moved mass: an Infection whose sets hold both a moved
+parent and its Latent parent would otherwise count that weight twice and pass 1. So mean q rises by at most the moved
+mass over n. Per stratum, psi_edge counts the
 stratum's Infections as sources and q as recipients, as above. A unit is known by its value and its parent unit's, so
 a unit name used in two parent units is two units; a missing value is `other`.
 
@@ -579,6 +599,15 @@ functionals.map_graph(store)                     # {infection: RankedSet} of mod
 functionals.psi_map(store)
 functionals.size_range(store, level=0.8)         # (psi_lo, psi_hi)
 functionals.credible_collection(store, "3", level=0.8)   # [RankedSet(set_id, members, weight, rank, ...), ...]
+
+from pt_analysis import parent_sets, quantiles, times
+
+parent_sets.pooled_sets(analysis, level=0.8)     # {infection: [PooledSet(members, weight, rank, credible, chains)]}
+parent_sets.map_key(weight, members)             # the MAP rule's sort key: weight descending, then members
+quantiles.interval(values)                       # Interval(mean, lower, upper): 2.5% and 97.5% type-7 quantiles
+times.observation_times(analysis)                # {infection: observation time} from the input
+times.lag(observed, parent, child)               # child's minus parent's observation time
+times.infection_times(analysis)                  # {infection: {lower, median, upper}} posterior infection time
 
 from pt_analysis import metrics
 

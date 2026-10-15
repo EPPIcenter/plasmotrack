@@ -12,10 +12,10 @@ import math
 import statistics
 from dataclasses import dataclass, field
 
-from pt_analysis import functionals, inputs
+from pt_analysis import inputs
 from pt_analysis.analysis import Analysis
 from pt_analysis.derive import derived
-from pt_analysis.functionals import LEVEL, TOLERANCE
+from pt_analysis.parent_sets import LEVEL, pooled_sets
 
 PAIRWISE_COLUMNS = ("a", "b", "score")
 
@@ -28,7 +28,7 @@ class MetricsError(Exception):
 class Truth:
     """The true network of a simulated input, restricted to the Analysis's Infections."""
 
-    infections: tuple[str, ...]  # the Analysis's Infections, the observed cases
+    infections: tuple[str, ...]  # the Analysis's Infections, the observed ones of the simulation
     edges: frozenset[tuple[str, str]]  # (parent, child) with both ends among the Infections
     # Per Infection, its true Parent set as tokens comparable with a fitted set whose Latent parent's `_copy` is
     # stripped: the true parents among the Infections, plus the Infection's own id (the unobserved source) when it
@@ -273,38 +273,6 @@ def ranking_fits(analysis, truth):
 
 # --- parent-set metrics ----------------------------------------------------------------------------------------------
 
-def pooled_sets(analysis):
-    """Each Infection's Parent sets with their weights pooled over Chains, {infection: [(members, weight)]} by
-    weight descending then members: a set's weight summed over every Draw of every Chain divided by the number of
-    Draws. Sets are matched across Chains by their members, as set ids are a Run's own."""
-    totals, draws = {}, 0
-    for store in analysis.runs.values():
-        n = store.draws()
-        draws += n
-        for s in functionals.ranked_sets(store):
-            key = (s.infection, s.members)
-            totals[key] = totals.get(key, 0.0) + s.weight * n
-    if not draws:
-        return {}
-    sets = {}
-    for (infection, members), total in totals.items():
-        sets.setdefault(infection, []).append((members, total / draws))
-    for ranked in sets.values():
-        ranked.sort(key=lambda s: (-s[1], s[0]))
-    return sets
-
-
-def credible_size(weights, level=LEVEL):
-    """The size of the credible collection of sets with these weights, in rank order: the smallest prefix whose
-    mass reaches `level` (within the tolerance of `functionals.credible_collection`), or all of them."""
-    mass = 0.0
-    for k, w in enumerate(weights, start=1):
-        mass += w
-        if mass >= level - TOLERANCE:
-            return k
-    return len(weights)
-
-
 def truth_tokens(members):
     """A fitted set's members as tokens comparable with `Truth.parent_sets`: the Latent parent `<id>_copy` as `<id>`."""
     return frozenset(m.removesuffix("_copy") for m in members)
@@ -323,17 +291,17 @@ class InfectionParentSets:
 
 def parent_set_rows(analysis, truth=None, level=LEVEL):
     """Per Infection, in id order, its effective parent-set size, credible collection size at `level`, whether
-    `truth`'s set is in that collection, and its modal set's pooled weight."""
+    `truth`'s set is in that collection, and its modal set's pooled weight, from the Parent sets pooled over Chains
+    (`parent_sets.pooled_sets`)."""
     rows = []
-    for infection, sets in sorted(pooled_sets(analysis).items()):
-        weights = [w for _, w in sets]
-        k = credible_size(weights, level)
+    for infection, sets in sorted(pooled_sets(analysis, level).items()):
+        credible = [s for s in sets if s.credible]
         covered = None
         if truth is not None:
             true_set = truth.parent_sets.get(infection)
-            covered = any(truth_tokens(members) == true_set for members, _ in sets[:k])
-        entropy = -sum(w * math.log(w) for w in weights if w > 0)
-        rows.append(InfectionParentSets(infection, math.exp(entropy), k, covered, max(weights)))
+            covered = any(truth_tokens(s.members) == true_set for s in credible)
+        entropy = -sum(s.weight * math.log(s.weight) for s in sets if s.weight > 0)
+        rows.append(InfectionParentSets(infection, math.exp(entropy), len(credible), covered, sets[0].weight))
     return rows
 
 

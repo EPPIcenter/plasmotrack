@@ -88,12 +88,14 @@ def calibration(cohort_path, bins=BINS):
     if not edges.is_file():
         return None
     on = " AND ".join(f"e.{k} IS NOT DISTINCT FROM r.{k}" for k in FIT_KEY)
-    rows = duckdb.sql(f"""
+    connection = duckdb.connect()  # its own: the cohort is not an Analysis and has no Store
+    rows = connection.execute(f"""
         WITH r AS (SELECT row_number() OVER () - 1 AS row, {', '.join(FIT_KEY)} FROM read_parquet($cohort)),
              e AS (SELECT *, least(floor(score * {bins}), {bins - 1})::INTEGER AS bin FROM read_parquet($edges))
         SELECT r.row, e.bin, count(*) AS n, count(*) FILTER (WHERE e.truth) AS n_true, sum(e.score) AS score_sum
         FROM e JOIN r ON {on} GROUP BY ALL ORDER BY r.row, e.bin""",
-                      params={"cohort": str(cohort_path), "edges": str(edges)}).fetchall()
+                              {"cohort": str(cohort_path), "edges": str(edges)}).fetchall()
+    connection.close()
     names = ("row", "bin", "n", "n_true", "score_sum")
     return {"bins": bins, **{name: [r[i] for r in rows] for i, name in enumerate(names)}}
 

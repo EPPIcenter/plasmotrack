@@ -19,6 +19,12 @@ BOTH_PHASES = ("burn_in", "sampling")
 # `parent_sets` rows refer to them by set_id.
 DEFAULT_PHASES = {"parent_set_members": BOTH_PHASES}
 
+# The package's own DuckDB connection, which every Store uses unless given another: queries name relations through
+# `pt_analysis.sql.Scope`, never on DuckDB's shared default connection, and never read Python locals by name
+# (replacement scans are off, so a query that tries fails).
+CONNECTION = duckdb.connect()
+CONNECTION.execute("SET python_enable_replacements = false")
+
 
 @dataclass(frozen=True, order=True)
 class Window:
@@ -35,7 +41,7 @@ class Store:
 
     def __init__(self, path, connection=None):
         self.path = Path(path)
-        self.connection = connection or duckdb.default_connection()
+        self.connection = connection or CONNECTION
 
     def closed_windows(self):
         """The Windows a reader may use, in Window order: those whose marker exists."""

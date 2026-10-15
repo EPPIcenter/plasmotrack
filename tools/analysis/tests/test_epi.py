@@ -69,7 +69,8 @@ def test_a_missing_file_or_a_repeated_id_is_an_error(tmp_path):
 
 
 def test_stratum_values_come_in_the_columns_own_order_with_no_value_last(tmp_path):
-    epi = load_epi(open_analysis(tmp_path, csv="infection,age,when,group\n1,10,2020-02-01,b\n2,9,2020-01-15,\n3,,2019-12-31,a\n"))
+    epi = load_epi(open_analysis(
+        tmp_path, csv="infection,age,when,group\n1,10,2020-02-01,b\n2,9,2020-01-15,\n3,,2019-12-31,a\n"))
     assert epi.stratum_values("age") == ["9", "10", None]
     assert epi.stratum_values("when") == ["2019-12-31", "2020-01-15", "2020-02-01"]
     assert epi.stratum_values("group") == ["a", "b", None]
