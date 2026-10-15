@@ -69,7 +69,7 @@ describe("filterEdges", () => {
     expect(keys(filterEdges(rows, { ...all, child: " 9 ", parent: "1" }))).toEqual(["9<-1"]);
   });
 
-  it("keeps only edges touching the selected Infections when given a selection (#84)", () => {
+  it("keeps only edges touching the selected Infections when given a selection from the network view", () => {
     expect(keys(filterEdges(rows, { ...all, selection: new Set(["2", "8"]) }))).toEqual(["8<-1", "9<-2"]);
     expect(keys(filterEdges(rows, { ...all, selection: new Set() }))).toEqual(keys(rows));
   });

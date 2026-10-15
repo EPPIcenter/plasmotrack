@@ -5,7 +5,7 @@
 // edges between them. Hover shows an edge's per-Chain marginals and lag, or a node's q, times and epi values; the
 // search box centres on an Infection; clicking a node selects it (shift-click adds) in the shared selection other
 // views read, double-clicking opens its infection card, and clicking an edge opens the pair inspector.
-// With truth (U6, #89): a Truth toggle draws true edges in green by marginal and false edges at or above the threshold
+// With truth (U6): a Truth toggle draws true edges in green by marginal and false edges at or above the threshold
 // dashed, and an edge-set selector swaps the posterior for the null-model posterior or the pairwise scores (IBD) on
 // the same nodes.
 

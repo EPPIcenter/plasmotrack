@@ -31,7 +31,7 @@ export interface SwapRow extends PanelWindow {
 }
 
 /** The ladder at one `temperatures_adapted` event. */
-export interface LadderStep {
+export interface LadderAdaptation {
   iteration: number;
   phase: string;
   applied: boolean;
@@ -59,7 +59,7 @@ export interface SamplerPanel {
   windows: PanelWindow[];
   acceptance: AcceptanceRow[];
   swaps: SwapRow[];
-  ladder: LadderStep[];
+  ladder: LadderAdaptation[];
   burn_in_ended: BurnInEnd | null;
   events: RunEvent[];
 }
@@ -175,15 +175,15 @@ export interface LadderPoint {
 
 /** The ladder as points per slot over Sampling iterations: each applied adaptation, then the final ladder at burn-in
  * end. Adaptations not applied (the new ladder had NaNs) kept the old ladder and are left out. Empty for one chain. */
-export function ladderPoints(ladder: LadderStep[], end: BurnInEnd | null): LadderPoint[] {
+export function ladderPoints(ladder: LadderAdaptation[], end: BurnInEnd | null): LadderPoint[] {
   const points = ladder
-    .filter((step) => step.applied)
-    .flatMap((step) =>
-      step.temperatures.map((temperature, slot) => ({
+    .filter((a) => a.applied)
+    .flatMap((a) =>
+      a.temperatures.map((temperature, slot) => ({
         slot,
-        iteration: step.iteration,
+        iteration: a.iteration,
         temperature,
-        barrier: step.barriers[slot] ?? null,
+        barrier: a.barriers[slot] ?? null,
         final: false,
       })),
     );

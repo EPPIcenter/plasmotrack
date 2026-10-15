@@ -1,4 +1,4 @@
-// U9 flows, lags and spatial scale (#87), beside the functionals panel: per stratum of an epi column, the attribution
+// U9 flows, lags and spatial scale, beside the functionals panel: per stratum of an epi column, the attribution
 // matrix (recipient by source, the unobserved source included, normalised within recipient) and flow enrichment
 // against the candidate pairs as heatmaps, net flow as bars; the lag histogram of edge mass with the median fitted
 // duration and a cutoff slider reporting psi_edge and mean q with the mass beyond it moved to the unobserved source;

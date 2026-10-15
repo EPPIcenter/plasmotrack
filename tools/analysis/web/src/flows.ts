@@ -1,4 +1,4 @@
-// The functionals panel's flows, lags and spatial scale (U9, #87): /api/flows, /api/lags and /api/spatial shaped for
+// The functionals panel's flows, lags and spatial scale (U9): /api/flows, /api/lags and /api/spatial shaped for
 // heatmaps, the net-flow bars, the lag histogram with its cutoff, and the spatial-scale table. No DOM here.
 
 import { intervalColumns, intervalFields, recordsTable, type NamedTable } from "./export";
