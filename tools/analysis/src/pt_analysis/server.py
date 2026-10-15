@@ -11,6 +11,7 @@ import webbrowser
 from pathlib import Path
 
 from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import PlainTextResponse
@@ -54,7 +55,24 @@ ENDPOINTS = [
     # U5 comparison of Analyses
     "pt_analysis.endpoints.compare",  # U5: the open Analyses, their convergence side by side
 
+    # React app (web/DESIGN.md): Overview workspace, status bar
+    "pt_analysis.endpoints.overview",  # status bar and rail badges; Overview's health check and headline
+
 ]
+
+
+class AppFiles(StaticFiles):
+    """The built frontend, with `index.html` for any other path that is not under `/api/` and has no file extension:
+    the app routes on the client (`/convergence?sel=...`), so a reload or a shared link of such a path gets the app."""
+
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as e:
+            last = path.rsplit("/", 1)[-1]
+            if e.status_code != 404 or path.startswith("api/") or path == "api" or "." in last:
+                raise
+            return await super().get_response("index.html", scope)
 
 
 def not_built(request):
@@ -72,7 +90,7 @@ def create_app(analysis, static_dir=STATIC_DIR, analyses=None):
     routes = [route for module in ENDPOINTS for route in importlib.import_module(module).ROUTES]
     static_dir = Path(static_dir)
     if (static_dir / "index.html").is_file():
-        routes.append(Mount("/", StaticFiles(directory=static_dir, html=True)))
+        routes.append(Mount("/", AppFiles(directory=static_dir, html=True)))
     else:
         routes.append(Route("/", not_built))
     app = Starlette(routes=routes, middleware=[Middleware(GZipMiddleware, minimum_size=1000)])

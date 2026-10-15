@@ -160,6 +160,16 @@ def test_the_built_frontend_is_served_at_the_root(client):
     assert response.status_code == 200 and "<title>pt-analysis</title>" in response.text
 
 
+def test_a_client_side_route_reloads_to_the_app_but_unknown_api_paths_and_files_stay_404(client, tmp_path):
+    (tmp_path / "dist" / "app.js").write_text("console.log(1)")
+    for path in ("/convergence", "/overview?sel=infection:1&tab=summary", "/inspect"):
+        response = client.get(path)
+        assert response.status_code == 200 and "<title>pt-analysis</title>" in response.text, path
+    assert client.get("/app.js").text == "console.log(1)"
+    assert client.get("/api/no-such-endpoint").status_code == 404
+    assert client.get("/assets/missing.js").status_code == 404
+
+
 def test_without_a_built_frontend_the_root_says_how_to_build_it(golden_analysis, tmp_path):
     response = TestClient(create_app(golden_analysis, static_dir=tmp_path / "missing")).get("/")
     assert response.status_code == 404 and "pnpm build" in response.text
