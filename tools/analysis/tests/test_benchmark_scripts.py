@@ -1,11 +1,14 @@
 """The benchmark scripts read stores through the package and give the numbers they gave before the port."""
 
+import json
+import shutil
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 from conftest import GOLDEN
+
+from pt_analysis.cli import main
 
 BENCHMARK = GOLDEN.parents[2] / "tools" / "benchmark"
 sys.path.insert(0, str(BENCHMARK))
@@ -40,26 +43,37 @@ def test_run_traces_groups_and_series_counts():
         sum(mb.Store(GOLDEN / "single-chain").rows("run_scalars")[0][k] for k in ("prior", "likelihood")), 4)
 
 
-def test_chain_summary_diagnostics_table_is_unchanged(tmp_path):
-    """The ESS and R-hat table on the two golden stores as two Chains, as the script printed it before the port.
-    The pairs and agreement sections still read the old gzip CSV layout; the agreement section fails after the
-    table, so the exit status is not checked."""
-    (tmp_path / "chain1").symlink_to(GOLDEN / "single-chain")
-    (tmp_path / "chain2").symlink_to(GOLDEN / "replica-exchange")
-    result = subprocess.run([sys.executable, str(BENCHMARK / "chain_summary.py"), str(tmp_path)],
-                            capture_output=True, text=True)
-    assert result.stdout.startswith("""2 chains: chain1, chain2
+def chain_summary(*args):
+    return subprocess.run([sys.executable, str(BENCHMARK / "chain_summary.py"), *map(str, args)],
+                          capture_output=True, text=True)
 
-group                     series  ESS median   ESS min  R-hat>1.1  R-hat max
-log posterior                  1         3.6       3.6       100%       1.26
-global scalars                 3        26.0      19.5         0%      0.938
-false positive rate            3        26.0      21.3         0%      0.999
-false negative rate            3        26.0       3.2        33%       1.11
-infection duration             3        26.0      24.1         0%       1.01
-allele frequency              20        10.6       1.4        65%       2.43
-P(no sampled parent)           2        19.3      12.5        50%        1.1
-top parent edge                2        19.3      12.5        50%        1.1
-""")
+
+def test_chain_summary_prints_the_package_summary_of_run_dir_chains(tmp_path, capsys):
+    """RUN_DIR/chain1 and chain2 become the Chains of a generated manifest, RUN_DIR/chain_summary.json, whose
+    summary the script prints: the same as `pt-analysis summary` on it, starting with the diagnostics table."""
+    shutil.copytree(GOLDEN / "single-chain", tmp_path / "chain1")
+    shutil.copytree(GOLDEN / "replica-exchange", tmp_path / "chain2")
+    (tmp_path / "chain2-notes.txt").write_text("not a Chain")
+    result = chain_summary(tmp_path, "--pairs", "1:2", "--show", "2")
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads((tmp_path / "chain_summary.json").read_text())
+    assert manifest["runs"] == {"chain1": "chain1", "chain2": "chain2"}
+    assert (manifest["input"], manifest["symptomatic_idp"], manifest["asymptomatic_idp"]) == (
+        "<input>", "<golden>/symptomatic_idp.txt", "<golden>/asymptomatic_idp.txt")
+    assert main(["summary", str(tmp_path / "chain_summary.json"), "--pairs", "1:2", "--show", "2"]) == 0
+    assert result.stdout == capsys.readouterr().out
+    assert result.stdout.startswith("2 Chains: chain1, chain2\n\ngroup")
+    assert "log posterior                        1         3.6       3.6       100%       1.26\n" in result.stdout
+    assert "chain1: 1 before 2: 10/10 (changes 0)\n" in result.stdout
+    assert chain_summary(tmp_path, "--pairs", "1:2", "--show", "2").stdout == result.stdout  # beside its own output
+
+
+def test_chain_summary_selects_chains_by_number(tmp_path):
+    for k, name in ((1, "single-chain"), (2, "replica-exchange"), (10, "single-chain")):
+        shutil.copytree(GOLDEN / name, tmp_path / f"chain{k}")
+    result = chain_summary(tmp_path, "--chains", "10,2")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.startswith("2 Chains: chain2, chain10\n")
 
 
 def test_mixing_benchmark_sampling_time_reads_the_store():

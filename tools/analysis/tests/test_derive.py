@@ -1,6 +1,7 @@
 """`derive` writes a Run's derived tables under `<run>/derived/`, keyed by the closed Windows they came from."""
 
 import json
+import shutil
 import sys
 from collections import defaultdict
 
@@ -10,6 +11,7 @@ from conftest import GOLDEN
 
 from pt_analysis import __version__
 from pt_analysis.derive import derive
+from pt_analysis.store import Store
 
 sys.path.insert(0, str(GOLDEN.parents[2] / "tools" / "benchmark"))
 import mixing_benchmark as mb  # noqa: E402
@@ -91,7 +93,122 @@ def test_set_summary_ranks_sets_by_pooled_weight_over_all_draws(store):
         assert [g[3] for g in got] == pytest.approx([sum(g[1] for g in got[:k + 1]) for k in range(len(got))])
 
 
-TABLES = ["set_classes", "edges", "set_summary"]
+# Inf 3 per-Draw quantities pooled over the 10 Draws, from the exploration notes (R arrow).
+INF_3 = {
+    "single-chain": {"q": 0.1125, "expected_observed_parents": 0.8944, "entropy": 0.3697, "observed_only": 0.8875,
+                     "mixed": 0.00415, "unobserved_only": 0.1084, "multi_source_augmented": 0.00688,
+                     "multi_source_observed": 0.00275},
+    "replica-exchange": {"q": 0.2262, "expected_observed_parents": 0.7786, "entropy": 0.1412, "observed_only": 0.7738,
+                         "mixed": 0.00205, "unobserved_only": 0.2241, "multi_source_augmented": 0.00477,
+                         "multi_source_observed": 0.00273},
+}
+CLASSES = ["observed_1", "observed_1_unobserved", "observed_2", "observed_2_unobserved", "unobserved_only"]
+
+
+def infection_draws(store):
+    derive(store)
+    relation = duckdb.sql(f"SELECT * FROM '{store.path / 'derived' / 'infection_draws.parquet'}' "
+                          "ORDER BY iteration, infection")
+    return [dict(zip(relation.columns, row)) for row in relation.fetchall()]
+
+
+def test_infection_draws_have_a_row_per_draw_and_infection_with_a_column_per_class(store):
+    rows = infection_draws(store)
+    assert list(rows[0]) == ["iteration", "infection", "q", "expected_observed_parents", "entropy", "effective_size",
+                             *CLASSES, "multi_source_augmented", "multi_source_observed"]
+    assert [(r["iteration"], r["infection"]) for r in rows] == [
+        (it, inf) for it in range(25, 75, 5) for inf in ("1", "2", "3")]
+
+
+def test_infection_draws_pool_to_the_oracle_values_for_infection_3(store):
+    rows = [r for r in infection_draws(store) if r["infection"] == "3"]
+    mean = lambda column: sum(r[column] for r in rows) / len(rows)  # noqa: E731
+    expected = INF_3[store.path.name]
+    for column in ("q", "expected_observed_parents", "entropy", "unobserved_only", "multi_source_augmented",
+                   "multi_source_observed"):
+        assert mean(column) == pytest.approx(expected[column], rel=5e-3), column
+    assert mean("observed_1") + mean("observed_2") == pytest.approx(expected["observed_only"], rel=5e-3)
+    assert mean("observed_1_unobserved") + mean("observed_2_unobserved") == pytest.approx(expected["mixed"], rel=5e-3)
+
+
+def test_infection_draws_partition_each_draws_weight_into_classes(store):
+    """The class columns sum to the Infection's total weight, which falls short of 1 by at most the floor for each of
+    its sets the store dropped; q is the weight of the classes that include the unobserved source."""
+    floor = store.manifest["parent_set_floor"]
+    sets = {"1": 1, "2": 2, "3": 6}
+    for r in infection_draws(store):
+        assert sum(r[c] for c in CLASSES) == pytest.approx(1, abs=sets[r["infection"]] * floor)
+        assert r["q"] == pytest.approx(r["observed_1_unobserved"] + r["observed_2_unobserved"] + r["unobserved_only"])
+    infection_1 = [r for r in infection_draws(store) if r["infection"] == "1"]
+    assert all((r["q"], r["unobserved_only"], r["entropy"], r["effective_size"]) == (1, 1, 0, 1) for r in infection_1)
+
+
+def test_entropy_and_effective_size_of_a_hand_computed_infection(tmp_path):
+    """Single-chain inf 2 at Draw 25 has two sets: {2_copy} with weight p = 0.9993735522251003 and {1, 2_copy} with
+    1 - p = 6.264477748996795e-4. By hand: (1-p) ln(1-p) = -4.620332e-3 and p ln p = -6.262515e-4, so
+    H = 5.246584e-3 and exp(H) = 1.0052604."""
+    shutil.copytree(GOLDEN / "single-chain", tmp_path / "single-chain")
+    rows = infection_draws(Store(tmp_path / "single-chain"))
+    (row,) = [r for r in rows if (r["iteration"], r["infection"]) == (25, "2")]
+    assert row["entropy"] == pytest.approx(5.246584e-3, abs=1e-8)
+    assert row["effective_size"] == pytest.approx(1.0052604, abs=1e-7)
+    assert row["q"] == pytest.approx(1.0)
+    assert row["expected_observed_parents"] == pytest.approx(6.264477748996795e-4)
+    assert row["observed_1_unobserved"] == pytest.approx(6.264477748996795e-4)
+    assert row["multi_source_augmented"] == pytest.approx(6.264477748996795e-4)
+    assert row["multi_source_observed"] == 0
+
+
+# psi_edge per Draw, its mean and 95% interval (R type-7 quantiles), and mean q, from the exploration notes.
+PSI_EDGE = {
+    "single-chain": [0.3217, 0.2956, 0.3332, 0.3125, 0.2828, 0.2888, 0.3155, 0.2844, 0.2788, 0.2769],
+    "replica-exchange": [0.00216, 0.00289, 0.3260, 0.3259, 0.3223, 0.3167, 0.3241, 0.3262, 0.3283, 0.3311],
+}
+PSI_EDGE_MEAN = {"single-chain": 0.299024, "replica-exchange": 0.260587}
+PSI_EDGE_INTERVAL = {"single-chain": (0.27736, 0.33064), "replica-exchange": (0.002327, 0.3305)}
+MEAN_Q = {"single-chain": 0.704166, "replica-exchange": 0.742057}
+
+
+def functional_draws(store):
+    derive(store)
+    relation = duckdb.sql(f"SELECT * FROM '{store.path / 'derived' / 'functional_draws.parquet'}' ORDER BY iteration")
+    return [dict(zip(relation.columns, row)) for row in relation.fetchall()]
+
+
+def quantile_type_7(values, p):
+    """R's default quantile: linear interpolation between order statistics at (n - 1) p."""
+    values = sorted(values)
+    h = (len(values) - 1) * p
+    lo = int(h)
+    return values[lo] + (h - lo) * (values[min(lo + 1, len(values) - 1)] - values[lo])
+
+
+def test_functional_draws_hold_psi_edge_mean_q_mean_entropy_and_mean_classes_per_draw(store):
+    rows = functional_draws(store)
+    assert list(rows[0]) == ["iteration", "psi_edge", "mean_q", "mean_entropy", *(f"mean_{c}" for c in CLASSES)]
+    assert [r["iteration"] for r in rows] == list(range(25, 75, 5))
+    name = store.path.name
+    assert [r["psi_edge"] for r in rows] == pytest.approx(PSI_EDGE[name], rel=2e-3)
+    psi = [r["psi_edge"] for r in rows]
+    assert sum(psi) / len(psi) == pytest.approx(PSI_EDGE_MEAN[name], rel=1e-5)
+    interval = (quantile_type_7(psi, 0.025), quantile_type_7(psi, 0.975))
+    assert interval == pytest.approx(PSI_EDGE_INTERVAL[name], rel=1e-3)
+    assert sum(r["mean_q"] for r in rows) / len(rows) == pytest.approx(MEAN_Q[name], rel=1e-5)
+
+
+def test_psi_edge_is_the_mean_over_infections_of_expected_observed_parents(store):
+    by_draw = defaultdict(list)
+    for r in infection_draws(store):
+        by_draw[r["iteration"]].append(r)
+    for f in functional_draws(store):
+        infections = by_draw[f["iteration"]]
+        assert len(infections) == 3
+        assert f["psi_edge"] == pytest.approx(sum(r["expected_observed_parents"] for r in infections) / 3, abs=1e-15)
+        assert f["mean_entropy"] == pytest.approx(sum(r["entropy"] for r in infections) / 3, abs=1e-15)
+        assert f["mean_unobserved_only"] == pytest.approx(sum(r["unobserved_only"] for r in infections) / 3)
+
+
+TABLES = ["set_classes", "edges", "set_summary", "infection_draws", "functional_draws"]
 
 
 def test_the_manifest_records_the_closed_windows_per_phase_and_the_package_version(store):
@@ -135,4 +252,6 @@ def test_a_run_still_in_burn_in_has_no_edges_or_pooled_weights(store):
     assert derive(store) is True
     assert read(store, "edges", "iteration") == []
     assert read(store, "set_summary", "infection") == []
+    assert read(store, "infection_draws", "iteration") == []
+    assert read(store, "functional_draws", "iteration") == []
     assert len(read(store, "set_classes", "infection")) == 9

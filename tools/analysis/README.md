@@ -54,17 +54,20 @@ prints, for each Run, its closed Windows per Phase and its Draw count.
 
 ```sh
 uv run pt-analysis derive RUN_DIR          # one Run
-uv run pt-analysis derive analysis.json    # every Run of an Analysis
+uv run pt-analysis derive analysis.json    # every Run of an Analysis, then the Analysis's convergence table
 ```
 
-writes Parquet tables under `RUN_DIR/derived/`. `edges` and `set_summary` come from the sampling Phase, so every
-weight is a Draw's; `set_classes` comes from `parent_set_members` over both Phases.
+writes Parquet tables under `RUN_DIR/derived/`. `edges`, `set_summary`, `infection_draws` and `functional_draws`
+come from the sampling Phase, so every weight is a Draw's; `set_classes` comes from `parent_set_members` over both
+Phases.
 
 | Table | Columns | Rows |
 |---|---|---|
 | `set_classes` | infection, set_id, n_observed, has_unobserved, class | one per Parent set, from `parent_set_members` |
 | `edges` | iteration, child, parent, prob | per Draw and child, one per parent: summed weight of the child's sets containing it |
 | `set_summary` | infection, set_id, weight, rank, cumulative_mass | one per Parent set with weight in some Draw |
+| `infection_draws` | iteration, infection, q, expected_observed_parents, entropy, effective_size, one column per class, multi_source_augmented, multi_source_observed | one per Draw and Infection |
+| `functional_draws` | iteration, psi_edge, mean_q, mean_entropy, `mean_<class>` per class | one per Draw |
 
 - `n_observed` counts a set's observed parents (members that are Infection ids). `has_unobserved` says whether the
   unobserved source, the Infection's Latent parent (`<id>_copy`), is a member.
@@ -80,10 +83,54 @@ weight is a Draw's; `set_classes` comes from `parent_set_members` over both Phas
 - `weight` in `set_summary` is the pooled weight: the set's weight summed over Draws and divided by the number of
   Draws, the manuscript's estimator, not a mean over the Draws where the set has a row. Sets are ranked from 1 by
   weight descending, then set_id; `cumulative_mass` is the running sum down the ranking.
+- `infection_draws` holds functions of one Infection's Parent-set weights at one Draw: `q`, the unobserved-source
+  inclusion (weight of sets containing the Latent parent); `expected_observed_parents` (weight times `n_observed`,
+  summed); `entropy` (minus the sum of weight times its log) and `effective_size` (exp of the entropy); the weight of
+  each composition class present in the Run, in a column named by its `set_classes` label (0 where the Infection
+  has no set of that class); and the multi-source probabilities, the weight of sets with more than one member
+  (`multi_source_augmented`, the Latent parent counting as a member) and with more than one observed parent
+  (`multi_source_observed`). The class columns sum to the Infection's weight, which falls short of 1 by at most the
+  floor for each set the store dropped.
+- `functional_draws` averages `infection_draws` over Infections per Draw. `psi_edge`, the edge-sum, is the mean of
+  `expected_observed_parents`; `mean_q`, `mean_entropy` and `mean_<class>` are the means of the others. The 95%
+  interval of a functional is the 2.5% and 97.5% quantiles of its column over Draws.
 
 `derived/manifest.json` records the closed Windows per Phase the tables came from and the package version that wrote
 them. `derive` does nothing when both match the store and this package, and replaces every table otherwise, for
 example once the Run has closed another Window. The manifest is written last, so an interrupted derive is redone.
+
+### The convergence table
+
+An Analysis's own tables go beside its manifest in `<manifest stem>.derived/`, for example `analysis.derived/` for
+`analysis.json`. Its `manifest.json` records each Run's directory and closed Windows and the package version; the
+tables are rewritten when any of those changes.
+
+`convergence.parquet` has columns group, name, chain, ess, rhat: for every quantity, one row per Chain (`chain` is
+the Run's label) with that Chain's ESS, then a pooled row (`chain` null) with the multi-chain ESS and split R-hat over
+the Chains with Draws. `rhat` is null on Chain rows. ESS and R-hat are null for a quantity that is constant, or
+constant up to rounding, and below 4 Draws; split R-hat also needs 2 Chains.
+
+| group | name | quantity per Draw |
+|---|---|---|
+| log posterior | `log posterior` | prior plus likelihood, from `run_scalars` |
+| global scalars | `mean_coi`, `mean_strains_tx`, `parent_set_size_prob` | from `run_scalars` |
+| false positive rate | Infection id | `expected_false_positives`, from `infections` |
+| false negative rate | Infection id | `expected_false_negatives`, from `infections` |
+| infection duration | Infection id | `infection_duration`, from `infections` |
+| allele frequency | `<locus>[<allele>]` | from `allele_frequencies` |
+| edge | `<child><-<parent>` | Edge marginal from an observed parent, from `edges`; 0 at Draws with no row |
+| unobserved-source inclusion | Infection id | `q`, from `infection_draws` |
+| functionals | `psi_edge`, `mean_q`, `mean_entropy` | from `functional_draws` |
+
+Groups are in this order and names sorted within a group. The statistics, in `pt_analysis.diagnostics`, are those
+the benchmark scripts used:
+
+- `multichain_ess`: chains truncated to the shortest; within-chain variance W from autocovariances with divisor n
+  scaled by n/(n-1), between-chain variance B, pooled variance (n-1)/n W + B/n; autocorrelations against the pooled
+  variance, summed in pairs with Geyer's initial monotone sequence; ESS = m n / tau (Vehtari et al. 2021 without
+  rank normalisation).
+- `split_rhat`: each chain's two halves, every half truncated to the shortest half's length n; sqrt(((n-1)/n W +
+  B/n) / W) over the halves; infinite when every half is constant but the halves differ.
 
 ## Summarise a Run
 
@@ -103,6 +150,26 @@ uv run pt-analysis credible RUN_DIR INFECTION [--level 0.8] # an Infection's cre
   level (within 1e-12), or all its sets if their mass never reaches it.
 - The parent-set size range [psi_lo, psi_hi] at a level is the min and the max `n_observed` in each Infection's
   credible collection, each averaged over Infections.
+
+## Summarise an Analysis's Chains
+
+```sh
+uv run pt-analysis summary analysis.json [--pairs A:B ...] [--show N]
+```
+
+derives what is not current, then prints three sections:
+
+- The diagnostics table: per group of the convergence table, the number of quantities with an ESS, the median and
+  smallest pooled ESS, the share of those quantities with R-hat above 1.1, and the largest R-hat.
+- With `--pairs`, a line per Chain giving, for each pair, the Draws at which A precedes B in the Ordering out of all
+  Draws, and how many times that order changed between adjacent Draws. Read from the `ordering` Trace.
+- Agreement on parents: per Infection, its observed parent with the largest pooled Edge marginal (the mean over
+  Chains of each Chain's pooled marginal), that probability, the pooled `unobserved_only` probability, and the
+  largest difference between Chains in any of those probabilities. The `N` Infections (default 15) with the largest
+  spread are listed, then the median, 90th percentile and largest spread over all Infections.
+
+`tools/benchmark/chain_summary.py RUN_DIR` writes `RUN_DIR/chain_summary.json`, an Analysis of the stores
+`RUN_DIR/chain<K>`, and prints this summary of it.
 
 ## Use from Python
 
@@ -124,6 +191,14 @@ from pt_analysis import functionals
 
 derive(store)                                    # True if the tables were written
 derived(store, "edges")                          # DuckDB relation over derived/edges.parquet
+
+from pt_analysis.derive import derive_analysis, derived_analysis
+from pt_analysis.diagnostics import multichain_ess, split_rhat
+
+derive_analysis(analysis)                        # every Run, then the convergence table
+derived_analysis(analysis, "convergence")        # DuckDB relation over analysis.derived/convergence.parquet
+multichain_ess([chain1_series, chain2_series])
+split_rhat([chain1_series, chain2_series])
 functionals.top_edges(store, n=10)               # [Edge(parent, child, weight), ...]
 functionals.map_graph(store)                     # {infection: RankedSet} of modal sets
 functionals.psi_map(store)

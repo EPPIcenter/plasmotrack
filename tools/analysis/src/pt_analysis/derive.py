@@ -8,6 +8,14 @@ and does nothing otherwise. Tables are computed from the sampling Phase, so ever
     set_classes   infection, set_id, n_observed, has_unobserved, class
     edges         iteration, child, parent, prob
     set_summary   infection, set_id, weight, rank, cumulative_mass
+    infection_draws   iteration, infection, q, expected_observed_parents, entropy, effective_size, one column per
+                      composition class present in the Run, multi_source_augmented, multi_source_observed
+    functional_draws  iteration, psi_edge, mean_q, mean_entropy, mean_<class> per composition class
+
+An Analysis's own derived tables go in `<manifest stem>.derived/` beside its manifest, with a manifest recording each
+Run's directory and closed Windows; `derive_analysis` derives every Run first, then rewrites them when that changes:
+
+    convergence   group, name, chain, ess, rhat
 """
 
 # The SQL below names DuckDB relations held in local variables (`FROM parent_sets`); DuckDB finds them by name in
@@ -17,7 +25,11 @@ import json
 import os
 from pathlib import Path
 
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 from pt_analysis import __version__
+from pt_analysis.diagnostics import multichain_ess, split_rhat
 from pt_analysis.store import BOTH_PHASES
 
 # Columns the derivations read, for a table with no rows in the closed Windows (a Run still in burn-in has no
@@ -25,6 +37,11 @@ from pt_analysis.store import BOTH_PHASES
 COLUMNS = {
     "parent_sets": {"iteration": "BIGINT", "infection": "VARCHAR", "set_id": "BIGINT", "prob": "DOUBLE"},
     "parent_set_members": {"infection": "VARCHAR", "set_id": "BIGINT", "member": "VARCHAR"},
+    "run_scalars": {"iteration": "BIGINT", "prior": "DOUBLE", "likelihood": "DOUBLE", "mean_coi": "DOUBLE",
+                    "mean_strains_tx": "DOUBLE", "parent_set_size_prob": "DOUBLE"},
+    "infections": {"iteration": "BIGINT", "infection": "VARCHAR", "expected_false_positives": "DOUBLE",
+                   "expected_false_negatives": "DOUBLE", "infection_duration": "DOUBLE"},
+    "allele_frequencies": {"iteration": "BIGINT", "locus": "VARCHAR", "allele": "BIGINT", "frequency": "DOUBLE"},
 }
 
 
@@ -84,7 +101,53 @@ def set_summary(store):
         FROM ranked ORDER BY infection, rank""")
 
 
-TABLES = {"set_classes": set_classes, "edges": edges, "set_summary": set_summary}
+def class_labels(store):
+    """The composition class labels of the Run's Parent sets, by observed-parent count, each count's sets without the
+    unobserved source first, `unobserved_only` last."""
+    classes = set_classes(store)
+    rows = store.connection.sql("""
+        SELECT DISTINCT "class", n_observed, has_unobserved FROM classes
+        ORDER BY n_observed = 0, n_observed, has_unobserved""").fetchall()
+    return [label for label, *_ in rows]
+
+
+def infection_draws(store):
+    """Per Draw and Infection, functions of its Parent-set weights: unobserved-source inclusion q (the weight of sets
+    containing the Latent parent), the expected observed-parent count, the entropy of the weights and its exponential
+    (the effective parent-set size), the weight of each composition class present in the Run (a column per class
+    label, 0 where the Infection has no set of that class), and the multi-source probabilities: the weight of sets
+    with more than one member (augmented) and with more than one observed parent (observed only)."""
+    parent_sets = table(store, "parent_sets")
+    classes = set_classes(store)
+    columns = "".join(f',\n               coalesce(sum(p.prob) FILTER (WHERE c."class" = \'{label}\'), 0) AS "{label}"'
+                      for label in class_labels(store))
+    return store.connection.sql(f"""
+        SELECT p.iteration, p.infection,
+               coalesce(sum(p.prob) FILTER (WHERE c.has_unobserved), 0) AS q,
+               sum(p.prob * c.n_observed) AS expected_observed_parents,
+               coalesce(-sum(p.prob * ln(p.prob)) FILTER (WHERE p.prob > 0), 0) AS entropy,
+               exp(entropy) AS effective_size{columns},
+               coalesce(sum(p.prob) FILTER (WHERE c.n_observed + c.has_unobserved::INTEGER > 1), 0)
+                   AS multi_source_augmented,
+               coalesce(sum(p.prob) FILTER (WHERE c.n_observed > 1), 0) AS multi_source_observed
+        FROM parent_sets p JOIN classes c USING (infection, set_id)
+        GROUP BY ALL ORDER BY iteration, infection""")
+
+
+def functional_draws(store):
+    """Per Draw, means over Infections of `infection_draws`: the edge-sum psi_edge (the mean expected observed-parent
+    count, the conditional transmission matrix's observed entries summed and divided by the number of Infections),
+    mean q, mean entropy and the mean weight of each composition class, as `mean_<class label>`."""
+    draws = infection_draws(store)
+    columns = "".join(f', avg("{label}") AS "mean_{label}"' for label in class_labels(store))
+    return store.connection.sql(f"""
+        SELECT iteration, avg(expected_observed_parents) AS psi_edge, avg(q) AS mean_q, avg(entropy) AS mean_entropy
+               {columns}
+        FROM draws GROUP BY iteration ORDER BY iteration""")
+
+
+TABLES = {"set_classes": set_classes, "edges": edges, "set_summary": set_summary, "infection_draws": infection_draws,
+          "functional_draws": functional_draws}
 
 
 def source(store):
@@ -131,3 +194,125 @@ def derived(store, name):
     """Derived table `name` of `store` as a DuckDB relation, deriving the tables first if they are not current."""
     derive(store)
     return store.connection.read_parquet(str(derived_dir(store) / f"{name}.parquet"))
+
+
+# --- Analysis level -------------------------------------------------------------------------------------------------
+
+# Groups of the convergence table, in display order.
+GROUPS = ["log posterior", "global scalars", "false positive rate", "false negative rate", "infection duration",
+          "allele frequency", "edge", "unobserved-source inclusion", "functionals"]
+
+CONVERGENCE_SCHEMA = pa.schema([("group", pa.string()), ("name", pa.string()), ("chain", pa.string()),
+                                ("ess", pa.float64()), ("rhat", pa.float64())])
+
+
+def chain_series(store):
+    """Every quantity the convergence table covers, for one Run: {(group, name): [value per Draw]} in
+    Sampling-iteration order. Edges from observed parents are named `child<-parent` and are 0 at Draws where the
+    child's sets containing the parent are all below the floor; unobserved-source inclusion is named by Infection."""
+    derive(store)
+    scalars = table(store, "run_scalars")
+    infections = table(store, "infections")
+    frequencies = table(store, "allele_frequencies")
+    edges = derived(store, "edges")
+    infection_draws = derived(store, "infection_draws")
+    functional_draws = derived(store, "functional_draws")
+    latent = store.structure("infections")
+    queries = {
+        "log posterior": "SELECT 'log posterior' AS name, iteration, prior + likelihood AS value FROM scalars",
+        "global scalars": """
+            UNPIVOT (SELECT iteration, mean_coi, mean_strains_tx, parent_set_size_prob FROM scalars)
+            ON mean_coi, mean_strains_tx, parent_set_size_prob INTO NAME name VALUE value""",
+        "false positive rate": "SELECT infection AS name, iteration, expected_false_positives AS value FROM infections",
+        "false negative rate": "SELECT infection AS name, iteration, expected_false_negatives AS value FROM infections",
+        "infection duration": "SELECT infection AS name, iteration, infection_duration AS value FROM infections",
+        "allele frequency": """
+            SELECT locus || '[' || allele || ']' AS name, iteration, frequency AS value FROM frequencies""",
+        "edge": """
+            WITH observed AS (SELECT * FROM edges WHERE parent NOT IN (SELECT latent_parent FROM latent)),
+                 draws AS (SELECT DISTINCT iteration FROM scalars),
+                 pairs AS (SELECT DISTINCT child, parent FROM observed)
+            SELECT child || '<-' || parent AS name, iteration, coalesce(o.prob, 0) AS value
+            FROM pairs CROSS JOIN draws LEFT JOIN observed o USING (child, parent, iteration)""",
+        "unobserved-source inclusion": "SELECT infection AS name, iteration, q AS value FROM infection_draws",
+        "functionals": """
+            UNPIVOT (SELECT iteration, psi_edge, mean_q, mean_entropy FROM functional_draws)
+            ON psi_edge, mean_q, mean_entropy INTO NAME name VALUE value""",
+    }
+    series = {}
+    for group, query in queries.items():
+        rows = store.connection.sql(f"""
+            SELECT name, list(value::DOUBLE ORDER BY iteration) FROM ({query}) GROUP BY name""").fetchall()
+        series.update({(group, name): values for name, values in rows})
+    return series
+
+
+def convergence(analysis):
+    """The convergence table of an Analysis, as a pyarrow Table: per group and quantity name (sorted), one row per
+    Chain with that Chain's ESS, then a pooled row (chain null) with the multi-chain ESS and split R-hat over every
+    Chain with Draws. R-hat is null on Chain rows. ESS and R-hat are null where `diagnostics` gives None, and for a
+    Chain without Draws. An edge a Chain never gives weight to is 0 at its every Draw."""
+    per_chain = {label: chain_series(store) for label, store in analysis.runs.items()}
+    draws = {label: store.draws() for label, store in analysis.runs.items()}
+    rows = []
+    for group in GROUPS:
+        names = sorted({name for series in per_chain.values() for g, name in series if g == group})
+        for name in names:
+            missing = lambda label: [0.0] * draws[label] if group == "edge" else []  # noqa: E731
+            chains = {label: series.get((group, name)) or missing(label) for label, series in per_chain.items()}
+            for label, values in chains.items():
+                rows.append({"group": group, "name": name, "chain": label, "ess": multichain_ess([values]),
+                             "rhat": None})
+            pooled = [values for values in chains.values() if values]
+            rows.append({"group": group, "name": name, "chain": None,
+                         "ess": multichain_ess(pooled) if pooled else None,
+                         "rhat": split_rhat(pooled) if pooled else None})
+    return pa.Table.from_pylist(rows, schema=CONVERGENCE_SCHEMA)
+
+
+ANALYSIS_TABLES = {"convergence": convergence}
+
+
+def analysis_dir(analysis):
+    """Where an Analysis's derived tables go: `<manifest stem>.derived/` beside its manifest."""
+    return analysis.path.parent / f"{analysis.path.stem}.derived"
+
+
+def analysis_source(analysis):
+    """What the Analysis-level tables are computed from: each Run's directory and closed Windows per Phase."""
+    runs = {label: {"path": str(store.path), "windows": source(store)["windows"]}
+            for label, store in analysis.runs.items()}
+    return {"runs": runs, "package_version": __version__}
+
+
+def derive_analysis(analysis):
+    """Derive every Run of `analysis`, then write the Analysis-level tables under `analysis_dir` unless they are
+    current: recorded from the same Runs, closed Windows and package version. True if they were written. Written the
+    way `derive` writes, manifest last."""
+    for store in analysis.runs.values():
+        derive(store)
+    out = analysis_dir(analysis)
+    manifest = out / "manifest.json"
+    try:
+        current = json.loads(manifest.read_text()) == analysis_source(analysis)
+    except (FileNotFoundError, json.JSONDecodeError):
+        current = False
+    if current and all((out / f"{name}.parquet").is_file() for name in ANALYSIS_TABLES):
+        return False
+    out.mkdir(exist_ok=True)
+    manifest.unlink(missing_ok=True)
+    for name, compute in ANALYSIS_TABLES.items():
+        partial = out / f".{name}.parquet"
+        pq.write_table(compute(analysis), partial)
+        os.replace(partial, out / f"{name}.parquet")
+    partial = out / ".manifest.json"
+    partial.write_text(json.dumps(analysis_source(analysis), indent=2) + "\n")
+    os.replace(partial, manifest)
+    return True
+
+
+def derived_analysis(analysis, name):
+    """Analysis-level derived table `name` as a DuckDB relation, deriving first if it is not current."""
+    derive_analysis(analysis)
+    store = next(iter(analysis.runs.values()))
+    return store.connection.read_parquet(str(analysis_dir(analysis) / f"{name}.parquet"))

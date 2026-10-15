@@ -24,7 +24,6 @@ that package's environment: `uv run --project tools/analysis python tools/benchm
 
 import argparse
 import json
-import math
 import shutil
 import statistics
 import subprocess
@@ -33,6 +32,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "analysis" / "src"))
+from pt_analysis.diagnostics import multichain_ess, split_rhat  # noqa: E402
 from pt_analysis.store import Store  # noqa: E402
 
 
@@ -121,63 +121,6 @@ def run_traces(run_dir):
 
     parent_set_traces(store, groups)
     return groups
-
-
-# --- diagnostics ----------------------------------------------------------------------------------------------------
-
-def autocovariances(x):
-    n = len(x)
-    mean = sum(x) / n
-    centred = [v - mean for v in x]
-    return [sum(centred[i] * centred[i + lag] for i in range(n - lag)) / n for lag in range(n)]
-
-
-def multichain_ess(chains):
-    """Effective sample size of several chains of equal length, counting disagreement between chains as variance
-    (Vehtari et al. 2021, without rank normalisation): autocorrelations are taken against the pooled variance and
-    summed with Geyer's initial monotone sequence. None for a constant series."""
-    m = len(chains)
-    n = min(len(c) for c in chains)
-    if n < 4:
-        return None
-    chains = [c[:n] for c in chains]
-    covs = [autocovariances(c) for c in chains]
-    means = [sum(c) / n for c in chains]
-    within = statistics.mean(cov[0] * n / (n - 1) for cov in covs)
-    between = n * statistics.variance(means) if m > 1 else 0.0
-    pooled = (n - 1) / n * within + between / n
-    if pooled <= 0:
-        return None
-    rho = [1.0 - (within - statistics.mean(cov[t] for cov in covs)) / pooled for t in range(n)]
-    total = 0.0
-    previous = float("inf")
-    for k in range(0, n - 1, 2):
-        pair = rho[k] + rho[k + 1]
-        if pair <= 0:
-            break
-        pair = min(pair, previous)  # initial monotone sequence
-        total += pair
-        previous = pair
-    tau = max(-1.0 + 2.0 * total, 1.0 / math.log10(max(m * n, 10)))
-    return m * n / tau
-
-
-def split_rhat(chains):
-    halves = []
-    for c in chains:
-        h = len(c) // 2
-        if h >= 2:
-            halves += [c[:h], c[h: 2 * h]]
-    if len(halves) < 4:
-        return None
-    n = len(halves[0])
-    means = [sum(h) / n for h in halves]
-    within = statistics.mean(statistics.variance(h) for h in halves)
-    between = n * statistics.variance(means)
-    if within <= 0:
-        # Constant within every half: identical everywhere (no information), or stuck at different values.
-        return None if between <= 0 else math.inf
-    return math.sqrt(((n - 1) / n * within + between / n) / within)
 
 
 def analyze(args):

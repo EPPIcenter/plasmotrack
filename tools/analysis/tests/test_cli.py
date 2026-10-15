@@ -46,8 +46,13 @@ def test_derive_every_run_of_an_analysis(store, tmp_path, capsys):
     manifest = write_manifest(tmp_path / "analysis.json", runs={"chain1": str(store.path), "chain2": "chain2"})
     assert main(["derive", str(manifest)]) == 0
     out = capsys.readouterr().out.splitlines()
-    assert [line.split(": ")[0] for line in out] == [str(store.path), str(tmp_path / "chain2")]
+    assert [line.split(": ")[0] for line in out] == [str(store.path), str(tmp_path / "chain2"),
+                                                     str(tmp_path / "analysis.derived")]
+    assert out[2] == f"{tmp_path / 'analysis.derived'}: derived convergence from Chains chain1, chain2"
     assert (tmp_path / "chain2" / "derived" / "manifest.json").is_file()
+    assert (tmp_path / "analysis.derived" / "convergence.parquet").is_file()
+    assert main(["derive", str(manifest)]) == 0
+    assert capsys.readouterr().out.splitlines()[2] == f"{tmp_path / 'analysis.derived'}: up to date"
 
 
 def test_derive_on_a_directory_that_is_not_a_store_fails(tmp_path, capsys):

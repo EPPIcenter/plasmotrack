@@ -1,10 +1,14 @@
 """pt-analysis: read Run stores through an Analysis manifest.
 
     pt-analysis info analysis.json                       each Run's closed Windows per Phase and its Draw count
-    pt-analysis derive RUN_DIR | analysis.json           write the derived tables under each Run's derived/
+    pt-analysis derive RUN_DIR | analysis.json           write the derived tables under each Run's derived/, and an
+                                                         Analysis's convergence table under <manifest stem>.derived/
     pt-analysis edges RUN_DIR [--top N] [--unobserved]   the top pooled Edge marginals
     pt-analysis map RUN_DIR [--level 0.8]                the MAP graph, psi_MAP and the parent-set size range
     pt-analysis credible RUN_DIR INFECTION [--level 0.8] an Infection's credible collection of Parent sets
+    pt-analysis summary analysis.json [--pairs A:B ...] [--show N]
+                                                         the chain summary: ESS and R-hat per group, the order of
+                                                         Infection pairs per Chain, and agreement on parents
 
 The summaries derive a Run's tables first when they are not current.
 """
@@ -13,9 +17,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from pt_analysis import functionals
+from pt_analysis import functionals, summary
 from pt_analysis.analysis import Analysis, AnalysisError
-from pt_analysis.derive import derive
+from pt_analysis.derive import analysis_dir, derive, derive_analysis
 from pt_analysis.store import BOTH_PHASES, Store
 
 
@@ -70,7 +74,8 @@ def info(args):
 
 def derive_command(args):
     path = Path(args.path)
-    stores = list(Analysis.open(path).runs.values()) if path.is_file() else [open_run(path)]
+    analysis = Analysis.open(path) if path.is_file() else None
+    stores = list(analysis.runs.values()) if analysis else [open_run(path)]
     for store in stores:
         if derive(store):
             windows = ", ".join(f"{phase} Windows {[w.number for w in store.windows((phase,))]}"
@@ -78,6 +83,11 @@ def derive_command(args):
             print(f"{store.path}: derived from {windows}")
         else:
             print(f"{store.path}: up to date")
+    if analysis:
+        if derive_analysis(analysis):
+            print(f"{analysis_dir(analysis)}: derived convergence from Chains {', '.join(analysis.runs)}")
+        else:
+            print(f"{analysis_dir(analysis)}: up to date")
 
 
 def edges(args):
@@ -107,6 +117,16 @@ def credible(args):
            for s in collection])
 
 
+def summary_command(args):
+    pairs = []
+    for pair in args.pairs:
+        a, sep, b = pair.partition(":")
+        if not sep or not a or not b:
+            raise CommandError(f"--pairs takes Infection pairs A:B, not '{pair}'")
+        pairs.append((a, b))
+    summary.print_summary(Analysis.open(args.manifest), pairs=pairs, show=args.show)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="pt-analysis", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -131,10 +151,15 @@ def main(argv=None):
     p.add_argument("infection")
     p.add_argument("--level", type=float, default=functionals.LEVEL, help="mass to reach (default 0.8)")
     p.set_defaults(handler=credible)
+    p = sub.add_parser("summary", help="print the chain summary of an Analysis")
+    p.add_argument("manifest")
+    p.add_argument("--pairs", nargs="*", default=[], help="Infection pairs A:B")
+    p.add_argument("--show", type=int, default=15, help="Infections listed, least agreement first (default 15)")
+    p.set_defaults(handler=summary_command)
     args = parser.parse_args(argv)
     try:
         args.handler(args)
-    except (AnalysisError, CommandError) as e:
+    except (AnalysisError, CommandError, summary.SummaryError) as e:
         print(e, file=sys.stderr)
         return 1
     return 0
