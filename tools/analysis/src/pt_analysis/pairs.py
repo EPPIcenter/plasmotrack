@@ -6,13 +6,15 @@ Ordering, P(A before B) and the switches per Chain, and pooled over Chains (Draw
 pooled P(A before B) lies in [lo, hi], or when its Chains' probabilities differ by at least `disagree` (largest minus
 smallest over the Chains with Draws of the pair). Its Edge marginals are the pooled rows of the Analysis's
 `edge_stats`: `a_to_b` with A the parent of B, `b_to_a` the reverse, 0 without a row. Pairs whose larger Edge
-marginal is under `edge_min` are left out. Rows come with the larger Edge marginal first, then the order nearest an
+marginal is under `edge_min` are left out. Each listed pair counts the Loci where its Latent genotype modes differ
+(`pt_analysis.pair.differing_loci`). Rows come with the larger Edge marginal first, then the order nearest an
 even split, then by ids.
 """
 
 from functools import reduce
 
 from pt_analysis.derive import derive_analysis, derived, derived_analysis
+from pt_analysis.pair import differing_loci, latent_modes_of
 from pt_analysis.sql import Scope
 
 DEFAULT_BAND = (0.1, 0.9)
@@ -22,8 +24,9 @@ DEFAULT_LIMIT = 200
 def uncertain_pairs(analysis, lo=DEFAULT_BAND[0], hi=DEFAULT_BAND[1], disagree=None, edge_min=0.0,
                     limit=DEFAULT_LIMIT):
     """{"chains", "total", "rows": [{a, b, draws, probability, switches, spread, chains: [{chain, draws, probability,
-    switches}], a_to_b, b_to_a}]}: the first `limit` listed pairs and how many there are in all. `disagree` None
-    lists no pair for disagreement alone."""
+    switches}], a_to_b, b_to_a, differing_loci}]}: the first `limit` listed pairs and how many there are in all.
+    `disagree` None lists no pair for disagreement alone. `differing_loci` counts the Loci where A's and B's pooled
+    Latent genotype modes differ, as the pair inspector's `genotypes.differing` does."""
     derive_analysis(analysis)
     labels = list(analysis.runs)
     connection = next(iter(analysis.runs.values())).connection
@@ -59,6 +62,9 @@ def uncertain_pairs(analysis, lo=DEFAULT_BAND[0], hi=DEFAULT_BAND[1], disagree=N
                               "switches": c["switches"] if c else 0})
         out.append({"a": i, "b": j, "draws": draws, "probability": p, "switches": switches, "spread": spread,
                     "chains": per_chain, "a_to_b": a_to_b, "b_to_a": b_to_a})
+    modes = latent_modes_of(analysis, [r[k] for r in out for k in ("a", "b")])
+    for r in out:
+        r["differing_loci"] = differing_loci(modes.get(r["a"], {}), modes.get(r["b"], {}))
     if not rows and limit == 0:
         total = uncertain_pairs(analysis, lo, hi, disagree, edge_min, 1)["total"]
     return {"chains": labels, "total": total, "rows": out}
