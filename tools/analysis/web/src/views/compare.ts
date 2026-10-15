@@ -6,6 +6,7 @@ import * as Plot from "@observablehq/plot";
 import { getJson, getTrace, type Trace } from "../api";
 import {
   columnGroups,
+  compareTable,
   comparedQuantities,
   filterCompared,
   scatterPoints,
@@ -268,7 +269,11 @@ const render: RenderView = (root, ctx) => {
     })
     .catch((e: Error) => (count.textContent = `Could not load the comparison: ${e.message}`));
 
-  return () => list.destroy();
+  // CSV export: each Analysis's row of every quantity the filter keeps, in the order shown, not only the rows in view.
+  return {
+    cleanup: () => list.destroy(),
+    table: () => (response ? compareTable(sortCompared(shown, sort), response.analyses, response.timed) : null),
+  };
 };
 
 export default render;

@@ -6,6 +6,7 @@ import {
   scatterPoints,
   sortCompared,
   traceLinks,
+  compareTable,
   type CompareResponse,
 } from "./compare";
 
@@ -108,5 +109,20 @@ describe("traceLinks", () => {
       { analysis: "replica", params: { group: "edge", name: "3<-1", analysis: "replica" } },
     ]);
     expect(traceLinks("edge", "3<-1", ["single", "single"])).toHaveLength(1);
+  });
+});
+
+describe("compareTable", () => {
+  it("gives each Analysis's pooled convergence row per quantity, the Analysis named, ESS per second where timed", () => {
+    const t = compareTable(comparedQuantities(response).slice(0, 1), response.analyses, response.timed);
+    expect(t.columns).toEqual(["analysis", "group", "name", "ess", "rhat", "ess_per_second"]);
+    expect(t.rows).toEqual([
+      ["single", "log posterior", "log posterior", 10, null, 2.5],
+      ["replica", "log posterior", "log posterior", 7.4, null, null],
+    ]);
+  });
+
+  it("leaves out ESS per second when no Analysis has timings", () => {
+    expect(compareTable([], ["a", "b"], []).columns).toEqual(["analysis", "group", "name", "ess", "rhat"]);
   });
 });

@@ -2,6 +2,7 @@
 // per-quantity ESS the scatter draws. No DOM here.
 
 import { num } from "./api";
+import type { DataTable } from "./export";
 import { filterQuantities, sortQuantities, type Filter, type Quantity, type SortKey } from "./convergence";
 import type { Params } from "./router";
 
@@ -121,4 +122,18 @@ export function scatterPoints(qs: readonly ComparedQuantity[], x: string, y: str
 /** The trace panel's parameters for a quantity in each of the Analyses named, once each. */
 export function traceLinks(group: string, name: string, analyses: readonly string[]): { analysis: string; params: Params }[] {
   return [...new Set(analyses)].map((analysis) => ({ analysis, params: { group, name, analysis } }));
+}
+
+/** Each Analysis's pooled row of the package's `convergence` table (chain null) for the quantities given, in their
+ *  order, under the Analysis's label; `ess_per_second` only when an Analysis has timings. What the view exports as
+ *  CSV. */
+export function compareTable(qs: readonly ComparedQuantity[], analyses: readonly string[], timed: readonly string[]): DataTable {
+  const perSecond = timed.length > 0;
+  return {
+    columns: ["analysis", "group", "name", "ess", "rhat", ...(perSecond ? ["ess_per_second"] : [])],
+    rows: qs.flatMap((q) => analyses.map((a) => {
+      const c = q.by[a];
+      return [a, q.group, q.name, c?.ess ?? null, c?.rhat ?? null, ...(perSecond ? [c?.essPerSecond ?? null] : [])];
+    })),
+  };
 }
