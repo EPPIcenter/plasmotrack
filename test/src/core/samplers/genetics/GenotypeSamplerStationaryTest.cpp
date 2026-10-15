@@ -11,6 +11,7 @@
 #include "core/samplers/specialized/ParentRelinkSampler.h"
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/State.h"
+#include "../../../impl/Studies.h"
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
@@ -23,6 +24,7 @@
 #include <vector>
 
 using namespace transmission_nets::impl::Model;
+using namespace transmission_nets::test::studies;
 using transmission_nets::core::parameters::Parameter;
 
 // The parent-set samplers below propose with error rates of 0.3 rather than their defaults: with rates near 0.5
@@ -89,22 +91,17 @@ namespace {
     // One three-allele locus. "c" may be infected by "p"; "q" has no candidate parents; "r" may be infected by "p"
     // only while its infection duration is under 30 days, since p was infected on day 390; "m" may be infected by "p"
     // and has no observation at the locus.
-    nlohmann::json makeInput() {
-        nlohmann::json input;
-        input["loci"].push_back({{"locus", "L0"}, {"num_alleles", 3}, {"allele_freqs", {1.0 / 3, 1.0 / 3, 1.0 / 3}}});
-        auto node = [&](const std::string& id, const double time, const std::string& observed, const std::vector<std::string>& parents) {
-            input["nodes"].push_back({{"id", id},
-                                      {"observation_time", time},
-                                      {"symptomatic", true},
-                                      {"observed_genotype", {{{"locus", "L0"}, {"genotype", observed}}}},
-                                      {"allowed_parents", parents}});
+    Study makeStudy() {
+        Study study{.loci = {uniformLocus("L0", 3)}, .symptomaticInfectionDurations = flatDurations(), .asymptomaticInfectionDurations = flatDurations()};
+        auto infection = [&](const std::string& id, const double time, const std::string& observed, const std::vector<std::string>& parents) {
+            study.infections.push_back({.id = id, .observationTime = time, .observedGenotypes = {{"L0", observed}}, .permittedParents = parents});
         };
-        node("p", 400, "110", {});
-        node("c", 500, "100", {"p"});
-        node("q", 450, "010", {});
-        node("r", 420, "010", {"p"});
-        node("m", 500, "000", {"p"});// no observation at the locus
-        return input;
+        infection("p", 400, "110", {});
+        infection("c", 500, "100", {"p"});
+        infection("q", 450, "010", {});
+        infection("r", 420, "010", {"p"});
+        infection("m", 500, "000", {"p"});// no observation at the locus
+        return study;
     }
 
     struct Fixture {
@@ -113,18 +110,8 @@ namespace {
         std::shared_ptr<LocusImpl> locus;
 
         Fixture() {
-            const std::vector<double> idp(60, 1.0 / 60);
-            state = std::make_shared<State>(studyFromJson(makeInput(), idp, idp), rng);
+            state = std::make_shared<State>(makeStudy(), rng);
             locus = state->loci.at("L0");
-        }
-
-        size_t index(const std::string& id) const {
-            for (size_t i = 0; i < state->infections.size(); ++i) {
-                if (state->infections[i]->id() == id) {
-                    return i;
-                }
-            }
-            throw std::out_of_range(id);
         }
 
         void setGenotype(const std::shared_ptr<InfectionEvent>& infection, const std::string& genotype) const {
@@ -135,8 +122,8 @@ namespace {
 
 TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSampler) {
     Fixture f;
-    const auto c = f.index("c");
-    f.setGenotype(f.state->infections[f.index("p")], "110");
+    const auto c = f.state->indexOf("c");
+    f.setGenotype(f.state->infections[f.state->indexOf("p")], "110");
     f.setGenotype(f.state->latentParents[c], "011");
     f.setGenotype(f.state->infections[c], "100");
 
@@ -157,8 +144,8 @@ TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSampler) {
 
 TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSamplerAtUnobservedLocus) {
     Fixture f;
-    const auto m = f.index("m");
-    f.setGenotype(f.state->infections[f.index("p")], "110");
+    const auto m = f.state->indexOf("m");
+    f.setGenotype(f.state->infections[f.state->indexOf("p")], "110");
     f.setGenotype(f.state->latentParents[m], "011");
     f.setGenotype(f.state->infections[m], "100");
 
@@ -185,8 +172,8 @@ INSTANTIATE_TEST_SUITE_P(Tries, ParentRelinkStationaryTest, testing::Values(1u, 
 
 TEST_P(ParentRelinkStationaryTest, LeavesTargetInvariant) {
     Fixture f;
-    const auto r = f.index("r");
-    f.setGenotype(f.state->infections[f.index("p")], "110");
+    const auto r = f.state->indexOf("r");
+    f.setGenotype(f.state->infections[f.state->indexOf("p")], "110");
     f.setGenotype(f.state->latentParents[r], "011");
     f.setGenotype(f.state->infections[r], "010");
 
@@ -242,7 +229,7 @@ TEST_P(ParentRelinkStationaryTest, LeavesTargetInvariant) {
 // proportion to the target.
 TEST(GenotypeSamplerStationaryTest, AlleleSwapSampler) {
     Fixture f;
-    const auto c = f.index("c");
+    const auto c = f.state->indexOf("c");
     f.setGenotype(f.state->infections[c], "100");
     auto genotype = f.state->infections[c]->latentGenotype(f.locus);
     auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});

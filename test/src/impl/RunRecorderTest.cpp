@@ -6,6 +6,8 @@
 
 #include "gtest/gtest.h"
 
+#include "Studies.h"
+
 #include "core/io/MemoryStoreSink.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/State.h"
@@ -27,6 +29,7 @@
 #include <unistd.h>
 
 using namespace transmission_nets::impl::Model;
+using namespace transmission_nets::test::studies;
 using transmission_nets::core::io::MemoryStoreSink;
 using transmission_nets::core::io::Table;
 using transmission_nets::core::io::WindowMarker;
@@ -39,10 +42,7 @@ namespace {
         std::shared_ptr<Model> model;
 
         explicit Replica(const unsigned int seed) {
-            std::ifstream in(EXAMPLE_INPUT_PATH);
-            const auto input = nlohmann::json::parse(in);
-            const std::vector<double> idp(60, 1.0 / 60);
-            state = std::make_shared<State>(studyFromJson(input, idp, idp), std::make_shared<boost::random::mt19937>(seed));
+            state = std::make_shared<State>(exampleStudy(), std::make_shared<boost::random::mt19937>(seed));
             model = std::make_shared<Model>(state);
         }
 

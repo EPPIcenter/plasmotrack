@@ -10,6 +10,7 @@
 #include "impl/model/Model/SamplerSet.h"
 #include "core/samplers/Proposal.h"
 #include "impl/model/Model/State.h"
+#include "Studies.h"
 #include "../model/transmission_process/MarginalLatentParentReference.h"
 
 #include <boost/random.hpp>
@@ -24,11 +25,12 @@
 #include <vector>
 
 using namespace transmission_nets::impl::Model;
+using namespace transmission_nets::test::studies;
 
 namespace {
     // Clonal clusters, polyclonal and missing genotypes, and allowed parents observed later than the
     // child, as in real inputs.
-    nlohmann::json makeInput(boost::random::mt19937& rng) {
+    Study makeStudy(boost::random::mt19937& rng) {
         const std::vector<int> alleleCounts{2, 3, 4, 5, 6, 8};
         constexpr int numNodes    = 14;
         constexpr int numClusters = 3;
@@ -51,51 +53,42 @@ namespace {
             }
         }
 
-        nlohmann::json input;
+        Study study{.symptomaticInfectionDurations = flatDurations(), .asymptomaticInfectionDurations = flatDurations()};
         for (size_t l = 0; l < alleleCounts.size(); ++l) {
-            input["loci"].push_back({{"locus", "L" + std::to_string(l)},
-                                     {"num_alleles", alleleCounts[l]},
-                                     {"allele_freqs", std::vector<double>(alleleCounts[l], 1.0 / alleleCounts[l])}});
+            study.loci.push_back(uniformLocus("L" + std::to_string(l), static_cast<unsigned int>(alleleCounts[l])));
         }
         for (int n = 0; n < numNodes; ++n) {
-            nlohmann::json node;
-            node["id"]               = "n" + std::to_string(n);
-            node["observation_time"] = 400 + 15 * n;
-            node["symptomatic"]      = n % 4 != 0;
+            Study::Infection infection{.id = "n" + std::to_string(n), .observationTime = 400.0 + 15 * n, .symptomatic = n % 4 != 0};
             for (size_t l = 0; l < alleleCounts.size(); ++l) {
                 std::string genotype = unif(rng) < 0.15 ? randomGenotype(alleleCounts[l]) : founders[n % numClusters][l];
                 if (unif(rng) < 0.05) {
                     genotype = std::string(alleleCounts[l], '0');// missing
                 }
-                node["observed_genotype"].push_back({{"locus", "L" + std::to_string(l)}, {"genotype", genotype}});
+                infection.observedGenotypes.push_back({"L" + std::to_string(l), genotype});
             }
-            node["allowed_parents"] = nlohmann::json::array();
             for (int p = 0; p < numNodes; ++p) {
                 if (p != n) {
-                    node["allowed_parents"].push_back("n" + std::to_string(p));
+                    infection.permittedParents.push_back("n" + std::to_string(p));
                 }
             }
-            input["nodes"].push_back(node);
+            study.infections.push_back(std::move(infection));
         }
-        return input;
+        return study;
     }
 }// namespace
 
 namespace {
-    void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const nlohmann::json& input);
+    void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study);
 }// namespace
 
 TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation) {
     auto rng = std::make_shared<boost::random::mt19937>(20261005);
-    checkCacheConsistency(rng, makeInput(*rng));
+    checkCacheConsistency(rng, makeStudy(*rng));
 }
 
 namespace {
-void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const nlohmann::json& input) {
-    const std::vector<double> idp(60, 1.0 / 60);
-
-
-    auto state = std::make_shared<State>(studyFromJson(input, idp, idp), rng);
+void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study) {
+    auto state = std::make_shared<State>(study, rng);
     auto model = std::make_shared<Model>(state);
     SamplerSet<Model> samplers(state, model, rng);
 

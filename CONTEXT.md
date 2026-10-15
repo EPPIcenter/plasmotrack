@@ -6,6 +6,10 @@ An MCMC engine that infers who infected whom in a set of observed *Plasmodium* i
 
 ### Data
 
+**Study**:
+The input as the model reads it: Loci with their Allele counts and frequencies; Infections with their observation time, whether symptomatic, their Observed genotypes and the parents the study permits them; and the infection-duration distributions for symptomatic and asymptomatic Infections. Read once from the input files, and built as a literal in tests; a State is built from it. The rules applied to the data (starting genotypes, the frequency floor, the null model) are the State's, not the Study's.
+_Avoid_: Input, JSON, nodes, data, dataset
+
 **Infection**:
 A single observed *Plasmodium* infection in a single host at a single point in time, carrying one or more genetically distinct parasite strains. The unit the model reasons about — a host observed twice is two Infections.
 _Avoid_: Case, sample, patient, host, infection event

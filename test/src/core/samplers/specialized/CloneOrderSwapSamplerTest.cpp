@@ -8,6 +8,7 @@
 #include "core/samplers/specialized/CloneOrderSwapSampler.h"
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/State.h"
+#include "../../../impl/Studies.h"
 
 #include <boost/random.hpp>
 #include <nlohmann/json.hpp>
@@ -23,6 +24,7 @@
 #include <vector>
 
 using namespace transmission_nets::impl::Model;
+using namespace transmission_nets::test::studies;
 using transmission_nets::core::parameters::Parameter;
 using transmission_nets::core::samplers::specialized::CloneOrderSwapSampler;
 
@@ -44,20 +46,15 @@ namespace {
     }
 
     // One three-allele locus. x and y may infect each other; z may be infected by y but not infect it.
-    nlohmann::json makeInput() {
-        nlohmann::json input;
-        input["loci"].push_back({{"locus", "L0"}, {"num_alleles", 3}, {"allele_freqs", {1.0 / 3, 1.0 / 3, 1.0 / 3}}});
-        auto node = [&](const std::string& id, const double time, const std::vector<std::string>& parents) {
-            input["nodes"].push_back({{"id", id},
-                                      {"observation_time", time},
-                                      {"symptomatic", true},
-                                      {"observed_genotype", {{{"locus", "L0"}, {"genotype", "110"}}}},
-                                      {"allowed_parents", parents}});
+    Study makeStudy() {
+        Study study{.loci = {uniformLocus("L0", 3)}, .symptomaticInfectionDurations = flatDurations(DAYS), .asymptomaticInfectionDurations = flatDurations(DAYS)};
+        auto infection = [&](const std::string& id, const double time, const std::vector<std::string>& parents) {
+            study.infections.push_back({.id = id, .observationTime = time, .observedGenotypes = {{"L0", "110"}}, .permittedParents = parents});
         };
-        node("x", 400, {"y"});
-        node("y", 420, {"x", "z"});
-        node("z", 410, {});
-        return input;
+        infection("x", 400, {"y"});
+        infection("y", 420, {"x", "z"});
+        infection("z", 410, {});
+        return study;
     }
 
     struct Fixture {
@@ -67,23 +64,13 @@ namespace {
         std::shared_ptr<InfectionEvent> x, y;
 
         Fixture() {
-            const std::vector<double> idp(DAYS, 1.0 / DAYS);
-            state   = std::make_shared<State>(studyFromJson(makeInput(), idp, idp), rng);
+            state   = std::make_shared<State>(makeStudy(), rng);
             locus   = state->loci.at("L0");
-            x       = state->infections[index("x")];
-            y       = state->infections[index("y")];
+            x       = state->infection("x");
+            y       = state->infection("y");
             x->infectionDuration()->initializeValue(X_DURATION);
             x->latentGenotype(locus)->initializeValue(GeneticsImpl("110"));
             y->latentGenotype(locus)->initializeValue(GeneticsImpl("110"));
-        }
-
-        size_t index(const std::string& id) const {
-            for (size_t i = 0; i < state->infections.size(); ++i) {
-                if (state->infections[i]->id() == id) {
-                    return i;
-                }
-            }
-            throw std::out_of_range(id);
         }
     };
 
@@ -106,13 +93,13 @@ namespace {
         for (size_t day = 0; day < shape.size(); ++day) {
             shape[day] = 1.0 + static_cast<double>(day);
         }
-        return Sampler(f.y, Sampler::mutualPartners(f.state->infections, *f.state->allowedRelationships, f.index("y")), std::move(target), f.rng, 1.0, DAYS, shape);
+        return Sampler(f.y, Sampler::mutualPartners(f.state->infections, *f.state->allowedRelationships, f.state->indexOf("y")), std::move(target), f.rng, 1.0, DAYS, shape);
     }
 }// namespace
 
 TEST(CloneOrderSwapSamplerTest, PartnersCanInfectEachOther) {
     Fixture f;
-    const auto partners = Sampler::mutualPartners(f.state->infections, *f.state->allowedRelationships, f.index("y"));
+    const auto partners = Sampler::mutualPartners(f.state->infections, *f.state->allowedRelationships, f.state->indexOf("y"));
     ASSERT_EQ(partners.size(), 1u);// not z, which cannot infect y
     EXPECT_EQ(partners[0].infection, f.x);
 }
