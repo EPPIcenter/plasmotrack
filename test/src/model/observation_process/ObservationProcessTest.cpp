@@ -23,8 +23,6 @@ using namespace transmission_nets::core::datatypes;
 using namespace transmission_nets::core::parameters;
 using namespace transmission_nets::model::observation_process;
 
-constexpr int MAX_ALLELES = 32;
-
 TEST(ObservationProcessTest, V2PairsEachCountWithItsRate) {
 
     // Latent 110000 observed as 101000: one true positive, one false negative, one false positive, three true negatives.

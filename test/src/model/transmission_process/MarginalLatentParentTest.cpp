@@ -27,7 +27,6 @@ using namespace transmission_nets::core::distributions;
 using namespace transmission_nets::model::transmission_process;
 
 namespace {
-    constexpr int MAX_ALLELES = 128;
     constexpr int MAX_COI     = 20;
     constexpr int MAX_PARENTS = 2;
     constexpr int MAX_STRAINS = 12;
