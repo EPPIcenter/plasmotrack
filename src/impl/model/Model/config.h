@@ -10,7 +10,7 @@
 
 #include "core/containers/AlleleFrequencyContainer.h"
 
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 
 
 #include "core/distributions/ZTPoisson.h"
@@ -31,7 +31,6 @@ namespace transmission_nets::impl::Model {
     constexpr int SALT_UPDATE_FREQUENCY = 3;
 
 
-    static constexpr int MAX_ALLELES       = 128;
     static constexpr int MAX_COI           = 20;
     static constexpr int MAX_PARENTS       = 2;
     static constexpr int MAX_PARENT_SET_SIZE = MAX_PARENTS + 1;
@@ -44,19 +43,19 @@ namespace transmission_nets::impl::Model {
 
     using Likelihood                   = core::computation::Likelihood;
     using LocusImpl                    = core::containers::Locus;
-    using GeneticsImpl                 = core::datatypes::AllelesBitSet<MAX_ALLELES>;
-    using InfectionEvent               = core::containers::Infection<GeneticsImpl>;
+    using core::datatypes::Genotype;
+    using InfectionEvent               = core::containers::Infection<>;
     using AlleleFrequencyImpl          = core::datatypes::Simplex;
     using AlleleFrequencyContainerImpl = core::containers::AlleleFrequencyContainer<AlleleFrequencyImpl>;
 
-    using ObservationProcessImpl   = model::observation_process::ObservationProcessLikelihoodv2<GeneticsImpl>;
+    using ObservationProcessImpl   = model::observation_process::ObservationProcessLikelihoodv2;
 
     using COIProbabilityImpl     = core::distributions::ZTPoisson<MAX_COI>;
     using ParentSetSizeLikelihoodImpl = core::distributions::ZTGeometric<MAX_PARENT_SET_SIZE>;
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
 
     // The per-chain memory of Transmission kernel results, with the latent parent summed out of each term through it.
-    using TransmissionMemoImpl = model::transmission_process::TransmissionMemo<MAX_PARENTS, MAX_STRAINS, MAX_COI, GeneticsImpl, InfectionEvent, LocusImpl, AlleleFrequencyContainerImpl>;
+    using TransmissionMemoImpl = model::transmission_process::TransmissionMemo<MAX_PARENTS, MAX_STRAINS, MAX_COI, InfectionEvent, LocusImpl, AlleleFrequencyContainerImpl>;
 
     using TransmissionProcess = model::transmission_process::TransmissionTerm<MAX_PARENTS, TransmissionMemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEvent, OrderingImpl>;
 

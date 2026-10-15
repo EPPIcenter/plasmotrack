@@ -31,7 +31,7 @@ namespace {
     const std::vector<std::string> GENOTYPES{"100", "010", "001", "110", "101", "011", "111"};
 
     // An arbitrary weight for each locus' genotype, and a term coupling the loci by their allele counts.
-    double logTarget(const GeneticsImpl& a, const GeneticsImpl& b) {
+    double logTarget(const Genotype& a, const Genotype& b) {
         const std::map<std::string, double> wa{{"100", 0.3}, {"010", -0.2}, {"001", 0.5}, {"110", 0.1}, {"101", -0.4}, {"011", 0.7}, {"111", -0.1}};
         const std::map<std::string, double> wb{{"100", -0.5}, {"010", 0.4}, {"001", 0.0}, {"110", 0.6}, {"101", 0.2}, {"011", -0.3}, {"111", 0.4}};
         const int ca = static_cast<int>(a.totalPositiveCount()), cb = static_cast<int>(b.totalPositiveCount());
@@ -83,10 +83,10 @@ TEST_P(StrainCountInvarianceTest, LeavesTargetInvariant) {
     double total = 0;
     for (const auto& a : GENOTYPES) {
         for (const auto& b : GENOTYPES) {
-            if (GeneticsImpl(a).totalPositiveCount() > GetParam() or GeneticsImpl(b).totalPositiveCount() > GetParam()) {
+            if (Genotype(a).totalPositiveCount() > GetParam() or Genotype(b).totalPositiveCount() > GetParam()) {
                 continue;
             }
-            total += std::exp(logTarget(GeneticsImpl(a), GeneticsImpl(b)));
+            total += std::exp(logTarget(Genotype(a), Genotype(b)));
             states.emplace_back(a, b);
             cumulative.push_back(total);
         }
@@ -99,19 +99,19 @@ TEST_P(StrainCountInvarianceTest, LeavesTargetInvariant) {
     for (int i = 0; i < draws; ++i) {
         const double u     = uniform(*f.rng) * total;
         const auto& [a, b] = states[std::min(states.size() - 1, static_cast<size_t>(std::upper_bound(cumulative.begin(), cumulative.end(), u) - cumulative.begin()))];
-        f.x->latentGenotype(f.l0)->initializeValue(GeneticsImpl(a));
-        f.x->latentGenotype(f.l1)->initializeValue(GeneticsImpl(b));
+        f.x->latentGenotype(f.l0)->initializeValue(Genotype(a));
+        f.x->latentGenotype(f.l1)->initializeValue(Genotype(b));
         sampler.update();
         const auto after = std::pair{f.x->latentGenotype(f.l0)->value().serialize(), f.x->latentGenotype(f.l1)->value().serialize()};
         moved += after != std::pair{a, b};
-        ASSERT_LE(GeneticsImpl(after.first).totalPositiveCount(), GetParam());
-        ASSERT_LE(GeneticsImpl(after.second).totalPositiveCount(), GetParam());
+        ASSERT_LE(Genotype(after.first).totalPositiveCount(), GetParam());
+        ASSERT_LE(Genotype(after.second).totalPositiveCount(), GetParam());
         ++visits[after];
     }
 
     double distance = 0;
     for (size_t i = 0; i < states.size(); ++i) {
-        const double p = std::exp(logTarget(GeneticsImpl(states[i].first), GeneticsImpl(states[i].second))) / total;
+        const double p = std::exp(logTarget(Genotype(states[i].first), Genotype(states[i].second))) / total;
         distance += std::abs((visits.contains(states[i]) ? visits.at(states[i]) : 0) / static_cast<double>(draws) - p) / 2;
     }
     EXPECT_GT(moved, draws / 20);

@@ -108,7 +108,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             void alleleFrequencies(const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<AlleleFrequencyImpl>>& p) {
                 saved.alleleFrequencies.push_back(p->value().frequencies());
             }
-            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
+            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<Genotype>>& p) {
                 const auto& alleles = p->value();
                 for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
                     genotypes.push(alleles.allele(allele));
@@ -149,8 +149,8 @@ namespace transmission_nets::impl::Model::checkpoint {
             void alleleFrequencies(const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<AlleleFrequencyImpl>>& p) {
                 p->initializeValue(AlleleFrequencyImpl::exactly(saved.alleleFrequencies[locusAt++]));
             }
-            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<GeneticsImpl>>& p) {
-                GeneticsImpl alleles(static_cast<int>(p->value().totalAlleles()));
+            void latentGenotype(size_t, const std::shared_ptr<LocusImpl>&, const std::shared_ptr<core::parameters::Parameter<Genotype>>& p) {
+                Genotype alleles(static_cast<int>(p->value().totalAlleles()));
                 for (size_t allele = 0; allele < alleles.totalAlleles(); ++allele) {
                     alleles.set(allele, genotypes.next());
                 }

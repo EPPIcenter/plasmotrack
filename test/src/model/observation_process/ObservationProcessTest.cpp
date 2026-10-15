@@ -9,7 +9,7 @@
 #include "core/containers/Infection.h"
 #include "core/containers/Locus.h"
 
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 
 #include "core/parameters/Parameter.h"
 
@@ -26,17 +26,16 @@ using namespace transmission_nets::model::observation_process;
 constexpr int MAX_ALLELES = 32;
 
 TEST(ObservationProcessTest, V2PairsEachCountWithItsRate) {
-    using GeneticsImpl = AllelesBitSet<MAX_ALLELES>;
 
     // Latent 110000 observed as 101000: one true positive, one false negative, one false positive, three true negatives.
-    auto observed = std::make_shared<Data<GeneticsImpl>>(GeneticsImpl("101000"));
-    auto latent   = std::make_shared<Parameter<GeneticsImpl>>(GeneticsImpl("110000"));
+    auto observed = std::make_shared<Data<Genotype>>(Genotype("101000"));
+    auto latent   = std::make_shared<Parameter<Genotype>>(Genotype("110000"));
 
     // Expected errors per locus, scaled by the 6 alleles into per-allele rates of .05 and .2.
     auto expectedFalsePositives = std::make_shared<Parameter<double>>(.3);
     auto expectedFalseNegatives = std::make_shared<Parameter<double>>(1.2);
 
-    ObservationProcessLikelihoodv2<GeneticsImpl> target(observed, latent, expectedFalsePositives, expectedFalseNegatives);
+    ObservationProcessLikelihoodv2 target(observed, latent, expectedFalsePositives, expectedFalseNegatives);
 
     const double fpr = .05;
     const double fnr = .2;

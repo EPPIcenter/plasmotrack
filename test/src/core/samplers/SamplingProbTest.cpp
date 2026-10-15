@@ -9,7 +9,7 @@
 
 #include "core/containers/Infection.h"
 #include "core/containers/ParentSet.h"
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 #include "core/parameters/Parameter.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
 #include "core/samplers/specialized/ParentRelinkSampler.h"
@@ -28,12 +28,9 @@ using namespace transmission_nets::core::samplers;
 
 namespace {
     // Same configuration as the model (src/impl/model/Model/config.h).
-    constexpr int MAX_ALLELES = 128;
     constexpr int MAX_PARENTS = 2;
     constexpr int MAX_COI     = 20;
-
-    using GeneticsImpl   = AllelesBitSet<MAX_ALLELES>;
-    using InfectionEvent = Infection<GeneticsImpl>;
+    using InfectionEvent = Infection<>;
     using Engine         = boost::random::mt19937;
 
     // calculateSamplingProb only reads the Candidate parents; the target is never used (update() is not called).
@@ -46,7 +43,7 @@ namespace {
         [[nodiscard]] bool isDirty() const { return false; }
     };
 
-    using Sampler3 = genetics::RandomAllelesBitSetSampler3<UnusedTarget, Engine, InfectionEvent, GeneticsImpl, FixedOrdering, MAX_PARENTS, MAX_COI>;
+    using Sampler3 = genetics::RandomAllelesBitSetSampler3<UnusedTarget, Engine, InfectionEvent, FixedOrdering, MAX_PARENTS, MAX_COI>;
     using Relink   = specialized::ParentRelinkSampler<UnusedTarget, Engine, InfectionEvent>;
 
     std::string randomGenotype(Engine& rng, const unsigned int numAlleles) {
@@ -144,8 +141,8 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
                 allowed.push_back(infections[p]);
             }
         }
-        const double expected3 = transmission_nets::test::reference::proposalProb<GeneticsImpl, MAX_PARENTS>(infections[c], parentSets[c]->parents, latentParents[c], 0.1, 0.1);
-        const double expectedR = transmission_nets::test::reference::relinkProposalDensity<GeneticsImpl>(infections[c], latentParents[c], allowed, 1.0, 59.0, shape, 0.05, 0.05);
+        const double expected3 = transmission_nets::test::reference::proposalProb<MAX_PARENTS>(infections[c], parentSets[c]->parents, latentParents[c], 0.1, 0.1);
+        const double expectedR = transmission_nets::test::reference::relinkProposalDensity(infections[c], latentParents[c], allowed, 1.0, 59.0, shape, 0.05, 0.05);
         const auto label = where + ", child " + std::to_string(c) + ", parents " + std::to_string(parentSets[c]->parents.size());
         expectSame(expected3, samplers3[c]->calculateSamplingProb(), "Sampler3 " + label);
         expectSame(expectedR, relinks[c]->logProposalDensity(), "Relink " + label);
@@ -174,7 +171,7 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
             const auto& locus = loci[(c + round) % loci.size()];
             auto genotype     = infections[c]->latentGenotype(locus);
             genotype->saveState(1);
-            genotype->setValue(GeneticsImpl(randomGenotype(rng, locus->totalAlleles())));
+            genotype->setValue(Genotype(randomGenotype(rng, locus->totalAlleles())));
             genotype->acceptState();
             check(c, where + ", re-evaluated");
         }
@@ -186,7 +183,7 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
             const auto& locus  = loci[(i + round) % loci.size()];
             auto genotype      = target->latentGenotype(locus);
             genotype->saveState(1);
-            genotype->setValue(GeneticsImpl(randomGenotype(rng, locus->totalAlleles())));
+            genotype->setValue(Genotype(randomGenotype(rng, locus->totalAlleles())));
             genotype->acceptState();
         }
         for (int i = round; i + 1 < numInfections; i += 3) {

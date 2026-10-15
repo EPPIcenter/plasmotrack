@@ -7,6 +7,7 @@
 
 #include <boost/random.hpp>
 
+#include "core/datatypes/Genotype.h"
 #include "core/samplers/AbstractSampler.h"
 #include "core/samplers/genetics/ParentSetGenotypeProposal.h"
 #include "core/samplers/genetics/ParentSetProposalProbability.h"
@@ -16,7 +17,7 @@
 
 namespace transmission_nets::core::samplers::genetics {
 
-    template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename OrderingImpl, int MaxParentSetSize, int MaxCOI>
+    template<typename T, typename Engine, typename InfectionEventImpl, typename OrderingImpl, int MaxParentSetSize, int MaxCOI>
     class RandomAllelesBitSetSampler3 : public AbstractSampler {
     public:
         RandomAllelesBitSetSampler3(std::shared_ptr<InfectionEventImpl> infection, std::shared_ptr<OrderingImpl> ordering, std::shared_ptr<InfectionEventImpl> latent_parent, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double fn_rate = 0.01, double fp_rate = 0.01) noexcept;
@@ -37,8 +38,8 @@ namespace transmission_nets::core::samplers::genetics {
         ParentSetProposalProbability<InfectionEventImpl, MaxParentSetSize> proposalProbability_{fn_rate_, fp_rate_};
     };
 
-    template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename OrderingImpl, int MaxParentSetSize, int MaxCOI>
-    RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, GeneticsImpl, OrderingImpl, MaxParentSetSize, MaxCOI>::RandomAllelesBitSetSampler3(
+    template<typename T, typename Engine, typename InfectionEventImpl, typename OrderingImpl, int MaxParentSetSize, int MaxCOI>
+    RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, OrderingImpl, MaxParentSetSize, MaxCOI>::RandomAllelesBitSetSampler3(
             std::shared_ptr<InfectionEventImpl> infection,
             std::shared_ptr<OrderingImpl> ordering,
             std::shared_ptr<InfectionEventImpl> latent_parent,
@@ -52,8 +53,8 @@ namespace transmission_nets::core::samplers::genetics {
                                              fp_rate_(fp_rate),
                                              rng_(rng) {}
 
-    template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename OrderingImpl, int MaxParentSetSize, int MaxCOI>
-    void RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, GeneticsImpl, OrderingImpl, MaxParentSetSize, MaxCOI>::update() noexcept {
+    template<typename T, typename Engine, typename InfectionEventImpl, typename OrderingImpl, int MaxParentSetSize, int MaxCOI>
+    void RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, OrderingImpl, MaxParentSetSize, MaxCOI>::update() noexcept {
         auto proposal = this->propose(*target_, *rng_);
         // before doing anything, calculate probability of sampling current state for adjustment
         const Likelihood current_state_prob = calculateSamplingProb();
@@ -62,8 +63,8 @@ namespace transmission_nets::core::samplers::genetics {
         proposal.metropolis(current_state_prob - proposed_state_prob);
     }
 
-    template<typename T, typename Engine, typename InfectionEventImpl, typename GeneticsImpl, typename OrderingImpl, int MaxParentSetSize, int MaxCOI>
-    Likelihood RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, GeneticsImpl, OrderingImpl, MaxParentSetSize, MaxCOI>::calculateSamplingProb() noexcept {
+    template<typename T, typename Engine, typename InfectionEventImpl, typename OrderingImpl, int MaxParentSetSize, int MaxCOI>
+    Likelihood RandomAllelesBitSetSampler3<T, Engine, InfectionEventImpl, OrderingImpl, MaxParentSetSize, MaxCOI>::calculateSamplingProb() noexcept {
         // The probability of proposing the current genotypes (see ParentSetGenotypeProposal.h): a uniform mixture
         // over the parent-set options.
         return proposalProbability_.logProb(*infection_, *latent_parent_, ordering_->candidateParents(infection_));

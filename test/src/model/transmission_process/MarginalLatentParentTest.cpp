@@ -5,7 +5,7 @@
 
 #include "gtest/gtest.h"
 
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 #include "core/distributions/ZTGeometric.h"
 #include "core/distributions/ZTPoisson.h"
 #include "core/parameters/Parameter.h"
@@ -31,11 +31,9 @@ namespace {
     constexpr int MAX_COI     = 20;
     constexpr int MAX_PARENTS = 2;
     constexpr int MAX_STRAINS = 12;
-
-    using Genetics   = AllelesBitSet<MAX_ALLELES>;
     using COIProb    = ZTPoisson<MAX_COI>;
     using PSP        = ZTGeometric<MAX_PARENTS + 1>;
-    using Kernel     = TransmissionKernel<MAX_PARENTS, MAX_STRAINS, MAX_COI, Genetics>;
+    using Kernel     = TransmissionKernel<MAX_PARENTS, MAX_STRAINS, MAX_COI>;
     using Variant    = Kernel::Variant;
     using Engine     = boost::random::mt19937;
     using Table      = marginal::LocusTable<MAX_COI, MAX_STRAINS>;
@@ -65,8 +63,8 @@ namespace {
         return total;
     }
 
-    Genetics fromMask(const unsigned int numAlleles, const unsigned int mask) {
-        Genetics g(static_cast<int>(numAlleles));
+    Genotype fromMask(const unsigned int numAlleles, const unsigned int mask) {
+        Genotype g(static_cast<int>(numAlleles));
         g.reset();
         for (unsigned int i = 0; i < numAlleles; ++i) {
             if (mask >> i & 1u) {
@@ -162,8 +160,8 @@ TEST(MarginalLatentParentTest, MatchesBruteForceOverLatentParentGenomes) {
         const std::vector<unsigned int> alleleCounts = trial % 2 == 0 ? std::vector<unsigned int>{3, 4, 5} : std::vector<unsigned int>{2, 5, 4};
         const size_t L = alleleCounts.size();
         std::vector<std::vector<double>> freqs;
-        std::vector<Genetics> child;
-        std::vector<std::vector<Genetics>> parents(2);// [parent][locus]
+        std::vector<Genotype> child;
+        std::vector<std::vector<Genotype>> parents(2);// [parent][locus]
         for (size_t l = 0; l < L; ++l) {
             const unsigned int A = alleleCounts[l];
             freqs.push_back(randomFrequencies(rng, A));
@@ -177,7 +175,7 @@ TEST(MarginalLatentParentTest, MatchesBruteForceOverLatentParentGenomes) {
             const int n           = static_cast<int>(numObserved) + 1;
             const Variant variant = numObserved == 0 ? Variant::LatentParentOnly : Variant::ObservedAndLatentParents;
             auto parentPtrs       = [&](const size_t l) {
-                std::vector<const Genetics*> out;
+                std::vector<const Genotype*> out;
                 for (unsigned int p = 0; p < numObserved; ++p) {
                     out.push_back(&parents[p][l]);
                 }
@@ -196,8 +194,8 @@ TEST(MarginalLatentParentTest, MatchesBruteForceOverLatentParentGenomes) {
                     }
                 }
                 const marginal::SourceOverlap overlap(freqs[l], childAlleles, MAX_COI);
-                const auto table = marginal::locusTable<MAX_COI, MAX_STRAINS, Genetics>(overlap, alleleCounts[l], [&](const Genetics& latent) -> std::optional<std::array<double, MAX_STRAINS>> {
-                    const auto& term = kernel.locusTerm(variant, child[l], std::span<const Genetics* const>(ptrs), &latent);
+                const auto table = marginal::locusTable<MAX_COI, MAX_STRAINS>(overlap, alleleCounts[l], [&](const Genotype& latent) -> std::optional<std::array<double, MAX_STRAINS>> {
+                    const auto& term = kernel.locusTerm(variant, child[l], std::span<const Genotype* const>(ptrs), &latent);
                     if (term.impossible) {
                         return std::nullopt;
                     }
@@ -223,8 +221,8 @@ TEST(MarginalLatentParentTest, MatchesBruteForceOverLatentParentGenomes) {
                 Kernel::StrainSums strainSums{};
                 for (size_t l = 0; l < L; ++l) {
                     const auto ptrs     = parentPtrs(l);
-                    const Genetics lat  = fromMask(alleleCounts[l], g[l]);
-                    strainSums.add(kernel.locusTerm(variant, child[l], std::span<const Genetics* const>(ptrs), &lat));
+                    const Genotype lat  = fromMask(alleleCounts[l], g[l]);
+                    strainSums.add(kernel.locusTerm(variant, child[l], std::span<const Genotype* const>(ptrs), &lat));
                 }
                 const double term = Kernel::strainSummedLogLikelihood(strainSums, n, strainTable);
                 if (term > NEG_INF) {

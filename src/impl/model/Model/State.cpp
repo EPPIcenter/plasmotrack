@@ -131,7 +131,7 @@ namespace transmission_nets::impl::Model {
             // The anchor: at each locus the observed genotype, or every allele where nothing was observed. A function
             // of the data alone, so a resumed Run proposes as the original would.
             for (const auto& locus : latentParents.back()->loci()) {
-                GeneticsImpl anchor(static_cast<int>(locus->totalAlleles()));
+                Genotype anchor(static_cast<int>(locus->totalAlleles()));
                 anchor.reset();
                 if (infection->observedGenotype().contains(locus) and infection->observedGenotype(locus)->value().totalPositiveCount() > 0) {
                     anchor = infection->observedGenotype(locus)->value();

@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PARENTRELINKSAMPLER_H
 #define TRANSMISSION_NETWORKS_APP_PARENTRELINKSAMPLER_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/samplers/AbstractSampler.h"
 #include "core/samplers/genetics/GenomePartition.h"
 #include "core/samplers/genetics/ParentSetGenotypeProposal.h"
@@ -38,7 +39,7 @@ namespace transmission_nets::core::samplers::specialized {
      */
     template<typename T, typename Engine, typename InfectionEventImpl>
     class ParentRelinkSampler : public AbstractSampler {
-        using Genetics = typename InfectionEventImpl::GeneticsType;
+        using Genotype = core::datatypes::Genotype;
 
     public:
         ParentRelinkSampler(std::shared_ptr<InfectionEventImpl> infection,
@@ -86,7 +87,7 @@ namespace transmission_nets::core::samplers::specialized {
         // One draw of the proposal: a duration and the infection's genotypes by locus, in infection_->loci() order.
         struct Try {
             double duration = 0;
-            std::vector<Genetics> genotypes{};
+            std::vector<Genotype> genotypes{};
         };
         void drawTry(Try& t);
         // Sets the infection to `t`, evaluates the target and the proposal density there, and restores it.
@@ -99,8 +100,8 @@ namespace transmission_nets::core::samplers::specialized {
         // share one, so it is evaluated once per class of allowed parents with the same genome.
         mutable genetics::GenomePartition<InfectionEventImpl> sourceClasses_{};
         mutable std::vector<double> classLogProb_{};// NaN until evaluated in the current logProposalDensity() call
-        mutable genetics::ProposalTarget<Genetics> genotypes_{};
-        mutable std::vector<Genetics> sourceGenotypes_{};
+        mutable genetics::ProposalTarget genotypes_{};
+        mutable std::vector<Genotype> sourceGenotypes_{};
     };
 
     template<typename T, typename Engine, typename InfectionEventImpl>
@@ -168,7 +169,7 @@ namespace transmission_nets::core::samplers::specialized {
         genetics::latentGenotypesAlong(*infection_, from, sourceGenotypes_);
         double total = 0;
         for (size_t l = 0; l < sourceGenotypes_.size(); ++l) {
-            const std::array<const Genetics*, 1> parents{&sourceGenotypes_[l]};
+            const std::array<const Genotype*, 1> parents{&sourceGenotypes_[l]};
             total += genetics::logLocusProposalProb(parents, 1, genotypes_.latent[l], genotypes_.observed[l], genotypes_.presence[l], fpRate_);
             if (total == -std::numeric_limits<double>::infinity()) {
                 break;
@@ -213,7 +214,7 @@ namespace transmission_nets::core::samplers::specialized {
         t.duration                 = durationShape_.draw(first, second, mass, *rng_);
         t.genotypes.clear();
         for (const auto& locus : infection_->loci()) {
-            const std::array<const Genetics*, 1> parents{&source(s).latentGenotype(locus)->value()};
+            const std::array<const Genotype*, 1> parents{&source(s).latentGenotype(locus)->value()};
             if (infection_->observedGenotype().contains(locus)) {
                 t.genotypes.push_back(genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnRate_, fpRate_));
             } else {
@@ -334,8 +335,8 @@ namespace transmission_nets::core::samplers::specialized {
         proposal.change(*infection_->infectionDuration(), proposed);
         for (const auto& locus : infection_->loci()) {
             auto genotype = infection_->latentGenotype(locus);
-            const std::array<const Genetics*, 1> parents{&source(s).latentGenotype(locus)->value()};
-            Genetics proposedGenotype;
+            const std::array<const Genotype*, 1> parents{&source(s).latentGenotype(locus)->value()};
+            Genotype proposedGenotype;
             if (infection_->observedGenotype().contains(locus)) {
                 proposedGenotype = genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnRate_, fpRate_);
             } else {
