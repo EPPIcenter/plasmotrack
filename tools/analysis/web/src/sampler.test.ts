@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventRules, groupByType, ladderPoints, parseBand, timeDomain, varianceRows, windowX, type AcceptanceRow, type RunEvent } from "./sampler";
+import { eventRules, groupByType, ladderPoints, parseBand, samplerTables, timeDomain, varianceRows, windowX, type AcceptanceRow, type RunEvent } from "./sampler";
 
 const windows = [
   { window: 0, phase: "burn_in", first_iteration: 0, last_iteration: 20 },
@@ -165,5 +165,34 @@ describe("parseBand", () => {
     expect(parseBand("0.6", "0.2")).toEqual([0.2, 0.6]);
     expect(parseBand("x", "0.4")).toEqual([0.15, 0.4]);
     expect(parseBand("-1", "3")).toEqual([0, 1]);
+  });
+});
+
+describe("samplerTables", () => {
+  const tables = Object.fromEntries(samplerTables({
+    chain: "A",
+    windows: [...windows],
+    acceptance: [row("ParentRelinkSampler/infection/2", 1, 6, 25)],
+    swaps: [{ ...windows[1], temperature_pair: 0, accepted: 3, attempted: 4, rate: 0.75 }],
+    ladder: [{ iteration: 10, phase: "burn_in", applied: true, temperatures: [1, 0.5], barriers: [0.25] }],
+    burn_in_ended: { iteration: 20, proposal_variances: { "SALTSampler/allele_frequencies/AS1": [0.125, 0.5] }, temperatures: [1, 0.4] },
+    events: [{ iteration: 20, phase: "burn_in", window: 0, wall_time: "2026-10-15T00:00:00Z", type: "burn_in_ended", payload: { iteration: 20 } }],
+  }).map((t) => [t.part, t.table]));
+  const records = (part: string) => tables[part]!.rows.map((r) => Object.fromEntries(tables[part]!.columns.map((c, i) => [c, r[i]])));
+
+  it("writes each panel's rows unrounded under the payload's field names, the Chain on every row", () => {
+    expect(Object.keys(tables)).toEqual(["acceptance", "swaps", "ladder", "proposal_variances", "events"]);
+    expect(records("acceptance")[0]).toMatchObject({ chain: "A", sampler: "ParentRelinkSampler/infection/2", window: 1, accepted: 6, proposed: 25, rate: 0.24 });
+    expect(records("swaps")[0]).toMatchObject({ chain: "A", temperature_pair: 0, accepted: 3, attempted: 4, rate: 0.75 });
+    expect(records("ladder")).toEqual([
+      { chain: "A", iteration: 10, phase: "burn_in", applied: true, slot: 0, temperature: 1, barrier: 0.25 },
+      { chain: "A", iteration: 10, phase: "burn_in", applied: true, slot: 1, temperature: 0.5, barrier: null },
+    ]);
+    expect(records("proposal_variances")).toEqual([
+      { chain: "A", iteration: 20, sampler: "SALTSampler/allele_frequencies/AS1", scale: 0, variance: 0.125 },
+      { chain: "A", iteration: 20, sampler: "SALTSampler/allele_frequencies/AS1", scale: 1, variance: 0.5 },
+    ]);
+    expect(records("events")[0]).toEqual({ chain: "A", iteration: 20, phase: "burn_in", window: 0, wall_time: "2026-10-15T00:00:00Z",
+      type: "burn_in_ended", payload: '{"iteration":20}' });
   });
 });

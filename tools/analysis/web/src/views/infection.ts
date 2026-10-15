@@ -9,7 +9,7 @@ import { getJson, num } from "../api";
 import { el, table } from "../dom";
 import { CHAIN_COLOURS, formatEss } from "../format";
 import {
-  coiBars, density, heatmapCells, infectionParams, readInfection, setLabel,
+  coiBars, density, heatmapCells, infectionParams, infectionTables, readInfection, setLabel,
   type EdgeMarginal, type InfectionResponse, type Quantity, type SetRow,
 } from "../infection";
 import { pairParams } from "../pair";
@@ -54,9 +54,11 @@ const render: RenderView = (root, ctx) => {
     return;
   }
   body.textContent = "Loading…";
+  let loaded: InfectionResponse | null = null;
 
   getJson<InfectionResponse>("/api/infection", { id })
     .then((p) => {
+      loaded = p;
       body.replaceChildren();
       const section = (title: string, ...children: (Node | string)[]) => body.append(el("h3", {}, title), ...children);
       const s = p.summary;
@@ -186,6 +188,9 @@ const render: RenderView = (root, ctx) => {
       body.append(el("p", { className: "muted" }, "Edge marginals: the mean over Draws of the summed weight of the child's Parent sets holding the parent."));
     })
     .catch((e: Error) => (body.textContent = `Could not load Infection ${id}: ${e.message}`));
+
+  // CSV export: each section's numbers under the payload's field names, one file per section.
+  return { tables: () => (loaded ? infectionTables(loaded) : null) };
 };
 
 export default render;

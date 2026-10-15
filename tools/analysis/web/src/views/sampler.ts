@@ -13,6 +13,7 @@ import {
   groupByType,
   ladderPoints,
   parseBand,
+  samplerTables,
   severityOf,
   timeDomain,
   varianceRows,
@@ -326,6 +327,9 @@ const render: RenderView = (root, ctx) => {
   }
 
   load();
+
+  // CSV export: each panel's rows under the payload's field names, one file per panel.
+  return { tables: () => (panel ? samplerTables(panel) : null) };
 };
 
 export default render;

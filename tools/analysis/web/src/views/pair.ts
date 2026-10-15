@@ -6,7 +6,7 @@ import * as Plot from "@observablehq/plot";
 import { getJson } from "../api";
 import { el, table } from "../dom";
 import { CHAIN_COLOURS } from "../format";
-import { differingLoci, pairParams, readPair, type GenotypeRow, type PairResponse } from "../pair";
+import { differingLoci, pairParams, pairTables, readPair, type GenotypeRow, type PairResponse } from "../pair";
 import { formatRoute } from "../router";
 import type { RenderView } from "../view";
 
@@ -47,9 +47,11 @@ const render: RenderView = (root, ctx) => {
   const { a, b } = pair;
   body.textContent = "Loading…";
   let drawTrace = () => {};
+  let loaded: PairResponse | null = null;
 
   getJson<PairResponse>("/api/pair", { a, b })
     .then((p) => {
+      loaded = p;
       body.replaceChildren();
       const section = (title: string, ...children: (Node | string)[]) => body.append(el("h3", {}, title), ...children);
 
@@ -145,7 +147,11 @@ const render: RenderView = (root, ctx) => {
 
   const resize = new ResizeObserver(() => drawTrace());
   resize.observe(body);
-  return () => resize.disconnect();
+  return {
+    cleanup: () => resize.disconnect(),
+    // CSV export: each section's numbers under the payload's field names, one file per section.
+    tables: () => (loaded ? pairTables(loaded) : null),
+  };
 };
 
 export default render;

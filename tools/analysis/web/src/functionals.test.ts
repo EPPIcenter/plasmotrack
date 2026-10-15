@@ -3,6 +3,7 @@ import {
   classLabel,
   compositionSegments,
   degreePoints,
+  functionalsTable,
   multiSourceRows,
   stackOrder,
   stratumLabel,
@@ -130,5 +131,28 @@ describe("traceParams", () => {
     expect(traceParams("district", "North", "mean_q")).toEqual({ group: "functionals", name: "mean_q", stratum_column: "district", stratum: "North" });
     expect(traceParams("district", null, "psi_edge")).toEqual({ group: "functionals", name: "psi_edge", stratum_column: "district" });
     expect(traceParams(null, null, "mean_observed_1")).toEqual({ group: "functionals", name: "mean_observed_1", stratum_column: "" });
+  });
+});
+
+describe("functionalsTable", () => {
+  it("writes one row per stratum with the payload's numbers unrounded, intervals as mean, lower and upper", () => {
+    const t = functionalsTable(response);
+    expect(t.columns.slice(0, 13)).toEqual([
+      "column", "value", "n", "psi_map", "size_range_lower", "size_range_upper",
+      "psi_edge_mean", "psi_edge_lower", "psi_edge_upper", "mean_q_mean", "mean_q_lower", "mean_q_upper",
+      "classes_observed_1_mean",
+    ]);
+    expect(t.columns.slice(-6)).toEqual([
+      "multi_source_augmented_mean", "multi_source_augmented_lower", "multi_source_augmented_upper",
+      "multi_source_observed_mean", "multi_source_observed_lower", "multi_source_observed_upper",
+    ]);
+    expect(t.rows).toHaveLength(2);
+    const north = Object.fromEntries(t.columns.map((c, i) => [c, t.rows[0]![i]]));
+    expect(north).toMatchObject({
+      column: "district", value: "North", n: 2, psi_map: 0.5, size_range_lower: 0, size_range_upper: 0.5,
+      psi_edge_mean: 0.39, psi_edge_lower: 0.002, classes_unobserved_only_mean: 0.6176, multi_source_observed_upper: 0.002,
+    });
+    // The Infections with no value keep a null value, as the payload has it.
+    expect(t.rows[1]![1]).toBeNull();
   });
 });

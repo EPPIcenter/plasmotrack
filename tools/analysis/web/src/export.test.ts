@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeSvg, exportFileName, htmlTable, recordsTable, toCsv } from "./export";
+import { composeSvg, exportFileName, htmlTable, intervalColumns, intervalFields, recordsTable, toCsv } from "./export";
 
 describe("toCsv", () => {
   it("writes a header and one line per row, quoting only what needs it", () => {
@@ -17,6 +17,14 @@ describe("recordsTable", () => {
   it("lays records out in the given column order, a missing key as an empty cell", () => {
     const t = recordsTable(["group", "name", "chain", "ess"], [{ name: "q", group: "g", ess: 4, chain: null }, { group: "g", name: "r" }]);
     expect(toCsv(t)).toBe("group,name,chain,ess\r\ng,q,,4\r\ng,r,,\r\n");
+  });
+});
+
+describe("interval columns", () => {
+  it("spread an interval over three columns named after its field, empty when there is none", () => {
+    expect(intervalColumns("psi_edge")).toEqual(["psi_edge_mean", "psi_edge_lower", "psi_edge_upper"]);
+    expect(intervalFields("psi_edge", { mean: 0.5, lower: 0.25, upper: 0.75 })).toEqual({ psi_edge_mean: 0.5, psi_edge_lower: 0.25, psi_edge_upper: 0.75 });
+    expect(intervalFields("mean_q", null)).toEqual({ mean_q_mean: null, mean_q_lower: null, mean_q_upper: null });
   });
 });
 

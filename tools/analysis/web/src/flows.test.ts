@@ -4,6 +4,7 @@ import {
   clipEnrichment,
   cutoffDomain,
   enrichmentCells,
+  flowsTables,
   lagBars,
   movedSummary,
   netFlowBars,
@@ -128,5 +129,30 @@ describe("spatial rows", () => {
       { relation: "other", mass: 0.25, share: 0.25 },
     ] });
     expect(rows.map((r) => r.label)).toEqual(["Same shehia", "Same district, another shehia", "Another district or unknown"]);
+  });
+});
+
+describe("flowsTables", () => {
+  const spatial = { unit: "village", parent: "district", max_lag: null, total: 1, shares: [{ relation: "same_unit" as const, mass: 0.25, share: 0.5 }] };
+  const tables = Object.fromEntries(flowsTables({ flows, lags, column: "district", spatial }).map((t) => [t.part, t.table]));
+  const records = (part: string) => tables[part]!.rows.map((r) => Object.fromEntries(tables[part]!.columns.map((c, i) => [c, r[i]])));
+
+  it("writes each panel's numbers under the payload's field names, one table per panel", () => {
+    expect(Object.keys(tables)).toEqual(["attribution", "enrichment", "net_flow", "lags", "reassignment", "spatial"]);
+    expect(records("attribution")[2]).toEqual({ column: "district", recipient: "North", source: null, unobserved: true, mass: 1.0, share: 0.5 });
+    expect(records("enrichment")[0]).toMatchObject({ source: "North", recipient: "North", expected_edges: 0.83, enrichment: 1.8 });
+    expect(records("net_flow")[0]).toEqual({ column: "district", min_infections: 1, value: "North", n: 2, out_edges: 0.003, in_edges: 0.04, net: -0.037 });
+    expect(records("lags")[3]).toEqual({ x0: 70, x1: 80, mass: 0.7 });
+    expect(records("spatial")).toEqual([{ unit: "village", parent: "district", max_lag: null, relation: "same_unit", mass: 0.25, share: 0.5 }]);
+  });
+
+  it("marks the overall row of the reassignment by an empty column, as the trace panel's stratum_column does", () => {
+    expect(records("reassignment")[0]).toMatchObject({
+      max_lag: 65, column: null, value: null, n: 3, psi_edge_mean: 0.3, psi_edge_moved_mean: 0.07, mean_q_moved_upper: 0.93 + 0.01,
+    });
+  });
+
+  it("leaves out what has not loaded", () => {
+    expect(flowsTables({ flows: null, lags: null, column: null, spatial: null })).toEqual([]);
   });
 });

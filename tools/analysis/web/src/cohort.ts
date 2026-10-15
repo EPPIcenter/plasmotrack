@@ -1,6 +1,7 @@
 // The cohort view's logic (U7), tested without a DOM: the payload of /api/cohort, fit labels, the brush filter that
 // every panel follows, identity-line points and the calibration curve pooled over the selected fits.
 
+import type { DataTable } from "./export";
 import { CHAIN_COLOURS } from "./format";
 
 export type ColumnKind = "string" | "integer" | "number";
@@ -152,4 +153,11 @@ export function nearestRow(points: readonly { row: number; px: number; py: numbe
     if (d <= distance) [best, distance] = [p.row, d];
   }
   return best;
+}
+
+/** The selected fits' rows with every fit-summary column, under the cohort file's column names, after a `fit` column
+ *  with their label (full, partial, null). What the view exports as CSV. */
+export function cohortTable(p: CohortPayload, rows: readonly number[]): DataTable {
+  const names = p.columns.map((c) => c.name);
+  return { columns: ["fit", ...names], rows: rows.map((r) => [fitLabel(p, r), ...names.map((c) => p.data[c]?.[r] ?? null)]) };
 }

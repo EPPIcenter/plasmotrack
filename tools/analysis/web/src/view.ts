@@ -1,7 +1,7 @@
 // What a view is. A view is one file in src/views/ whose default export renders it, plus one entry in registry.ts.
 
 import type { AnalysisSummary } from "./api";
-import type { DataTable } from "./export";
+import type { DataTable, NamedTable } from "./export";
 import type { Params } from "./router";
 
 export interface ViewContext {
@@ -28,6 +28,10 @@ export interface ViewHooks {
    *  table is virtualised (only the rows in view are in the DOM) or whose package table is richer than what is shown.
    *  Column names are the package's. Null while the data is loading. */
   table?: () => DataTable | null;
+  /** Several tables for CSV export, one file each named by its part, for a view with more than one table; in place
+   *  of `table` and the rendered `<table>` elements. Column names are the package's, values unrounded. Null or empty
+   *  while the data is loading. */
+  tables?: () => NamedTable[] | null;
 }
 
 export interface ViewEntry {

@@ -3,6 +3,7 @@
 
 import { EDGE_COLOUR, edgeKey, edgeSize, type EdgeAttributes, type Tooltip } from "./network";
 import { formatRoute } from "./router";
+import { recordsTable, type DataTable } from "./export";
 
 export type Source = "posterior" | "null" | "ibd";
 
@@ -177,4 +178,14 @@ export function matchText(m: TruthMatch): string {
   if (m.unobserved_truth_infections.length)
     parts.push(`${m.unobserved_truth_infections.length} simulated Infections not observed`);
   return parts.join("; ");
+}
+
+/** The error rows given (the kinds shown, in rank order) under /api/errors' field names, unrounded, each with the edge
+ *  set and threshold it was called at. What the view exports as CSV. */
+export function errorsTable(p: Pick<ErrorsPayload, "source" | "label" | "threshold">, rows: readonly ErrorRow[]): DataTable {
+  return recordsTable(
+    ["source", "threshold", "kind", "parent", "child", "marginal", "confidence", "reverse_marginal", "reverse_true", "lag",
+      "parent_true_infection_time", "child_true_infection_time"],
+    rows.map((r) => ({ source: p.source, threshold: p.threshold, ...r })),
+  );
 }

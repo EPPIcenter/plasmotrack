@@ -1,5 +1,6 @@
 // The pair inspector's logic and response types (U3), tested without a DOM. The view is src/views/pair.ts.
 
+import { recordsTable, type NamedTable } from "./export";
 import type { Params } from "./router";
 
 /** Two Infection ids from the location; `complete` when both are given and differ. */
@@ -73,4 +74,31 @@ export function differingLoci(rows: GenotypeRow[]): { count: number; loci: strin
     ? `${loci.length} of ${of} ${loci.length === 1 ? "differs" : "differ"}: ${loci.join(", ")}`
     : `No Locus of ${rows.length} differs`;
   return { count: loci.length, loci, text };
+}
+
+/** The inspector's numbers as one table per section, unrounded, under the payload's field names; pooled rows have no
+ *  Chain. What the view exports as CSV. */
+export function pairTables(p: PairResponse): NamedTable[] {
+  const { a, b } = p;
+  const draws = p.order.chains.reduce((n, c) => n + c.draws, 0);
+  const before = p.order.chains.reduce((n, c) => n + c.before_count, 0);
+  const order = [
+    ...p.order.chains.map((c) => ({ a, b, chain: c.chain, draws: c.draws, before_count: c.before_count, probability: c.probability, switches: c.switches })),
+    { a, b, chain: null, draws, before_count: before, probability: p.order.probability, switches: null },
+  ];
+  const edges = [...p.edges.chains.map((c) => ({ a, b, ...c })), { a, b, chain: null, a_to_b: p.edges.a_to_b, b_to_a: p.edges.b_to_a }];
+  const coInclusion = p.co_inclusion.flatMap((r) => [
+    { infection: r.infection, chain: null, weight: r.weight },
+    ...r.chains.map((c) => ({ infection: r.infection, ...c })),
+  ]);
+  const genotypeColumns = ["locus", "observed_a", "latent_a", "agreement_a", "latent_b", "agreement_b", "observed_b", "differs",
+    ...(p.genotypes.truth ? ["true_a", "true_b"] : [])];
+  const times = [{ infection: a, ...p.times.a, lag: p.times.lag }, { infection: b, ...p.times.b, lag: p.times.lag }];
+  return [
+    { part: "order", table: recordsTable(["a", "b", "chain", "draws", "before_count", "probability", "switches"], order) },
+    { part: "edges", table: recordsTable(["a", "b", "chain", "a_to_b", "b_to_a"], edges) },
+    { part: "co_inclusion", table: recordsTable(["infection", "chain", "weight"], coInclusion) },
+    { part: "genotypes", table: recordsTable(genotypeColumns, p.genotypes.rows) },
+    { part: "times", table: recordsTable(["infection", "observation_time", "median", "lower", "upper", "lag"], times) },
+  ];
 }

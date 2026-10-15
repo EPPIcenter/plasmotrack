@@ -8,6 +8,7 @@ import { formatRoute } from "../router";
 import {
   ERROR_KINDS,
   errorCounts,
+  errorsTable,
   filterErrors,
   matchText,
   pairLink,
@@ -139,6 +140,9 @@ const render: RenderView = (root, ctx) => {
 
   drawKinds();
   load();
+
+  // CSV export: the rows of the kinds shown, unrounded, under the payload's field names.
+  return { table: () => (payload ? errorsTable(payload, filterErrors(payload.rows, kinds)) : null) };
 };
 
 export default render;

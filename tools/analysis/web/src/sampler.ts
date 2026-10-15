@@ -1,6 +1,7 @@
 // The sampler panel's data (GET /api/sampler) and the logic its view draws with: samplers grouped by type, and the
 // Run events placed on the panel's time axes. No DOM here.
 
+import { recordsTable, type NamedTable } from "./export";
 import { compareInfectionIds } from "./ids";
 
 /** A closed Window: its Phase and the Sampling iterations it covers, inclusive. */
@@ -230,4 +231,25 @@ export function parseBand(lo: string | null, hi: string | null): [number, number
   const a = read(lo, DEFAULT_BAND[0]);
   const b = read(hi, DEFAULT_BAND[1]);
   return a <= b ? [a, b] : [b, a];
+}
+
+/** The panel's rows as one table per panel, unrounded, under /api/sampler's field names, the Chain on every row: the
+ *  ladder one row per adaptation and slot, the burn-in-end proposal variances one row per sampler and scale, event
+ *  payloads as JSON. What the view exports as CSV. */
+export function samplerTables(p: SamplerPanel): NamedTable[] {
+  const { chain } = p;
+  const win = ["window", "phase", "first_iteration", "last_iteration"];
+  const end = p.burn_in_ended;
+  const ladder = p.ladder.flatMap((s) => s.temperatures.map((temperature, slot) => ({
+    chain, iteration: s.iteration, phase: s.phase, applied: s.applied, slot, temperature, barrier: s.barriers[slot] ?? null,
+  })));
+  const variances = varianceRows(end).flatMap((r) => r.variances.map((variance, scale) => ({ chain, iteration: end!.iteration, sampler: r.sampler, scale, variance })));
+  return [
+    { part: "acceptance", table: recordsTable(["chain", ...win, "sampler", "type", "target", "accepted", "proposed", "rate"], p.acceptance.map((r) => ({ chain, ...r }))) },
+    { part: "swaps", table: recordsTable(["chain", ...win, "temperature_pair", "accepted", "attempted", "rate"], p.swaps.map((r) => ({ chain, ...r }))) },
+    { part: "ladder", table: recordsTable(["chain", "iteration", "phase", "applied", "slot", "temperature", "barrier"], ladder) },
+    { part: "proposal_variances", table: recordsTable(["chain", "iteration", "sampler", "scale", "variance"], variances) },
+    { part: "events", table: recordsTable(["chain", "iteration", "phase", "window", "wall_time", "type", "payload"],
+      p.events.map((e) => ({ chain, ...e, payload: JSON.stringify(e.payload) }))) },
+  ];
 }

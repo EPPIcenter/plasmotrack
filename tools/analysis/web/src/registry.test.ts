@@ -28,7 +28,7 @@ describe("every registered view exports", () => {
   // Read at run time, not through import.meta.glob, whose expansion vitest caches across runs.
   const source = async (route: string): Promise<string> =>
     (await import(`./views/${route}.ts?raw`).catch(() => ({ default: "" }))).default;
-  const hasHook = (src: string) => /\btable: \(\) =>/.test(src);
+  const hasHook = (src: string) => /\btables?: \(\) =>/.test(src);
   const drawsGraphics = (src: string) => /\bPlot\.\w+\(|new Sigma\b|createElementNS\([^)]*"svg"|createElement\("canvas"\)/.test(src);
   const rendersTables = (src: string) =>
     /createElement\("table"\)|\bel\(\s*"table"|<table\b/.test(src) || (/import \{[^}]*\btable\b[^}]*\} from "\.\.\/dom"/.test(src) && /\btable\(/.test(src));

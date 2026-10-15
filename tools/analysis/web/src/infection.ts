@@ -1,5 +1,7 @@
 // The infection card's logic and response types (U10), tested without a DOM. The view is src/views/infection.ts.
 
+import { num } from "./api";
+import { recordsTable, type NamedTable } from "./export";
 import type { Params } from "./router";
 
 /** The Infection id in a view's parameters, `#/infection?id=<id>`; "" when missing or blank. */
@@ -150,4 +152,31 @@ export function density(values: number[], points = 100): { x: number; y: number 
     const x = lo + i * step;
     return { x, y: norm * values.reduce((s, v) => s + Math.exp(-0.5 * ((x - v) / h) ** 2), 0) };
   });
+}
+
+const SET_COLUMNS = ["chain", "set_id", "members", "n_observed", "class", "weight", "rank", "cumulative_mass", "credible"];
+const EDGE_COLUMNS = ["child", "parent", "unobserved", "chain", "mean", "spread", "ess"];
+
+/** The card's numbers as one table per section, unrounded, under the payload's field names. Pooled rows have no
+ *  Chain; Parent-set members are joined by spaces; edges are long, as the package's edge_stats (each Chain's mean,
+ *  then the pooled row with the pooled marginal as its mean). What the view exports as CSV. */
+export function infectionTables(p: InfectionResponse): NamedTable[] {
+  const summary = [...p.summary.chains, { ...p.summary, chain: null }].map((s) => ({ infection: p.infection, ...s }));
+  const quantities = Object.entries(p.quantities).map(([quantity, q]) => ({ quantity, ...q }));
+  const genotype = p.genotype.loci.flatMap((l) => l.presence.map((presence, allele) => ({ locus: l.locus, observed: l.observed, allele, presence })));
+  const set = (chain: string | null) => (r: SetRow) => ({ ...r, chain, members: r.members.join(" ") });
+  const sets = [...p.parent_sets.pooled.map(set(null)), ...p.parent_sets.chains.flatMap((c) => c.sets.map(set(c.chain)))];
+  const edges = (rows: EdgeMarginal[]) => rows.flatMap((e) => [
+    ...e.chains.map((c) => ({ child: e.child, parent: e.parent, unobserved: e.unobserved, chain: c.chain, mean: c.mean, spread: null, ess: null })),
+    { child: e.child, parent: e.parent, unobserved: e.unobserved, chain: null, mean: e.pooled, spread: e.spread, ess: num(e.ess) },
+  ]);
+  return [
+    { part: "summary", table: recordsTable(["infection", "chain", "q", "expected_observed_parents", "entropy", "effective_size"], summary) },
+    { part: "quantities", table: recordsTable(["quantity", "group", "name", "lower", "median", "upper"], quantities) },
+    { part: "coi", table: recordsTable(["coi", "draws", "fraction"], p.coi.distribution) },
+    { part: "genotype", table: recordsTable(["locus", "observed", "allele", "presence"], genotype) },
+    { part: "parent_sets", table: recordsTable(SET_COLUMNS, sets) },
+    { part: "parents", table: recordsTable(EDGE_COLUMNS, edges(p.parents)) },
+    { part: "children", table: recordsTable(EDGE_COLUMNS, edges(p.children)) },
+  ];
 }

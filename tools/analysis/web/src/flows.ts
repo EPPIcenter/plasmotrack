@@ -1,6 +1,7 @@
 // The functionals panel's flows, lags and spatial scale (U9, #87): /api/flows, /api/lags and /api/spatial shaped for
 // heatmaps, the net-flow bars, the lag histogram with its cutoff, and the spatial-scale table. No DOM here.
 
+import { intervalColumns, intervalFields, recordsTable, type NamedTable } from "./export";
 import type { Interval } from "./functionals";
 import { stratumLabel } from "./functionals";
 
@@ -174,4 +175,47 @@ export function relationLabel(relation: Relation, unit: string, parent: string):
 
 export function spatialRows(s: Spatial) {
   return s.shares.map((r) => ({ ...r, label: relationLabel(r.relation, s.unit, s.parent) }));
+}
+
+/** What the flows view has loaded, for its CSV export; `column` is the epi column the lags were requested with. */
+export interface FlowsLoaded {
+  flows: Flows | null;
+  lags: Lags | null;
+  column: string | null;
+  spatial: Spatial | null;
+}
+
+/** The view's numbers as one table per panel, under the payloads' field names, unrounded; panels not loaded are left
+ *  out. `column` names the epi column of a stratum row. In the reassignment table the overall row has an empty
+ *  column, as the trace panel's `stratum_column`, so it is not mistaken for the Infections with no value. What the
+ *  view exports as CSV. */
+export function flowsTables({ flows, lags, column, spatial }: FlowsLoaded): NamedTable[] {
+  const out: NamedTable[] = [];
+  if (flows) {
+    const c = flows.column;
+    out.push(
+      { part: "attribution", table: recordsTable(["column", "recipient", "source", "unobserved", "mass", "share"], flows.attribution.map((a) => ({ column: c, ...a }))) },
+      { part: "enrichment", table: recordsTable(["column", "source", "recipient", "expected_edges", "share", "candidates", "candidate_share", "enrichment"],
+        flows.enrichment.map((e) => ({ column: c, ...e }))) },
+      { part: "net_flow", table: recordsTable(["column", "min_infections", "value", "n", "out_edges", "in_edges", "net"],
+        flows.net_flow.strata.map((s) => ({ column: c, min_infections: flows.net_flow.min_infections, ...s }))) },
+    );
+  }
+  if (lags) {
+    out.push({ part: "lags", table: recordsTable(["x0", "x1", "mass"], lags.bins) });
+    const r = lags.reassign;
+    if (r) {
+      const fields = ["psi_edge", "psi_edge_moved", "mean_q", "mean_q_moved"] as const;
+      const row = (s: Reassigned, col: string | null) => ({
+        max_lag: r.max_lag, column: col, value: s.value, n: s.n, ...Object.assign({}, ...fields.map((f) => intervalFields(f, s[f]))),
+      });
+      out.push({ part: "reassignment", table: recordsTable(["max_lag", "column", "value", "n", ...fields.flatMap(intervalColumns)],
+        [row(r.overall, null), ...r.strata.map((s) => row(s, column))]) });
+    }
+  }
+  if (spatial) {
+    out.push({ part: "spatial", table: recordsTable(["unit", "parent", "max_lag", "relation", "mass", "share"],
+      spatial.shares.map((s) => ({ unit: spatial.unit, parent: spatial.parent, max_lag: spatial.max_lag, ...s }))) });
+  }
+  return out;
 }

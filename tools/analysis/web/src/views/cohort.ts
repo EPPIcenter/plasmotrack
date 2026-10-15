@@ -10,6 +10,7 @@ import { getJson } from "../api";
 import { el } from "../dom";
 import {
   calibrationCurve,
+  cohortTable,
   FACTORS,
   FIT_COLOURS,
   fitLabel,
@@ -291,7 +292,11 @@ const render: RenderView = (root, ctx) => {
   let timer = 0;
   const resize = new ResizeObserver(() => { clearTimeout(timer); timer = window.setTimeout(update, 150); });
   resize.observe(root);
-  return () => { resize.disconnect(); clearTimeout(timer); };
+  return {
+    cleanup: () => { resize.disconnect(); clearTimeout(timer); },
+    // CSV export: the selected fits with every fit-summary column.
+    table: () => (payload ? cohortTable(payload, rows) : null),
+  };
 };
 
 export default render;

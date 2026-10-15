@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { EDGE_COLOUR } from "./network";
 import {
   errorCounts,
+  errorsTable,
   FALSE_COLOUR,
   filterErrors,
   matchText,
@@ -112,5 +113,14 @@ describe("shownCount", () => {
     const edges = [edge("1", "3", 0.02, true), edge("1", "2", 0.6, false), edge("2", "3", 0.3, false)];
     expect(shownCount(edges, 0.5, true)).toBe(2);
     expect(shownCount(edges, 0.5, false)).toBe(1);
+  });
+});
+
+describe("errorsTable", () => {
+  it("writes the rows shown with the payload's fields, unrounded, and the edge set and threshold they were called at", () => {
+    const t = errorsTable({ source: "null", label: "null fit", threshold: 0.5 }, [row("missed", "3", "9")]);
+    expect(t.columns).toEqual(["source", "threshold", "kind", "parent", "child", "marginal", "confidence", "reverse_marginal", "reverse_true",
+      "lag", "parent_true_infection_time", "child_true_infection_time"]);
+    expect(t.rows).toEqual([["null", 0.5, "missed", "3", "9", 0.5, 0.5, 0, false, 1, null, null]]);
   });
 });

@@ -168,6 +168,8 @@ function tableLabel(table: HTMLTableElement, root: HTMLElement): string {
 
 /** The view's tables to export, each with a part name for its file (empty when there is one table). */
 export function viewTables(root: HTMLElement, hooks: ViewHooks): { part: string; table: DataTable }[] {
+  const named = hooks.tables?.();
+  if (named?.length) return named.length === 1 ? [{ part: "", table: named[0]!.table }] : named;
   const hooked = hooks.table?.();
   if (hooked) return [{ part: "", table: hooked }];
   const tables = [...root.querySelectorAll("table")].filter((t) => t.rows.length > 0);

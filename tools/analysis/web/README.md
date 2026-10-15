@@ -104,7 +104,14 @@ A view is one file plus one registry line. Other views' files and the shared fil
    return { cleanup: () => list.destroy(), table: () => (rows.length ? recordsTable(["child", "parent"], rows) : null) };
    ```
 
-   `src/registry.test.ts` checks every registered view either renders SVG, canvases or tables or has the hook.
+   A view with several tables returns `tables` instead, a list of `{ part, table }`, one CSV file each with the part
+   in its name. Every view that shows numbers in a table uses one of the hooks, so CSV holds the payload's numbers
+   unrounded under the payload's field names rather than the formatted text on screen: an interval field becomes
+   three columns (`psi_edge_mean`, `psi_edge_lower`, `psi_edge_upper`, from `intervalFields` in `src/export.ts`),
+   pooled rows have an empty `chain`. The builders live beside each view's logic and are tested there
+   (`functionalsTable`, `flowsTables`, `infectionTables`, `pairTables`, `errorsTable`, `samplerTables`, `cohortTable`).
+
+   `src/registry.test.ts` checks every registered view either renders SVG, canvases or tables or has a hook.
 
 4. Build elements with `el` and tables with `table` from `src/dom.ts`, and sort Infection ids with
    `compareInfectionIds` from `src/ids.ts`, rather than writing local copies. Put the view's own logic and types in the view file, or in a module beside it with its own `*.test.ts`. Call

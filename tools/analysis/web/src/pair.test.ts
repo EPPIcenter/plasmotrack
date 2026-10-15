@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { differingLoci, pairParams, readPair, type GenotypeRow } from "./pair";
+import { differingLoci, pairParams, pairTables, readPair, type GenotypeRow, type PairResponse } from "./pair";
 import { formatRoute, parseRoute } from "./router";
 
 const row = (locus: string, latentA: string, latentB: string): GenotypeRow => ({
@@ -46,5 +46,36 @@ describe("differing Loci", () => {
   it("says so when no Locus differs, and uses the singular for one", () => {
     expect(differingLoci([row("AS1", "01", "01")]).text).toBe("No Locus of 1 differs");
     expect(differingLoci([row("AS1", "01", "10"), row("AS2", "1", "1")]).text).toBe("1 of 2 Loci differs: AS1");
+  });
+});
+
+describe("pairTables", () => {
+  const time = { observation_time: 10, median: 5, lower: 2, upper: 8 };
+  const p: PairResponse = {
+    a: "3",
+    b: "9",
+    order: { chains: [{ chain: "A", iteration: [], before: [], draws: 4, before_count: 3, probability: 0.75, switches: 1 }], probability: 0.75 },
+    edges: { chains: [{ chain: "A", a_to_b: 0.6, b_to_a: 0.1 }], a_to_b: 0.6, b_to_a: 0.1 },
+    co_inclusion: [{ infection: "12", weight: 0.2, chains: [{ chain: "A", weight: 0.2 }] }],
+    genotypes: { rows: [row("L1", "10", "11")], differing: 1, truth: false },
+    times: { a: time, b: { ...time, observation_time: 30 }, lag: 20 },
+  };
+  const tables = Object.fromEntries(pairTables(p).map((t) => [t.part, t.table]));
+  const records = (part: string) => tables[part]!.rows.map((r) => Object.fromEntries(tables[part]!.columns.map((c, i) => [c, r[i]])));
+
+  it("writes each section unrounded under the payload's field names, the pooled rows with no Chain", () => {
+    expect(Object.keys(tables)).toEqual(["order", "edges", "co_inclusion", "genotypes", "times"]);
+    expect(records("order")).toEqual([
+      { a: "3", b: "9", chain: "A", draws: 4, before_count: 3, probability: 0.75, switches: 1 },
+      { a: "3", b: "9", chain: null, draws: 4, before_count: 3, probability: 0.75, switches: null },
+    ]);
+    expect(records("edges")[1]).toEqual({ a: "3", b: "9", chain: null, a_to_b: 0.6, b_to_a: 0.1 });
+    expect(records("co_inclusion").map((r) => [r.infection, r.chain, r.weight])).toEqual([["12", null, 0.2], ["12", "A", 0.2]]);
+    expect(tables.genotypes!.columns).not.toContain("true_a");
+    expect(records("genotypes")[0]).toMatchObject({ locus: "L1", latent_a: "10", latent_b: "11", differs: true });
+    expect(records("times")).toEqual([
+      { infection: "3", observation_time: 10, median: 5, lower: 2, upper: 8, lag: 20 },
+      { infection: "9", observation_time: 30, median: 5, lower: 2, upper: 8, lag: 20 },
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coiBars, density, heatmapCells, infectionParams, readInfection, setLabel, type GenotypeLocus } from "./infection";
+import { coiBars, density, heatmapCells, infectionParams, infectionTables, readInfection, setLabel, type GenotypeLocus, type InfectionResponse } from "./infection";
 import { formatRoute, parseRoute } from "./router";
 
 describe("infection URL state", () => {
@@ -92,5 +92,43 @@ describe("density", () => {
     const peak = curve.reduce((a, b) => (b.y > a.y ? b : a));
     expect(peak.x).toBeCloseTo(4, 6);
     expect(density([], 10)).toEqual([]);
+  });
+});
+
+describe("infectionTables", () => {
+  const quantity = { group: null, name: null, chains: [], lower: 1, median: 2, upper: 3 };
+  const set = { set_id: 7, members: ["3", "9_copy"], n_observed: 1, class: "observed_1_unobserved", weight: 0.625, rank: 1, cumulative_mass: 0.625, credible: true };
+  const card: InfectionResponse = {
+    infection: "9",
+    observation_time: 40,
+    quantities: { false_positives: quantity, false_negatives: quantity, duration: { ...quantity, group: "infections", name: "duration/9" }, infection_time: quantity },
+    coi: { chains: [], distribution: [{ coi: 2, draws: 3, fraction: 0.75 }] },
+    genotype: { loci: [{ locus: "L1", alleles: 2, observed: "10", presence: [0.9, 0.125] }] },
+    parent_sets: { level: 0.8, pooled: [{ ...set, chains: [] }], chains: [{ chain: "A", sets: [{ ...set, weight: 0.5 }] }] },
+    parents: [{ child: "9", parent: "3", unobserved: false, group: "edge", name: "9<-3", pooled: 0.6, spread: 0.1, ess: "NaN", chains: [{ chain: "A", mean: 0.55 }] }],
+    children: [],
+    summary: { q: 0.4, expected_observed_parents: 0.6, entropy: 0.7, effective_size: 2.0, chains: [{ chain: "A", q: 0.45, expected_observed_parents: 0.55, entropy: 0.6, effective_size: 1.8 }] },
+  };
+  const tables = Object.fromEntries(infectionTables(card).map((t) => [t.part, t.table]));
+  const records = (part: string) => tables[part]!.rows.map((r) => Object.fromEntries(tables[part]!.columns.map((c, i) => [c, r[i]])));
+
+  it("writes each section's numbers unrounded under the payload's field names, the pooled rows with no Chain", () => {
+    expect(Object.keys(tables)).toEqual(["summary", "quantities", "coi", "genotype", "parent_sets", "parents", "children"]);
+    expect(records("summary")).toEqual([
+      { infection: "9", chain: "A", q: 0.45, expected_observed_parents: 0.55, entropy: 0.6, effective_size: 1.8 },
+      { infection: "9", chain: null, q: 0.4, expected_observed_parents: 0.6, entropy: 0.7, effective_size: 2.0 },
+    ]);
+    expect(records("quantities")[2]).toEqual({ quantity: "duration", group: "infections", name: "duration/9", lower: 1, median: 2, upper: 3 });
+    expect(records("coi")).toEqual([{ coi: 2, draws: 3, fraction: 0.75 }]);
+    expect(records("genotype")).toEqual([
+      { locus: "L1", observed: "10", allele: 0, presence: 0.9 },
+      { locus: "L1", observed: "10", allele: 1, presence: 0.125 },
+    ]);
+    expect(records("parent_sets").map((r) => [r.chain, r.members, r.weight])).toEqual([[null, "3 9_copy", 0.625], ["A", "3 9_copy", 0.5]]);
+    expect(records("parents")).toEqual([
+      { child: "9", parent: "3", unobserved: false, chain: "A", mean: 0.55, spread: null, ess: null },
+      { child: "9", parent: "3", unobserved: false, chain: null, mean: 0.6, spread: 0.1, ess: NaN },
+    ]);
+    expect(records("children")).toEqual([]);
   });
 });

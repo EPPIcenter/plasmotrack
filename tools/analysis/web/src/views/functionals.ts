@@ -10,6 +10,7 @@ import {
   classLabel,
   compositionSegments,
   degreePoints,
+  functionalsTable,
   multiSourceRows,
   QUANTITIES,
   stackOrder,
@@ -147,6 +148,7 @@ const render: RenderView = (root, ctx) => {
   }
 
   let request = 0;
+  let shown: Functionals | null = null;
   function load() {
     const column = select.value || null;
     ctx.replaceParams(column ? { column } : {});
@@ -155,6 +157,7 @@ const render: RenderView = (root, ctx) => {
     getJson<Functionals>("/api/functionals", column ? { column } : {})
       .then((f) => {
         if (mine !== request) return;
+        shown = f;
         status.textContent = `${f.strata.length} ${f.strata.length === 1 ? "stratum" : "strata"}`;
         drawDegree(f);
         drawComposition(f);
@@ -178,6 +181,9 @@ const render: RenderView = (root, ctx) => {
     })
     .catch((e: Error) => (note.textContent = `Could not read the epi data: ${e.message}`))
     .finally(load);
+
+  // CSV export: the payload's numbers, unrounded, one row per stratum.
+  return { table: () => (shown ? functionalsTable(shown) : null) };
 };
 
 export default render;

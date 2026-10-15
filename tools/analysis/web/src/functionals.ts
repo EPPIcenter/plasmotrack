@@ -1,6 +1,7 @@
 // The functionals panel's data (U9): /api/functionals shaped for its dot-and-range chart, composition bars and
 // tables, and the trace parameters of a stratum's per-Draw functional. No DOM here.
 
+import { intervalColumns, intervalFields, recordsTable, type DataTable } from "./export";
 import type { Params } from "./router";
 
 /** A functional's mean over Draws and its 95% MCMC interval (type-7 quantiles over every Draw of every Chain). */
@@ -136,4 +137,26 @@ export function traceParams(column: string | null, value: string | null, functio
   const params: Params = { group: "functionals", name: functional, stratum_column: column ?? "" };
   if (column !== null && value !== null) params.stratum = value;
   return params;
+}
+
+/** /api/functionals as one table, a row per stratum, under the payload's field names: `column` and `value` name the
+ *  stratum (value null for the Infections with no value), intervals spread over `<field>_mean`, `_lower` and
+ *  `_upper`, the size range over `size_range_lower` and `_upper`, and each composition class `c` as `classes_<c>_...`.
+ *  Unrounded. What the view exports as CSV. */
+export function functionalsTable(f: Functionals): DataTable {
+  const intervals = ["psi_edge", "mean_q", ...f.classes.map((c) => `classes_${c}`), "multi_source_augmented", "multi_source_observed"];
+  const columns = ["column", "value", "n", "psi_map", "size_range_lower", "size_range_upper", ...intervals.flatMap(intervalColumns)];
+  return recordsTable(columns, f.strata.map((s) => ({
+    column: f.column,
+    value: s.value,
+    n: s.n,
+    psi_map: s.psi_map,
+    size_range_lower: s.size_range?.[0] ?? null,
+    size_range_upper: s.size_range?.[1] ?? null,
+    ...intervalFields("psi_edge", s.psi_edge),
+    ...intervalFields("mean_q", s.mean_q),
+    ...Object.assign({}, ...f.classes.map((c) => intervalFields(`classes_${c}`, s.classes[c]))),
+    ...intervalFields("multi_source_augmented", s.multi_source_augmented),
+    ...intervalFields("multi_source_observed", s.multi_source_observed),
+  })));
 }

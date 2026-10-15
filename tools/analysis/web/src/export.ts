@@ -12,6 +12,23 @@ export function recordsTable(columns: string[], records: readonly object[]): Dat
   return { columns, rows: records.map((r) => columns.map((c) => (r as Record<string, unknown>)[c])) };
 }
 
+/** A table and the name its file carries, for a view that exports several (see ViewHooks.tables). */
+export interface NamedTable {
+  part: string;
+  table: DataTable;
+}
+
+/** An interval's columns: `<field>_mean`, `<field>_lower`, `<field>_upper`. */
+export const intervalColumns = (field: string) => [`${field}_mean`, `${field}_lower`, `${field}_upper`];
+
+/** An interval field of a payload as its three columns' values, unrounded; nulls when the interval is missing. */
+export function intervalFields(
+  field: string,
+  i: { mean: number; lower: number; upper: number } | null | undefined,
+): Record<string, number | null> {
+  return { [`${field}_mean`]: i?.mean ?? null, [`${field}_lower`]: i?.lower ?? null, [`${field}_upper`]: i?.upper ?? null };
+}
+
 function csvCell(x: unknown): string {
   if (x === null || x === undefined) return "";
   if (typeof x === "number") return Number.isNaN(x) ? "NaN" : x === Infinity ? "Inf" : x === -Infinity ? "-Inf" : String(x);

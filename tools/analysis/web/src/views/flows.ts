@@ -12,6 +12,7 @@ import {
   cutoffDomain,
   ENRICHMENT_DOMAIN,
   enrichmentCells,
+  flowsTables,
   lagBars,
   movedSummary,
   netFlowBars,
@@ -202,6 +203,9 @@ const render: RenderView = (root, ctx) => {
       el("p", { className: "muted" }, s.max_lag === null ? "Every edge." : `Edges with lag at most ${fmt(s.max_lag, 1)}.`));
   }
 
+  // What has loaded, for the CSV export.
+  const loaded: Parameters<typeof flowsTables>[0] = { flows: null, lags: null, column: null, spatial: null };
+
   let flowsRequest = 0;
   function loadFlows() {
     keepParams();
@@ -210,6 +214,7 @@ const render: RenderView = (root, ctx) => {
     getJson<Flows>("/api/flows", { ...stratumParams(), min_infections: minimum.value || "1" })
       .then((f) => {
         if (mine !== flowsRequest) return;
+        loaded.flows = f;
         status.textContent = `${f.strata.length} ${f.strata.length === 1 ? "stratum" : "strata"}`;
         drawFlows(f);
       })
@@ -235,6 +240,7 @@ const render: RenderView = (root, ctx) => {
         }
         slider.disabled = !sliderOn.checked;
         cutoffText.textContent = cutoff() === null ? "" : fmt(Number(slider.value), 1);
+        Object.assign(loaded, { lags: l, column: params.column ?? null });
         drawLags(l);
       })
       .catch((e: Error) => lagPlot.replaceChildren(el("p", { className: "muted" }, `Could not load the lags: ${e.message}`)));
@@ -245,13 +251,18 @@ const render: RenderView = (root, ctx) => {
     keepParams();
     if (!unit.value || !parent.value) {
       spatial.replaceChildren(el("p", { className: "muted" }, "Name a unit column and the column it nests in."));
+      loaded.spatial = null;
       return;
     }
     const params: Params = { unit: unit.value, parent: parent.value };
     if (spatialLag.checked && cutoff() !== null) params.max_lag = slider.value;
     const mine = ++spatialRequest;
     getJson<Spatial>("/api/spatial", params)
-      .then((s) => mine === spatialRequest && drawSpatial(s))
+      .then((s) => {
+        if (mine !== spatialRequest) return;
+        loaded.spatial = s;
+        drawSpatial(s);
+      })
       .catch((e: Error) => spatial.replaceChildren(el("p", { className: "muted" }, `Could not load the spatial scale: ${e.message}`)));
   }
 
@@ -282,7 +293,11 @@ const render: RenderView = (root, ctx) => {
     .catch(() => undefined)
     .finally(() => (loadFlows(), loadLags(), loadSpatial()));
 
-  return () => clearTimeout(timer);
+  return {
+    cleanup: () => clearTimeout(timer),
+    // CSV export: each panel's numbers under the payloads' field names, one file per panel.
+    tables: () => flowsTables(loaded),
+  };
 };
 
 export default render;

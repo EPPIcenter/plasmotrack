@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calibrationCurve,
+  cohortTable,
   columnValues,
   fitLabel,
   identityPoints,
@@ -113,5 +114,16 @@ describe("nearestRow", () => {
   it("finds the point under a click within the radius", () => {
     expect(nearestRow(points, 28, 14, 6)).toBe(7);
     expect(nearestRow(points, 20, 30, 6)).toBeNull();
+  });
+});
+
+describe("cohortTable", () => {
+  it("writes the selected fits' rows with every fit-summary column, the fit label beside them", () => {
+    const t = cohortTable(payload, [2, 3]);
+    expect(t.columns).toEqual(["fit", ...payload.columns.map((c) => c.name)]);
+    expect(t.rows).toEqual([
+      ["partial", "a", "missing_50", "posterior", 0, 0.4, 0.4, 0.45, "partial/a.json"],
+      ["null", "a", "full", "null_prior", 0, null, 0.9, 0.45, null],
+    ]);
   });
 });
