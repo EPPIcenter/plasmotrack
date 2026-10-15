@@ -9,9 +9,19 @@
     pt-analysis summary analysis.json [--pairs A:B ...] [--show N]
                                                          the chain summary: ESS and R-hat per group, the order of
                                                          Infection pairs per Chain, and agreement on parents
-    pt-analysis serve analysis.json [--port 8765] [--no-browser]
+    pt-analysis summarize analysis.json [--out row.parquet] [--edges [PATH]]
+                                                         the fit-summary row of an Analysis (the 70 columns of
+                                                         simulation_fit_summary.rds), and its per-edge rows
+    pt-analysis cohort ROWS_DIR|GLOB ... --out cohort.parquet
+                                                         concatenate fit-summary rows, and their per-edge rows
+    pt-analysis manifests-from-rerun ROOT --inputs DIR --out DIR [--symptomatic-idp F] [--asymptomatic-idp F]
+                                                         one Analysis manifest per fit of the thesis-rerun layout
+                                                         ROOT/<model>/<sim>/chainN
+    pt-analysis serve analysis.json [more.json ...] [--port 8765] [--no-browser]
                                                          derive what is not current, then serve the analysis GUI
-                                                         on 127.0.0.1 and open it in the browser
+                                                         on 127.0.0.1 and open it in the browser; several
+                                                         Analyses of one input (or a comparison manifest) are
+                                                         compared, the first primary
 
 The summaries derive a Run's tables first when they are not current.
 """
@@ -20,7 +30,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from pt_analysis import functionals, summary
+from pt_analysis import cohort, fit_summary, functionals, rerun, summary
 from pt_analysis.analysis import Analysis, AnalysisError
 from pt_analysis.derive import analysis_dir, derive, derive_analysis
 from pt_analysis.store import BOTH_PHASES, Store
@@ -130,10 +140,41 @@ def summary_command(args):
     summary.print_summary(Analysis.open(args.manifest), pairs=pairs, show=args.show)
 
 
+def summarize_command(args):
+    analysis = Analysis.open(args.manifest)
+    row = fit_summary.summarize(analysis)
+    if args.out is None:
+        if args.edges is not None:
+            raise CommandError("--edges needs --out, or a path")
+        table(["column", "value"], [[k, "" if v is None else v] for k, v in row.items()])
+        return
+    out = Path(args.out)
+    fit_summary.write_row(row, out, analysis.path)
+    print(f"{out}: the fit summary of {analysis.label}")
+    if args.edges is not None:
+        edges = Path(args.edges) if args.edges else cohort.edges_path(out)
+        n = fit_summary.write_edges(analysis, edges)
+        print(f"{edges}: {n} per-edge rows")
+
+
+def cohort_command(args):
+    n = cohort.concatenate(args.rows, args.out)
+    edges = cohort.edges_path(args.out)
+    print(f"{args.out}: {n} fit-summary rows" + (f"; per-edge rows in {edges}" if edges.is_file() else ""))
+
+
+def rerun_command(args):
+    written = rerun.manifests_from_rerun(args.root, args.inputs, args.out, args.symptomatic_idp, args.asymptomatic_idp)
+    print(f"{args.out}: {len(written)} manifests")
+
+
 def serve_command(args):
     from pt_analysis.server import serve
 
-    serve(Analysis.open(args.manifest), port=args.port, open_browser=not args.no_browser)
+    from pt_analysis.compare import open_comparison
+
+    comparison = open_comparison(args.manifests)
+    serve(comparison.primary, port=args.port, open_browser=not args.no_browser, analyses=comparison.analyses)
 
 
 def main(argv=None):
@@ -165,15 +206,33 @@ def main(argv=None):
     p.add_argument("--pairs", nargs="*", default=[], help="Infection pairs A:B")
     p.add_argument("--show", type=int, default=15, help="Infections listed, least agreement first (default 15)")
     p.set_defaults(handler=summary_command)
-    p = sub.add_parser("serve", help="serve the analysis GUI over an Analysis")
+    p = sub.add_parser("summarize", help="write the fit-summary row of an Analysis")
     p.add_argument("manifest")
+    p.add_argument("--out", help="Parquet file for the row (default: print it)")
+    p.add_argument("--edges", nargs="?", const="", default=None,
+                   help="also write the per-edge rows (default path: the row file's stem + .edges.parquet)")
+    p.set_defaults(handler=summarize_command)
+    p = sub.add_parser("cohort", help="concatenate fit-summary rows into one Parquet file")
+    p.add_argument("rows", nargs="+", help="directories of row files, row files, or globs")
+    p.add_argument("--out", required=True, help="the cohort Parquet file")
+    p.set_defaults(handler=cohort_command)
+    p = sub.add_parser("manifests-from-rerun", help="write an Analysis manifest per fit of the thesis rerun")
+    p.add_argument("root", help="the rerun's results: ROOT/<model>/<sim>/chainN")
+    p.add_argument("--inputs", required=True, help="the inputs directory: <sim>_to_run.json.gz and <sim>.json.gz")
+    p.add_argument("--out", required=True, help="directory for the manifests, <out>/<model>/<sim>.json")
+    p.add_argument("--symptomatic-idp", help="default: symptomatic_idp.csv beside the inputs directory")
+    p.add_argument("--asymptomatic-idp", help="default: asymptomatic_idp.csv beside the inputs directory")
+    p.set_defaults(handler=rerun_command)
+    p = sub.add_parser("serve", help="serve the analysis GUI over an Analysis, or several of one input to compare")
+    p.add_argument("manifests", nargs="+", metavar="manifest",
+                   help="Analysis manifests, or a comparison manifest listing them; the first is primary")
     p.add_argument("--port", type=int, default=8765, help="port on 127.0.0.1 (default 8765; 0 picks a free one)")
     p.add_argument("--no-browser", action="store_true", help="do not open the browser")
     p.set_defaults(handler=serve_command)
     args = parser.parse_args(argv)
     try:
         args.handler(args)
-    except (AnalysisError, CommandError, summary.SummaryError) as e:
+    except (AnalysisError, CommandError, summary.SummaryError, cohort.CohortError, rerun.RerunError) as e:
         print(e, file=sys.stderr)
         return 1
     return 0

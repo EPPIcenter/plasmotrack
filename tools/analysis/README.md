@@ -41,7 +41,9 @@ An Analysis is a set of Runs of one input, described by a JSON manifest. Paths a
   "epi": "epi.csv",
   "pairwise_scores": "ibd.csv",
   "null_model": "../null/analysis.json",
-  "timings": "timings.json"
+  "timings": "timings.json",
+  "factors": {"run_key": "biological__fp0.05__sp0__r00.5__coi1__high__sim0__s0", "fit_type": "posterior", "...": "..."},
+  "cohort": "cohort.parquet"
 }
 ```
 
@@ -196,6 +198,9 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/infection?id=` | the infection card's panels for one Infection (below); 404 for an unknown id |
 | `GET /api/epi` | the epi data's key, columns with types, ids matching no Infection, Infections without a row |
 | `GET /api/functionals[?column=][&level=0.8]` | the functionals overall, or per stratum of an epi column |
+| `GET /api/flows[?column=][&min_infections=1]` | attribution, enrichment and net flow per stratum (below) |
+| `GET /api/lags[?max_lag=][&column=][&width=]` | the lag histogram of edge mass, the median fitted duration, and psi_edge and mean q with mass beyond `max_lag` reassigned (below) |
+| `GET /api/spatial?unit=&parent=[&max_lag=]` | shares of edge mass by where the source lives relative to the recipient (below) |
 
 | `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
 
@@ -242,6 +247,17 @@ less the coverage column.
 |---|---|
 | `GET /api/ranking` | realised truth, and per fit (posterior, null, IBD) its directed and undirected metrics and curve; 404 without truth |
 | `GET /api/parent-sets[?level=0.8]` | per fit its summary columns, and one row per Infection, `null_` columns for the null fit |
+| `GET /api/truth-network[?floor=0.01]` | the network view's truth overlay: how truth ids matched, and per edge set (posterior, null, IBD) every true edge and the false edges scoring at least `floor` |
+| `GET /api/errors[?source=posterior][&threshold=0.5]` | the error table of one edge set at a threshold (below); 404 without truth or when the manifest names no such source |
+
+The truth overlay and error table (`pt_analysis.truth_overlay`, #89) reuse `metrics`' truth, Edge marginals and
+pairwise scores. An edge set is the posterior, the null-model Analysis or the pairwise scores (IBD, undirected: a
+pair's score is the larger of its rows, and it is true when a true edge joins it either way). `match` reports the
+Analysis's Infections the truth file has no node for, and the simulated Infections the input does not observe. An
+edge is called when its score is at least the threshold: a true edge below it is `missed`, a false edge at or above
+it `false`, or `direction` when its reverse is the true edge. Rows rank by how confidently wrong they are (1 - score
+for a missed edge, the score otherwise; `confidence`), with the lag, the reverse's score and whether it is true, and
+both Infections' true infection times.
 
 The definitions follow the thesis pipeline's per-fit summary (`remote/R/final_analysis/R`), with weights pooled as in
 the rest of this package:
@@ -349,6 +365,27 @@ The per-Draw functionals are `psi_edge`, `mean_q`, `mean_<class>`, `mean_multi_s
 weights pooled over every Draw of every Chain, matching sets across Chains by their members, and have no interval.
 `pt_analysis.strata.stratum_series` gives a stratum's per-Draw functional per Chain, which the trace panel shows.
 
+### Flows, lags and spatial scale
+
+`pt_analysis.flows` (view `#/flows`, endpoints in `pt_analysis.endpoints.flows`) follows the manuscript's Zanzibar
+results. Everything is a function of the pooled Edge marginals Q[i, j] (summed over every Draw of every Chain, over
+the number of Draws) and q; sums of Q are expected edge counts. Strata are those above, the no-value stratum included.
+
+| Function | What it is |
+|---|---|
+| `attribution(analysis, column)` | per recipient stratum, its Infections' attributed parent mass (expected observed parents plus q) by source stratum and the unobserved source, as mass and share within the recipient |
+| `enrichment(analysis, column)` | per source x recipient cell: expected edges, share of all edge mass, candidate pairs from the input's `allowed_parents` and their share, and enrichment = share / candidate share (None without candidate pairs) |
+| `net_flow(analysis, column, min_infections=1)` | per stratum with at least `min_infections` Infections: expected out-edges and in-edges between different strata and their difference; and the number of strata hidden |
+| `lag_histogram(analysis, width=None)` | edge mass binned by lag, the child's minus the parent's input observation time; bins start at multiples of the width (default about 30 bins of 1, 2 or 5 x 10^k) |
+| `median_duration(analysis)` | median over Infections of each one's posterior mean `infection_duration` |
+| `reassign(analysis, max_lag, column=None)` | the mass of every edge with lag above `max_lag` moved to the unobserved source, Draw by Draw: moved mass and share, and psi_edge and mean q before and after with 95% intervals, overall and per stratum |
+| `spatial_scale(analysis, unit, parent, max_lag=None)` | edge mass and share with lag at most `max_lag` whose source is in the recipient's unit (`same_unit`), its parent unit only (`same_parent`), or elsewhere (`other`) |
+
+Reassigning lowers psi_edge by the moved mass over n and raises mean q by the same amount, the manuscript's
+accounting, so q then counts attributed mass and can exceed one for an Infection. Per stratum, psi_edge counts the
+stratum's Infections as sources and q as recipients, as above. A unit is known by its value and its parent unit's, so
+a unit name used in two parent units is two units; a missing value is `other`.
+
 ## Summarise a Run
 
 These read the derived tables, deriving them first when they are not current.
@@ -420,6 +457,90 @@ both Phases; every row carries its Window's Phase and Sampling-iteration range.
 - A type with more targets than the categorical palette's eight colours draws them as thin grey lines, named in the
   tooltip.
 
+## Fit summaries and the cohort (U7)
+
+```sh
+uv run pt-analysis summarize analysis.json [--out row.parquet] [--edges [PATH]]
+uv run pt-analysis cohort ROWS_DIR|GLOB ... --out cohort.parquet
+uv run pt-analysis manifests-from-rerun ROOT --inputs DIR --out DIR [--symptomatic-idp F] [--asymptomatic-idp F]
+```
+
+`summarize` writes one row per Analysis with exactly the 70 columns of the thesis pipeline's
+`simulation_fit_summary.rds`, in its order: character columns as strings, counts (`simulation_index`, `seed`,
+`n_true_cases`, `n_observed_cases` and the six `*_n_*` ranking counts) as int64, the rest double. Without `--out` it
+prints the row. `pt_analysis.fit_summary.SCHEMA` is the schema.
+
+- Simulation factors (`run_key` to `fit_type`) come from the manifest's optional `factors` object; null without it.
+- Truth, ranking and parent-set columns are those of the ranking panel (`metrics.fit_summary_metrics`); null
+  without a truth file, except the credible-collection sizes and top probability, which need no truth.
+- Functionals are per-Draw means over the Analysis's Infections, pooled over every Draw of every Chain: the estimate
+  is their mean and `_lower`/`_upper` their 2.5% and 97.5% type-7 quantiles. `estimated_average_outdegree` is
+  psi_edge, `estimated_unobserved_source_proportion` mean q; `mean_observed_only_probability`,
+  `mean_mixed_observed_unobserved_probability` and `mean_unobserved_only_probability` sum the composition classes
+  without the unobserved source, with it, and with no observed parent; entropy and effective parent sets are from
+  `infection_draws`. `mean_no_parent_probability` and its interval are 0: the empty set never occurs in a store.
+- Errors are estimate minus truth, with its absolute value and square.
+
+With `--edges`, `summarize` also writes the per-edge rows beside the row (`row.edges.parquet`, or the path given):
+`run_key`, `missingness_condition`, `fit_type`, `parent`, `child`, `score` (the pooled Edge marginal as the ranking
+scores it) and `truth`, one per ordered pair of Infections with a positive score or a true edge. Pairs neither
+scored nor true are left out; there are `directed_n_edge_universe` less these rows of them.
+
+`cohort` concatenates row files (a directory's `*.parquet`, files or globs; `*.edges.parquet` are not rows) into one
+file, adding a last column `manifest`, the summarised Analysis's manifest path relative to the cohort file (from the
+row file's metadata). Their per-edge files go into `cohort.edges.parquet`. A file whose columns are not the fit
+summary's is an error naming it.
+
+`manifests-from-rerun` reads the thesis rerun's layout, `ROOT/<model>/<sim>/chain<N>` with `<model>` one of `full`,
+`partial` and `null` and `<sim>` the simulation's path under the inputs directory, and writes
+`OUT/<model>/<sim>.json` per fit with at least one Chain store: the Chains, the input (`<sim>_to_run.json.gz`, or
+`<sim>_to_run_partially_obs.json.gz` for partial), the IDPs (default `symptomatic_idp.csv` and
+`asymptomatic_idp.csv` beside the inputs directory), the truth (`<sim>.json.gz`) and the factors parsed from `<sim>`
+as `parse_run_ids.R` does (`simple_` marks the simplified model; panels low, med and high have 5, 10 and 20 alleles
+per Locus). full is `missingness_condition` full and `fit_type` posterior, partial missing_50 and posterior, null
+full and null_prior. The full fit names the null fit of its simulation as its null-model Analysis.
+
+On the cluster, a SLURM array runs `summarize --out rows/<n>.parquet --edges` per manifest, then `cohort rows
+--out cohort.parquet` makes one file to pull to the laptop.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/cohort[?file=PATH][&bins=10]` | the manifest's `cohort` (or `file`, relative to the manifest): `columns` ({name, kind}), `data` by column, and `calibration`, per cohort row and Edge-marginal bin the per-edge count, true count and summed score; 404 without a cohort |
+| `POST /api/cohort/open?row=N[&file=PATH]` | serves row N's Analysis with `pt-analysis serve` on a free port (once per manifest) and returns its `url` |
+
+## Compare Analyses
+
+```sh
+uv run pt-analysis serve a.json b.json [more.json ...]
+uv run pt-analysis serve comparison.json          # {"analyses": ["a.json", "b.json"]}, paths relative to it
+```
+
+opens several Analyses of one input to answer whether build or setting X mixes better than Y (U5). Every Run of
+every Analysis must record the same `input` hash in its manifest's `input_sha256`; otherwise `serve` stops with
+`DifferentInputs`, naming each Analysis and the start of its hash. The first Analysis is primary: every view and
+endpoint above reads it, unchanged. Labels repeated between Analyses get ` (2)`, ` (3)` appended.
+
+The comparison view (`#/compare`) is the convergence table with one column group per Analysis (pooled ESS and split
+R-hat, sortable by any column, filtered by group and name), and a log-log scatter of per-quantity ESS of Analysis X
+against Y (selectors for X and Y; the dashed line is equal ESS). Hovering a dot names the quantity; clicking it or a
+table row shows its trace in both Analyses, each with a link to its full trace panel.
+
+**Timings.** An Analysis whose manifest has `timings`, in the shape of `mixing_benchmark.py`'s `timings.json` keyed by
+Chain label (`{"chain1": {"exit": 0, "seed": 1, "sampling_seconds": 812.4, "samples": 80}, ...}`), also gets ESS per
+second of sampling: pooled ESS over `sampling_seconds` summed over its Chains. An Analysis without timings, or with a
+Chain missing `sampling_seconds`, has no such column. The benchmark's own protocol counts instructions retired rather
+than seconds: put that count, measured by you, in the same `sampling_seconds` field and read the column as ESS per
+instruction retired.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/analyses` | `{input_sha256, analyses}`: per Analysis, primary first, label, primary, path, chains `[{chain, draws}]`, draws, sampling_seconds (null without timings) |
+| `GET /api/compare/convergence` | `{analyses, timed, rows}`: per quantity (group, name, in table order) and per Analysis `{ess, rhat}`, with `ess_per_second` for the Analyses in `timed` |
+
+`/api/trace` and `/api/range` take `analysis=LABEL` to read another open Analysis than the primary (404 for a label
+not open), and echo it. The comparison logic is `pt_analysis.compare` (`open_comparison`, `compare_convergence`,
+`sampling_seconds`).
+
 ## Use from Python
 
 ```python
@@ -464,6 +585,12 @@ metrics.rank(scores, truth_flags)                # Ranking of any scores: curve,
 metrics.parent_set_rows(analysis, truth, 0.8)    # [InfectionParentSets(infection, effective_size, credible_size,
                                                  #   covered, top_probability), ...]
 metrics.fit_summary_metrics(analysis, truth)     # {fit-summary column name: value} for the ranking and parent sets
+
+from pt_analysis import truth_overlay
+
+truth_overlay.match(analysis)                    # n_true_edges, unmatched_infections, unobserved_truth_infections
+truth_overlay.overlay(analysis, floor=0.01)      # {floor, truth, sources: [{source, label, directed, edges}]}
+truth_overlay.errors(analysis, "posterior", 0.5) # {source, ..., rows: [{kind, parent, child, marginal, ...}]}
 ```
 
 The benchmark scripts run in this environment:

@@ -12,7 +12,9 @@ Described by a JSON manifest the user writes or a loader generates:
       "epi": "epi.csv",                              optional: CSV keyed by Infection id, one row per Infection
       "pairwise_scores": "ibd.csv",                  optional: pairwise scores CSV (IBD), for the ranking baseline
       "null_model": "../null/analysis.json",         optional: the null-model Analysis of the same input
-      "timings": "timings.json"                      optional: a timings JSON file, or the object inline
+      "timings": "timings.json",                     optional: a timings JSON file, or the object inline
+      "factors": {"run_key": "...", ...},            optional: simulation factors for the fit summary (`fit_summary`)
+      "cohort": "cohort.parquet"                     optional: a cohort of fit summaries for the cohort view
     }
 
 Paths are resolved against the manifest's directory. Every Run directory must exist; the other files are named, not
@@ -43,6 +45,8 @@ class Analysis:
     null_model: Path | None = None
     timings: dict | None = None
     label: str = ""
+    factors: dict | None = None
+    cohort: Path | None = None
 
     @classmethod
     def open(cls, path):
@@ -76,4 +80,5 @@ class Analysis:
                    asymptomatic_idp=resolve("asymptomatic_idp", required=True), runs=runs,
                    truth=resolve("truth"), epi=resolve("epi"), pairwise_scores=resolve("pairwise_scores"),
                    null_model=resolve("null_model"), timings=timings,
-                   label=manifest.get("label") or base.name)
+                   label=manifest.get("label") or base.name, factors=manifest.get("factors"),
+                   cohort=resolve("cohort"))

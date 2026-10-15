@@ -8,11 +8,13 @@
 
 A functional of one stratum (U9, `pt_analysis.strata`) is group `functionals` with `stratum_column=C` (empty for every
 Infection) and `stratum=V` (left out for the Infections with no value of C); both are echoed in the response.
+
+With several Analyses open (U5), `analysis=LABEL` reads that Analysis instead of the primary one, and is echoed.
 """
 
 from starlette.routing import Route
 
-from pt_analysis.endpoints import error, json
+from pt_analysis.endpoints import UnknownAnalysis, error, json, requested_analysis
 from pt_analysis.traces import TraceError, UnknownQuantity, chain_traces, range_diagnostics
 
 
@@ -33,9 +35,10 @@ def stratum(request):
 
 def echo(request):
     params = request.query_params
+    out = {"analysis": params["analysis"]} if params.get("analysis") else {}
     if "stratum_column" not in params:
-        return {}
-    return {"stratum_column": params["stratum_column"], "stratum": params.get("stratum")}
+        return out
+    return {**out, "stratum_column": params["stratum_column"], "stratum": params.get("stratum")}
 
 
 def iteration(request, key):
@@ -52,8 +55,8 @@ async def trace(request):
     try:
         group, name = quantity(request)
         burn_in = request.query_params.get("burn_in", "false").lower() in ("1", "true", "yes")
-        traces, with_burn_in = chain_traces(request.app.state.analysis, group, name, burn_in, stratum(request))
-    except UnknownQuantity as e:
+        traces, with_burn_in = chain_traces(requested_analysis(request), group, name, burn_in, stratum(request))
+    except (UnknownQuantity, UnknownAnalysis) as e:
         return error(str(e), 404)
     except TraceError as e:
         return error(str(e))
@@ -65,8 +68,8 @@ async def draw_range(request):
     try:
         group, name = quantity(request)
         first, last = iteration(request, "first"), iteration(request, "last")
-        result = range_diagnostics(request.app.state.analysis, group, name, first, last, stratum(request))
-    except UnknownQuantity as e:
+        result = range_diagnostics(requested_analysis(request), group, name, first, last, stratum(request))
+    except (UnknownQuantity, UnknownAnalysis) as e:
         return error(str(e), 404)
     except TraceError as e:
         return error(str(e))

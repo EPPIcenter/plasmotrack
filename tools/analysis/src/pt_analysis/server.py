@@ -36,19 +36,23 @@ ENDPOINTS = [
 
     # #86 #87 U9 functionals panel
     "pt_analysis.endpoints.functionals",  # #86: epi columns, functionals overall and per stratum
+    "pt_analysis.endpoints.flows",  # #87: attribution, enrichment, net flow, lags, spatial scale
 
     # #88 U10 infection card
     "pt_analysis.endpoints.infection",  # U10: one Infection's posteriors, genotype, Parent sets and edges
 
     # #89 #90 U6 truth overlay, ranking
     "pt_analysis.endpoints.ranking",  # U6: ranking and parent-set metrics against truth
+    "pt_analysis.endpoints.truth",  # U6: truth overlay of the network view, error table
 
     # #91 U7 cohort view
+    "pt_analysis.endpoints.cohort",  # U7: cohort of fit summaries, calibration counts, opening a fit's Analysis
 
     # #92 U4 sampler panel
     "pt_analysis.endpoints.sampler",  # U4: acceptance, swaps, ladder, proposal variances, Run events
 
     # #94 U5 comparison of Analyses
+    "pt_analysis.endpoints.compare",  # U5: the open Analyses, their convergence side by side
 
 ]
 
@@ -58,9 +62,13 @@ def not_built(request):
                              "The API is at /api/.", status_code=404)
 
 
-def create_app(analysis, static_dir=STATIC_DIR):
-    """A Starlette app over `analysis`, deriving its tables first if they are not current."""
-    derive_analysis(analysis)
+def create_app(analysis, static_dir=STATIC_DIR, analyses=None):
+    """A Starlette app over `analysis`, deriving its tables first if they are not current. `analyses`, label ->
+    Analysis with `analysis` first, opens further Analyses of the same input for comparison (U5, `pt_analysis.compare`);
+    every endpoint reads `analysis`, the primary, unless it takes an `analysis` parameter."""
+    analyses = dict(analyses) if analyses else {analysis.label: analysis}
+    for other in analyses.values():
+        derive_analysis(other)
     routes = [route for module in ENDPOINTS for route in importlib.import_module(module).ROUTES]
     static_dir = Path(static_dir)
     if (static_dir / "index.html").is_file():
@@ -69,15 +77,16 @@ def create_app(analysis, static_dir=STATIC_DIR):
         routes.append(Route("/", not_built))
     app = Starlette(routes=routes, middleware=[Middleware(GZipMiddleware, minimum_size=1000)])
     app.state.analysis = analysis
+    app.state.analyses = analyses
     return app
 
 
-def serve(analysis, port=8765, open_browser=True, static_dir=STATIC_DIR):
-    """Derive what is not current, then serve `analysis` on 127.0.0.1 until interrupted, opening the browser once the
-    server listens unless `open_browser` is false."""
+def serve(analysis, port=8765, open_browser=True, static_dir=STATIC_DIR, analyses=None):
+    """Derive what is not current, then serve `analysis` (and `analyses`, as in `create_app`) on 127.0.0.1 until
+    interrupted, opening the browser once the server listens unless `open_browser` is false."""
     import uvicorn
 
-    app = create_app(analysis, static_dir)
+    app = create_app(analysis, static_dir, analyses)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
 
     def announce():
