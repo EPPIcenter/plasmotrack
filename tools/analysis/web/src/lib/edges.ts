@@ -1,6 +1,7 @@
 // The edge table's rows, and the table's sorting and filtering. No DOM here.
 
 import { num } from "./num";
+import { formatCount } from "./format";
 import type { DataTable } from "./export";
 import { compareInfectionIds } from "./ids";
 import type { Entity } from "./entity";
@@ -60,11 +61,12 @@ export function edgeRows(json: readonly EdgeJson[]): EdgeRow[] {
 function value(row: EdgeRow, key: Exclude<SortKey, "table" | "child" | "parent">): number | null {
   const colon = key.indexOf(":");
   if (colon < 0) {
-    const x = row[key as "pooled" | "spread" | "switches" | "ess"];
+    const x = key === "pooled" ? row.pooled : key === "spread" ? row.spread : key === "switches" ? row.switches : row.ess;
     return x === null || Number.isNaN(x) ? null : x;
   }
   const chain = row.chains[key.slice(colon + 1)];
-  return chain ? chain[key.slice(0, colon) as "mean" | "switches"] : null;
+  if (!chain) return null;
+  return key.startsWith("mean:") ? chain.mean : chain.switches;
 }
 
 /** A sorted copy. Rows without a value for the key go last in either direction; ties keep the table order. Ids sort
@@ -130,4 +132,14 @@ export function edgeLag(row: Pick<EdgeRow, "child" | "parent" | "unobserved">, t
 /** The edge's trace quantity in the convergence table: the edge's own, or the child's q for the unobserved source. */
 export function edgeQuantity(row: Pick<EdgeRow, "group" | "name">): Extract<Entity, { kind: "quantity" }> {
   return { kind: "quantity", group: row.group, name: row.name };
+}
+
+/** What the edge table lists (every edge with any weight in some Draw, split by whether the parent is an Infection or
+ *  the unobserved source) and how many of them the filters keep. */
+export function edgeTableSummary(all: readonly Pick<EdgeRow, "unobserved">[], shown: readonly unknown[]): string {
+  const unobserved = all.filter((r) => r.unobserved).length;
+  const split = `${formatCount(all.length - unobserved)} between Infections and ${formatCount(unobserved)} from the unobserved source`;
+  return shown.length === all.length
+    ? `All ${formatCount(all.length)} edges with any weight: ${split}`
+    : `${formatCount(shown.length)} of ${formatCount(all.length)} edges with any weight shown: the table lists ${split}`;
 }

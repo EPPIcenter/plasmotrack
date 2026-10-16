@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgeIndex, edgeLag, edgeQuantity, edgeRows, edgeStatsTable, filterEdges, sortEdges, type EdgeJson } from "./edges";
+import { edgeIndex, edgeLag, edgeTableSummary, edgeQuantity, edgeRows, edgeStatsTable, filterEdges, sortEdges, type EdgeJson } from "./edges";
 
 // A constructed Analysis of two Chains: 9<-1 disagrees between them (locked at 1 in A, absent in B); 9<-2 switches
 // often in both; 8<-1 is locked near 0 in both; 9<-9_copy is the unobserved source.
@@ -113,5 +113,14 @@ describe("one edge", () => {
   it("names its trace quantity: the edge's, or the child's q for the unobserved source", () => {
     expect(edgeQuantity(index.get("1", "9")!)).toEqual({ kind: "quantity", group: "edge", name: "9<-1" });
     expect(edgeQuantity(index.get("9_copy", "9")!)).toEqual({ kind: "quantity", group: "unobserved-source inclusion", name: "9" });
+  });
+});
+
+describe("edgeTableSummary", () => {
+  it("says what the table lists, split by parent kind, and how many rows the filters keep", () => {
+    expect(edgeTableSummary(rows, rows.slice(1, 3))).toBe(
+      "2 of 4 edges with any weight shown: the table lists 3 between Infections and 1 from the unobserved source");
+    expect(edgeTableSummary(rows, rows)).toBe(
+      "All 4 edges with any weight: 3 between Infections and 1 from the unobserved source");
   });
 });
