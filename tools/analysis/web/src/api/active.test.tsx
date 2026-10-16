@@ -32,6 +32,13 @@ describe("the Analysis switcher", () => {
     for (const r of own) expect(r, r.path).toEqual({ path: r.path, analysis: "replica" });
   });
 
+  it.each([["/errors", "/api/errors"], ["/ranking", "/api/ranking"], ["/parentsets", "/api/parent-sets"]])(
+    "makes the Accuracy workspace %s read the active Analysis", async (route, path) => {
+      const { fetch } = renderApp(`${route}?analysis=replica`, { "/api/analyses": fixture("compare-analyses") });
+      await waitFor(() => expect(requests(fetch).some((r) => r.path === path)).toBe(true));
+      for (const r of requests(fetch).filter((r) => !ACROSS.includes(r.path))) expect(r, r.path).toEqual({ path: r.path, analysis: "replica" });
+    });
+
   it("reads the primary Analysis without a choice", async () => {
     const { fetch } = renderApp("/overview");
     await screen.findByRole("region", { name: "Attention" }, { timeout: 4000 });

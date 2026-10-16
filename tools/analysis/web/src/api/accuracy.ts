@@ -1,34 +1,46 @@
-// The Accuracy workspaces' payloads: errors and the truth overlay (`/api/errors`, `/api/truth-network`), ranking
-// and parent sets (`/api/ranking`, `/api/parent-sets`), and the cohort (`/api/cohort`, `/api/cohort/open`).
+// The Accuracy workspaces' payloads: errors (`/api/errors`), ranking and parent sets (`/api/ranking`,
+// `/api/parent-sets`), each of the active Analysis (`analysis=`, see active.ts), and the cohort (`/api/cohort`,
+// `/api/cohort/open`), which is the manifest's. The truth overlay is `useTruthNetwork` in network.ts.
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { CohortPayload } from "../lib/cohort";
 import type { ParentSetsPayload } from "../lib/parentsets";
 import type { RankingPayload } from "../lib/ranking";
-import type { ErrorsPayload, TruthNetworkPayload } from "../lib/truth";
-import { ApiError, getJson } from "./client";
+import type { ErrorsPayload } from "../lib/truth";
+import { useActiveAnalysis } from "./active";
+import { getJson, scoped } from "./client";
 
-export const useErrors = (source: string, threshold: number) =>
-  useQuery({
-    queryKey: ["errors", source, threshold],
-    queryFn: () => getJson<ErrorsPayload>("/api/errors", { source, threshold: String(threshold) }),
+export const useErrors = (source: string, threshold: number) => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["errors", source, threshold, analysis],
+    queryFn: () => getJson<ErrorsPayload>("/api/errors", scoped({ source, threshold: String(threshold) }, analysis)),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
+    retry: false,
   });
+};
 
-export const useTruthNetwork = () =>
-  useQuery({ queryKey: ["truth-network"], queryFn: () => getJson<TruthNetworkPayload>("/api/truth-network"), staleTime: 60_000 });
+export const useRanking = () => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["ranking", analysis],
+    queryFn: () => getJson<RankingPayload>("/api/ranking", scoped({}, analysis)),
+    staleTime: 60_000,
+    retry: false,
+  });
+};
 
-export const useRanking = () =>
-  useQuery({ queryKey: ["ranking"], queryFn: () => getJson<RankingPayload>("/api/ranking"), staleTime: 60_000 });
-
-export const useParentSets = (level: number) =>
-  useQuery({
-    queryKey: ["parent-sets", level],
-    queryFn: () => getJson<ParentSetsPayload>("/api/parent-sets", { level: String(level) }),
+export const useParentSets = (level: number) => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["parent-sets", level, analysis],
+    queryFn: () => getJson<ParentSetsPayload>("/api/parent-sets", scoped({ level: String(level) }, analysis)),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
+    retry: false,
   });
+};
 
 /** The manifest's cohort, or the cohort `file` (relative to the manifest's directory). */
 export const useCohort = (file: string) =>
@@ -40,10 +52,5 @@ export const useCohort = (file: string) =>
   });
 
 /** Serve the Analysis of cohort row `row` and return its address. */
-export async function openCohortFit(row: number, file: string): Promise<{ url: string; manifest: string }> {
-  const query = new URLSearchParams({ row: String(row), ...(file ? { file } : {}) });
-  const response = await fetch(`/api/cohort/open?${query}`, { method: "POST" });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) throw new ApiError(body?.error ?? `${response.status} ${response.statusText}`, response.status);
-  return body;
-}
+export const openCohortFit = (row: number, file: string) =>
+  getJson<{ url: string; manifest: string }>("/api/cohort/open", { row: String(row), ...(file ? { file } : {}) }, { method: "POST" });

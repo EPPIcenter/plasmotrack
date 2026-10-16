@@ -34,9 +34,11 @@ export function apiUrl(path: string, params: Params = {}): string {
   return `${path}${query ? `?${query}` : ""}`;
 }
 
-export async function getJson<T>(path: string, params: Params = {}): Promise<T> {
+/** The JSON body of `path` with `params` (a GET unless `init` says otherwise); an ApiError with the backend's message
+ *  when the response is not OK. */
+export async function getJson<T>(path: string, params: Params = {}, init?: RequestInit): Promise<T> {
   const start = performance.now();
-  const response = await fetch(apiUrl(path, params));
+  const response = await (init ? fetch(apiUrl(path, params), init) : fetch(apiUrl(path, params)));
   const body = await response.json().catch(() => null);
   latency.record(performance.now() - start);
   if (!response.ok) throw new ApiError(body?.error ?? `${response.status} ${response.statusText}`, response.status);

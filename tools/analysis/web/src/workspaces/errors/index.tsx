@@ -8,7 +8,8 @@
 import * as Plot from "@observablehq/plot";
 import { useCallback, useMemo, useState } from "react";
 import { Group, Panel as Split, Separator } from "react-resizable-panels";
-import { useErrors, useTruthNetwork } from "../../api/accuracy";
+import { useErrors } from "../../api/accuracy";
+import { useTruthNetwork } from "../../api/network";
 import { useNetwork } from "../../api/network";
 import { useWorkspaceSearch, type SearchValues } from "../../app/search";
 import { useSelection } from "../../app/selection";
