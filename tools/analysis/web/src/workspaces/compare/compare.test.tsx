@@ -5,7 +5,12 @@ import { fixture, renderApp } from "../../test/render";
 
 // Two Analyses open side by side: the golden single-chain store as "single" (primary; timings with seconds and
 // instructions retired) and the replica-exchange store as "replica" (no timings). fixtures/compare-*.json.
-const TWO = { "/api/analyses": fixture("compare-analyses"), "/api/compare/convergence": fixture("compare-two") };
+const status = fixture<{ capabilities: object }>("status");
+const TWO = {
+  "/api/analyses": fixture("compare-analyses"),
+  "/api/compare/convergence": fixture("compare-two"),
+  "/api/status": { ...status, capabilities: { ...status.capabilities, analyses: 2 } },
+};
 
 const table = () => screen.findByRole("table", { name: "Convergence by Analysis" }, { timeout: 4000 });
 

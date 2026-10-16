@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useStatus, type Capabilities } from "../api/analysis";
 import { WorkspaceLink } from "../components/WorkspaceLink";
 import { formatCount } from "../lib/format";
-import { GROUPS, workspaces } from "./workspaces";
+import { available, GROUPS, workspaces } from "./workspaces";
 
 const NONE: Capabilities = { epi: false, truth: false, cohort: false, pairwise_scores: false, analyses: 1 };
 
@@ -17,7 +17,7 @@ export function Rail() {
   const { pathname } = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const caps = status?.capabilities ?? NONE;
-  const shown = workspaces.filter((w) => !w.when || w.when(caps));
+  const shown = workspaces.filter((w) => available(w, caps));
 
   return (
     <nav aria-label="Workspaces" className={`flex shrink-0 flex-col border-r border-line bg-surface ${collapsed ? "w-10" : "w-40"}`}>

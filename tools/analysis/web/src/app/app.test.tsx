@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../test/render";
+import { fixture, renderApp } from "../test/render";
 import { workspaces } from "./workspaces";
 
 describe("the shell", () => {
@@ -57,7 +57,22 @@ describe("the shell", () => {
     renderApp(`/${id}`);
     const main = await screen.findByRole("main", { name: "Workspace" });
     await waitFor(() => expect(main.textContent).not.toBe("Loading…"));
-    if (id !== "overview" && id !== "convergence") expect(await within(main).findByText(title)).toBeInTheDocument();
+    // Compare needs several Analyses; the golden fixtures have one, so its URL says so.
+    if (id !== "overview" && id !== "convergence")
+      await waitFor(() => expect(within(main).queryAllByText(new RegExp(`^${title}`)).length).toBeGreaterThan(0), { timeout: 4000 });
+  });
+
+  it.each([
+    ["errors", { truth: false }, /Errors needs the true transmission network, and the Analysis manifest names no truth file/, "/api/errors"],
+    ["flows", { epi: false }, /Flows needs epi data, and the Analysis manifest names no epi file/, "/api/flows"],
+    ["compare", {}, /Compare needs several Analyses/, "/api/compare/convergence"],
+  ])("says what the manifest lacks at the URL of a hidden workspace (%s), without asking for its data", async (id, caps, text, path) => {
+    const status = fixture<{ capabilities: object }>("status");
+    const { fetch } = renderApp(`/${id}`, { "/api/status": { ...status, capabilities: { ...status.capabilities, ...caps } } });
+    const main = await screen.findByRole("main", { name: "Workspace" });
+    expect(await within(main).findByText(text)).toBeInTheDocument();
+    expect(within(main).getByRole("link", { name: /Overview/ })).toBeInTheDocument();
+    expect(fetch.mock.calls.map(([u]) => new URL(String(u), "http://test").pathname)).not.toContain(path);
   });
 
   it("sends / to the Overview", async () => {

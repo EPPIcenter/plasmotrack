@@ -9,12 +9,15 @@ import {
   lazyRouteComponent,
   useLocation,
   useRouter,
+  type RouteComponent,
   type RouterHistory,
 } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { lazy, useEffect } from "react";
+import { useStatus } from "../api/analysis";
+import { WorkspaceLink } from "../components/WorkspaceLink";
 import { Shell } from "./Shell";
 import { parseSearch, stringifySearch } from "./search";
-import { workspaces } from "./workspaces";
+import { available, workspaces, type Workspace } from "./workspaces";
 
 /** The search parameters every route shares. Workspaces read their own with `useWorkspaceSearch`. */
 export interface GlobalSearch {
@@ -44,10 +47,32 @@ function NotFound() {
     <div className="p-6">
       <p className="font-semibold">No workspace at {pathname}</p>
       <p className="mt-1 text-muted">
-        Pick one in the rail, or go to the <a className="text-accent underline" href="/overview">Overview</a>.
+        Pick one in the rail, or go to the <WorkspaceLink to="overview">Overview</WorkspaceLink>.
       </p>
     </div>
   );
+}
+
+/** A workspace the Analysis may lack the inputs for: until the status says it has them, nothing of it loads (so it
+ *  asks the API for nothing); without them, a message saying what the manifest lacks. */
+function gated(w: Workspace): RouteComponent {
+  if (!w.needs) return lazyRouteComponent(w.load);
+  const Loaded = lazy(w.load);
+  const needs = w.needs;
+  return function Gate() {
+    const { data: status, error } = useStatus();
+    if (error) return <p className="p-3 text-axis text-critical-ink">Could not load the Analysis's status: {error.message}</p>;
+    if (!status) return <p className="p-3 text-axis text-muted">Loading…</p>;
+    if (available(w, status.capabilities)) return <Loaded />;
+    return (
+      <div className="p-6" role="status">
+        <p className="font-semibold">{w.title} needs {needs.missing}.</p>
+        <p className="mt-1 text-muted">
+          The rail leaves it out for this Analysis. Go to the <WorkspaceLink to="overview">Overview</WorkspaceLink>.
+        </p>
+      </div>
+    );
+  };
 }
 
 export const rootRoute = createRootRoute({ component: Shell, notFoundComponent: NotFound, validateSearch: asStrings });
@@ -59,7 +84,7 @@ const inspectRoute = createRoute({
   component: lazyRouteComponent(() => import("../inspector/InspectPage")),
 });
 const workspaceRoutes = workspaces.map((w) =>
-  createRoute({ getParentRoute: () => rootRoute, path: w.id, component: lazyRouteComponent(w.load) }),
+  createRoute({ getParentRoute: () => rootRoute, path: w.id, component: gated(w) }),
 );
 
 export const routeTree = rootRoute.addChildren([indexRoute, inspectRoute, ...workspaceRoutes]);
