@@ -8,6 +8,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { usePair } from "../../api/pairs";
 import { useTheme } from "../../app/theme";
 import { EntityLink } from "../../components/EntityLink";
+import { PanelState } from "../../components/Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
 import { differingLoci, type PairResponse } from "../../lib/pair";
 import { chainColour, chainScale } from "../../lib/palette";
@@ -249,8 +250,7 @@ function GenotypesSection({ p }: { p: PairResponse }) {
 
 export function PairView({ a, b, part = "all" }: { a: string; b: string; part?: PairPart }) {
   const { data: p, error, isLoading } = usePair(a, b);
-  if (error) return <p className="p-3 text-axis text-critical-ink">Could not load the pair: {error.message}</p>;
-  if (isLoading || !p) return <p className="p-3 text-axis text-muted">Loading {a}, {b}…</p>;
+  if (error || isLoading || !p) return <PanelState loading={isLoading} error={error} empty="Pick two different Infections." />;
   return (
     <div className="text-ui">
       {part !== "genotypes" && (

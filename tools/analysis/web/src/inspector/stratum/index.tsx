@@ -8,6 +8,7 @@ import { useFunctionals } from "../../api/functionals";
 import { useNetwork } from "../../api/network";
 import { useTheme } from "../../app/theme";
 import { EntityLink } from "../../components/EntityLink";
+import { PanelState } from "../../components/Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
 import { classLabel, classShade, functionalEntity, stackOrder, stratumLabel, stratumSummary } from "../../lib/functionals";
 import { formatProbability } from "../../lib/format";
@@ -33,8 +34,8 @@ export default function StratumInspector({ entity }: InspectorProps<"stratum">) 
   const { column, value } = entity;
   const label = stratumLabel(column, value);
   const { data: f, error, isLoading } = useFunctionals(column);
-  const { data: flows } = useFlows(column, 1);
-  const { data: network } = useNetwork();
+  const { data: flows, error: flowsError } = useFlows(column, 1);
+  const { data: network, error: networkError } = useNetwork();
   const { chart } = useTheme();
 
   const stratum = f?.strata.find((s) => s.value === value) ?? null;
@@ -72,8 +73,7 @@ export default function StratumInspector({ entity }: InspectorProps<"stratum">) 
     [segments],
   );
 
-  if (error) return <p className="p-3 text-axis text-critical-ink">Could not load the functionals by {column}: {error.message}</p>;
-  if (isLoading || !f) return <p className="p-3 text-axis text-muted">Pooling Parent sets by {column}…</p>;
+  if (error || isLoading || !f) return <PanelState loading={isLoading} error={error} />;
   if (!stratum || !rows) return <p className="p-3 text-axis text-muted">No Infection has {column} {value ?? "with no value"}.</p>;
 
   return (
@@ -133,6 +133,11 @@ export default function StratumInspector({ entity }: InspectorProps<"stratum">) 
         </table>
       </Section>
 
+      {flowsError && (
+        <Section title="Net flow">
+          <PanelState error={flowsError} />
+        </Section>
+      )}
       {net && (
         <Section title="Net flow" aside="expected edges, between strata">
           <dl className="grid grid-cols-3 gap-2 tabular-nums">
@@ -144,6 +149,7 @@ export default function StratumInspector({ entity }: InspectorProps<"stratum">) 
       )}
 
       <Section title="Infections" aside={network ? `${infections.length}, by observation time; q` : "…"}>
+        {networkError && <PanelState error={networkError} />}
         <ul aria-label="Infections in the stratum" className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-x-3 text-table tabular-nums">
           {infections.map((n) => (
             <li key={n.id} className="flex h-5 items-baseline justify-between gap-1">

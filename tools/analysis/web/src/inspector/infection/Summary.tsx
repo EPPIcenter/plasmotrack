@@ -8,6 +8,7 @@ import { useQuantities } from "../../api/convergence";
 import { useInfection } from "../../api/infection";
 import { useNetwork } from "../../api/network";
 import { EntityLink } from "../../components/EntityLink";
+import { PanelState } from "../../components/Panel";
 import { StatusChip } from "../../components/StatusChip";
 import { useTheme } from "../../app/theme";
 import { formatNumber, formatProbability } from "../../lib/format";
@@ -40,8 +41,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export default function Summary({ entity }: InspectorProps<"infection">) {
   const { data, error, isLoading } = useInfection(entity.id);
-  const { data: quantities } = useQuantities();
-  const { data: network } = useNetwork();
+  const { data: quantities, error: quantitiesError, isLoading: quantitiesLoading } = useQuantities();
+  const { data: network, error: networkError } = useNetwork();
   const chains = useChains();
   const { chart } = useTheme();
 
@@ -51,8 +52,7 @@ export default function Summary({ entity }: InspectorProps<"infection">) {
   );
   const epi = network?.nodes.find((n) => n.id === entity.id)?.epi ?? {};
 
-  if (error) return <p className="p-3 text-axis text-critical-ink">Could not load {entity.id}: {error.message}</p>;
-  if (isLoading || !data) return <p className="p-3 text-axis text-muted">Loading {entity.id}…</p>;
+  if (error || isLoading || !data) return <PanelState loading={isLoading} error={error} />;
 
   const s = data.summary;
   const time = data.quantities.infection_time;
@@ -160,8 +160,8 @@ export default function Summary({ entity }: InspectorProps<"infection">) {
       </Section>
 
       <Section title="Mixing">
-        {mixing.length === 0 ? (
-          <p className="text-muted">Loading the convergence table…</p>
+        {quantitiesError || quantitiesLoading || mixing.length === 0 ? (
+          <PanelState loading={quantitiesLoading} error={quantitiesError} empty="The convergence table has no quantity of this Infection." />
         ) : (
           <table className="w-full text-table tabular-nums">
             <thead className="text-ink-2">
@@ -184,6 +184,11 @@ export default function Summary({ entity }: InspectorProps<"infection">) {
         )}
       </Section>
 
+      {networkError && (
+        <Section title="Epi data">
+          <PanelState error={networkError} />
+        </Section>
+      )}
       {Object.keys(epi).length > 0 && (
         <Section title="Epi data">
           <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">

@@ -11,7 +11,8 @@ import { setBars } from "../../lib/infection";
 import type { InspectorProps } from "../registry";
 import { EdgeMarginals } from "./EdgeMarginals";
 import { ChainLegend, ProbabilityBar } from "./ProbabilityBar";
-import { TabSection, TabState } from "./TabSection";
+import { PanelState } from "../../components/Panel";
+import { TabSection } from "./TabSection";
 import { StatusChip } from "../../components/StatusChip";
 
 /** Sets shown; the rest are summed in one line. */
@@ -36,7 +37,7 @@ export default function Parents({ entity }: InspectorProps<"infection">) {
   const { data, error, isLoading } = useInfection(entity.id);
   const chains = useChains();
   const { chart } = useTheme();
-  if (error || isLoading || !data) return <TabState id={entity.id} error={error} />;
+  if (error || isLoading || !data) return <PanelState loading={isLoading} error={error} />;
   const level = data.parent_sets.level;
   const pooled = data.parent_sets.pooled;
   const { bars, rest } = setBars(pooled, entity.id, CAP);

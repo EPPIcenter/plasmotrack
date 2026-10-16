@@ -8,6 +8,7 @@ import { useNetwork, useTruthNetwork } from "../../api/network";
 import { useStatus } from "../../api/analysis";
 import { useTheme } from "../../app/theme";
 import { EntityLink } from "../../components/EntityLink";
+import { PanelState } from "../../components/Panel";
 import { QuantityTrace } from "../../components/QuantityTrace";
 import { StatusChip } from "../../components/StatusChip";
 import { WorkspaceLink } from "../../components/WorkspaceLink";
@@ -23,16 +24,15 @@ const marginal = (x: number | null | undefined) => (x === null || x === undefine
 export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
   const { parent, child } = entity;
   const { data, error, isLoading } = useEdges();
-  const { data: network } = useNetwork();
-  const { data: status } = useStatus();
-  const { data: overlay } = useTruthNetwork(Boolean(status?.capabilities.truth));
+  const { data: network, error: networkError } = useNetwork();
+  const { data: status, error: statusError } = useStatus();
+  const { data: overlay, error: overlayError } = useTruthNetwork(Boolean(status?.capabilities.truth));
   const { chart } = useTheme();
 
   const index = useMemo(() => edgeIndex(data?.rows ?? []), [data]);
   const times = useMemo(() => new Map((network?.nodes ?? []).map((n) => [n.id, n.observation_time])), [network]);
 
-  if (error) return <p className="p-3 text-axis text-critical-ink">Could not load the edge table: {error.message}</p>;
-  if (isLoading || !data) return <p className="p-3 text-axis text-muted">Loading…</p>;
+  if (error || isLoading || !data) return <PanelState loading={isLoading} error={error} />;
 
   const row = index.get(parent, child);
   const infection = (id: string) => <EntityLink entity={{ kind: "infection", id }} />;
@@ -83,6 +83,7 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
             ))}
           </tbody>
         </table>
+        {networkError && <PanelState error={networkError} />}
       </Section>
       {!row.unobserved && (
         <Section title="Related">
@@ -106,6 +107,7 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
               <WorkspaceLink to="network" search={{ ids: `${parent},${child}`, threshold: String(thresholdFor(row.pooled)) }}>Show in the Network →</WorkspaceLink>
             </Figure>
           </Figures>
+          {(statusError ?? overlayError) && <PanelState error={statusError ?? overlayError} />}
         </Section>
       )}
       <Section title="Trace per Chain">

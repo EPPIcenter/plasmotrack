@@ -14,7 +14,8 @@ import { num } from "../../lib/num";
 import { chainScale } from "../../lib/palette";
 import type { InspectorProps } from "../registry";
 import { ChainLegend } from "./ProbabilityBar";
-import { TabSection, TabState } from "./TabSection";
+import { PanelState } from "../../components/Panel";
+import { TabSection } from "./TabSection";
 
 const QUANTITIES: { key: keyof InfectionResponse["quantities"]; title: string; digits: number }[] = [
   { key: "false_positives", title: "Expected false positives", digits: 3 },
@@ -106,7 +107,7 @@ function Coi({ data, chains }: { data: InfectionResponse["coi"]; chains: string[
 export default function Traces({ entity }: InspectorProps<"infection">) {
   const { data, error, isLoading } = useInfection(entity.id);
   const chains = useChains();
-  if (error || isLoading || !data) return <TabState id={entity.id} error={error} />;
+  if (error || isLoading || !data) return <PanelState loading={isLoading} error={error} />;
   return (
     <>
       <TabSection

@@ -5,6 +5,7 @@ import { Tabs } from "radix-ui";
 import { Component, lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import { useSelection } from "../app/selection";
 import { useLinkTo } from "../app/search";
+import { PanelState } from "../components/Panel";
 import { entityLabel, formatEntity, type Entity, type EntityKind } from "../lib/entity";
 import { entities, type InspectorProps } from "./registry";
 
@@ -23,7 +24,7 @@ class Boundary extends Component<{ children: ReactNode; reset: string }, { error
     return props.reset !== state.reset ? { error: null, reset: props.reset } : null;
   }
   render() {
-    return this.state.error ? <p className="p-3 text-axis text-critical-ink">Could not show this: {this.state.error.message}</p> : this.props.children;
+    return this.state.error ? <PanelState error={this.state.error} /> : this.props.children;
   }
 }
 
@@ -74,7 +75,7 @@ export function Inspector({ entity, page = false }: { entity: Entity; page?: boo
         )}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <Boundary reset={`${key}/${current}`}>
-            <Suspense fallback={<p className="p-3 text-muted">Loading…</p>}>
+            <Suspense fallback={<PanelState loading />}>
               <View entity={entity} tab={current} />
             </Suspense>
           </Boundary>

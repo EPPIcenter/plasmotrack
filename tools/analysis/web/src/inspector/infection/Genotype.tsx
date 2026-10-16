@@ -12,7 +12,8 @@ import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFi
 import { differingLoci, heatmapCells, type GenotypeLocus } from "../../lib/infection";
 import type { ChartTheme } from "../../lib/palette";
 import type { InspectorProps } from "../registry";
-import { TabSection, TabState } from "./TabSection";
+import { PanelState } from "../../components/Panel";
+import { TabSection } from "./TabSection";
 
 const ROW = 13;
 /** The widest an Allele's cell gets, so a wide page keeps the cells near square. */
@@ -86,7 +87,7 @@ export default function Genotype({ entity }: InspectorProps<"infection">) {
   const onlyDiffering = search.loci === "differ";
   const loci = data?.genotype.loci ?? [];
   const differing = useMemo(() => differingLoci(loci), [loci]);
-  if (error || isLoading || !data) return <TabState id={entity.id} error={error} />;
+  if (error || isLoading || !data) return <PanelState loading={isLoading} error={error} />;
   const observed = loci.filter((l) => l.observed !== null).length;
   const shown = onlyDiffering ? differing : loci;
 
