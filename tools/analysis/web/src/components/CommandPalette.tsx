@@ -9,6 +9,7 @@ import { useNetwork } from "../api/network";
 import { readRecent, useSelection } from "../app/selection";
 import { useLinkTo } from "../app/search";
 import { workspaces } from "../app/workspaces";
+import { useOpenAsPage } from "../inspector/page";
 import { entityLabel, formatEntity, parseEntity, type Entity } from "../lib/entity";
 import { search, type SearchIndex, type SearchItem } from "../lib/search";
 
@@ -37,6 +38,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const index = useIndex(open);
   const { select } = useSelection();
   const { go } = useLinkTo();
+  const openAsPage = useOpenAsPage();
   const meta = useRef(false);
 
   const results = useMemo(() => search(query, index), [query, index]);
@@ -51,7 +53,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     close();
     if (r.workspace) go(r.workspace);
     else if (r.entity) {
-      if (asPage) go("inspect", { sel: formatEntity(r.entity), tab: undefined });
+      if (asPage) openAsPage({ sel: formatEntity(r.entity), tab: undefined });
       else select(r.entity);
     }
   };

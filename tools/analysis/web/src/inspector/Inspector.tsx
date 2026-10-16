@@ -4,9 +4,9 @@
 import { Tabs } from "radix-ui";
 import { Component, lazy, Suspense, type ReactNode } from "react";
 import { useSelection } from "../app/selection";
-import { useLinkTo } from "../app/search";
 import { PanelState } from "../components/Panel";
 import { entityLabel, formatEntity, type Entity } from "../lib/entity";
+import { useOpenAsPage } from "./page";
 import { entities } from "./registry";
 
 /** Each kind's module, loaded on first use. */
@@ -18,19 +18,19 @@ const views = {
   stratum: lazy(entities.stratum.load),
 };
 
-/** The entity's module at `tab`. */
-function View({ entity, tab }: { entity: Entity; tab: string }) {
+/** The entity's module at `tab`, in the drawer or (`page`) as the page. */
+export function View({ entity, tab, page = false }: { entity: Entity; tab: string; page?: boolean }) {
   switch (entity.kind) {
     case "infection":
-      return <views.infection entity={entity} tab={tab} />;
+      return <views.infection entity={entity} tab={tab} page={page} />;
     case "edge":
-      return <views.edge entity={entity} tab={tab} />;
+      return <views.edge entity={entity} tab={tab} page={page} />;
     case "pair":
-      return <views.pair entity={entity} tab={tab} />;
+      return <views.pair entity={entity} tab={tab} page={page} />;
     case "quantity":
-      return <views.quantity entity={entity} tab={tab} />;
+      return <views.quantity entity={entity} tab={tab} page={page} />;
     case "stratum":
-      return <views.stratum entity={entity} tab={tab} />;
+      return <views.stratum entity={entity} tab={tab} page={page} />;
   }
 }
 
@@ -39,7 +39,8 @@ interface BoundaryState {
   reset: string;
 }
 
-class Boundary extends Component<{ children: ReactNode; reset: string }, BoundaryState> {
+/** Shows a render error of the entity's module through PanelState; `reset` changing clears it. */
+export class Boundary extends Component<{ children: ReactNode; reset: string }, BoundaryState> {
   state: BoundaryState = { error: null, reset: this.props.reset };
   static getDerivedStateFromError(error: Error) {
     return { error };
@@ -52,14 +53,13 @@ class Boundary extends Component<{ children: ReactNode; reset: string }, Boundar
   }
 }
 
-export function Inspector({ entity, page = false }: { entity: Entity; page?: boolean }) {
+export function Inspector({ entity }: { entity: Entity }) {
   const { tab, setTab, select } = useSelection();
-  const { go } = useLinkTo();
+  const openAsPage = useOpenAsPage();
   const entry = entities[entity.kind];
   const current = entry.tabs.find((t) => t.id === tab)?.id ?? entry.tabs[0]?.id ?? "";
   const key = formatEntity(entity);
 
-  const openAsPage = () => go("inspect");
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-surface" aria-label={`Inspector: ${entry.title} ${entityLabel(entity)}`}>
@@ -69,16 +69,12 @@ export function Inspector({ entity, page = false }: { entity: Entity; page?: boo
           {entityLabel(entity)}
         </h2>
         <div className="ml-auto flex items-center gap-1">
-          {!page && (
-            <button type="button" onClick={openAsPage} className="h-6 rounded-[3px] px-1.5 text-axis text-ink-2 hover:bg-hover" title="Open as the workspace, full width">
-              Open as page ⤢
-            </button>
-          )}
-          {!page && (
-            <button type="button" onClick={() => select(null)} className="h-6 w-6 rounded-[3px] text-ink-2 hover:bg-hover" aria-label="Close the Inspector" title="Close">
-              ×
-            </button>
-          )}
+          <button type="button" onClick={() => openAsPage()} className="h-6 rounded-[3px] px-1.5 text-axis text-ink-2 hover:bg-hover" title="Open as the workspace, full width">
+            Open as page ⤢
+          </button>
+          <button type="button" onClick={() => select(null)} className="h-6 w-6 rounded-[3px] text-ink-2 hover:bg-hover" aria-label="Close the Inspector" title="Close">
+            ×
+          </button>
         </div>
       </header>
       <Tabs.Root value={current} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">

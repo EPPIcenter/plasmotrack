@@ -17,10 +17,10 @@ import { edgeIndex, edgeLag, edgeQuantity } from "../../lib/edges";
 import { thresholdFor } from "../../lib/network";
 import { chainColour } from "../../lib/palette";
 import { edgeTruth } from "../../lib/truth";
-import { ChainLabel, Figure, Figures, Section } from "../layout";
+import { ChainLabel, Figure, Figures, Section, Sections } from "../layout";
 import type { InspectorProps } from "../registry";
 
-export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
+export default function EdgeInspector({ entity, page }: InspectorProps<"edge">) {
   const { parent, child } = entity;
   const { data, error, isLoading } = useEdges();
   const { data: network, error: networkError } = useNetwork();
@@ -52,7 +52,7 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
   const truth = row.unobserved ? null : edgeTruth(overlay?.sources.find((s) => s.source === "posterior"), parent, child);
   const lag = edgeLag(row, times);
   return (
-    <div className="text-ui">
+    <Sections page={page}>
       <Section title={row.unobserved ? "Edge from the unobserved source" : "Edge marginal"}>
         {row.unobserved && (
           <p className="mb-1 text-axis text-muted">The unobserved source ({parent}, {child}'s Latent parent): this edge's marginal is q of {infection(child)}.</p>
@@ -114,6 +114,6 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
           <QuantityTrace key={`${row.group}/${row.name}`} entity={edgeQuantity(row)} height={180} compact />
         </div>
       </Section>
-    </div>
+    </Sections>
   );
 }

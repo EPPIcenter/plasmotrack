@@ -3,6 +3,17 @@
 
 import type { ReactNode } from "react";
 
+/** An entity's sections: one under another in the Inspector, in responsive columns as the page. */
+export function Sections({ page = false, children }: { page?: boolean; children: ReactNode }) {
+  return page ? (
+    <div data-layout="columns" className="grid grid-cols-[repeat(auto-fill,minmax(420px,1fr))] items-start text-ui [&>section]:border-r">
+      {children}
+    </div>
+  ) : (
+    <div className="text-ui">{children}</div>
+  );
+}
+
 export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
     <section className="border-b border-line px-3 py-2" aria-label={title}>
