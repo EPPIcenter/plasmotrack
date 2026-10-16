@@ -139,7 +139,9 @@ tables are rewritten when any of those changes.
 `convergence.parquet` has columns group, name, chain, ess, rhat: for every quantity, one row per Chain (`chain` is
 the Run's label) with that Chain's ESS, then a pooled row (`chain` null) with the multi-chain ESS and split R-hat over
 the Chains with Draws. `rhat` is null on Chain rows. ESS and R-hat are null for a quantity that is constant, or
-constant up to rounding, and below 4 Draws; split R-hat also needs 2 Chains.
+constant up to rounding (max - min <= 1e-9 * max(1, max |v|) over every Chain's values, `diagnostics.ROUNDING`; the web
+app's `isConstant` is the same rule), and below 4 Draws; split R-hat also needs 2 Chains. Every ESS and R-hat the
+server reports (`/api/range`, the Overview, Compare) comes from this table or from `diagnostics`.
 
 | group | name | quantity per Draw |
 |---|---|---|
@@ -216,7 +218,8 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/spatial?unit=&parent=[&max_lag=]` | shares of edge mass by where the source lives relative to the recipient (below) |
 
 | `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
-| `GET /api/pairs[?min=0.1&max=0.9][&disagree=D][&edge_min=0][&limit=200]` | the pairs worth a look: pooled P(A before B) in [min, max], or Chains differing by at least `disagree`, with an Edge marginal of at least `edge_min` either way; per pair its order per Chain, switches, spread and both pooled Edge marginals, larger marginal first; `total` counts them all (`pt_analysis.pairs`) |
+| `GET /api/pairs[?min=0.1&max=0.9][&disagree=D][&edge_min=0][&limit=200]` | the pairs worth a look: pooled P(A before B) in [min, max], or Chains differing by at least `disagree`, with an Edge marginal of at least `edge_min` either way; per pair its order per Chain, switches, spread, both pooled Edge marginals and `differing_loci` (Loci where the pooled Latent genotype modes differ, as `/api/pair` counts them), larger marginal first; `total` counts them all (`pt_analysis.pairs`) |
+| `GET /api/series?q=GROUP:NAME[&q=...][&points=N]` | up to 200 quantities' sampling-Draw values per Chain, each `q` split at its first `:`, in request order, binned to `points` means when given; `chains` null for an unknown or malformed quantity: the convergence table's sparklines (`pt_analysis.endpoints.series`) |
 | `GET /api/edge-series?edges=child<-parent,...[&points=N]` | up to 500 edges' weights per Draw per Chain (0 at a Draw without the edge), binned to `points` means when given: the edge table's sparklines (`pt_analysis.edge_series`) |
 
 A quantity is a group and name of the convergence table, or a functional of one stratum: group `functionals`,
@@ -277,7 +280,8 @@ pairwise scores. An edge set is the posterior, the null-model Analysis or the pa
 pair's score is the larger of its rows, and it is true when a true edge joins it either way). `match` reports the
 Analysis's Infections the truth file has no node for, and the simulated Infections the input does not observe. An
 edge is called when its score is at least the threshold: a true edge below it is `missed`, a false edge at or above
-it `false`, or `direction` when its reverse is the true edge. Rows rank by how confidently wrong they are (1 - score
+it `false`, or `direction` when its reverse is the true edge. A true edge missed while its false reverse is called
+is one error, the reverse's `direction` row, with no `missed` row of its own. Rows rank by how confidently wrong they are (1 - score
 for a missed edge, the score otherwise; `confidence`), with the lag, the reverse's score and whether it is true, and
 both Infections' true infection times.
 
@@ -326,7 +330,9 @@ The pair Inspector (`?sel=pair:A,B`) shows why two Infections sit in one order. 
   per Chain and pooled.
 - `genotypes`: per Locus in the input's order, Observed A and B from the input (null where unobserved), each Latent
   posterior mode and its agreement pooled over Chains from `genotype_mode`, whether the modes differ, and with a
-  truth file in the manifest the true Latent genotypes (`flat_latent_genotype`); the count of differing Loci.
+  truth file in the manifest the true Latent genotypes (`flat_latent_genotype`; `truth` is false and the columns are
+  left out when the truth gives neither Infection one, as a truth made for real data does); the count of differing
+  Loci.
 - `times`: for each, the observation time and the posterior infection time, observation time minus the median and
   the 97.5% and 2.5% quantiles (R type 7) of `infection_duration` over all Draws (`times.infection_times`, as the
   network view and the infection card take it); the lag, B's observation time minus A's.

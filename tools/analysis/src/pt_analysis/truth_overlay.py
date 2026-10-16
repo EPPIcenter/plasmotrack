@@ -8,7 +8,8 @@ is true when a true edge joins it either way. Scores, truth and pooling are `pt_
 
 The overlay draws every true edge with its score and the false edges scoring at least a floor. The error table calls
 an edge at a threshold: a true edge scoring below it is missed, a false edge scoring at or above it is a false edge,
-or a direction error when its reverse is true. Rows rank by how confidently wrong they are: 1 - score for a missed
+or a direction error when its reverse is true. A true edge missed because its false reverse is called is one error,
+the direction error, so it has no missed row. Rows rank by how confidently wrong they are: 1 - score for a missed
 edge, the score for a false one.
 """
 
@@ -108,7 +109,8 @@ def overlay(analysis, floor=DEFAULT_FLOOR):
 def errors(analysis, source="posterior", threshold=DEFAULT_THRESHOLD):
     """{source, label, directed, threshold, truth, sources, rows}: the error rows of one edge set at `threshold`, each
     {kind, parent, child, marginal, reverse_true, reverse_marginal, lag, confidence, parent_true_infection_time,
-    child_true_infection_time}, most confidently wrong first.
+    child_true_infection_time}, most confidently wrong first. A true p->c below `threshold` whose reverse c->p is
+    called and false is counted once, as c->p's direction row; p->c has no missed row.
     Raises UnknownSource for an edge set the Analysis does not have. Needs a truth file."""
     if source not in SOURCES:
         raise UnknownSource(f"source is one of {', '.join(SOURCES)}, not '{source}'")
@@ -120,6 +122,8 @@ def errors(analysis, source="posterior", threshold=DEFAULT_THRESHOLD):
     rows = []
     for r in _edges(edge_set, ids, truth.edges, observed):
         if r["true"] and r["marginal"] < threshold:
+            if r["reverse_true"] is False and r["reverse_marginal"] >= threshold:
+                continue  # the called reverse is a direction error; one error, its row
             rows.append({"kind": "missed", **r, "confidence": 1 - r["marginal"]})
         elif not r["true"] and r["marginal"] >= threshold:
             rows.append({"kind": "direction" if r["reverse_true"] else "false", **r, "confidence": r["marginal"]})

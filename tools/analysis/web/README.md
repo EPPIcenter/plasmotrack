@@ -236,7 +236,14 @@ A new kind also needs its URL form in `src/lib/entity.ts` (`parseEntity`, `forma
 An endpoint is a module in `src/pt_analysis/endpoints/<name>.py` exporting `ROUTES`, and its line under its use
 case's comment in `ENDPOINTS` in `src/pt_analysis/server.py`, with pytest tests. Change no existing endpoint's
 payload without updating every consumer. The app's own endpoints are `/api/status` and `/api/overview`
-(`endpoints/overview.py`); with a truth file, `/api/status` adds `attention.errors`. `/api/infections`
+(`endpoints/overview.py`); with a truth file, `/api/status` adds `attention.errors`. `/api/series?q=GROUP:NAME&q=...
+&points=N` (`endpoints/series.py`) gives any quantities' sampling-Draw values per Chain, binned as `/api/edge-series`
+bins them, for sparklines of visible rows: `{chains, points, series: [{group, name, chains: [[value...] per Chain] |
+null}]}`, at most 200 `q`, null for an unknown quantity. `/api/overview` has
+`set_disagreement` (the ten Infections with the largest total variation distance between two Chains' Parent-set
+weights: `{infection, tvd, top, p_top}`, `top` the pooled MAP set's observed parents) and `edge_counts`
+(`{between_infections, from_unobserved_source}`: every edge with weight, as `/api/edges` lists them; `/api/network`
+lists only edges between Infections at or above its `floor`, default 0.01). `/api/infections`
 (`endpoints/infections.py`) is the Infections workspace's table.
 
 ## JSON conventions

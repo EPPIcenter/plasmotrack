@@ -58,6 +58,8 @@ ENDPOINTS = {
     "pairs": "/api/pairs?min=0&max=1",
     "edge-series": "/api/edge-series?edges=1%3C-1_copy,2%3C-1,2%3C-2_copy,3%3C-1,3%3C-2,3%3C-3_copy&points=40",
     "cohort": "/api/cohort",
+    "series": "/api/series?q=log+posterior%3Alog+posterior&q=functionals%3Amean_q&q=edge%3A3%3C-1"
+              "&q=unobserved-source+inclusion%3A3&q=infection+duration%3A2&q=edge%3A9%3C-1&points=40",
 }
 
 # The cohort's fits: (fit_type, missingness_condition), each a copy of the golden Analysis with these factors.

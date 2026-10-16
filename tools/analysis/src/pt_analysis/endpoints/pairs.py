@@ -3,13 +3,14 @@
     GET /api/pairs[?min=0.1&max=0.9&disagree=D&edge_min=0&limit=200]
         {chains, min, max, disagree, edge_min, limit, total,
          rows: [{a, b, draws, probability, switches, spread, chains: [{chain, draws, probability, switches}],
-                 a_to_b, b_to_a}]}
+                 a_to_b, b_to_a, differing_loci}]}
     GET /api/edge-series?edges=child<-parent,...[&points=N]
         {chains, points, series: [{child, parent, chains: [[weight per Draw, or per run of Draws] per Chain]}]}
 
 `/api/pairs` lists pairs whose pooled P(A before B) lies in [min, max], or whose Chains differ by at least `disagree`
 (left out: no pair for disagreement alone), and whose larger Edge marginal is at least `edge_min`; `total` counts
-them all, `rows` holds the first `limit`; the list is remembered until a Chain closes another Window. See
+them all, `rows` holds the first `limit`, each with `differing_loci`, the Loci where A's and B's pooled Latent genotype
+modes differ (as `/api/pair`'s `genotypes.differing`); the list is remembered until a Chain closes another Window. See
 `pt_analysis.pairs`. `/api/edge-series` gives at most 500 edges' weights per Draw, binned to `points` means per Chain
 when given; see `pt_analysis.edge_series`. Both read the Analysis named by `analysis=` (the primary without it).
 """

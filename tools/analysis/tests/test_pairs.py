@@ -6,6 +6,7 @@ from starlette.testclient import TestClient
 from test_pair import swap_1_and_2
 
 from pt_analysis.edge_series import edge_series
+from pt_analysis.pair import genotype_rows
 from pt_analysis.pairs import uncertain_pairs
 from pt_analysis.server import create_app
 
@@ -37,6 +38,15 @@ def test_a_pair_whose_order_flips_is_listed_with_its_order_per_chain_and_both_ed
     # Edge 1 -> 2 (2's parent 1) has pooled marginal 0.0029 in the golden edge table; 2 -> 1 has no row.
     assert row["a_to_b"] == pytest.approx(0.002910808444662265)
     assert row["b_to_a"] == 0
+
+
+def test_each_listed_pair_counts_the_loci_where_its_latent_modes_differ_as_the_pair_inspector_does(golden_analysis):
+    # Infections 1 and 2 have Latent modes 00001000 and 00010000 at AS1 and agree at AS11.
+    swap_1_and_2(golden_analysis)
+    [row] = uncertain_pairs(golden_analysis)["rows"]
+    assert row["differing_loci"] == 1
+    assert row["differing_loci"] == genotype_rows(golden_analysis, row["a"], row["b"])["differing"]
+    assert client_of(golden_analysis).get("/api/pairs").json()["rows"][0]["differing_loci"] == 1
 
 
 def test_a_pair_outside_the_band_is_listed_when_its_chains_disagree(golden_analysis):

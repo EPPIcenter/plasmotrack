@@ -29,9 +29,7 @@
     "latent_b": "00001000",
     "locus": "AS1",
     "observed_a": "00001000",
-    "observed_b": "00001000",
-    "true_a": null,
-    "true_b": null
+    "observed_b": "00001000"
    },
    {
     "agreement_a": 1.0,
@@ -41,12 +39,10 @@
     "latent_b": "000000010000",
     "locus": "AS11",
     "observed_a": "000000010000",
-    "observed_b": null,
-    "true_a": null,
-    "true_b": null
+    "observed_b": null
    }
   ],
-  "truth": true
+  "truth": false
  },
  "order": {
   "chains": [

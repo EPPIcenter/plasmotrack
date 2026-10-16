@@ -67,24 +67,39 @@ def test_a_false_edge_whose_reverse_is_true_is_a_direction_error(tmp_path, store
     analysis = open_analysis(tmp_path, stores, edges=[("3", "1"), ("2", "3")])
     got = truth_overlay.errors(analysis, "posterior", threshold=0.5)
     rows = got["rows"]
-    # Confidence of being wrong: 3->1 missed at 0 (1.0), 2->3 missed at 0.00296 (0.997), 1->3 called at 0.834.
-    assert key(rows) == [("missed", "3", "1"), ("missed", "2", "3"), ("direction", "1", "3")]
-    direction = rows[2]
+    # Confidence of being wrong: 2->3 missed at 0.00296 (0.997), 1->3 called at 0.834. The true 3->1, missed at 0,
+    # is the same error as the called 1->3, so it is one direction row, not a missed row too.
+    assert key(rows) == [("missed", "2", "3"), ("direction", "1", "3")]
+    direction = rows[1]
     assert direction["marginal"] == pytest.approx(P13, abs=1e-4)
     assert direction["reverse_true"] is True
     assert direction["reverse_marginal"] == 0.0
     assert direction["lag"] == pytest.approx(LAG[("1", "3")])
-    assert rows[0]["reverse_marginal"] == pytest.approx(P13, abs=1e-4)
     assert (got["source"], got["directed"], got["threshold"]) == ("posterior", True, 0.5)
+
+
+def test_a_missed_edge_whose_called_reverse_is_also_true_stays_missed(tmp_path, stores):  # noqa: F811
+    analysis = open_analysis(tmp_path, stores, edges=[("3", "1"), ("1", "3")])
+    rows = truth_overlay.errors(analysis, "posterior", threshold=0.5)["rows"]
+    # 1->3 is called and true, so not an error; 3->1 (0) is missed on its own.
+    assert key(rows) == [("missed", "3", "1")]
+    assert rows[0]["reverse_marginal"] == pytest.approx(P13, abs=1e-4)
+
+
+def test_a_missed_edge_whose_reverse_is_below_the_threshold_stays_missed(tmp_path, stores):  # noqa: F811
+    analysis = open_analysis(tmp_path, stores, edges=[("3", "1")])
+    rows = truth_overlay.errors(analysis, "posterior", threshold=0.9)["rows"]
+    # 1->3 (0.834) is not called at 0.9, so 3->1 is missed and there is no direction error.
+    assert key(rows) == [("missed", "3", "1")]
 
 
 def test_false_edges_rank_by_marginal_descending_and_below_the_threshold_are_not_errors(tmp_path, stores):  # noqa: F811
     analysis = open_analysis(tmp_path, stores, edges=[("2", "1")])
     rows = truth_overlay.errors(analysis, "posterior", threshold=0.0029)["rows"]
-    # 2->1 (0) missed; then the called edges by marginal: 1->3 0.834, 2->3 0.00296, and 1->2 0.00291, a direction
-    # error as 2->1 is true. 3->1 and 3->2, at 0, are not called.
-    assert key(rows) == [("missed", "2", "1"), ("false", "1", "3"), ("false", "2", "3"), ("direction", "1", "2")]
-    assert [r["reverse_true"] for r in rows] == [False, False, False, True]
+    # The called edges by marginal: 1->3 0.834, 2->3 0.00296, and 1->2 0.00291, a direction error as 2->1 is true
+    # (2->1, at 0, has no missed row of its own). 3->1 and 3->2, at 0, are not called.
+    assert key(rows) == [("false", "1", "3"), ("false", "2", "3"), ("direction", "1", "2")]
+    assert [r["reverse_true"] for r in rows] == [False, False, True]
 
 
 def test_pairwise_scores_are_undirected_so_no_direction_errors(tmp_path, with_baselines):
