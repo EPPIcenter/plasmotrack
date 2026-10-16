@@ -87,10 +87,10 @@ export default function ConvergenceWorkspace() {
       },
       { id: "ess", header: "ESS", title: "Multi-chain effective sample size", value: (q) => q.ess, numeric: true, width: 80, cell: (q) => <StatusChip kind="ess" value={q.ess} compact /> },
       { id: "rhat", header: "R-hat", title: "Split R-hat over the Chains", value: (q) => q.rhat, numeric: true, width: 80, descFirst: true, cell: (q) => <StatusChip kind="rhat" value={q.rhat} compact /> },
+      { id: "series", header: "Per Draw", title: "The quantity per Draw, one line per Chain (binned means past 40 Draws)", value: () => null, sortable: false, width: 104, cell: (q) => <QuantitySparkline q={q} /> },
       ...chains.map(
         (c): Column<Quantity> => ({ id: `ess:${c}`, header: `ESS ${c}`, title: `${c}'s own ESS`, value: (q) => q.chains[c] ?? null, numeric: true, width: 96, cell: (q) => <StatusChip kind="ess" value={q.chains[c] ?? null} compact /> }),
       ),
-      { id: "series", header: "Per Draw", title: "The quantity per Draw, one line per Chain (binned means past 40 Draws)", value: () => null, sortable: false, width: 104, cell: (q) => <QuantitySparkline q={q} /> },
     ],
     [chains],
   );
