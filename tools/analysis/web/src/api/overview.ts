@@ -22,6 +22,11 @@ export interface Overview {
   worst: { group: string; name: string; ess: number | null; rhat: number | null }[];
   edge_spread: { parent: string; child: string; pooled: number; spread: number; switches: number; chains: Record<string, number> }[];
   disagreement: { infection: string; top: string; p_top: number; p_unobserved_only: number; spread: number }[];
+  /** The Infections whose Parent-set distributions differ most between Chains: `tvd` the largest total variation
+   *  distance between two Chains' set weights, `top` the pooled MAP set's observed parents, `p_top` its weight. */
+  set_disagreement: { infection: string; tvd: number; top: string[]; p_top: number }[];
+  /** The edge table's rows (every edge with any weight) by whether the parent is an Infection. */
+  edge_counts: { between_infections: number; from_unobserved_source: number };
   band: [number, number];
   samplers: { chain: string; type: string; rate: number; rate_min: number | null; rate_max: number | null }[];
   events: NotableEvent[];

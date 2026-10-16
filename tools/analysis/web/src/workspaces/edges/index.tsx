@@ -1,6 +1,8 @@
 // Edges: one row per (child, parent) with the pooled Edge marginal, each Chain's mean, the between-Chain spread, the
 // switch count, ESS, lag and a sparkline of the marginal per Draw per Chain; filtered by child, parent, the network's
-// multi-selection and the unobserved source; the clicked row's per-Chain trace in a split panel beside the table.
+// multi-selection and the unobserved source; the clicked row's per-Chain trace in a split panel beside the table, and
+// the hovered row's weight per Draw above it. The table lists every edge with any weight (`/api/edges`), from the
+// unobserved source too; the Network loads only edges between Infections at or above its floor.
 //
 // URL: ?child=&parent=&unobserved=0&all=1&sort=<column>&desc=1&e=<child><-<parent>   (`all=1`: ignore the selection)
 // Sorted by spread, largest first, until a column is chosen: the edges the Chains disagree on lead.
@@ -9,6 +11,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Group, Panel as Split, Separator } from "react-resizable-panels";
 import { useEdgeSeries, useEdges } from "../../api/edges";
 import { useNetwork } from "../../api/network";
+import { useHovered } from "../../app/hover";
 import { useMultiSelection } from "../../app/selection";
 import { useWorkspaceSearch, type SearchValues } from "../../app/search";
 import { useTheme } from "../../app/theme";
@@ -18,9 +21,11 @@ import { Panel, PanelState } from "../../components/Panel";
 import { QuantityTrace } from "../../components/QuantityTrace";
 import { Sparkline } from "../../components/Sparkline";
 import { StatusChip } from "../../components/StatusChip";
-import { edgeLag, edgeQuantity, edgeStatsTable, filterEdges, type EdgeRow } from "../../lib/edges";
+import { edgeLag, edgeQuantity, edgeStatsTable, edgeTableSummary, filterEdges, type EdgeRow } from "../../lib/edges";
 import type { Entity } from "../../lib/entity";
+import { formatFixed, formatProbability } from "../../lib/format";
 import { chainColour } from "../../lib/palette";
+import { HoveredEdge } from "./HoveredEdge";
 
 interface EdgesSearch {
   child: string;
@@ -45,9 +50,6 @@ const parse = (s: SearchValues): EdgesSearch => ({
 export const edgeKeyOf = (r: Pick<EdgeRow, "child" | "parent">) => `${r.child}<-${r.parent}`;
 export const edgeEntity = (r: Pick<EdgeRow, "child" | "parent">): Extract<Entity, { kind: "edge" }> => ({ kind: "edge", parent: r.parent, child: r.child });
 
-/** A marginal to three decimals; "–" where there is none. */
-export const marginal = (x: number | null | undefined) => (x === null || x === undefined || Number.isNaN(x) ? "–" : x.toFixed(3));
-
 /** The parent of an edge: an Infection link, or the unobserved source. */
 export function ParentCell({ row }: { row: Pick<EdgeRow, "parent" | "unobserved"> }) {
   return row.unobserved ? (
@@ -69,7 +71,8 @@ export function EdgeSparkline({ row, width = 88 }: { row: Pick<EdgeRow, "child" 
 export default function EdgesWorkspace() {
   const [search, set] = useWorkspaceSearch(parse);
   const { data, error, isLoading } = useEdges();
-  const { data: network } = useNetwork();
+  // Observation times for the lag column.
+  const { data: network, error: networkError } = useNetwork();
   const multi = useMultiSelection();
   const chains = useMemo(() => data?.chains ?? [], [data]);
   // The filter boxes keep their own text, so typing never waits on the URL; the URL follows each keystroke.
@@ -88,20 +91,23 @@ export default function EdgesWorkspace() {
     () => [
       { id: "child", header: "Child", title: "The Infection whose parents these are", value: (r) => r.child, width: 90, cell: (r) => <EntityLink entity={{ kind: "infection", id: r.child }} className="no-underline" /> },
       { id: "parent", header: "Parent", title: "An observed parent, or the unobserved source (the child's Latent parent)", value: (r) => r.parent, width: 120, cell: (r) => <ParentCell row={r} /> },
-      { id: "pooled", header: "Pooled", title: "Edge marginal: the mean over every Draw of every Chain", value: (r) => r.pooled, numeric: true, width: 70, descFirst: true, cell: (r) => marginal(r.pooled) },
+      { id: "pooled", header: "Pooled", title: "Edge marginal: the mean over every Draw of every Chain", value: (r) => r.pooled, numeric: true, width: 70, descFirst: true, cell: (r) => formatProbability(r.pooled) },
       ...chains.map(
-        (c): Column<EdgeRow> => ({ id: `mean:${c}`, header: `Mean ${c}`, title: `${c}'s mean over its Draws`, value: (r) => r.chains[c]?.mean ?? null, numeric: true, width: 108, descFirst: true, cell: (r) => <span className="text-ink-2">{marginal(r.chains[c]?.mean)}</span> }),
+        (c): Column<EdgeRow> => ({ id: `mean:${c}`, header: `Mean ${c}`, title: `${c}'s mean over its Draws`, value: (r) => r.chains[c]?.mean ?? null, numeric: true, width: 108, descFirst: true, cell: (r) => <span className="text-ink-2">{formatProbability(r.chains[c]?.mean)}</span> }),
       ),
-      { id: "spread", header: "Spread", title: "Largest minus smallest Chain mean; a Chain without the edge counts as 0", value: (r) => r.spread, numeric: true, width: 70, descFirst: true, cell: (r) => marginal(r.spread) },
+      { id: "spread", header: "Spread", title: "Largest minus smallest Chain mean; a Chain without the edge counts as 0", value: (r) => r.spread, numeric: true, width: 70, descFirst: true, cell: (r) => formatProbability(r.spread) },
       { id: "switches", header: "Switches", title: "Adjacent Draws at which the marginal crossed one half, summed over Chains", value: (r) => r.switches, numeric: true, width: 86, descFirst: true },
       { id: "ess", header: "ESS", title: "Multi-chain effective sample size", value: (r) => r.ess, numeric: true, width: 64, cell: (r) => <StatusChip kind="ess" value={r.ess} compact /> },
-      { id: "lag", header: "Lag", title: "The child's observation time minus the parent's", value: (r) => edgeLag(r, times), numeric: true, width: 64, cell: (r) => <span className="text-ink-2">{fixed1(edgeLag(r, times))}</span> },
+      { id: "lag", header: "Lag", title: "The child's observation time minus the parent's", value: (r) => edgeLag(r, times), numeric: true, width: 64, cell: (r) => <span className="text-ink-2">{formatFixed(edgeLag(r, times), 1)}</span> },
       { id: "series", header: "Per Draw", title: "The edge's weight per Draw, one line per Chain, on [0, 1]", value: () => null, sortable: false, width: 104, cell: (r) => <EdgeSparkline row={r} /> },
     ],
     [chains, times],
   );
 
   const traced = useMemo(() => (search.e ? all.find((r) => edgeKeyOf(r) === search.e) ?? null : null), [all, search.e]);
+  const byKey = useMemo(() => new Map(all.map((r) => [edgeKeyOf(r), r])), [all]);
+  const hoveredEntity = useHovered();
+  const hovered = hoveredEntity?.kind === "edge" ? byKey.get(edgeKeyOf(hoveredEntity)) ?? null : null;
   const onSortingChange = useCallback((s: SortingState) => set({ sort: s[0]?.id, desc: s[0]?.desc ? "1" : undefined }), [set]);
   const input = "h-5 w-24 rounded-[3px] border border-line bg-surface px-1.5 text-axis";
 
@@ -112,7 +118,7 @@ export default function EdgesWorkspace() {
           <Panel
             className="flex-1"
             title="Edges"
-            description={data ? `${shown.length.toLocaleString()} of ${all.length.toLocaleString()} edges` : undefined}
+            bodyClassName="flex flex-col"
             data={() => (data ? edgeStatsTable(shown, chains) : null)}
             exportParams={{ ...(child ? { child } : {}), ...(parent ? { parent } : {}) }}
             actions={
@@ -137,17 +143,24 @@ export default function EdgesWorkspace() {
             {error || isLoading ? (
               <PanelState loading={isLoading} error={error} />
             ) : (
-              <DataTable
-                label="Edge table"
-                rows={shown}
-                columns={columns}
-                getRowId={edgeKeyOf}
-                sorting={search.sorting}
-                onSortingChange={onSortingChange}
-                onRowClick={(r) => set({ e: edgeKeyOf(r) })}
-                activeRowId={search.e}
-                emptyText="No edge matches the filters"
-              />
+              <>
+                <p className="shrink-0 border-b border-line px-2 py-0.5 text-axis text-ink-2">{edgeTableSummary(all, shown)}</p>
+                <PanelState error={networkError} />
+                <div className="relative min-h-0 flex-1">
+                  <DataTable
+                    label="Edge table"
+                    rows={shown}
+                    columns={columns}
+                    getRowId={edgeKeyOf}
+                    sorting={search.sorting}
+                    onSortingChange={onSortingChange}
+                    onRowClick={(r) => set({ e: edgeKeyOf(r) })}
+                    hoverEntity={edgeEntity}
+                    activeRowId={search.e}
+                    emptyText="No edge matches the filters"
+                  />
+                </div>
+              </>
             )}
           </Panel>
         </Split>
@@ -161,6 +174,7 @@ export default function EdgesWorkspace() {
             exportName={traced ? `trace ${traced.name}` : "trace"}
             actions={traced && <EntityLink entity={edgeEntity(traced)} className="text-axis">Inspect</EntityLink>}
           >
+            {hovered && edgeKeyOf(hovered) !== search.e && <HoveredEdge row={hovered} chains={chains} />}
             {traced ? (
               <QuantityTrace key={edgeKeyOf(traced)} entity={edgeQuantity(traced)} height={220} />
             ) : (
@@ -172,5 +186,3 @@ export default function EdgesWorkspace() {
     </div>
   );
 }
-
-const fixed1 = (x: number | null) => (x === null ? "–" : x.toFixed(1));

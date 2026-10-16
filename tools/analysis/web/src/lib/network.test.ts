@@ -17,6 +17,11 @@ import {
   stratumPayload,
   thresholdFor,
   timelineLayout,
+  arcControl,
+  edgeColouring,
+  isolatedNodes,
+  networkSummary,
+  parseNetworkSearch,
   type NetworkEdge,
   type NetworkNode,
   type NetworkPayload,
@@ -354,5 +359,84 @@ describe("the edges beside the graph", () => {
   it("are only those touching the selected Infections when some are selected", () => {
     expect(listedEdges(edges, atLeast(0.1), new Set(["2"])).map((e) => `${e.parent}>${e.child}`)).toEqual(["2>3"]);
     expect(listedEdges(edges, atLeast(0.1), new Set()).length).toBe(3);
+  });
+});
+
+describe("the Network's URL", () => {
+  it("reads every parameter, falling back on unknown values", () => {
+    expect(parseNetworkSearch({})).toEqual({
+      threshold: null, layout: "force", order: "q", truth: false, source: "posterior", edgeColour: "marginal", isolated: false,
+    });
+    expect(parseNetworkSearch({ threshold: "0.25", layout: "timeline", order: "lanes", truth: "1", source: "ibd", edge_colour: "ess", isolated: "1" })).toEqual({
+      threshold: 0.25, layout: "timeline", order: "lanes", truth: true, source: "ibd", edgeColour: "ess", isolated: true,
+    });
+    expect(parseNetworkSearch({ threshold: "7", layout: "circle", edge_colour: "rainbow" })).toMatchObject({ threshold: 1, layout: "force", edgeColour: "marginal" });
+    expect(parseNetworkSearch({ threshold: "x" }).threshold).toBeNull();
+  });
+});
+
+describe("isolated Infections", () => {
+  it("are those without a shown edge, except the ones kept (selected or inspected)", () => {
+    const shown = [{ parent: "1", child: "3" }];
+    expect([...isolatedNodes(["1", "2", "3", "4"], shown, new Set())]).toEqual(["2", "4"]);
+    expect([...isolatedNodes(["1", "2", "3", "4"], shown, new Set(["4"]))]).toEqual(["2"]);
+    expect(isolatedNodes(["1"], [], new Set()).size).toBe(1);
+  });
+});
+
+describe("edge colours", () => {
+  const metrics = new Map([
+    ["3<-1", { spread: 0, ess: 250 }],
+    ["3<-2", { spread: 0.6, ess: 50 }],
+    ["4<-2", { spread: 0.25, ess: 12 }],
+    ["5<-2", { spread: null, ess: null }],
+  ]);
+  const get = (key: string) => metrics.get(key);
+
+  it("run the marginal along the edge ramp from 0 to 1", () => {
+    const { colour, legend } = edgeColouring("marginal", get, LIGHT);
+    expect(colour({ key: "3<-1", marginal: 0 })).toBe(LIGHT.edgeRamp[0]);
+    expect(colour({ key: "3<-1", marginal: 1 })).toBe(LIGHT.edgeRamp[LIGHT.edgeRamp.length - 1]);
+    expect(legend).toMatchObject({ kind: "ramp", lower: "0", upper: "1" });
+  });
+
+  it("run the between-Chain spread along the edge ramp, saturating at 0.5; no value in the no-value colour", () => {
+    const { colour, legend } = edgeColouring("spread", get, LIGHT);
+    expect(colour({ key: "3<-1", marginal: 0.5 })).toBe(LIGHT.edgeRamp[0]);
+    expect(colour({ key: "3<-2", marginal: 0.5 })).toBe(LIGHT.edgeRamp[LIGHT.edgeRamp.length - 1]);
+    expect(colour({ key: "5<-2", marginal: 0.5 })).toBe(LIGHT.noValue);
+    expect(colour({ key: "9<-9", marginal: 0.5 })).toBe(LIGHT.noValue);
+    expect(legend).toMatchObject({ kind: "ramp", lower: "0, Chains agree", upper: "≥ 0.5, Chains disagree" });
+  });
+
+  it("give ESS its status levels, low ESS critical", () => {
+    const { colour, legend } = edgeColouring("ess", get, DARK);
+    expect(colour({ key: "3<-1", marginal: 0.5 })).toBe(DARK.status.good);
+    expect(colour({ key: "3<-2", marginal: 0.5 })).toBe(DARK.status.warning);
+    expect(colour({ key: "4<-2", marginal: 0.5 })).toBe(DARK.status.critical);
+    expect(colour({ key: "5<-2", marginal: 0.5 })).toBe(DARK.noValue);
+    expect(legend.kind === "levels" && legend.items.map((i) => [i.level, i.label])).toEqual([
+      ["critical", "under 20"], ["warning", "20 to 100"], ["ok", "100 or more"], ["none", "no ESS (constant)"],
+    ]);
+  });
+});
+
+describe("the Network's counts", () => {
+  it("say what the payload holds, what shows at the threshold, and how many Infections are hidden", () => {
+    expect(networkSummary({ shown: 42, total: 4191, floor: 0.01, threshold: 0.3, infections: 167, hidden: 120, stratum: "" })).toBe(
+      "42 of the 4,191 edges between Infections at or above 0.01 show at ≥ 0.300; 47 of 167 Infections drawn, 120 without a shown edge hidden",
+    );
+    expect(networkSummary({ shown: 1, total: 1, floor: 0.01, threshold: 0.1, infections: 2, hidden: 0, stratum: " in district North" })).toBe(
+      "1 of the 1 edges between Infections at or above 0.01 show at ≥ 0.100; 2 Infections in district North",
+    );
+  });
+});
+
+describe("timeline arcs", () => {
+  it("bend a forward edge upward on screen (y grows down) by the curvature times its length", () => {
+    // Left to right, 100 px: the control point sits 30 px above the midpoint.
+    expect(arcControl({ x: 0, y: 50 }, { x: 100, y: 50 }, 0.3)).toEqual({ x: 50, y: 20 });
+    // Right to left bends the other way.
+    expect(arcControl({ x: 100, y: 50 }, { x: 0, y: 50 }, 0.3)).toEqual({ x: 50, y: 80 });
   });
 });

@@ -48,3 +48,12 @@ export function overviewTables(o: Pick<Overview, "groups" | "headline">): NamedT
     },
   ];
 }
+
+/** The mixing row at `y` pixels from the top of a strip whose rows of `rowHeight` start at `top`; null outside them. */
+export function rowAt(y: number, rows: { top: number; rowHeight: number; n: number }): number | null {
+  const k = Math.floor((y - rows.top) / rows.rowHeight);
+  return k >= 0 && k < rows.n ? k : null;
+}
+
+/** A Parent set by its observed parents, `{1, 7}`; a set without one is the unobserved source's alone. */
+export const parentSetLabel = (top: readonly string[]) => (top.length ? `{${top.join(", ")}}` : "unobserved only");

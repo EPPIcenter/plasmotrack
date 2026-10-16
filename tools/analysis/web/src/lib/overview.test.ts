@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { headlineComposition, mixingStrip, overviewTables, RHAT_CAP } from "./overview";
+import { headlineComposition, mixingStrip, overviewTables, parentSetLabel, RHAT_CAP, rowAt } from "./overview";
 
 describe("Overview's mixing strips", () => {
   it("puts every pooled ESS and R-hat of a group on its row, R-hat above the cap drawn at the cap", () => {
@@ -41,5 +41,24 @@ describe("Overview's CSV", () => {
     expect(tables.map((t) => t.part)).toEqual(["mixing", "headline"]);
     expect(tables[0]!.table.columns).toEqual(["group", "n", "ess_min", "ess_median", "rhat_max", "rhat_above"]);
     expect(tables[1]!.table.rows).toEqual([["psi_edge", 1, 0.9, 1.1], ["mean_q", null, null, null]]);
+  });
+});
+
+describe("the mixing row under the pointer", () => {
+  it("is the band the y position falls in, null outside the rows", () => {
+    const rows = { top: 6, rowHeight: 18, n: 3 };
+    expect(rowAt(6, rows)).toBe(0);
+    expect(rowAt(23.9, rows)).toBe(0);
+    expect(rowAt(24, rows)).toBe(1);
+    expect(rowAt(59, rows)).toBe(2);
+    expect(rowAt(60, rows)).toBeNull();
+    expect(rowAt(2, rows)).toBeNull();
+  });
+});
+
+describe("a Parent set's label", () => {
+  it("names its observed parents, or says it has only the unobserved source", () => {
+    expect(parentSetLabel(["1", "7"])).toBe("{1, 7}");
+    expect(parentSetLabel([])).toBe("unobserved only");
   });
 });

@@ -121,6 +121,13 @@ describe("KpiStrip", () => {
     expect(screen.getByText("Chains").nextSibling).toHaveTextContent("2");
     expect(screen.getByText("[0.32, 0.34]")).toBeInTheDocument();
   });
+
+  it("keeps a group's figures together, named, so a group wraps whole", () => {
+    render(<KpiStrip items={[{ label: "Chains", value: 2, group: "Shape" }, { label: "Loci", value: 152, group: "Shape" }, { label: "Mean q", value: "0.33", group: "Posterior" }]} />);
+    const groups = screen.getAllByRole("group");
+    expect(groups.map((g) => g.getAttribute("aria-label"))).toEqual(["Shape", "Posterior"]);
+    expect(groups[0]).toHaveTextContent(/Chains.*Loci/);
+  });
 });
 
 describe("PlotFigure", () => {
