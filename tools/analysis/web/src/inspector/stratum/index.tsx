@@ -11,12 +11,13 @@ import { EntityLink } from "../../components/EntityLink";
 import { PanelState } from "../../components/Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
 import { classLabel, classShade, functionalEntity, stackOrder, stratumLabel, stratumSummary } from "../../lib/functionals";
-import { formatProbability } from "../../lib/format";
+import { formatFixed, formatInterval, formatProbability } from "../../lib/format";
 import { compositionColour, inkOn } from "../../lib/palette";
 import { NetworkLink } from "../../workspaces/functionals/shared";
 import type { InspectorProps } from "../registry";
 
-const fmt = (x: number | null | undefined) => (x === null || x === undefined || Number.isNaN(x) ? "–" : x.toFixed(3));
+/** A functional's estimate (ψ_edge exceeds 1, so not a probability). */
+const estimate = (x: number | null | undefined) => formatFixed(x, 3);
 
 function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
@@ -67,7 +68,7 @@ export default function StratumInspector({ entity }: InspectorProps<"stratum">) 
         marks: [
           Plot.barX(segments.filter((s) => s.share > 0), { x1: "x1", x2: "x2", fill: (s) => compositionColour(theme, classShade(s.class)), insetLeft: 1, insetRight: 1, rx: 2 }),
           Plot.text(segments.filter((s) => s.share > 0.12), { x: (s) => (s.x1 + s.x2) / 2, text: (s) => `${Math.round(100 * s.share)}%`, fontWeight: 600, fill: (s) => inkOn(compositionColour(theme, classShade(s.class))) }),
-          Plot.tip(segments, Plot.pointerX({ x: (s) => (s.x1 + s.x2) / 2, title: (s) => `${s.label}: ${fmt(s.share)}` })),
+          Plot.tip(segments, Plot.pointerX({ x: (s) => (s.x1 + s.x2) / 2, title: (s) => `${s.label}: ${formatProbability(s.share)}` })),
         ],
       }),
     [segments],
@@ -94,12 +95,12 @@ export default function StratumInspector({ entity }: InspectorProps<"stratum">) 
                 <td className="num">
                   {r.entity ? (
                     <EntityLink entity={r.entity} className="no-underline">
-                      {fmt(r.estimate)} <span className="text-ink-2">[{fmt(r.lower)}, {fmt(r.upper)}]</span>
+                      {estimate(r.estimate)} <span className="text-ink-2">{formatInterval(r.lower, r.upper, estimate)}</span>
                     </EntityLink>
                   ) : r.estimate !== null ? (
-                    <span title="A point summary: no per-Draw series">{fmt(r.estimate)}</span>
+                    <span title="A point summary: no per-Draw series">{estimate(r.estimate)}</span>
                   ) : (
-                    <span title="Mean min and max observed-parent count in the credible collection">[{fmt(r.lower)}, {fmt(r.upper)}]</span>
+                    <span title="Mean min and max observed-parent count in the credible collection">{formatInterval(r.lower, r.upper, estimate)}</span>
                   )}
                 </td>
               </tr>
@@ -115,6 +116,8 @@ export default function StratumInspector({ entity }: InspectorProps<"stratum">) 
           <tbody>
             {order.map((c) => {
               const i = stratum.classes[c] ?? null;
+              const share = <>{formatProbability(i?.mean)} <span className="text-ink-2">{formatInterval(i?.lower, i?.upper, formatProbability)}</span></>;
+              const traced = functionalEntity(column, value, `mean_${c}`);
               return (
                 <tr key={c} className="h-5">
                   <td className="flex items-center gap-1.5 text-ink-2">
@@ -122,9 +125,7 @@ export default function StratumInspector({ entity }: InspectorProps<"stratum">) 
                     {classLabel(c)}
                   </td>
                   <td className="num">
-                    <EntityLink entity={functionalEntity(column, value, `mean_${c}`)!} className="no-underline">
-                      {fmt(i?.mean)} <span className="text-ink-2">[{fmt(i?.lower)}, {fmt(i?.upper)}]</span>
-                    </EntityLink>
+                    {traced ? <EntityLink entity={traced} className="no-underline">{share}</EntityLink> : share}
                   </td>
                 </tr>
               );
@@ -141,9 +142,9 @@ export default function StratumInspector({ entity }: InspectorProps<"stratum">) 
       {net && (
         <Section title="Net flow" aside="expected edges, between strata">
           <dl className="grid grid-cols-3 gap-2 tabular-nums">
-            <div><dt className="text-axis text-muted">out</dt><dd>{net.out_edges.toFixed(2)}</dd></div>
-            <div><dt className="text-axis text-muted">in</dt><dd>{net.in_edges.toFixed(2)}</dd></div>
-            <div><dt className="text-axis text-muted">net</dt><dd className="font-semibold">{net.net >= 0 ? "+" : ""}{net.net.toFixed(2)}</dd></div>
+            <div><dt className="text-axis text-muted">out</dt><dd>{formatFixed(net.out_edges, 2)}</dd></div>
+            <div><dt className="text-axis text-muted">in</dt><dd>{formatFixed(net.in_edges, 2)}</dd></div>
+            <div><dt className="text-axis text-muted">net</dt><dd className="font-semibold">{net.net >= 0 ? "+" : ""}{formatFixed(net.net, 2)}</dd></div>
           </dl>
         </Section>
       )}

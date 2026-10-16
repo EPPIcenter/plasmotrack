@@ -7,7 +7,7 @@
 import * as Plot from "@observablehq/plot";
 import { brushX, type D3BrushEvent } from "d3-brush";
 import { select } from "d3-selection";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useChains } from "../api/analysis";
 import { useRange, useTrace, type Trace } from "../api/trace";
 import { useTheme } from "../app/theme";
@@ -41,7 +41,7 @@ interface Point {
 }
 
 function points(trace: Trace): Point[] {
-  return trace.chains.flatMap((c) => c.iteration.map((iteration, i) => ({ chain: c.chain, iteration, phase: c.phase[i]!, value: c.value[i]! })));
+  return trace.chains.flatMap((c) => c.iteration.map((iteration, i) => ({ chain: c.chain, iteration, phase: c.phase[i] ?? "sampling", value: c.value[i] ?? NaN })));
 }
 
 /** The legend: a short line of each Chain's colour beside its label (identity never by colour alone). */
@@ -58,6 +58,13 @@ export function ChainLegend({ chains }: { chains: readonly string[] }) {
       ))}
     </ul>
   );
+}
+
+/** Two pixel positions (a scale's range, a one-dimensional brush's selection), or null. */
+function pixels(r: unknown): [number, number] | null {
+  if (!Array.isArray(r)) return null;
+  const [a, b] = r;
+  return typeof a === "number" && typeof b === "number" ? [a, b] : null;
 }
 
 /** A fixed y range about a constant value, so rounding noise is not magnified into a trace. */
@@ -85,6 +92,8 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
   const chains = trace?.chains.map((c) => c.chain) ?? analysisChains;
   const constant = useMemo(() => (trace ? constantValue(trace) : null), [trace]);
 
+  // The last trace figure drawn, with its scales, for the brush.
+  const drawn = useRef<(SVGSVGElement | HTMLElement) & Plot.Plot | null>(null);
   const drawTrace = useCallback(
     ({ width, height, theme }: PlotContext) => {
       if (!trace) return document.createElement("div");
@@ -112,7 +121,7 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
         Plot.dot(sampling, Plot.pointerX({ x: "iteration", y: "value", fill: "chain", r: 3, stroke: theme.surface, strokeWidth: 1.5 })),
         Plot.tip(all, Plot.pointerX({ x: "iteration", y: "value", channels: { Chain: "chain", Phase: "phase" }, format: { x: true, y: ".4~g", stroke: false } })),
       );
-      return Plot.plot({
+      drawn.current = Plot.plot({
         width,
         height,
         marginLeft: 60,
@@ -128,29 +137,33 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
             : { label: null, grid: true, domain: constantDomain(constant), ticks: [constant], tickFormat: tick },
         marks,
       });
+      return drawn.current;
     },
     [trace, chains, constant],
   );
 
   const onRender = useCallback(
     (figure: Element) => {
-      if (!(figure instanceof SVGSVGElement) || !trace) return;
-      const plot = figure as SVGSVGElement & Plot.Plot;
+      const plot = drawn.current;
+      if (!plot || plot !== figure || !trace) return;
       const x = plot.scale("x");
       const y = plot.scale("y");
-      if (!x || !y) return;
-      const [left, right] = x.range as [number, number];
-      const [bottom, top] = y.range as [number, number];
+      const xs = pixels(x?.range);
+      const ys = pixels(y?.range);
+      const invert = x?.invert;
+      if (!x || !xs || !ys || !invert) return;
+      const [left, right] = xs;
+      const [bottom, top] = ys;
       const brush = brushX<unknown>()
         .extent([[left, top], [right, bottom]])
         .on("end", (event: D3BrushEvent<unknown>) => {
           if (!event.sourceEvent) return; // a programmatic move
-          const s = event.selection as [number, number] | null;
-          setRange(s ? [x.invert!(s[0]) as number, x.invert!(s[1]) as number] : null);
+          const s = pixels(event.selection);
+          setRange(s ? [Number(invert(s[0])), Number(invert(s[1]))] : null);
         });
       const g = select(figure).append("g").attr("class", "brush").call(brush);
       g.select(".selection").attr("fill", "var(--accent)").attr("fill-opacity", 0.12).attr("stroke", "var(--accent)");
-      if (range) g.call(brush.move, [x.apply(range[0]) as number, x.apply(range[1]) as number]);
+      if (range) g.call(brush.move, [Number(x.apply(range[0])), Number(x.apply(range[1]))]);
     },
     [trace, range],
   );
@@ -158,7 +171,7 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
   const fractions = useMemo(() => (trace ? rankFractions(chainDraws(trace, range)) : []), [trace, range]);
   const drawRanks = useCallback(
     ({ width, height, theme }: PlotContext) => {
-      const data = fractions.flatMap((values, k) => values.map((f) => ({ chain: chains[k]!, f })));
+      const data = fractions.flatMap((values, k) => values.map((f) => ({ chain: chains[k] ?? "", f })));
       const perChain = (fractions[0]?.length ?? 0) / BINS;
       return Plot.plot({
         width,

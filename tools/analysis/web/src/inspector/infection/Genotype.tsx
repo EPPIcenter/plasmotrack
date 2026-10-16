@@ -10,12 +10,19 @@ import { useSearchState } from "../../app/search";
 import { useTheme } from "../../app/theme";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
 import { differingLoci, heatmapCells, type GenotypeLocus } from "../../lib/infection";
+import { formatProbability } from "../../lib/format";
 import type { ChartTheme } from "../../lib/palette";
 import type { InspectorProps } from "../registry";
 import { PanelState } from "../../components/Panel";
 import { TabSection } from "./TabSection";
 
 const ROW = 13;
+
+/** The shared plot style as an object, to override its font size. */
+function styleOf(theme: ChartTheme) {
+  const style = plotStyle(theme);
+  return typeof style === "object" ? style : {};
+}
 /** The widest an Allele's cell gets, so a wide page keeps the cells near square. */
 const MAX_CELL = 22;
 const CHAR = 6.2;
@@ -39,7 +46,7 @@ function Heatmap({ loci, infection }: { loci: GenotypeLocus[]; infection: string
         marginBottom: 8,
         marginRight: 4,
         padding: 0,
-        style: { ...(plotStyle(theme) as object), fontSize: "10px" },
+        style: { ...styleOf(theme), fontSize: "10px" },
         color: { type: "linear", domain: [0, 0.5, 1], range: presenceRange(theme) },
         x: { axis: "top", label: "Allele →", labelAnchor: "left", domain: Array.from({ length: alleles }, (_, k) => k), tickSize: 0 },
         y: { label: null, domain: loci.map((l) => l.locus), tickSize: 0, tickFormat: (d: string) => (d.length * CHAR > marginLeft - 8 ? `…${d.slice(-Math.floor((marginLeft - 14) / CHAR))}` : d) },
@@ -48,7 +55,7 @@ function Heatmap({ loci, infection }: { loci: GenotypeLocus[]; infection: string
             x: "allele", y: "locus", fill: "presence", inset: 2.5, rx: 1,
             channels: {
               Locus: "locus", Allele: "allele",
-              Presence: (c: (typeof cells)[number]) => c.presence.toFixed(3),
+              Presence: (c: (typeof cells)[number]) => formatProbability(c.presence),
               Observed: (c: (typeof cells)[number]) => (modes.get(c.locus)?.observed === null ? "Locus unobserved" : c.observed ? "yes" : "no"),
               "Latent mode": (c: (typeof cells)[number]) => { const l = modes.get(c.locus); return l?.mode ? `${l.mode} in ${Math.round(100 * (l.mode_fraction ?? 0))}% of Draws` : "–"; },
             },

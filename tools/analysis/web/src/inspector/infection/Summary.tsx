@@ -11,8 +11,10 @@ import { EntityLink } from "../../components/EntityLink";
 import { PanelState } from "../../components/Panel";
 import { StatusChip } from "../../components/StatusChip";
 import { useTheme } from "../../app/theme";
-import { formatNumber, formatProbability } from "../../lib/format";
+import { formatInterval, formatNumber, formatProbability } from "../../lib/format";
+import { num } from "../../lib/num";
 import { chainColour } from "../../lib/palette";
+import type { Entity } from "../../lib/entity";
 import type { InspectorProps } from "../registry";
 
 const POSTERIOR = "Entropy of the Parent-set weights averaged over Draws (and its exponential): the spread of the posterior over Parent sets";
@@ -67,7 +69,7 @@ export default function Summary({ entity }: InspectorProps<"infection">) {
   })();
   const parents = [...data.parents].sort((a, b) => b.pooled - a.pooled).slice(0, 5);
   const children = [...data.children].sort((a, b) => b.pooled - a.pooled).slice(0, 5);
-  const q = { kind: "quantity" as const, group: "unobserved-source inclusion", name: entity.id };
+  const q: Entity = { kind: "quantity", group: "unobserved-source inclusion", name: entity.id };
 
   return (
     <div className="text-ui">
@@ -84,7 +86,7 @@ export default function Summary({ entity }: InspectorProps<"infection">) {
           <Row label="COI (median)">{coiMedian ?? "–"}</Row>
           <Row label="Infection time (median)">
             {formatNumber(time.median)}
-            <span className="ml-1 text-muted">[{formatNumber(time.lower)}, {formatNumber(time.upper)}]</span>
+            <span className="ml-1 text-muted">{formatInterval(time.lower, time.upper)}</span>
           </Row>
           <Row label="Observation time">{formatNumber(data.observation_time)}</Row>
         </dl>
@@ -139,7 +141,7 @@ export default function Summary({ entity }: InspectorProps<"infection">) {
                   </td>
                   <td className="num">{formatProbability(p.pooled)}</td>
                   <td className="num text-muted" title="Between-Chain spread">±{formatProbability(p.spread)}</td>
-                  <td className="num"><StatusChip kind="ess" value={typeof p.ess === "string" ? Number(p.ess) : p.ess} compact /></td>
+                  <td className="num"><StatusChip kind="ess" value={num(p.ess)} compact /></td>
                 </tr>
               ))}
             </tbody>

@@ -2,21 +2,45 @@
 // and the kind's module rendering the current tab. Selecting an entity never changes the workspace.
 
 import { Tabs } from "radix-ui";
-import { Component, lazy, Suspense, type ComponentType, type ReactNode } from "react";
+import { Component, lazy, Suspense, type ReactNode } from "react";
 import { useSelection } from "../app/selection";
 import { useLinkTo } from "../app/search";
 import { PanelState } from "../components/Panel";
-import { entityLabel, formatEntity, type Entity, type EntityKind } from "../lib/entity";
-import { entities, type InspectorProps } from "./registry";
+import { entityLabel, formatEntity, type Entity } from "../lib/entity";
+import { entities } from "./registry";
 
-const loaded = new Map<EntityKind, ComponentType<InspectorProps>>();
-function view(kind: EntityKind): ComponentType<InspectorProps> {
-  if (!loaded.has(kind)) loaded.set(kind, lazy(entities[kind].load as () => Promise<{ default: ComponentType<InspectorProps> }>));
-  return loaded.get(kind)!;
+/** Each kind's module, loaded on first use. */
+const views = {
+  infection: lazy(entities.infection.load),
+  edge: lazy(entities.edge.load),
+  pair: lazy(entities.pair.load),
+  quantity: lazy(entities.quantity.load),
+  stratum: lazy(entities.stratum.load),
+};
+
+/** The entity's module at `tab`. */
+function View({ entity, tab }: { entity: Entity; tab: string }) {
+  switch (entity.kind) {
+    case "infection":
+      return <views.infection entity={entity} tab={tab} />;
+    case "edge":
+      return <views.edge entity={entity} tab={tab} />;
+    case "pair":
+      return <views.pair entity={entity} tab={tab} />;
+    case "quantity":
+      return <views.quantity entity={entity} tab={tab} />;
+    case "stratum":
+      return <views.stratum entity={entity} tab={tab} />;
+  }
 }
 
-class Boundary extends Component<{ children: ReactNode; reset: string }, { error: Error | null; reset: string }> {
-  state = { error: null as Error | null, reset: this.props.reset };
+interface BoundaryState {
+  error: Error | null;
+  reset: string;
+}
+
+class Boundary extends Component<{ children: ReactNode; reset: string }, BoundaryState> {
+  state: BoundaryState = { error: null, reset: this.props.reset };
   static getDerivedStateFromError(error: Error) {
     return { error };
   }
@@ -32,8 +56,7 @@ export function Inspector({ entity, page = false }: { entity: Entity; page?: boo
   const { tab, setTab, select } = useSelection();
   const { go } = useLinkTo();
   const entry = entities[entity.kind];
-  const current = entry.tabs.find((t) => t.id === tab)?.id ?? entry.tabs[0]!.id;
-  const View = view(entity.kind);
+  const current = entry.tabs.find((t) => t.id === tab)?.id ?? entry.tabs[0]?.id ?? "";
   const key = formatEntity(entity);
 
   const openAsPage = () => go("inspect");

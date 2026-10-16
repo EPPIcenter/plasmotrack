@@ -8,7 +8,7 @@ import { useChains } from "../../api/analysis";
 import { useInfection } from "../../api/infection";
 import { EntityLink } from "../../components/EntityLink";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
-import { formatNumber } from "../../lib/format";
+import { formatInterval, formatNumber, formatPercent } from "../../lib/format";
 import { coiBars, density, type InfectionResponse, type Quantity } from "../../lib/infection";
 import { num } from "../../lib/num";
 import { chainScale } from "../../lib/palette";
@@ -31,7 +31,7 @@ function Density({ q, title, digits, chains }: { q: Quantity; title: string; dig
     () => q.chains.flatMap((c) => density(c.value.map((v) => num(v) ?? NaN).filter(Number.isFinite), 100).map((d) => ({ chain: c.chain, ...d }))),
     [q],
   );
-  const caption = `median ${formatNumber(q.median, digits)}, 95% [${formatNumber(q.lower, digits)}, ${formatNumber(q.upper, digits)}]`;
+  const caption = `median ${formatNumber(q.median, digits)}, 95% ${formatInterval(q.lower, q.upper, (x) => formatNumber(x, digits))}`;
   const plot = useCallback(
     ({ width, theme }: PlotContext) =>
       Plot.plot({
@@ -95,7 +95,7 @@ function Coi({ data, chains }: { data: InfectionResponse["coi"]; chains: string[
       }),
     [rows, chains, values],
   );
-  const summary = data.distribution.map((d) => `COI ${d.coi} in ${(100 * d.fraction).toFixed(1)}%`).join(", ");
+  const summary = data.distribution.map((d) => `COI ${d.coi} in ${formatPercent(d.fraction)}`).join(", ");
   return (
     <figure>
       <figcaption className="text-axis text-muted">{summary} of Draws</figcaption>

@@ -12,14 +12,13 @@ import { PanelState } from "../../components/Panel";
 import { QuantityTrace } from "../../components/QuantityTrace";
 import { StatusChip } from "../../components/StatusChip";
 import { WorkspaceLink } from "../../components/WorkspaceLink";
+import { formatFixed, formatProbability } from "../../lib/format";
 import { edgeIndex, edgeLag, edgeQuantity } from "../../lib/edges";
 import { thresholdFor } from "../../lib/network";
 import { chainColour } from "../../lib/palette";
 import { edgeTruth } from "../../lib/truth";
 import { ChainLabel, Figure, Figures, Section } from "../layout";
 import type { InspectorProps } from "../registry";
-
-const marginal = (x: number | null | undefined) => (x === null || x === undefined || Number.isNaN(x) ? "–" : x.toFixed(3));
 
 export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
   const { parent, child } = entity;
@@ -59,11 +58,11 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
           <p className="mb-1 text-axis text-muted">The unobserved source ({parent}, {child}'s Latent parent): this edge's marginal is q of {infection(child)}.</p>
         )}
         <Figures>
-          <Figure label="Pooled marginal" title="Mean over every Draw of every Chain">{marginal(row.pooled)}</Figure>
-          <Figure label="Spread" title="Largest minus smallest Chain mean">{marginal(row.spread)}</Figure>
+          <Figure label="Pooled marginal" title="Mean over every Draw of every Chain">{formatProbability(row.pooled)}</Figure>
+          <Figure label="Spread" title="Largest minus smallest Chain mean">{formatProbability(row.spread)}</Figure>
           <Figure label="Switches" title="Adjacent Draws at which the marginal crossed one half, summed over Chains">{row.switches}</Figure>
           <Figure label="ESS" title="Multi-chain effective sample size"><StatusChip kind="ess" value={row.ess} /></Figure>
-          <Figure label="Lag" title="The child's observation time minus the parent's">{lag === null ? "–" : lag.toFixed(1)}</Figure>
+          <Figure label="Lag" title="The child's observation time minus the parent's">{formatFixed(lag, 1)}</Figure>
         </Figures>
         <table className="mt-2 w-full text-table tabular-nums" aria-label="Per Chain">
           <thead className="text-ink-2">
@@ -77,7 +76,7 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
             {data.chains.map((c, k) => (
               <tr key={c} className="border-b border-line/60">
                 <td className="py-0.5"><ChainLabel chain={c} colour={chainColour(chart, k)} /></td>
-                <td className="num">{marginal(row.chains[c]?.mean)}</td>
+                <td className="num">{formatProbability(row.chains[c]?.mean)}</td>
                 <td className="num">{row.chains[c]?.switches ?? "–"}</td>
               </tr>
             ))}
@@ -90,7 +89,7 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
           <Figures>
             <Figure label="Reverse edge" title="The edge the other way, child as the parent">
               <EntityLink entity={{ kind: "edge", parent: child, child: parent }} />{" "}
-              <span className="text-ink-2">{reverse ? marginal(reverse.pooled) : "no Draw"}</span>
+              <span className="text-ink-2">{reverse ? formatProbability(reverse.pooled) : "no Draw"}</span>
             </Figure>
             {truth && (
               <Figure label="Truth" title="From the Analysis's truth file">
