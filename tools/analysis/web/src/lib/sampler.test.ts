@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptanceStatus, slotColours, targetRows, targetSubject, worstQuantity, columnRows, eventRules, ladderPoints, parseBand, samplerTables, targetSeries, timeDomain, typeSeries, varianceRows, windowX, type RunEvent, type SamplerPanel, type TypeAcceptance, type TypeDetail } from "./sampler";
+import { acceptanceLevel, acceptanceStatus, eventLevel, medianVariance, slotColours, varianceSummary, windowText, targetRows, targetSubject, worstQuantity, columnRows, eventRules, ladderPoints, parseBand, samplerTables, targetSeries, timeDomain, typeSeries, varianceRows, windowX, type RunEvent, type SamplerPanel, type TypeAcceptance, type TypeDetail } from "./sampler";
 
 const windows = [
   { window: 0, phase: "burn_in", first_iteration: 0, last_iteration: 20 },
@@ -136,7 +136,11 @@ describe("eventRules", () => {
   });
 
   it("rates a rule by its most severe event: non-finite values critical, interrupts warning", () => {
-    expect(eventRules(events).map((r) => r.severity)).toEqual(["critical", "neutral", "warning"]);
+    expect(eventRules(events).map((r) => r.level)).toEqual(["critical", "none", "warning"]);
+  });
+
+  it("gives each event type a status level, none for a routine one", () => {
+    expect(["non_finite_value", "interrupted", "burn_in_ended", "run_ended"].map(eventLevel)).toEqual(["critical", "warning", "none", "none"]);
   });
 
   it("describes each event and its payload in the rule's tooltip", () => {
@@ -191,6 +195,52 @@ describe("varianceRows", () => {
     });
     expect(rows[1]).toEqual({ type: "SALTSampler", samplers: 152, scales: 900, min: 0.25, median: 1.5, max: 8 });
     expect(varianceRows(null)).toEqual([]);
+  });
+});
+
+describe("varianceSummary", () => {
+  const end = (min: number[], median: number[], max: number[]) => ({
+    iteration: 20, temperatures: [1],
+    proposal_variances: { type: ["ConstrainedContinuousRandomWalk", "SALTSampler"].slice(0, min.length), samplers: [12, 2].slice(0, min.length), scales: [12, 20].slice(0, min.length), min, median, max },
+  });
+
+  it("says in one line that every scale kept its starting value of 1: not adapted", () => {
+    expect(varianceSummary(end([1, 1], [1, 1], [1, 1]))).toEqual({
+      kind: "uniform", value: 1, text: "All 1 (not adapted): 32 scales of 2 sampler types",
+    });
+  });
+
+  it("names a common value other than 1", () => {
+    expect(varianceSummary(end([0.5], [0.5], [0.5]))).toMatchObject({ kind: "uniform", text: "All 0.5: 12 scales of 1 sampler type" });
+  });
+
+  it("keeps the table when the variances differ within or between types", () => {
+    expect(varianceSummary(end([0.5, 1], [1, 1], [2, 1])).kind).toBe("table");
+    expect(varianceSummary(end([0.5, 1], [0.5, 1], [0.5, 1])).kind).toBe("table");
+  });
+
+  it("has nothing to say before burn-in ends, or without a scale", () => {
+    expect(varianceSummary(null)).toEqual({ kind: "none", text: "Burn-in has not ended in a closed Window." });
+    expect(varianceSummary(end([], [], []))).toEqual({ kind: "none", text: "No sampler has a proposal scale." });
+  });
+});
+
+describe("medianVariance", () => {
+  it("is the median of a sampler's scales, null without one", () => {
+    expect(medianVariance([4, 1, 2])).toBe(2);
+    expect(medianVariance([])).toBeNull();
+  });
+});
+
+describe("acceptanceLevel", () => {
+  it("warns outside the band either way, is critical when nothing is accepted", () => {
+    expect((["ok", "low", "high", "stuck", "none"] as const).map(acceptanceLevel)).toEqual(["ok", "warning", "warning", "critical", "none"]);
+  });
+});
+
+describe("windowText", () => {
+  it("names a Window with its Phase and iterations", () => {
+    expect(windowText({ window: 1, phase: "burn_in", first_iteration: 5, last_iteration: 9 })).toBe("Window 1 (burn-in, iterations 5–9)");
   });
 });
 

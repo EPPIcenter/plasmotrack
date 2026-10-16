@@ -4,7 +4,10 @@
 import type { Quantity } from "./convergence";
 import type { Entity } from "./entity";
 import { recordsTable, type NamedTable } from "./export";
+import { formatCount, formatNumber } from "./format";
 import { compareInfectionIds } from "./ids";
+import { median } from "./stats";
+import type { Level } from "./status";
 
 /** A closed Window: its Phase and the Sampling iterations it covers, inclusive. */
 export interface PanelWindow {
@@ -172,23 +175,21 @@ export function timeDomain(windows: PanelWindow[]): [number, number] {
 /** Where a Window's Block is drawn on a time axis: the middle of the Sampling iterations it covers. */
 export const windowX = (w: PanelWindow) => (w.first_iteration + w.last_iteration) / 2;
 
-export type Severity = "critical" | "warning" | "neutral";
-
 /** The Run events at one Sampling iteration, drawn as one rule on every time axis. */
 export interface EventRule {
   iteration: number;
   events: RunEvent[];
-  /** The most severe of its events: a non-finite value is critical, an interrupt a warning. */
-  severity: Severity;
+  /** The status of its most severe event: a non-finite value is critical, an interrupt a warning, the rest none. */
+  level: Level;
   /** The tooltip: one line per event. */
   label: string;
 }
 
-const SEVERITY: Record<string, Severity> = { non_finite_value: "critical", interrupted: "warning" };
-const RANK: Severity[] = ["neutral", "warning", "critical"];
+const EVENT_LEVEL: Record<string, Level> = { non_finite_value: "critical", interrupted: "warning" };
+const RANK: Level[] = ["none", "ok", "warning", "critical"];
 
-/** How severe an event type is: a non-finite value is critical, an interrupt a warning, the rest neutral. */
-export const severityOf = (type: string): Severity => SEVERITY[type] ?? "neutral";
+/** An event type's status: a non-finite value is critical, an interrupt a warning, the rest routine (none). */
+export const eventLevel = (type: string): Level => EVENT_LEVEL[type] ?? "none";
 
 /** Run events as rules, one per Sampling iteration that has any, in iteration order; events keep their order. */
 export function eventRules(events: RunEvent[]): EventRule[] {
@@ -203,7 +204,7 @@ export function eventRules(events: RunEvent[]): EventRule[] {
     .map(([iteration, list]) => ({
       iteration,
       events: list,
-      severity: list.map((e) => severityOf(e.type)).reduce((a, b) => (RANK.indexOf(b) > RANK.indexOf(a) ? b : a)),
+      level: list.map((e) => eventLevel(e.type)).reduce((a, b) => (RANK.indexOf(b) > RANK.indexOf(a) ? b : a)),
       label: list.map(describeEvent).join("\n"),
     }));
 }
@@ -229,7 +230,7 @@ export function describeEvent(e: RunEvent): string {
     case "run_resumed":
       return `${head} from Window ${p.window}, ${p.samples} sampling iterations planned`;
     case "run_ended":
-      return `${head}: ${p.reason}, after ${Number(Number(p.seconds).toPrecision(3))} s`;
+      return `${head}: ${p.reason}, after ${formatNumber(Number(p.seconds), 3)} s`;
     default:
       return head;
   }
@@ -269,6 +270,28 @@ export function ladderPoints(ladder: LadderAdaptation[], end: BurnInEnd | null):
 export function varianceRows(end: BurnInEnd | null): Row<VarianceSummary>[] {
   return end ? columnRows(end.proposal_variances) : [];
 }
+
+/** What the proposal-variance panel says: nothing (burn-in not ended, no scale), one line when every scale of every
+ *  type has the same variance (1, the starting value, means none was adapted), or the table per type. */
+export type VarianceSummaryView = { kind: "none"; text: string } | { kind: "uniform"; value: number; text: string } | { kind: "table"; rows: Row<VarianceSummary>[] };
+
+export function varianceSummary(end: BurnInEnd | null): VarianceSummaryView {
+  if (!end) return { kind: "none", text: "Burn-in has not ended in a closed Window." };
+  const rows = varianceRows(end);
+  if (!rows.length) return { kind: "none", text: "No sampler has a proposal scale." };
+  const value = rows[0]!.min;
+  if (!rows.every((r) => r.min === value && r.median === value && r.max === value)) return { kind: "table", rows };
+  const scales = rows.reduce((n, r) => n + r.scales, 0);
+  const types = `${formatCount(rows.length)} sampler type${rows.length === 1 ? "" : "s"}`;
+  return { kind: "uniform", value, text: `All ${formatNumber(value, 3)}${value === 1 ? " (not adapted)" : ""}: ${formatCount(scales)} scales of ${types}` };
+}
+
+/** A sampler's burn-in-end proposal variance as one number: the median over its scales; null without one. */
+export const medianVariance = (variances: readonly number[]): number | null => median(variances);
+
+/** A Window as words: its number, Phase and Sampling iterations. */
+export const windowText = (w: PanelWindow) =>
+  `Window ${w.window} (${w.phase.replace("_", "-")}, iterations ${w.first_iteration}–${w.last_iteration})`;
 
 /** The target acceptance band shaded on every acceptance plot, unless the view's parameters set another. */
 export const DEFAULT_BAND: [number, number] = [0.15, 0.5];
@@ -345,6 +368,18 @@ export function acceptanceStatus(rows: readonly { phase: string; accepted: numbe
   const level: AcceptanceLevel =
     rate === null ? "none" : accepted === 0 ? "stuck" : rate < band[0] ? "low" : rate > band[1] ? "high" : "ok";
   return { rate, level, label: LEVEL_LABELS[level] };
+}
+
+/** An acceptance status's status level: outside the band either way warns (the rail's badge counts both), nothing
+ *  accepted is critical. */
+export function acceptanceLevel(level: AcceptanceLevel): Level {
+  switch (level) {
+    case "ok": return "ok";
+    case "low":
+    case "high": return "warning";
+    case "stuck": return "critical";
+    case "none": return "none";
+  }
 }
 
 /** One target of an open type: its counts over the Windows its status pools, its lowest rate in any Window, and its

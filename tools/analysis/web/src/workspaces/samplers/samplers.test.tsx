@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../../test/render";
+import type { SamplerPanel } from "../../lib/sampler";
+import { failure, fixture, renderApp } from "../../test/render";
 
 // The golden Analysis's Chains: chain1 is the single-chain store (one temperature slot), chain2 the replica-exchange
 // store (four slots, swaps and an adapted ladder). fixtures/sampler*.json.
@@ -55,7 +56,32 @@ describe("Samplers", () => {
     const events = await screen.findByRole("region", { name: "Run events" }, { timeout: 4000 });
     await within(events).findByText("Burn-in ended at iteration 20");
     expect(within(events).getByText(/Run ended at iteration 70: completed/)).toBeInTheDocument();
+    // The golden Run adapts no scale: every variance is still 1, said in one line rather than a table of ones.
     const variances = screen.getByRole("region", { name: /Proposal variances/ });
-    await waitFor(() => expect(within(variances).getAllByRole("row").map((r) => r.textContent)).toContainEqual(expect.stringContaining("SALTSampler")));
+    expect(within(variances).getByText("All 1 (not adapted): 32 scales of 2 sampler types")).toBeInTheDocument();
+    expect(within(variances).queryByRole("table")).toBeNull();
+    // A routine event carries no status; the table is a DataTable.
+    const table = within(events).getByRole("table", { name: "Run events" });
+    expect(within(table).getByText("Burn-in ended at iteration 20").closest("[data-level]")).toHaveAttribute("data-level", "none");
+  });
+
+  it("tables the proposal variances when they differ", async () => {
+    const panel = fixture<SamplerPanel>("sampler");
+    panel.burn_in_ended!.proposal_variances = { ...panel.burn_in_ended!.proposal_variances, min: [0.25, 1], median: [0.5, 1], max: [2, 1] };
+    renderApp("/samplers", { "/api/sampler": panel });
+    const variances = await screen.findByRole("region", { name: /Proposal variances/ }, { timeout: 4000 });
+    const table = await within(variances).findByRole("table", { name: "Proposal variances per sampler type" });
+    expect(within(table).getAllByRole("row").map((r) => r.textContent)).toContainEqual(expect.stringMatching(/ConstrainedContinuousRandomWalk.*0\.25.*0\.5.*2/));
+  });
+
+  it("says when the sampler panel could not load", async () => {
+    renderApp("/samplers", { "/api/sampler": failure(500, "no sampler stats") });
+    expect(await screen.findByText(/Could not load: .*no sampler stats/)).toBeInTheDocument();
+  });
+
+  it("says when a type's targets could not load", async () => {
+    const url = (u: string) => (new URL(u, "http://test").searchParams.get("type") ? failure(400, "no sampler type X") : fixture("sampler"));
+    renderApp("/samplers?type=X", { "/api/sampler": url });
+    expect(await screen.findByText(/Could not load: .*no sampler type X/, undefined, { timeout: 4000 })).toBeInTheDocument();
   });
 });
