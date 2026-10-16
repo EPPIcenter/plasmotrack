@@ -8,31 +8,30 @@ import { useNetwork, useTruthNetwork } from "../../api/network";
 import { useStatus } from "../../api/analysis";
 import { useTheme } from "../../app/theme";
 import { EntityLink } from "../../components/EntityLink";
+import { PanelState } from "../../components/Panel";
 import { QuantityTrace } from "../../components/QuantityTrace";
 import { StatusChip } from "../../components/StatusChip";
 import { WorkspaceLink } from "../../components/WorkspaceLink";
+import { formatFixed, formatProbability } from "../../lib/format";
 import { edgeIndex, edgeLag, edgeQuantity } from "../../lib/edges";
 import { thresholdFor } from "../../lib/network";
 import { chainColour } from "../../lib/palette";
 import { edgeTruth } from "../../lib/truth";
-import { ChainLabel, Figure, Figures, Section } from "../layout";
+import { ChainLabel, Figure, Figures, Section, Sections } from "../layout";
 import type { InspectorProps } from "../registry";
 
-const marginal = (x: number | null | undefined) => (x === null || x === undefined || Number.isNaN(x) ? "–" : x.toFixed(3));
-
-export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
+export default function EdgeInspector({ entity, page }: InspectorProps<"edge">) {
   const { parent, child } = entity;
   const { data, error, isLoading } = useEdges();
-  const { data: network } = useNetwork();
-  const { data: status } = useStatus();
-  const { data: overlay } = useTruthNetwork(Boolean(status?.capabilities.truth));
+  const { data: network, error: networkError } = useNetwork();
+  const { data: status, error: statusError } = useStatus();
+  const { data: overlay, error: overlayError } = useTruthNetwork(Boolean(status?.capabilities.truth));
   const { chart } = useTheme();
 
   const index = useMemo(() => edgeIndex(data?.rows ?? []), [data]);
   const times = useMemo(() => new Map((network?.nodes ?? []).map((n) => [n.id, n.observation_time])), [network]);
 
-  if (error) return <p className="p-3 text-axis text-critical-ink">Could not load the edge table: {error.message}</p>;
-  if (isLoading || !data) return <p className="p-3 text-axis text-muted">Loading…</p>;
+  if (error || isLoading || !data) return <PanelState loading={isLoading} error={error} />;
 
   const row = index.get(parent, child);
   const infection = (id: string) => <EntityLink entity={{ kind: "infection", id }} />;
@@ -53,17 +52,17 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
   const truth = row.unobserved ? null : edgeTruth(overlay?.sources.find((s) => s.source === "posterior"), parent, child);
   const lag = edgeLag(row, times);
   return (
-    <div className="text-ui">
+    <Sections page={page}>
       <Section title={row.unobserved ? "Edge from the unobserved source" : "Edge marginal"}>
         {row.unobserved && (
           <p className="mb-1 text-axis text-muted">The unobserved source ({parent}, {child}'s Latent parent): this edge's marginal is q of {infection(child)}.</p>
         )}
         <Figures>
-          <Figure label="Pooled marginal" title="Mean over every Draw of every Chain">{marginal(row.pooled)}</Figure>
-          <Figure label="Spread" title="Largest minus smallest Chain mean">{marginal(row.spread)}</Figure>
+          <Figure label="Pooled marginal" title="Mean over every Draw of every Chain">{formatProbability(row.pooled)}</Figure>
+          <Figure label="Spread" title="Largest minus smallest Chain mean">{formatProbability(row.spread)}</Figure>
           <Figure label="Switches" title="Adjacent Draws at which the marginal crossed one half, summed over Chains">{row.switches}</Figure>
           <Figure label="ESS" title="Multi-chain effective sample size"><StatusChip kind="ess" value={row.ess} /></Figure>
-          <Figure label="Lag" title="The child's observation time minus the parent's">{lag === null ? "–" : lag.toFixed(1)}</Figure>
+          <Figure label="Lag" title="The child's observation time minus the parent's">{formatFixed(lag, 1)}</Figure>
         </Figures>
         <table className="mt-2 w-full text-table tabular-nums" aria-label="Per Chain">
           <thead className="text-ink-2">
@@ -77,19 +76,20 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
             {data.chains.map((c, k) => (
               <tr key={c} className="border-b border-line/60">
                 <td className="py-0.5"><ChainLabel chain={c} colour={chainColour(chart, k)} /></td>
-                <td className="num">{marginal(row.chains[c]?.mean)}</td>
+                <td className="num">{formatProbability(row.chains[c]?.mean)}</td>
                 <td className="num">{row.chains[c]?.switches ?? "–"}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        {networkError && <PanelState error={networkError} />}
       </Section>
       {!row.unobserved && (
         <Section title="Related">
           <Figures>
             <Figure label="Reverse edge" title="The edge the other way, child as the parent">
               <EntityLink entity={{ kind: "edge", parent: child, child: parent }} />{" "}
-              <span className="text-ink-2">{reverse ? marginal(reverse.pooled) : "no Draw"}</span>
+              <span className="text-ink-2">{reverse ? formatProbability(reverse.pooled) : "no Draw"}</span>
             </Figure>
             {truth && (
               <Figure label="Truth" title="From the Analysis's truth file">
@@ -106,6 +106,7 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
               <WorkspaceLink to="network" search={{ ids: `${parent},${child}`, threshold: String(thresholdFor(row.pooled)) }}>Show in the Network →</WorkspaceLink>
             </Figure>
           </Figures>
+          {(statusError ?? overlayError) && <PanelState error={statusError ?? overlayError} />}
         </Section>
       )}
       <Section title="Trace per Chain">
@@ -113,6 +114,6 @@ export default function EdgeInspector({ entity }: InspectorProps<"edge">) {
           <QuantityTrace key={`${row.group}/${row.name}`} entity={edgeQuantity(row)} height={180} compact />
         </div>
       </Section>
-    </div>
+    </Sections>
   );
 }

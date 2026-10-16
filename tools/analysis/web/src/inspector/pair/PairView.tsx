@@ -8,14 +8,14 @@ import { useCallback, useState, type ReactNode } from "react";
 import { usePair } from "../../api/pairs";
 import { useTheme } from "../../app/theme";
 import { EntityLink } from "../../components/EntityLink";
+import { PanelState } from "../../components/Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
+import { formatFixed, formatProbability, formatSpan } from "../../lib/format";
 import { differingLoci, type PairResponse } from "../../lib/pair";
 import { chainColour, chainScale } from "../../lib/palette";
 import { ChainLabel, Section } from "../layout";
 
-/** A probability to three decimals, or two significant digits below 0.01 so small weights are not rounded away. */
-const prob = (x: number | null | undefined) => (x === null || x === undefined ? "–" : x > 0 && x < 0.01 ? x.toPrecision(2) : x.toFixed(3));
-const time = (x: number | null) => (x === null ? "–" : x.toFixed(1));
+const time = (x: number | null) => formatFixed(x, 1);
 
 export type PairPart = "summary" | "genotypes" | "all";
 
@@ -42,21 +42,21 @@ function OrderSection({ p }: { p: PairResponse }) {
   const chains = p.order.chains.map((c) => c.chain);
   const draw = useCallback(
     ({ width, theme }: PlotContext) => {
-      const points = p.order.chains.flatMap((c) => c.iteration.map((iteration, i) => ({ chain: c.chain, iteration, before: c.before[i]! })));
+      const points = p.order.chains.flatMap((c) => c.iteration.map((iteration, i) => ({ chain: c.chain, iteration, before: c.before[i] ?? 0 })));
       const label = (d: number) => (d ? `${a} first` : `${b} first`);
       return Plot.plot({
         width,
         height: 44 * chains.length + 28,
-        // Room for "<id> first" at 11 px.
+        // Room for "<id> first" on the left and each Chain's label on the right, at 11 px.
         marginLeft: Math.max(64, 6.5 * Math.max(a.length, b.length) + 40),
-        marginRight: 16,
+        marginRight: Math.max(16, 6.5 * Math.max(...chains.map((c) => c.length)) + 12),
         marginTop: 4,
         marginBottom: 26,
         style: plotStyle(theme),
         color: chainScale(theme, chains),
         x: { label: "Sampling iteration →", labelAnchor: "right", grid: true, tickFormat: "~s" },
         y: { domain: [0, 1], inset: 6, ticks: [0, 1], tickFormat: label, label: null },
-        fy: { label: null, domain: chains, padding: 0.25 },
+        fy: { label: null, domain: chains, padding: 0.25, axis: "right", tickSize: 0, tickPadding: 6 },
         marks: [
           Plot.frame({ stroke: theme.grid }),
           Plot.lineY(points, { x: "iteration", y: "before", fy: "chain", stroke: "chain", strokeWidth: 2, curve: "step-after" }),
@@ -75,14 +75,14 @@ function OrderSection({ p }: { p: PairResponse }) {
           <tr key={c.chain} className="border-b border-line/60">
             <td className={td(0)}><ChainLabel chain={c.chain} colour={chainColour(chart, k)} /></td>
             <td className={td(1)}>{c.draws}</td>
-            <td className={td(2)}>{prob(c.probability)}</td>
+            <td className={td(2)}>{formatProbability(c.probability)}</td>
             <td className={td(3)}>{c.switches}</td>
           </tr>
         ))}
         <tr className="font-medium">
           <td className={td(0)}>All Chains</td>
           <td className={td(1)}>{draws}</td>
-          <td className={td(2)}>{prob(p.order.probability)}</td>
+          <td className={td(2)}>{formatProbability(p.order.probability)}</td>
           <td className={td(3)}>{switches}</td>
         </tr>
       </Table>
@@ -103,14 +103,14 @@ function EdgesSection({ p }: { p: PairResponse }) {
         {p.edges.chains.map((c, k) => (
           <tr key={c.chain} className="border-b border-line/60">
             <td className={td(0)}><ChainLabel chain={c.chain} colour={chainColour(chart, k)} /></td>
-            <td className={td(1)}>{prob(c.a_to_b)}</td>
-            <td className={td(2)}>{prob(c.b_to_a)}</td>
+            <td className={td(1)}>{formatProbability(c.a_to_b)}</td>
+            <td className={td(2)}>{formatProbability(c.b_to_a)}</td>
           </tr>
         ))}
         <tr className="font-medium">
           <td className={td(0)}>All Chains</td>
-          <td className={td(1)}>{prob(p.edges.a_to_b)}</td>
-          <td className={td(2)}>{prob(p.edges.b_to_a)}</td>
+          <td className={td(1)}>{formatProbability(p.edges.a_to_b)}</td>
+          <td className={td(2)}>{formatProbability(p.edges.b_to_a)}</td>
         </tr>
       </Table>
       <p className="mt-1 text-axis text-muted">Mean over Draws of the summed weight of the child's Parent sets holding the parent.</p>
@@ -128,9 +128,9 @@ function CoInclusionSection({ p }: { p: PairResponse }) {
           {p.co_inclusion.map((r) => (
             <tr key={r.infection} className="border-b border-line/60">
               <td className={td(0)}><EntityLink entity={{ kind: "infection", id: r.infection }} /></td>
-              <td className={td(1)}>{prob(r.weight)}</td>
+              <td className={td(1)}>{formatProbability(r.weight)}</td>
               {chains.map((ch, k) => (
-                <td key={ch} className={td(k + 2)}>{prob(r.chains.find((c) => c.chain === ch)?.weight ?? 0)}</td>
+                <td key={ch} className={td(k + 2)}>{formatProbability(r.chains.find((c) => c.chain === ch)?.weight ?? 0)}</td>
               ))}
             </tr>
           ))}
@@ -178,7 +178,7 @@ function TimesSection({ p }: { p: PairResponse }) {
             <td className={td(0)}><EntityLink entity={{ kind: "infection", id: t.infection }} /></td>
             <td className={td(1)}>{time(t.observation_time)}</td>
             <td className={td(2)}>{time(t.median)}</td>
-            <td className={td(3)}>{t.lower === null ? "–" : `${time(t.lower)} – ${time(t.upper)}`}</td>
+            <td className={td(3)}>{formatSpan(t.lower, t.upper, time)}</td>
           </tr>
         ))}
       </Table>
@@ -189,8 +189,15 @@ function TimesSection({ p }: { p: PairResponse }) {
   );
 }
 
-function Bits({ bits }: { bits: string | null | undefined }) {
-  return bits ? <span className="id">{bits}</span> : <span className="text-muted">unobserved</span>;
+/** The sticky Locus cell of a differing row: the row's warning tint over the opaque surface, and its left bar. */
+const DIFFERS_STICKY = {
+  background: "linear-gradient(color-mix(in srgb, var(--warning) 15%, transparent), color-mix(in srgb, var(--warning) 15%, transparent)), var(--surface)",
+  boxShadow: "inset 2px 0 0 var(--warning), inset -1px 0 0 var(--line)",
+};
+
+/** A genotype's Allele bits; `missing` where there is none ("unobserved" only for an Observed genotype). */
+function Bits({ bits, missing = "–" }: { bits: string | null | undefined; missing?: string }) {
+  return bits ? <span className="id">{bits}</span> : <span className="text-muted">{missing}</span>;
 }
 
 function GenotypesSection({ p }: { p: PairResponse }) {
@@ -212,12 +219,13 @@ function GenotypesSection({ p }: { p: PairResponse }) {
     >
       <p className={`mb-1 ${differing.count ? "font-medium text-warning-ink" : "text-ink-2"}`}>{differing.text}.</p>
       <p className="mb-1 text-axis text-muted">Latent: posterior mode over every Chain's Draws; Agr.: the fraction of Draws that had it.</p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-table tabular-nums" aria-label="Genotypes per Locus">
+      {/* Wider than the Inspector: it scrolls sideways here, the Locus column staying in view (as DataTable's). */}
+      <div className="-mx-3 overflow-x-auto">
+        <table className="min-w-full text-table tabular-nums" aria-label="Genotypes per Locus">
           <thead className="text-ink-2">
             <tr className="border-b border-line">
               {head.map((h, i) => (
-                <th key={i} className={`whitespace-nowrap py-0.5 pr-2 text-left font-medium ${h === "Agr." ? "text-right" : ""}`}>{h}</th>
+                <th key={i} className={`whitespace-nowrap py-0.5 pr-2 text-left font-medium ${h === "Agr." ? "text-right" : ""} ${i === 0 ? "dt-sticky pl-3" : ""}`}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -227,17 +235,17 @@ function GenotypesSection({ p }: { p: PairResponse }) {
                 key={r.locus}
                 data-differs={r.differs}
                 title={r.differs ? "The Latent modes differ" : undefined}
-                className={`border-b border-line/60 ${r.differs ? "bg-warning/15 font-medium shadow-[inset_2px_0_0_var(--warning)]" : ""}`}
+                className={`border-b border-line/60 ${r.differs ? "bg-warning/15 font-medium" : ""}`}
               >
-                <td className="whitespace-nowrap py-0.5 pl-1 pr-2">{r.locus}</td>
-                <td className="pr-2"><Bits bits={r.observed_a} /></td>
+                <td className="dt-sticky whitespace-nowrap py-0.5 pl-3 pr-2" style={r.differs ? DIFFERS_STICKY : undefined}>{r.locus}</td>
+                <td className="pr-2"><Bits bits={r.observed_a} missing="unobserved" /></td>
                 <td className="pr-2"><Bits bits={r.latent_a} /></td>
-                <td className="num pr-2">{prob(r.agreement_a)}</td>
+                <td className="num pr-2">{formatProbability(r.agreement_a)}</td>
                 <td className="pr-2"><Bits bits={r.latent_b} /></td>
-                <td className="num pr-2">{prob(r.agreement_b)}</td>
-                <td className="pr-2"><Bits bits={r.observed_b} /></td>
+                <td className="num pr-2">{formatProbability(r.agreement_b)}</td>
+                <td className="pr-2"><Bits bits={r.observed_b} missing="unobserved" /></td>
                 {truth && <td className="pr-2"><Bits bits={r.true_a} /></td>}
-                {truth && <td className="pr-2"><Bits bits={r.true_b} /></td>}
+                {truth && <td className="pr-3"><Bits bits={r.true_b} /></td>}
               </tr>
             ))}
           </tbody>
@@ -249,8 +257,7 @@ function GenotypesSection({ p }: { p: PairResponse }) {
 
 export function PairView({ a, b, part = "all" }: { a: string; b: string; part?: PairPart }) {
   const { data: p, error, isLoading } = usePair(a, b);
-  if (error) return <p className="p-3 text-axis text-critical-ink">Could not load the pair: {error.message}</p>;
-  if (isLoading || !p) return <p className="p-3 text-axis text-muted">Loading {a}, {b}…</p>;
+  if (error || isLoading || !p) return <PanelState loading={isLoading} error={error} empty="Pick two different Infections." />;
   return (
     <div className="text-ui">
       {part !== "genotypes" && (

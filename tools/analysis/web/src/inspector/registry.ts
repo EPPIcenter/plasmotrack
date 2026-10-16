@@ -9,6 +9,8 @@ export interface InspectorProps<K extends EntityKind = EntityKind> {
   entity: Extract<Entity, { kind: K }>;
   /** The current tab's id: one of the entry's `tabs`. */
   tab: string;
+  /** Shown as the page ("Open as page"): lay the sections out in columns rather than one under another. */
+  page?: boolean;
 }
 
 export interface InspectorEntry<K extends EntityKind = EntityKind> {

@@ -78,8 +78,12 @@ of `/convergence?sel=...` opens the app there.
     entity with the workspace's charts through `src/app/hover.ts`. Columns are `{ id, header, value, cell?, numeric?, width?, descFirst?, group? }`; consecutive
     columns of one `group` share a header above theirs.
   - `Sparkline`, `StatusChip` (R-hat above 1.1 amber and 1.2 red, ESS under 100 amber and 20 red, between-Chain
-    spread above 0.2 amber; icon and title as well as colour) and `StatusText` (any text at a level), `WorkspaceLink`, `EntityLink`, `KpiStrip`, `ExportMenu`, `QuantityTrace` (trace per Chain with a brushable
-    range, rank histograms, ESS and R-hat over the range), `CommandPalette`, `Placeholder`, `AnalysisSwitch` (the open Analyses as a segmented switch; nothing with one open).
+    spread above 0.2 amber; icon and title as well as colour) and `StatusText` (any text at a level), `WorkspaceLink`,
+    `EntityLink`, `KpiStrip`, `ExportMenu`, `QuantityTrace` (trace per Chain with a brushable range, rank histograms,
+    ESS and R-hat over the range; a quantity whose Draws agree up to rounding, `constantValue` in `src/lib/trace.ts`,
+    reads "constant at <value>", is drawn flat on a fixed range, and has no rank histograms, ESS or R-hat; `Sparkline`
+    likewise draws such a series flat across the middle), `CommandPalette`, `Placeholder`, `AnalysisSwitch` (the open
+    Analyses as a segmented switch; nothing with one open).
     `QuantityTrace` takes `analysis` to read a given open Analysis rather than the active one.
 - **Exports**: every `Panel` exports its figures (SVG and canvases in its body) as SVG and PNG on the theme's surface,
   and its `data` as CSV through `src/lib/export.ts`: the payload's numbers under the package's names, never display
@@ -99,8 +103,17 @@ of `/convergence?sel=...` opens the app there.
 - **Pairs** (`src/workspaces/pairs/`): `/api/pairs` and the pair picker; the chosen pair (the top of the list until
   one is picked) is `PairView` from the Pair Inspector, every section at once.
 - **Inspector**: Edge (`src/inspector/edge/`) reads `/api/edges`, `/api/network` and, with truth, `/api/truth-network`;
-  Pair (`src/inspector/pair/`) has Summary and Genotypes tabs over `/api/pair`. `src/inspector/layout.tsx` holds the
-  dense section and figure-row pieces they share.
+  Pair (`src/inspector/pair/`) has Summary and Genotypes tabs over `/api/pair`; its genotype table scrolls sideways
+  with the Locus column sticky, and shows truth columns only when `genotypes.truth` (a missing true genotype reads
+  "–", "unobserved" is for a missing Observed genotype). `src/inspector/layout.tsx` holds the dense section and
+  figure-row pieces they share, and `Sections` (one under another, or in columns as the page).
+- **Errors**: every query an entity or tab makes renders `PanelState`'s "Could not load: <message>" when it fails, a
+  secondary one (the convergence table, network, flows, truth) inside the section it feeds; `src/inspector/errors.test.tsx`
+  fails each with `failure(...)`.
+- **Open as page** (`/inspect`, `src/inspector/InspectPage.tsx`): every tab of a multi-tab entity at once in a
+  responsive grid; single-tab entities get `page` in `InspectorProps` and lay their sections out in columns. The
+  Inspector's button and the command palette's ⌘Enter open it with `from=<workspace>` (`useOpenAsPage` in
+  `src/inspector/page.ts`); the page links back there (the Overview without one), keeping the selection.
 - These workspaces' roots set `contain: inline-size`, so a wide table never widens the page past the Inspector.
 
 ## URL state and selection
@@ -134,6 +147,11 @@ from the workspace to show an entity.
 
 ## Assess workspaces
 
+- **Convergence** (`src/workspaces/convergence/`): the quantity table with each Chain's ESS flagged (`StatusChip`) and
+  a Per Draw sparkline from `/api/series`, asked for only by the cells on screen and batched into requests of at most
+  200 quantities (`src/api/series.ts`, `useQuantitySeries`); the clicked row's `QuantityTrace` beside it (`q=`).
+  Rows set the shared hover store, and the trace panel previews the hovered quantity (its group, name, ESS, R-hat
+  and sparkline). `getJson` takes `URLSearchParams` for a repeated parameter such as `q`.
 - **Samplers** (`src/workspaces/samplers/`, logic in `src/lib/sampler.ts`, hooks in `src/api/sampler.ts`): per Chain
   (`chain=`), a small multiple per sampler type of the pooled acceptance over Windows with the band from its lowest to
   its highest target and the target band (`band_lo`, `band_hi`) shaded; a type's status pools the sampling Windows as

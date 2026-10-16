@@ -1,4 +1,4 @@
-// The Infection Inspector tabs' sections and loading state.
+// The Infection Inspector tabs' sections.
 
 import type { ReactNode } from "react";
 
@@ -12,13 +12,5 @@ export function TabSection({ title, note, actions, children }: { title: string; 
       {children}
       {note && <p className="mt-1 text-axis text-muted">{note}</p>}
     </section>
-  );
-}
-
-export function TabState({ id, error }: { id: string; error: Error | null }) {
-  return error ? (
-    <p className="p-3 text-axis text-critical-ink">Could not load {id}: {error.message}</p>
-  ) : (
-    <p className="p-3 text-axis text-muted">Loading {id}…</p>
   );
 }

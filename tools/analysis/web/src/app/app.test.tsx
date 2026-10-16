@@ -116,7 +116,7 @@ describe("the Inspector", () => {
     const { history } = renderApp("/overview?sel=infection:3");
     await userEvent.click(await screen.findByRole("button", { name: /Open as page/ }));
     await waitFor(() => expect(history.location.pathname).toBe("/inspect"));
-    expect(await screen.findByRole("complementary", { name: "Inspector: Infection 3" })).toBeInTheDocument();
+    expect(await screen.findByRole("article", { name: "Infection 3" })).toBeInTheDocument();
   });
 });
 

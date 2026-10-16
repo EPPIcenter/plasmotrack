@@ -28,15 +28,16 @@ export const latency = {
   },
 };
 
-/** The URL of an API path with its parameters; empty parameters are kept (`stratum_column=` means every Infection). */
-export function apiUrl(path: string, params: Params = {}): string {
+/** The URL of an API path with its parameters; empty parameters are kept (`stratum_column=` means every Infection).
+ *  URLSearchParams for a parameter given several times (`/api/series?q=...&q=...`). */
+export function apiUrl(path: string, params: Params | URLSearchParams = {}): string {
   const query = new URLSearchParams(params).toString();
   return `${path}${query ? `?${query}` : ""}`;
 }
 
 /** The JSON body of `path` with `params` (a GET unless `init` says otherwise); an ApiError with the backend's message
  *  when the response is not OK. */
-export async function getJson<T>(path: string, params: Params = {}, init?: RequestInit): Promise<T> {
+export async function getJson<T>(path: string, params: Params | URLSearchParams = {}, init?: RequestInit): Promise<T> {
   const start = performance.now();
   const response = await (init ? fetch(apiUrl(path, params), init) : fetch(apiUrl(path, params)));
   const body = await response.json().catch(() => null);
