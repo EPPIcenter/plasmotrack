@@ -1,11 +1,10 @@
 // The Inspector's frame: the entity's kind and label, "Open as page" and close, its tabs (from the entity registry),
 // and the kind's module rendering the current tab. Selecting an entity never changes the workspace.
 
-import { useRouter } from "@tanstack/react-router";
 import { Tabs } from "radix-ui";
 import { Component, lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import { useSelection } from "../app/selection";
-import { stringifySearch, parseSearch } from "../app/search";
+import { useLinkTo } from "../app/search";
 import { entityLabel, formatEntity, type Entity, type EntityKind } from "../lib/entity";
 import { entities, type InspectorProps } from "./registry";
 
@@ -30,16 +29,13 @@ class Boundary extends Component<{ children: ReactNode; reset: string }, { error
 
 export function Inspector({ entity, page = false }: { entity: Entity; page?: boolean }) {
   const { tab, setTab, select } = useSelection();
-  const router = useRouter();
+  const { go } = useLinkTo();
   const entry = entities[entity.kind];
   const current = entry.tabs.find((t) => t.id === tab)?.id ?? entry.tabs[0]!.id;
   const View = view(entity.kind);
   const key = formatEntity(entity);
 
-  const openAsPage = () => {
-    const { sel, tab: t, ids, analysis } = parseSearch(router.state.location.searchStr);
-    router.history.push(`/inspect${stringifySearch({ sel, tab: t, ids, analysis })}`);
-  };
+  const openAsPage = () => go("inspect");
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-surface" aria-label={`Inspector: ${entry.title} ${entityLabel(entity)}`}>

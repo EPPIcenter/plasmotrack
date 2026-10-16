@@ -27,6 +27,19 @@ describe("the shell", () => {
     expect(within(rail).getByRole("link", { name: /Convergence/ })).toHaveTextContent(/Convergence\d+/);
   });
 
+  it("collapses to an icon per workspace, named for assistive technology and in a tooltip, badges kept as dots", async () => {
+    renderApp("/overview");
+    const rail = await screen.findByRole("navigation", { name: "Workspaces" });
+    await within(rail).findByRole("link", { name: /Flows/ });
+    await userEvent.click(within(rail).getByRole("button", { name: "Collapse the rail" }));
+    const convergence = within(rail).getByRole("link", { name: /^Convergence/ });
+    expect(convergence.querySelector("svg")).not.toBeNull();
+    expect(convergence).toHaveAttribute("title", expect.stringMatching(/^Convergence: /));
+    expect(convergence).not.toHaveTextContent(/\d/);
+    expect(within(convergence).getByLabelText(/need attention/)).toBeInTheDocument();
+    expect(within(rail).getByRole("button", { name: "Expand the rail" })).toBeInTheDocument();
+  });
+
   it("keeps the selection when moving to another workspace", async () => {
     const { history } = renderApp("/overview?sel=infection:3");
     await userEvent.click(await screen.findByRole("link", { name: /Convergence/ }));
@@ -59,7 +72,7 @@ describe("the Inspector", () => {
     const { history } = renderApp("/convergence?sel=infection:3");
     const inspector = await screen.findByRole("complementary", { name: "Inspector: Infection 3" });
     await within(inspector).findByText("Expected observed parents");
-    expect(within(inspector).getByText("q, unobserved-source inclusion").nextSibling).toHaveTextContent("0.17");
+    expect(within(inspector).getByText("q, unobserved-source inclusion").nextSibling).toHaveTextContent("0.169");
     expect(history.location.pathname).toBe("/convergence");
     await userEvent.click(within(inspector).getByRole("button", { name: "Close the Inspector" }));
     await waitFor(() => expect(screen.queryByRole("complementary")).toBeNull());

@@ -25,7 +25,7 @@ describe("Stratum Inspector", () => {
     // The golden network's North Infections are 1 and 3 (fixtures/network.json).
     const list = await within(panel).findByRole("list", { name: "Infections in the stratum" });
     expect(within(list).getAllByRole("link").map((a) => a.textContent)).toEqual(["1", "3"]);
-    expect(within(panel).getByRole("link", { name: "Open North in the Network" })).toHaveAttribute("href", "/network?stratum_column=district&stratum=North");
+    expect(within(panel).getByRole("link", { name: "Open North in the Network" })).toHaveAttribute("href", expect.stringMatching(/^\/network\?sel=stratum:[^&]+&stratum_column=district&stratum=North$/));
     await userEvent.click(within(list).getByRole("link", { name: "3" }));
     expect(search().sel).toBe("infection:3");
   });

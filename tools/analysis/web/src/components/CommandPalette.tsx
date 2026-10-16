@@ -2,13 +2,12 @@
 // `a,b`, quantities, strata `column=value` and workspaces. Enter selects into the Inspector; ⌘Enter opens the entity
 // as the workspace. Recent selections come first.
 
-import { useRouter } from "@tanstack/react-router";
 import { Command } from "cmdk";
 import { useMemo, useRef, useState } from "react";
 import { useQuantities } from "../api/convergence";
 import { useNetwork } from "../api/network";
 import { readRecent, useSelection } from "../app/selection";
-import { parseSearch, stringifySearch } from "../app/search";
+import { useLinkTo } from "../app/search";
 import { workspaces } from "../app/workspaces";
 import { entityLabel, formatEntity, parseEntity, type Entity } from "../lib/entity";
 import { search, type SearchIndex, type SearchItem } from "../lib/search";
@@ -37,7 +36,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const [query, setQuery] = useState("");
   const index = useIndex(open);
   const { select } = useSelection();
-  const router = useRouter();
+  const { go } = useLinkTo();
   const meta = useRef(false);
 
   const results = useMemo(() => search(query, index), [query, index]);
@@ -50,11 +49,9 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const choose = (r: SearchItem) => {
     const asPage = meta.current;
     close();
-    if (r.workspace) {
-      const { sel, tab, ids, analysis } = parseSearch(router.state.location.searchStr);
-      router.history.push(`/${r.workspace}${stringifySearch({ sel, tab, ids, analysis })}`);
-    } else if (r.entity) {
-      if (asPage) router.history.push(`/inspect${stringifySearch({ sel: formatEntity(r.entity) })}`);
+    if (r.workspace) go(r.workspace);
+    else if (r.entity) {
+      if (asPage) go("inspect", { sel: formatEntity(r.entity), tab: undefined });
       else select(r.entity);
     }
   };

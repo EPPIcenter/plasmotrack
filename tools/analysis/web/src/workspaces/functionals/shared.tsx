@@ -1,9 +1,8 @@
 // Pieces the Functionals and Flows workspaces share: the stratum column selector and mark picking on a Plot figure.
 
-import { useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useEpi } from "../../api/functionals";
-import { stringifySearch } from "../../app/search";
+import { WorkspaceLink } from "../../components/WorkspaceLink";
 import { stratumLabel } from "../../lib/functionals";
 import { stratumParams } from "../../lib/network";
 
@@ -44,28 +43,17 @@ export function StratumColumnSelect({ value, onChange, label = "Stratum column" 
   );
 }
 
-/** The Network workspace filtered to a stratum's Infections (the network's `stratum_column` and `stratum`). */
-export function networkPath(column: string, value: string | null): string {
-  return `/network${stringifySearch(stratumParams({ column, value }))}`;
-}
-
-/** A link that opens the Network workspace filtered to a stratum, on the client router. */
+/** A link that opens the Network workspace filtered to a stratum (the network's `stratum_column` and `stratum`). */
 export function NetworkLink({ column, value, children, className = "" }: { column: string; value: string | null; children: ReactNode; className?: string }) {
-  const router = useRouter();
-  const href = networkPath(column, value);
   return (
-    <a
-      href={href}
+    <WorkspaceLink
+      to="network"
+      search={stratumParams({ column, value })}
       aria-label={`Open ${stratumLabel(column, value)} in the Network`}
       title={`Open the Network filtered to ${column} = ${value ?? "no value"}`}
       className={`text-accent hover:underline ${className}`}
-      onClick={(e) => {
-        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-        e.preventDefault();
-        router.history.push(href);
-      }}
     >
       {children}
-    </a>
+    </WorkspaceLink>
   );
 }
