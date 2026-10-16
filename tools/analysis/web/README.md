@@ -41,15 +41,16 @@ of `/convergence?sel=...` opens the app there.
 | `src/app/workspaces.ts` | **Workspace registry**: one line per workspace (rail entry and route) |
 | `src/app/router.tsx` | The route tree built from the registry, `/inspect` ("Open as page"), the shared search params |
 | `src/app/Shell.tsx`, `TopBar.tsx`, `Rail.tsx`, `StatusBar.tsx` | The page: top bar, rail, workspace and Inspector, status bar |
-| `src/app/search.ts` | URL search state: `useSearchState`, `useWorkspaceSearch` |
+| `src/app/search.ts` | URL search state: `useSearchState`, `useWorkspaceSearch`; `linkTo(workspace, search)` and `useLinkTo()`, through which every in-app URL is made (`components/WorkspaceLink.tsx` renders one) |
+| `src/app/hover.ts` | The entity under the pointer, shared by tables and charts (`hover.set`, `useHovered`) |
 | `src/app/selection.ts` | Selection model: `useSelection` (Inspector entity and tab), `useMultiSelection` (Infections), recent selections |
 | `src/app/theme.tsx` | Light and dark themes: `useTheme()` gives the mode, the toggle and the chart colours |
-| `src/api/` | Typed fetchers and one TanStack Query hook per endpoint, one file per endpoint family; `client.ts` has `getJson`, `num` and the latency the status bar shows |
+| `src/api/` | Typed fetchers and one TanStack Query hook per endpoint, one file per endpoint family; `client.ts` has `getJson`, `num` and the latency the status bar shows. A refused request (4xx) is not retried; every consumer renders `PanelState`'s error |
 | `src/components/` | The design system (below) |
 | `src/inspector/registry.ts` | **Inspector entity registry**: one line per entity kind, with its tabs |
 | `src/inspector/<kind>/` | One module per entity kind; `Inspector.tsx` is the frame |
 | `src/workspaces/<id>/` | One module per workspace; the default export is the component |
-| `src/lib/` | Pure logic with tests, no DOM: the payloads' types and chart data per workspace, `entity.ts` (the Inspector's entities and their URL form), `search.ts` (command palette), `status.ts` (mixing thresholds), `palette.ts` (chart colours), `export.ts` (CSV and SVG), `format.ts`, `ids.ts` |
+| `src/lib/` | Pure logic with tests, no DOM: the payloads' types and chart data per workspace, `entity.ts` (the Inspector's entities and their URL form), `search.ts` (command palette), `status.ts` (mixing thresholds), `palette.ts` (every colour), `export.ts` (CSV and SVG), `format.ts` (every number format), `stats.ts` (`quantile`, `median`, `isConstant`), `parse.ts` (URL values into closed sets), `ids.ts` |
 | `src/test/` | Vitest setup, `render.tsx` (`renderApp(url, overrides)`, `renderWithProviders`, `mockApi`, `fixture`), `fixtures/` |
 | `e2e/` | The Playwright smoke test |
 | `scripts/golden.py` | Captures the fixtures from, or serves, the golden Analysis with epi data, truth and a cohort of three fits of it (full, partial, null) |
@@ -62,17 +63,22 @@ of `/convergence?sel=...` opens the app there.
   text). Type sizes: `text-ui` (13 px), `text-table` (12 px), `text-axis` (11 px). `.num` right-aligns with tabular
   numerals; `.id` sets ids in monospace.
 - **Chart colours** are `src/lib/palette.ts` (`useTheme().chart`): the Chain palette (Chain *k* is always slot *k*;
-  `chainScale(theme, chains)` for Plot), the sequential and diverging ramps and the status colours, validated in both
-  themes with the dataviz skill's validator.
+  `chainScale(theme, chains)` for Plot), the sequential and diverging ramps, the network's `categories`, `qRamp`,
+  `edgeRamp`, `truthRamp`, `falseEdge`, `edge` and `noValue`, and the status colours, validated in both themes with
+  the dataviz skill's validator. No view writes a colour; status colours come only from `statusColour` in
+  `src/lib/status.ts` or from `StatusChip`/`StatusText`.
+- **Numbers** go through `src/lib/format.ts`: probabilities to three decimals (`<0.001`), counts with thousands
+  separators, `formatFixed`, `formatInterval` (one value marked "(constant)" when its ends agree to rounding).
 - **Components** (`src/components/`):
   - `Panel`: header with title, one-line description, actions and the export menu; `data` gives its CSV.
   - `PlotFigure`: Observable Plot wrapper; `plot({ width, height, theme })` is called again when the container
     resizes or the theme changes. Pass a stable function (`useCallback`). `plotStyle(theme)` for the shared style.
-  - `DataTable`: virtualised table with sticky header, sort, column resize, numeric alignment, row hover and click,
-    the active row. Columns are `{ id, header, value, cell?, numeric?, width?, descFirst?, group? }`; consecutive
+  - `DataTable`: virtualised table with sticky header and first column, sort, column resize, numeric alignment, row
+    hover and click, the active row; it scrolls both ways inside its panel. `hoverEntity(row)` shares the row's
+    entity with the workspace's charts through `src/app/hover.ts`. Columns are `{ id, header, value, cell?, numeric?, width?, descFirst?, group? }`; consecutive
     columns of one `group` share a header above theirs.
-  - `Sparkline`, `StatusChip` (R-hat above 1.1 amber and 1.2 red, ESS under 100 amber and 20 red; icon and title
-    as well as colour), `EntityLink`, `KpiStrip`, `ExportMenu`, `QuantityTrace` (trace per Chain with a brushable
+  - `Sparkline`, `StatusChip` (R-hat above 1.1 amber and 1.2 red, ESS under 100 amber and 20 red, between-Chain
+    spread above 0.2 amber; icon and title as well as colour) and `StatusText` (any text at a level), `WorkspaceLink`, `EntityLink`, `KpiStrip`, `ExportMenu`, `QuantityTrace` (trace per Chain with a brushable
     range, rank histograms, ESS and R-hat over the range), `CommandPalette`, `Placeholder`, `AnalysisSwitch` (the open Analyses as a segmented switch; nothing with one open).
     `QuantityTrace` takes `analysis` to read a given open Analysis rather than the active one.
 - **Exports**: every `Panel` exports its figures (SVG and canvases in its body) as SVG and PNG on the theme's surface,
@@ -113,7 +119,9 @@ The URL is the state: workspace path, its filters and sort, and the selection.
   the backend reads that Analysis on every endpoint. Only `/api/analyses` and `/api/compare/*` (about every open
   Analysis) do not. A new hook follows the same pattern.
 - A workspace's own parameters are read with `useWorkspaceSearch(parse)`, which returns the typed values and a setter
-  that replaces the history entry. Selection pushes a history entry, so Back restores the previous selection.
+  that replaces the history entry. `parse` reads closed sets with `src/lib/parse.ts` (`parseOneOf`, `parseSource`,
+  …), never a cast. Links to another workspace are `linkTo`/`WorkspaceLink`, which keep `sel`, `tab`, `ids` and
+  `analysis`. Selection pushes a history entry, so Back restores the previous selection.
 
 The Infections workspace (`src/workspaces/infections/`, logic in `src/lib/infections.ts`) keeps `quick` (quick
 filters: `multi`, `uncertain`, `spread`, `mixing`, `prolific`, combined with AND), `f.<column>` (a column's typed
@@ -156,14 +164,16 @@ The route and the rail entry of every workspace in DESIGN.md exist; the ones not
 2. Put its logic in `src/lib/<id>.ts` with a `*.test.ts`, its fetchers and hooks in `src/api/<id>.ts`, and a component
    test in `src/workspaces/<id>/*.test.tsx` with `renderApp("/<id>")` on the fixtures (capture more with
    `scripts/golden.py` if it needs another request).
-3. A new workspace (not in DESIGN.md) is one line in `src/app/workspaces.ts`:
+3. A new workspace (not in DESIGN.md) adds its id to `WORKSPACE_IDS` (the typed `WorkspaceId` that `linkTo` takes)
+   and one line in `src/app/workspaces.ts`:
 
    ```ts
-   { id: "edges", title: "Edges", group: "Explore", description: "Edge marginals per Chain, spread, switches, ESS", load: () => import("../workspaces/edges") },
+   { id: "edges", title: "Edges", group: "Explore", description: "Edge marginals per Chain, spread, switches, ESS", icon: ArrowRightLeft, load: () => import("../workspaces/edges") },
    ```
 
-   `when: (c) => c.epi` hides it from the rail unless the Analysis has epi data (`truth`, `cohort`,
-   `pairwise_scores`, `analyses` likewise). An attention badge is a count under the workspace's id in
+   `needs: EPI` hides it from the rail unless the Analysis has epi data (`TRUTH`, `SEVERAL`, `TRUTH_OR_COHORT`
+   likewise; a `Needs` is `{ when, missing }`). At its URL without them it loads nothing and says what the manifest
+   lacks. `icon` is its lucide-react icon, the rail's only mark when collapsed. An attention badge is a count under the workspace's id in
    `/api/status`'s `attention` (`pt_analysis/overview.py`, `status`).
 
 ## Posterior workspaces
