@@ -1,6 +1,8 @@
 // A quantity's trace: each Chain's Draws within a Sampling-iteration range, and the summary the Quantity Inspector
 // shows (Draws, mean and the 2.5% and 97.5% quantiles per Chain and pooled). No DOM here.
 
+import { quantile } from "./stats";
+
 export interface TraceLike {
   chains: { chain: string; iteration: number[]; phase: string[]; value: number[] }[];
 }
@@ -10,15 +12,6 @@ export function chainDraws(trace: TraceLike, range: readonly [number, number] | 
   return trace.chains.map((c) =>
     c.value.filter((_, i) => c.phase[i] === "sampling" && (!range || (c.iteration[i]! >= range[0] && c.iteration[i]! <= range[1]))),
   );
-}
-
-/** The type-7 quantile (linear interpolation between order statistics); null without values. */
-export function quantile(values: readonly number[], p: number): number | null {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const h = (sorted.length - 1) * p;
-  const lo = Math.floor(h);
-  return sorted[lo]! + (h - lo) * ((sorted[Math.min(lo + 1, sorted.length - 1)] ?? sorted[lo]!) - sorted[lo]!);
 }
 
 export interface SeriesSummary {

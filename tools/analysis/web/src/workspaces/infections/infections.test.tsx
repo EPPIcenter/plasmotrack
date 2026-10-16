@@ -17,7 +17,7 @@ describe("Infections", () => {
       expect(headers.some((x) => x?.startsWith(h))).toBe(true);
     const three = within(t).getAllByRole("row")[2]!;
     // Infection 3: q 0.17, its top Parent set {1} at 0.83, its worst R-hat the edge 3<-1 at 1.104.
-    expect(three).toHaveTextContent("0.17");
+    expect(three).toHaveTextContent("0.169");
     expect(three).toHaveTextContent("{1}");
     expect(three).toHaveTextContent("1.104");
     expect(three).toHaveTextContent("edge ← 1");

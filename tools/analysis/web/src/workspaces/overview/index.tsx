@@ -22,16 +22,12 @@ import { classShade, type Interval } from "../../lib/functionals";
 import { headlineComposition, mixingStrip, overviewTables, RHAT_CAP } from "../../lib/overview";
 import { compositionColour, inkOn } from "../../lib/palette";
 import { ESS_CRITICAL, ESS_WARN, essLevel, RHAT_CRITICAL, RHAT_WARN, rhatLevel } from "../../lib/status";
+import { median } from "../../lib/stats";
 
 const LOG_POSTERIOR = { kind: "quantity" as const, group: "log posterior", name: "log posterior" };
 
 const interval = (i: Interval | null | undefined, digits = 3) =>
   i ? `[${formatNumber(i.lower, digits)}, ${formatNumber(i.upper, digits)}]` : "";
-
-function median(xs: number[]) {
-  const s = [...xs].sort((a, b) => a - b);
-  return s.length ? s[Math.floor(s.length / 2)]! : null;
-}
 
 function useKpis(o: Overview | undefined): Kpi[] {
   const { data: a } = useAnalysis();

@@ -27,10 +27,10 @@ describe("Infection Inspector", () => {
     const first = within(sets).getAllByRole("row")[1]!;
     expect(first).toHaveTextContent("{1}");
     expect(first).toHaveTextContent("observed_1");
-    expect(first).toHaveTextContent("0.83");
+    expect(first).toHaveTextContent("0.828");
     expect(within(first).getByTitle("In the 80% credible collection")).toBeInTheDocument();
     // Per-Chain agreement: chain1 weighs {1} 0.88, chain2 0.77.
-    expect(within(first).getByRole("img", { name: "{1}: 0.83 pooled; chain1 0.88, chain2 0.77" })).toBeInTheDocument();
+    expect(within(first).getByRole("img", { name: "{1}: 0.828 pooled; chain1 0.885, chain2 0.771" })).toBeInTheDocument();
     expect(within(sets).getAllByRole("row")[2]).toHaveTextContent("{unobserved}");
     const edges = within(i).getByRole("table", { name: "Parent Edge marginals" });
     await userEvent.click(within(edges).getByRole("link", { name: "1 → 3" }));

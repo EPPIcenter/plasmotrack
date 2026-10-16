@@ -57,20 +57,6 @@ export function exportFileName(label: string, route: string, params: URLSearchPa
   return stem.slice(0, MAX_NAME - tail.length) + tail;
 }
 
-/** What `htmlTable` reads of an HTMLTableElement. */
-export interface TableLike {
-  rows: ArrayLike<{ cells: ArrayLike<{ tagName: string; textContent: string | null }> }>;
-}
-
-/** A rendered table as it was shown: a first row of `th` cells names the columns (else they are numbered from 1),
- *  each cell its text with whitespace collapsed. */
-export function htmlTable(table: TableLike): DataTable {
-  const rows = Array.from(table.rows, (r) => Array.from(r.cells, (c) => ({ th: c.tagName === "TH", text: (c.textContent ?? "").replace(/\s+/g, " ").trim() })));
-  const header = rows[0]?.length && rows[0].every((c) => c.th) ? rows.shift()!.map((c) => c.text) : [];
-  const width = Math.max(header.length, ...rows.map((r) => r.length));
-  const columns = Array.from({ length: width }, (_, i) => header[i] ?? String(i + 1));
-  return { columns, rows: rows.map((r) => columns.map((_, i) => r[i]?.text ?? "")) };
-}
 
 /** A rectangle in CSS pixels, relative to the page. */
 export interface Box {

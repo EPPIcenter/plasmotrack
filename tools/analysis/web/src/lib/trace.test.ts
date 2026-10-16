@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { chainDraws, quantile, traceSummary, type TraceLike } from "./trace";
+import { quantile } from "./stats";
+import { chainDraws, traceSummary, type TraceLike } from "./trace";
 
 const trace: TraceLike = {
   chains: [

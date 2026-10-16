@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeSvg, exportFileName, htmlTable, intervalColumns, intervalFields, recordsTable, toCsv } from "./export";
+import { composeSvg, exportFileName, intervalColumns, intervalFields, recordsTable, toCsv } from "./export";
 
 describe("toCsv", () => {
   it("writes a header and one line per row, quoting only what needs it", () => {
@@ -47,22 +47,6 @@ describe("exportFileName", () => {
   });
 });
 
-// The shape of an HTMLTableElement that htmlTable reads: its rows' cells, their tag and text.
-const cell = (tagName: "TH" | "TD", textContent: string) => ({ tagName, textContent });
-const tr = (...cells: ReturnType<typeof cell>[]) => ({ cells });
-
-describe("htmlTable", () => {
-  it("takes a header row of th cells as the column names and each later row's text as it was shown", () => {
-    const t = htmlTable({ rows: [tr(cell("TH", "Chain"), cell("TH", " q ")), tr(cell("TD", "A"), cell("TD", "0.512\n  ")), tr(cell("TD", "B"), cell("TD", "–"))] });
-    expect(toCsv(t)).toBe("Chain,q\r\nA,0.512\r\nB,–\r\n");
-  });
-
-  it("numbers the columns of a table without a header row and pads short rows", () => {
-    const t = htmlTable({ rows: [tr(cell("TD", "a"), cell("TD", "b")), tr(cell("TD", "c"))] });
-    expect(t.columns).toEqual(["1", "2"]);
-    expect(t.rows).toEqual([["a", "b"], ["c", ""]]);
-  });
-});
 
 describe("composeSvg", () => {
   const plot = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100"><circle r="2"/></svg>';

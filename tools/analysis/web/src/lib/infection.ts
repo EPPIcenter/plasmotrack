@@ -1,6 +1,7 @@
 // The infection card's logic and response types (U10), tested without a DOM.
 
 import { num } from "./num";
+import { quantile } from "./stats";
 import { recordsTable, type NamedTable } from "./export";
 
 export interface ChainSeries {
@@ -157,13 +158,6 @@ export function coiBars(chains: ChainCoi[]): { chain: string; coi: number; draws
   });
 }
 
-/** R's type-7 quantile of sorted values. */
-function quantile(sorted: number[], p: number): number {
-  const h = (sorted.length - 1) * p;
-  const lo = Math.floor(h);
-  return sorted[lo]! + (h - lo) * (sorted[Math.min(lo + 1, sorted.length - 1)]! - sorted[lo]!);
-}
-
 /** A Gaussian kernel density of `values` at `points` evenly spaced points from 3 bandwidths below the smallest
  * value to 3 above the largest. The bandwidth is Silverman's rule, 0.9 min(sd, IQR / 1.34) n^(-1/5), falling back to
  * the sd, then to 1% of the value (or 0.001), when the spread is 0. Empty for no values. */
@@ -173,7 +167,7 @@ export function density(values: number[], points = 100): { x: number; y: number 
   const sorted = [...values].sort((a, b) => a - b);
   const mean = values.reduce((s, v) => s + v, 0) / n;
   const sd = n > 1 ? Math.sqrt(values.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1)) : 0;
-  const iqr = (quantile(sorted, 0.75) - quantile(sorted, 0.25)) / 1.34;
+  const iqr = ((quantile(sorted, 0.75) ?? 0) - (quantile(sorted, 0.25) ?? 0)) / 1.34;
   const spread = Math.min(sd, iqr) || sd || Math.abs(mean) * 0.01 || 0.001;
   const h = 0.9 * spread * n ** -0.2;
   const lo = sorted[0]! - 3 * h;

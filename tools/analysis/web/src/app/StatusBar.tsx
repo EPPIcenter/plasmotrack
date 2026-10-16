@@ -3,17 +3,13 @@
 import { useSyncExternalStore } from "react";
 import { latency } from "../api/client";
 import { useStatus } from "../api/analysis";
+import { median } from "../lib/stats";
 
 function windows(chains: Record<string, { burn_in: number[]; sampling: number[] }>): string {
   const sampling = [...new Set(Object.values(chains).flatMap((c) => c.sampling))].sort((a, b) => a - b);
   const all = [...new Set(Object.values(chains).flatMap((c) => [...c.burn_in, ...c.sampling]))].sort((a, b) => a - b);
   if (!all.length) return "no closed Windows";
   return `Windows ${all[0]}–${all[all.length - 1]} (${sampling.length} sampling)`;
-}
-
-function median(xs: readonly number[]) {
-  const s = [...xs].sort((a, b) => a - b);
-  return s.length ? s[Math.floor(s.length / 2)]! : null;
 }
 
 export function StatusBar() {
