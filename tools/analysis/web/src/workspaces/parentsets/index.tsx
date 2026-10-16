@@ -99,10 +99,12 @@ function Figures({ rows }: { rows: readonly ParentSetRow[] }) {
     ({ width, height, theme }: PlotContext) => {
       const counts = credibleSizeCounts(rows);
       const shown = SIZE_RANGES.filter((r) => r.lo <= Math.max(...rows.map((x) => x.credible_size), 1)).map((r) => r.label);
+      // Range labels collide in a narrow panel (the Inspector open): tilt them.
+      const tilt = width / Math.max(1, shown.length) < 56;
       return Plot.plot({
-        width, height, marginLeft: 40, marginRight: 8, marginTop: 18, marginBottom: 32,
+        width, height, marginLeft: 40, marginRight: 8, marginTop: 18, marginBottom: tilt ? 60 : 32,
         style: plotStyle(theme),
-        x: { label: "Credible collection size →", labelAnchor: "right", domain: shown, padding: 0.15 },
+        x: { label: "Credible collection size →", labelAnchor: "right", domain: shown, padding: 0.15, tickRotate: tilt ? -35 : 0, labelOffset: tilt ? 56 : undefined },
         y: { label: "↑ Infections", grid: true, nice: true },
         color: scale(theme),
         marks: [
