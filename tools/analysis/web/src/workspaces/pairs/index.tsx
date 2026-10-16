@@ -15,6 +15,7 @@ import { EntityLink } from "../../components/EntityLink";
 import { Panel, PanelState } from "../../components/Panel";
 import { PairView } from "../../inspector/pair/PairView";
 import { pairTables } from "../../lib/pair";
+import { formatCount, formatProbability } from "../../lib/format";
 import { pairsTable, type PairRow } from "../../lib/pairs";
 
 interface PairsSearch {
@@ -43,7 +44,6 @@ const parse = (s: SearchValues): PairsSearch => ({
 });
 
 const key = (r: Pick<PairRow, "a" | "b">) => `${r.a},${r.b}`;
-const prob = (x: number | null | undefined) => (x === null || x === undefined ? "–" : x.toFixed(3));
 
 function NumberBox({ label, value, onChange, step = 0.05, title }: { label: string; value: number | null; onChange: (v: string) => void; step?: number; title?: string }) {
   return (
@@ -91,7 +91,7 @@ function PairPicker({ a, b, ids, onPick }: { a: string; b: string; ids: string[]
 export default function PairsWorkspace() {
   const [search, set] = useWorkspaceSearch(parse);
   const { data, error, isLoading } = usePairs(search.query);
-  const { data: network } = useNetwork();
+  const { data: network, error: networkError } = useNetwork();
   const ids = useMemo(() => network?.nodes.map((n) => n.id) ?? [], [network]);
   const chains = useChains();
   const rows = data?.rows ?? [];
@@ -107,12 +107,13 @@ export default function PairsWorkspace() {
     () => [
       { id: "a", header: "A", value: (r) => r.a, width: 72, cell: (r) => <EntityLink entity={{ kind: "infection", id: r.a }} className="no-underline" /> },
       { id: "b", header: "B", value: (r) => r.b, width: 72, cell: (r) => <EntityLink entity={{ kind: "infection", id: r.b }} className="no-underline" /> },
-      { id: "p", header: "P(A before B)", title: "Pooled over every Chain's Draws with both in the Ordering", value: (r) => r.probability, numeric: true, width: 112, cell: (r) => prob(r.probability) },
-      ...chains.map((c, k): Column<PairRow> => ({ id: `p:${c}`, header: `P ${c}`, title: `P(A before B) in ${c}`, value: (r) => r.chains[k]?.probability ?? null, numeric: true, width: 80, cell: (r) => <span className="text-ink-2">{prob(r.chains[k]?.probability)}</span> })),
-      { id: "spread", header: "Spread", title: "Largest minus smallest Chain probability", value: (r) => r.spread, numeric: true, width: 72, descFirst: true, cell: (r) => prob(r.spread) },
+      { id: "p", header: "P(A before B)", title: "Pooled over every Chain's Draws with both in the Ordering", value: (r) => r.probability, numeric: true, width: 112, cell: (r) => formatProbability(r.probability) },
+      ...chains.map((c, k): Column<PairRow> => ({ id: `p:${c}`, header: `P ${c}`, title: `P(A before B) in ${c}`, value: (r) => r.chains[k]?.probability ?? null, numeric: true, width: 80, cell: (r) => <span className="text-ink-2">{formatProbability(r.chains[k]?.probability)}</span> })),
+      { id: "spread", header: "Spread", title: "Largest minus smallest Chain probability", value: (r) => r.spread, numeric: true, width: 72, descFirst: true, cell: (r) => formatProbability(r.spread) },
       { id: "switches", header: "Switches", title: "Adjacent Draws at which the order changes, summed over Chains", value: (r) => r.switches, numeric: true, width: 84, descFirst: true },
-      { id: "a_to_b", header: "A → B", title: "Pooled Edge marginal with A the parent of B", value: (r) => r.a_to_b, numeric: true, width: 66, descFirst: true, cell: (r) => prob(r.a_to_b) },
-      { id: "b_to_a", header: "B → A", title: "Pooled Edge marginal with B the parent of A", value: (r) => r.b_to_a, numeric: true, width: 66, descFirst: true, cell: (r) => prob(r.b_to_a) },
+      { id: "a_to_b", header: "A → B", title: "Pooled Edge marginal with A the parent of B", value: (r) => r.a_to_b, numeric: true, width: 66, descFirst: true, cell: (r) => formatProbability(r.a_to_b) },
+      { id: "b_to_a", header: "B → A", title: "Pooled Edge marginal with B the parent of A", value: (r) => r.b_to_a, numeric: true, width: 66, descFirst: true, cell: (r) => formatProbability(r.b_to_a) },
+      { id: "differing_loci", header: "Differing Loci", title: "Loci where A's and B's pooled Latent genotype modes differ", value: (r) => r.differing_loci, numeric: true, width: 104, descFirst: true, cell: (r) => formatCount(r.differing_loci) },
     ],
     [chains],
   );
@@ -129,7 +130,7 @@ export default function PairsWorkspace() {
             className="flex-1"
             bodyClassName="flex flex-col"
             title="Pairs"
-            description={data ? `${data.total.toLocaleString()} pairs worth a look${data.total > rows.length ? `, first ${rows.length.toLocaleString()}` : ""}: uncertain order, or Chains that disagree` : undefined}
+            description={data ? `${formatCount(data.total)} pairs worth a look${data.total > rows.length ? `, first ${formatCount(rows.length)}` : ""}: uncertain order, or Chains that disagree` : undefined}
             data={() => (data ? pairsTable(rows) : null)}
             exportName="pairs"
           >
@@ -170,6 +171,7 @@ export default function PairsWorkspace() {
             data={() => (pair ? pairTables(pair) : null)}
             actions={
               <div className="flex items-center gap-2">
+                {networkError && <PanelState error={networkError} inline />}
                 <PairPicker a={a} b={b} ids={ids} onPick={pick} />
                 {chosen && <EntityLink entity={{ kind: "pair", a, b }} className="text-axis">Inspect</EntityLink>}
               </div>
