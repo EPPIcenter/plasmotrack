@@ -32,15 +32,26 @@ describe("command palette search", () => {
     expect(search("pf0010, pf0147", index)[0]).toMatchObject({ entity: { kind: "pair", a: "pf0010", b: "pf0147" } });
   });
 
-  it("reads column=value as a stratum of a known column only", () => {
+  it("reads column=value as a stratum only when the column has that value, in its own case", () => {
     expect(search("district=North", index)[0]).toMatchObject({ entity: { kind: "stratum", column: "district", value: "North" } });
+    expect(search("district = north", index)[0]).toMatchObject({ entity: { kind: "stratum", column: "district", value: "North" } });
     expect(search("nowhere=North", index).some((i) => i.entity?.kind === "stratum")).toBe(false);
+  });
+
+  it("never offers a stratum value the data does not have", () => {
+    const strata = (q: string) => search(q, index).filter((i) => i.entity?.kind === "stratum").map((i) => i.entity);
+    expect(strata("district=Nowhere")).toEqual([]);
+    expect(strata("district=No")).toEqual([{ kind: "stratum", column: "district", value: "North" }]);
+    expect(strata("district=")).toEqual([
+      { kind: "stratum", column: "district", value: "North" },
+      { kind: "stratum", column: "district", value: null },
+    ]);
   });
 
   it("lists Infection ids containing the text in natural order, prefix matches first, with q and top parent as hints", () => {
     const found = search("pf00", index).filter((i) => i.entity?.kind === "infection");
     expect(found.map((i) => i.label)).toEqual(["pf0002", "pf0010"]);
-    expect(found[1]!.hint).toBe("q 0.20 · top parent pf0002");
+    expect(found[1]!.hint).toBe("q 0.200 · top parent pf0002");
   });
 
   it("matches quantities by name and group, and workspaces by title", () => {
