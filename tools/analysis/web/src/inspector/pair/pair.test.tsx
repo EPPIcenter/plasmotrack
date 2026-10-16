@@ -57,3 +57,37 @@ describe("the pair's genotypes", () => {
     expect(genotypes).toHaveTextContent("No Locus of 2 differs");
   });
 });
+
+describe("the pair's genotype table", () => {
+  it("scrolls sideways inside its section with the Locus column kept in view", async () => {
+    mockApi();
+    renderWithProviders(<PairView a="1" b="3" part="genotypes" />);
+    const table = await screen.findByRole("table", { name: "Genotypes per Locus" });
+    expect(table.parentElement).toHaveClass("overflow-x-auto");
+    expect(within(table).getByRole("columnheader", { name: "Locus" })).toHaveClass("dt-sticky");
+    expect(within(table).getAllByRole("row")[1]!.firstElementChild).toHaveClass("dt-sticky");
+  });
+
+  it("has no truth columns when the truth file has no genotypes", async () => {
+    mockApi();
+    renderWithProviders(<PairView a="1" b="3" part="genotypes" />);
+    const table = await screen.findByRole("table", { name: "Genotypes per Locus" });
+    expect(within(table).queryByRole("columnheader", { name: /True/ })).toBeNull();
+  });
+
+  it("shows a true genotype missing from the truth file as –, keeping unobserved for a missing Observed genotype", async () => {
+    const pair = fixture<PairResponse>("pair-1-3");
+    pair.genotypes.truth = true;
+    pair.genotypes.rows = pair.genotypes.rows.map((r, i) => ({ ...r, observed_b: i ? r.observed_b : null, true_a: r.latent_a, true_b: null }));
+    mockApi({ "/api/pair": pair });
+    renderWithProviders(<PairView a="1" b="3" part="genotypes" />);
+    const table = await screen.findByRole("table", { name: "Genotypes per Locus" });
+    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(
+      ["Locus", "Observed 1", "Latent 1", "Agr.", "Latent 3", "Agr.", "Observed 3", "True 1", "True 3"]);
+    const first = within(table).getAllByRole("row")[1]!;
+    const cells = within(first).getAllByRole("cell").map((c) => c.textContent);
+    expect(cells[6]).toBe("unobserved");
+    expect(cells[7]).toBe(pair.genotypes.rows[0]!.latent_a);
+    expect(cells[8]).toBe("–");
+  });
+});

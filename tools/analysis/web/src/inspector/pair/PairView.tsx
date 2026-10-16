@@ -190,8 +190,15 @@ function TimesSection({ p }: { p: PairResponse }) {
   );
 }
 
-function Bits({ bits }: { bits: string | null | undefined }) {
-  return bits ? <span className="id">{bits}</span> : <span className="text-muted">unobserved</span>;
+/** The sticky Locus cell of a differing row: the row's warning tint over the opaque surface, and its left bar. */
+const DIFFERS_STICKY = {
+  background: "linear-gradient(color-mix(in srgb, var(--warning) 15%, transparent), color-mix(in srgb, var(--warning) 15%, transparent)), var(--surface)",
+  boxShadow: "inset 2px 0 0 var(--warning), inset -1px 0 0 var(--line)",
+};
+
+/** A genotype's Allele bits; `missing` where there is none ("unobserved" only for an Observed genotype). */
+function Bits({ bits, missing = "–" }: { bits: string | null | undefined; missing?: string }) {
+  return bits ? <span className="id">{bits}</span> : <span className="text-muted">{missing}</span>;
 }
 
 function GenotypesSection({ p }: { p: PairResponse }) {
@@ -213,12 +220,13 @@ function GenotypesSection({ p }: { p: PairResponse }) {
     >
       <p className={`mb-1 ${differing.count ? "font-medium text-warning-ink" : "text-ink-2"}`}>{differing.text}.</p>
       <p className="mb-1 text-axis text-muted">Latent: posterior mode over every Chain's Draws; Agr.: the fraction of Draws that had it.</p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-table tabular-nums" aria-label="Genotypes per Locus">
+      {/* Wider than the Inspector: it scrolls sideways here, the Locus column staying in view (as DataTable's). */}
+      <div className="-mx-3 overflow-x-auto">
+        <table className="min-w-full text-table tabular-nums" aria-label="Genotypes per Locus">
           <thead className="text-ink-2">
             <tr className="border-b border-line">
               {head.map((h, i) => (
-                <th key={i} className={`whitespace-nowrap py-0.5 pr-2 text-left font-medium ${h === "Agr." ? "text-right" : ""}`}>{h}</th>
+                <th key={i} className={`whitespace-nowrap py-0.5 pr-2 text-left font-medium ${h === "Agr." ? "text-right" : ""} ${i === 0 ? "dt-sticky pl-3" : ""}`}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -228,17 +236,17 @@ function GenotypesSection({ p }: { p: PairResponse }) {
                 key={r.locus}
                 data-differs={r.differs}
                 title={r.differs ? "The Latent modes differ" : undefined}
-                className={`border-b border-line/60 ${r.differs ? "bg-warning/15 font-medium shadow-[inset_2px_0_0_var(--warning)]" : ""}`}
+                className={`border-b border-line/60 ${r.differs ? "bg-warning/15 font-medium" : ""}`}
               >
-                <td className="whitespace-nowrap py-0.5 pl-1 pr-2">{r.locus}</td>
-                <td className="pr-2"><Bits bits={r.observed_a} /></td>
+                <td className="dt-sticky whitespace-nowrap py-0.5 pl-3 pr-2" style={r.differs ? DIFFERS_STICKY : undefined}>{r.locus}</td>
+                <td className="pr-2"><Bits bits={r.observed_a} missing="unobserved" /></td>
                 <td className="pr-2"><Bits bits={r.latent_a} /></td>
                 <td className="num pr-2">{prob(r.agreement_a)}</td>
                 <td className="pr-2"><Bits bits={r.latent_b} /></td>
                 <td className="num pr-2">{prob(r.agreement_b)}</td>
-                <td className="pr-2"><Bits bits={r.observed_b} /></td>
+                <td className="pr-2"><Bits bits={r.observed_b} missing="unobserved" /></td>
                 {truth && <td className="pr-2"><Bits bits={r.true_a} /></td>}
-                {truth && <td className="pr-2"><Bits bits={r.true_b} /></td>}
+                {truth && <td className="pr-3"><Bits bits={r.true_b} /></td>}
               </tr>
             ))}
           </tbody>
