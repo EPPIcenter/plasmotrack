@@ -10,13 +10,12 @@ import { useTheme } from "../../app/theme";
 import { EntityLink } from "../../components/EntityLink";
 import { PanelState } from "../../components/Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
+import { formatFixed, formatProbability, formatSpan } from "../../lib/format";
 import { differingLoci, type PairResponse } from "../../lib/pair";
 import { chainColour, chainScale } from "../../lib/palette";
 import { ChainLabel, Section } from "../layout";
 
-/** A probability to three decimals, or two significant digits below 0.01 so small weights are not rounded away. */
-const prob = (x: number | null | undefined) => (x === null || x === undefined ? "–" : x > 0 && x < 0.01 ? x.toPrecision(2) : x.toFixed(3));
-const time = (x: number | null) => (x === null ? "–" : x.toFixed(1));
+const time = (x: number | null) => formatFixed(x, 1);
 
 export type PairPart = "summary" | "genotypes" | "all";
 
@@ -48,16 +47,16 @@ function OrderSection({ p }: { p: PairResponse }) {
       return Plot.plot({
         width,
         height: 44 * chains.length + 28,
-        // Room for "<id> first" at 11 px.
+        // Room for "<id> first" on the left and each Chain's label on the right, at 11 px.
         marginLeft: Math.max(64, 6.5 * Math.max(a.length, b.length) + 40),
-        marginRight: 16,
+        marginRight: Math.max(16, 6.5 * Math.max(...chains.map((c) => c.length)) + 12),
         marginTop: 4,
         marginBottom: 26,
         style: plotStyle(theme),
         color: chainScale(theme, chains),
         x: { label: "Sampling iteration →", labelAnchor: "right", grid: true, tickFormat: "~s" },
         y: { domain: [0, 1], inset: 6, ticks: [0, 1], tickFormat: label, label: null },
-        fy: { label: null, domain: chains, padding: 0.25 },
+        fy: { label: null, domain: chains, padding: 0.25, axis: "right", tickSize: 0, tickPadding: 6 },
         marks: [
           Plot.frame({ stroke: theme.grid }),
           Plot.lineY(points, { x: "iteration", y: "before", fy: "chain", stroke: "chain", strokeWidth: 2, curve: "step-after" }),
@@ -76,14 +75,14 @@ function OrderSection({ p }: { p: PairResponse }) {
           <tr key={c.chain} className="border-b border-line/60">
             <td className={td(0)}><ChainLabel chain={c.chain} colour={chainColour(chart, k)} /></td>
             <td className={td(1)}>{c.draws}</td>
-            <td className={td(2)}>{prob(c.probability)}</td>
+            <td className={td(2)}>{formatProbability(c.probability)}</td>
             <td className={td(3)}>{c.switches}</td>
           </tr>
         ))}
         <tr className="font-medium">
           <td className={td(0)}>All Chains</td>
           <td className={td(1)}>{draws}</td>
-          <td className={td(2)}>{prob(p.order.probability)}</td>
+          <td className={td(2)}>{formatProbability(p.order.probability)}</td>
           <td className={td(3)}>{switches}</td>
         </tr>
       </Table>
@@ -104,14 +103,14 @@ function EdgesSection({ p }: { p: PairResponse }) {
         {p.edges.chains.map((c, k) => (
           <tr key={c.chain} className="border-b border-line/60">
             <td className={td(0)}><ChainLabel chain={c.chain} colour={chainColour(chart, k)} /></td>
-            <td className={td(1)}>{prob(c.a_to_b)}</td>
-            <td className={td(2)}>{prob(c.b_to_a)}</td>
+            <td className={td(1)}>{formatProbability(c.a_to_b)}</td>
+            <td className={td(2)}>{formatProbability(c.b_to_a)}</td>
           </tr>
         ))}
         <tr className="font-medium">
           <td className={td(0)}>All Chains</td>
-          <td className={td(1)}>{prob(p.edges.a_to_b)}</td>
-          <td className={td(2)}>{prob(p.edges.b_to_a)}</td>
+          <td className={td(1)}>{formatProbability(p.edges.a_to_b)}</td>
+          <td className={td(2)}>{formatProbability(p.edges.b_to_a)}</td>
         </tr>
       </Table>
       <p className="mt-1 text-axis text-muted">Mean over Draws of the summed weight of the child's Parent sets holding the parent.</p>
@@ -129,9 +128,9 @@ function CoInclusionSection({ p }: { p: PairResponse }) {
           {p.co_inclusion.map((r) => (
             <tr key={r.infection} className="border-b border-line/60">
               <td className={td(0)}><EntityLink entity={{ kind: "infection", id: r.infection }} /></td>
-              <td className={td(1)}>{prob(r.weight)}</td>
+              <td className={td(1)}>{formatProbability(r.weight)}</td>
               {chains.map((ch, k) => (
-                <td key={ch} className={td(k + 2)}>{prob(r.chains.find((c) => c.chain === ch)?.weight ?? 0)}</td>
+                <td key={ch} className={td(k + 2)}>{formatProbability(r.chains.find((c) => c.chain === ch)?.weight ?? 0)}</td>
               ))}
             </tr>
           ))}
@@ -179,7 +178,7 @@ function TimesSection({ p }: { p: PairResponse }) {
             <td className={td(0)}><EntityLink entity={{ kind: "infection", id: t.infection }} /></td>
             <td className={td(1)}>{time(t.observation_time)}</td>
             <td className={td(2)}>{time(t.median)}</td>
-            <td className={td(3)}>{t.lower === null ? "–" : `${time(t.lower)} – ${time(t.upper)}`}</td>
+            <td className={td(3)}>{formatSpan(t.lower, t.upper, time)}</td>
           </tr>
         ))}
       </Table>
@@ -241,9 +240,9 @@ function GenotypesSection({ p }: { p: PairResponse }) {
                 <td className="dt-sticky whitespace-nowrap py-0.5 pl-3 pr-2" style={r.differs ? DIFFERS_STICKY : undefined}>{r.locus}</td>
                 <td className="pr-2"><Bits bits={r.observed_a} missing="unobserved" /></td>
                 <td className="pr-2"><Bits bits={r.latent_a} /></td>
-                <td className="num pr-2">{prob(r.agreement_a)}</td>
+                <td className="num pr-2">{formatProbability(r.agreement_a)}</td>
                 <td className="pr-2"><Bits bits={r.latent_b} /></td>
-                <td className="num pr-2">{prob(r.agreement_b)}</td>
+                <td className="num pr-2">{formatProbability(r.agreement_b)}</td>
                 <td className="pr-2"><Bits bits={r.observed_b} missing="unobserved" /></td>
                 {truth && <td className="pr-2"><Bits bits={r.true_a} /></td>}
                 {truth && <td className="pr-3"><Bits bits={r.true_b} /></td>}

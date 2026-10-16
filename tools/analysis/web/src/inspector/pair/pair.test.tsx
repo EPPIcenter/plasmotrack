@@ -33,7 +33,7 @@ describe("the Pair Inspector", () => {
     const times = within(box).getByRole("region", { name: "Infection times" });
     expect(times).toHaveTextContent("Lag (observation time of 3 minus 1): 116.4");
     expect(rows(within(times).getByRole("table")).slice(1)).toEqual([
-      ["1", "234.1", "223.3", "210.6 – 230.3"], ["3", "350.5", "328.2", "300.5 – 346.3"]]);
+      ["1", "234.1", "223.3", "210.6–230.3"], ["3", "350.5", "328.2", "300.5–346.3"]]);
     expect(within(times).getByRole("img", { name: "Infection-time intervals of 1 and 3" })).toContainHTML("<svg");
   });
 });
