@@ -1,5 +1,6 @@
 // A histogram sparkline for a table header: every Infection's values in a recessive grey, the rows the filters keep
-// in the accent over it, on the same bins. Plain SVG; each bin's count is its tooltip.
+// in the accent over it, on the same bins, and the hovered row's value as a rule. Plain SVG; each bin's count is its
+// tooltip.
 
 import { useTheme } from "../../app/theme";
 import { formatNumber } from "../../lib/format";
@@ -14,6 +15,8 @@ export interface DistributionStripProps {
   shown: readonly (number | null)[];
   /** The bins' range; the values' finite range by default. */
   domain?: readonly [number, number];
+  /** A value to mark with a rule across the strip, e.g. the hovered row's; none when null or outside the range. */
+  marker?: { label: string; value: number | null } | null;
 }
 
 export function finiteRange(values: readonly (number | null)[]): [number, number] | null {
@@ -27,7 +30,7 @@ export function finiteRange(values: readonly (number | null)[]): [number, number
   return lo <= hi ? [lo, hi] : null;
 }
 
-export function DistributionStrip({ label, all, shown, domain }: DistributionStripProps) {
+export function DistributionStrip({ label, all, shown, domain, marker }: DistributionStripProps) {
   const { chart } = useTheme();
   const range = domain ?? finiteRange(all);
   if (!range) return <div style={{ height: HEIGHT }} />;
@@ -37,10 +40,14 @@ export function DistributionStrip({ label, all, shown, domain }: DistributionStr
   const w = 100 / BINS;
   const edge = (k: number) => range[0] + ((range[1] - range[0]) * k) / BINS;
   const y = (n: number) => (n ? Math.max(1.5, (n / top) * (HEIGHT - 1)) : 0);
+  const span = range[1] - range[0];
+  const mark = marker && marker.value !== null && Number.isFinite(marker.value) && marker.value >= range[0] && marker.value <= range[1]
+    ? { ...marker, x: span > 0 ? (100 * (marker.value - range[0])) / span : 0, value: marker.value }
+    : null;
   return (
     <svg
       role="img"
-      aria-label={`Distribution of ${label} over Infections: ${formatNumber(range[0], 3)} to ${formatNumber(range[1], 3)}`}
+      aria-label={`Distribution of ${label} over Infections: ${formatNumber(range[0], 3)} to ${formatNumber(range[1], 3)}${mark ? `; ${mark.label} at ${formatNumber(mark.value)}` : ""}`}
       viewBox={`0 0 100 ${HEIGHT}`}
       preserveAspectRatio="none"
       width="100%"
@@ -55,6 +62,11 @@ export function DistributionStrip({ label, all, shown, domain }: DistributionStr
           <rect x={k * w + 0.4} width={w - 0.8} y={HEIGHT - y(kept[k]!)} height={y(kept[k]!)} fill={chart.accent} />
         </g>
       ))}
+      {mark && (
+        <line data-marker x1={mark.x} x2={mark.x} y1={0} y2={HEIGHT} stroke={chart.ink} strokeWidth={2} vectorEffect="non-scaling-stroke">
+          <title>{`${mark.label}: ${formatNumber(mark.value)}`}</title>
+        </line>
+      )}
       <line x1={0} x2={100} y1={HEIGHT - 0.25} y2={HEIGHT - 0.25} stroke={chart.grid} strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
     </svg>
   );

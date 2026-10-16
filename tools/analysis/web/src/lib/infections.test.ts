@@ -6,6 +6,7 @@ import {
   infectionRows,
   infectionsTable,
   parseFilter,
+  quickFilters,
   quickThresholds,
   type InfectionsPayload,
 } from "./infections";
@@ -79,6 +80,30 @@ describe("quickThresholds", () => {
   it("puts the prolific threshold at the out-degrees' 90th percentile", () => {
     const rows = Array.from({ length: 10 }, (_, k) => ({ ...infectionRows(payload())[0]!, out_degree: k }));
     expect(quickThresholds(rows).prolific).toBeCloseTo(8.1);
+  });
+});
+
+describe("quickFilters", () => {
+  const rows = () => Array.from({ length: 10 }, (_, k) => ({ ...infectionRows(payload())[0]!, out_degree: k }));
+
+  it("say each rule with its threshold, the prolific one computed from the rows", () => {
+    const titles = Object.fromEntries(quickFilters(rows()).map((q) => [q.id, q.title]));
+    expect(titles.multi).toMatch(/at least 0\.5/);
+    expect(titles.uncertain).toMatch(/between 0\.2 and 0\.8/);
+    expect(titles.spread).toMatch(/above 3/);
+    expect(titles.mixing).toMatch(/above 1\.1/);
+    expect(titles.prolific).toMatch(/at least 8\.1 .*top 10%/);
+  });
+
+  it("sort the table by the column each one tests, the most interesting first", () => {
+    const sorts = Object.fromEntries(quickFilters(rows()).map((q) => [q.id, q.sort]));
+    expect(sorts).toEqual({
+      multi: { id: "multi_source", desc: true },
+      uncertain: { id: "q", desc: true },
+      spread: { id: "posterior_effective_size", desc: true },
+      mixing: { id: "worst_rhat", desc: true },
+      prolific: { id: "out_degree", desc: true },
+    });
   });
 });
 
