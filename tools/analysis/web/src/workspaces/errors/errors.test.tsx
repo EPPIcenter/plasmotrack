@@ -26,7 +26,7 @@ describe("Errors", () => {
     expect(await kpi("False")).toHaveTextContent("0");
     expect(await kpi("Direction")).toHaveTextContent("0");
     // At 0.5, 1 -> 3 (0.83) is the one hit of two true edges.
-    expect(await kpi("Recall")).toHaveTextContent("0.50");
+    expect(await kpi("Precision / recall")).toHaveTextContent(/\/ 0\.500/);
     const table = await screen.findByRole("table", { name: "Error table" });
     expect(within(table).getAllByRole("row")[0]).toHaveTextContent(/Missed.*1 → 2/);
   });
@@ -82,7 +82,7 @@ describe("Errors", () => {
     expect(legend).toHaveTextContent(/Missed\s*0/);
     expect(legend).toHaveTextContent(/Direction\s*1/);
     // Recall still counts 1 -> 2 among the true edges: 1 hit of 2.
-    expect(await kpi("Recall")).toHaveTextContent("0.500");
+    expect(await kpi("Precision / recall")).toHaveTextContent(/\/ 0\.500/);
     const rail = screen.getByRole("navigation");
     expect(within(rail).getByRole("link", { name: /Errors/ })).toHaveTextContent("1");
     expect(within(await screen.findByRole("table", { name: "Error table" })).getAllByRole("row")).toHaveLength(1);

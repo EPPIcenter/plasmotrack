@@ -288,7 +288,7 @@ export default function CohortWorkspace() {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-2 p-2">
+    <div className="flex min-h-full min-w-0 flex-col gap-2 p-2">
       <div className="flex flex-wrap items-center gap-3 text-axis">
         <FileBox draft={fileDraft} setDraft={setFileDraft} commit={(f) => set({ file: f || undefined, brush: undefined, row: undefined })} />
         <label className="flex items-center gap-1">
@@ -302,31 +302,30 @@ export default function CohortWorkspace() {
         {brush && (
           <button type="button" onClick={() => onBrush(null)} className="rounded-[3px] border border-line px-2 py-0.5 hover:bg-hover">Clear brush</button>
         )}
-        <span className="text-muted">{p.file}</span>
+        <span className="min-w-0 max-w-full truncate text-muted" title={p.file}>{p.file}</span>
         <FitLegend fits={fits} />
       </div>
       {picked !== null && <FitDetail p={p} row={picked} file={search.file} />}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+      {/* Columns by the room the workspace has (the Inspector narrows it), not by the viewport. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-2">
         <Panel title="Calibration" description="True-edge frequency per bin of pooled Edge marginal, pooled over the selected fits">
           {p.calibration ? <Calibration p={p} rows={rows} /> : <PanelState empty="No per-edge rows: summarize with --edges, then cohort, to draw it." />}
         </Panel>
         <Panel title="Average out-degree" description="ψ_edge estimated against realised; dashed: identity">
           <Identity p={p} rows={rows} estimate="estimated_average_outdegree" truth="true_average_outdegree" label="Average out-degree" onPick={onPick} />
         </Panel>
-        <Panel title="Unobserved-source proportion" description="Mean q estimated against realised; dashed: identity">
+        <Panel title="Mean q" description="Unobserved-source proportion estimated against realised; dashed: identity">
           <Identity p={p} rows={rows} estimate="estimated_unobserved_source_proportion" truth="true_unobserved_source_proportion" label="Unobserved-source proportion" onPick={onPick} />
         </Panel>
       </div>
       <Panel
         title="By simulation factor"
         description="Box plots over the selected fits, faceted by fit type"
-        actions={
-          <div className="flex items-center gap-2">
-            <Picker label="Metric" value={metric} options={numeric} onChange={(v) => set({ metric: v })} />
-            <Picker label="Factor" value={factor} options={factors} onChange={(v) => set({ factor: v })} />
-          </div>
-        }
       >
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-2 py-1">
+          <Picker label="Metric" value={metric} options={numeric} onChange={(v) => set({ metric: v })} />
+          <Picker label="Factor" value={factor} options={factors} onChange={(v) => set({ factor: v })} />
+        </div>
         <Boxes p={p} rows={rows} metric={metric} factor={factor} />
       </Panel>
       <Panel
@@ -335,14 +334,12 @@ export default function CohortWorkspace() {
         data={() => cohortTable(p, rows)}
         exportName="cohort"
         exportParams={{ ...(fit ? { fit } : {}), x, y }}
-        actions={
-          <div className="flex items-center gap-2">
-            <Picker label="x" value={x} options={numeric} onChange={(v) => set({ x: v, brush: undefined })} />
-            <Picker label="y" value={y} options={numeric} onChange={(v) => set({ y: v, brush: undefined })} />
-            <Picker label="Colour" value={colour} options={all} onChange={(v) => set({ colour: v })} />
-          </div>
-        }
       >
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-2 py-1">
+          <Picker label="x" value={x} options={numeric} onChange={(v) => set({ x: v, brush: undefined })} />
+          <Picker label="y" value={y} options={numeric} onChange={(v) => set({ y: v, brush: undefined })} />
+          <Picker label="Colour" value={colour} options={all} onChange={(v) => set({ colour: v })} />
+        </div>
         <div className="px-2 pt-1"><ColourLegend p={p} rows={rows} column={colour} /></div>
         <Scatter payload={p} rows={fitRows} selected={selected} x={x} y={y} colour={colour} brush={brush} onBrush={onBrush} onPick={onPick} picked={picked} />
       </Panel>

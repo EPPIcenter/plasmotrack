@@ -74,12 +74,10 @@ function useKpis(rows: readonly ErrorRow[] | undefined, edges: readonly OverlayE
   // threshold) do: a true edge missed because its false reverse is called is one direction error.
   return [
     { label: "True edges", value: n(s?.n_true), title: "True edges between observed Infections" },
-    { label: "Called", value: n(s?.called), detail: `score ≥ ${threshold}`, title: "Edges scoring at or above the threshold" },
-    { label: "Hits", value: n(s?.hit), title: "True edges called" },
+    { label: "Called", value: n(s?.called), detail: `${n(s?.hit)} hits at score ≥ ${threshold}`, title: "Edges scoring at or above the threshold; hits: the true edges among them" },
     { label: "Errors", value: n(rows?.length), title: "Distinct errors at the threshold: missed, false and direction" },
     ...ERROR_KINDS.map(({ kind, label, title }) => ({ label, value: n(counts?.[kind]), title })),
-    { label: "Precision", value: s ? formatProbability(s.precision) : "…", title: "Hits over called edges" },
-    { label: "Recall", value: s ? formatProbability(s.recall) : "…", title: "Hits over true edges" },
+    { label: "Precision / recall", value: s ? `${formatProbability(s.precision)} / ${formatProbability(s.recall)}` : "…", title: "Precision: hits over called edges. Recall: hits over true edges" },
   ];
 }
 
