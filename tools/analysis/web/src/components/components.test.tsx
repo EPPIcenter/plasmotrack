@@ -107,6 +107,12 @@ describe("Sparkline", () => {
     const { container } = render(<Sparkline series={[[1, 1]]} colours={["#111"]} width={10} height={16} domain={[0, 1]} />);
     expect(container.querySelector("path")).toHaveAttribute("d", "M0.0,1.0L10.0,1.0");
   });
+
+  it("draws a series that varies only by rounding flat across the middle, not as magnified noise", () => {
+    const { container } = render(<Sparkline series={[[0.329, 0.329 + 1e-13, 0.329 - 1e-13], [0.329, 0.329]]} colours={["#111", "#222"]} width={10} height={16} />);
+    const paths = [...container.querySelectorAll("path")].map((p) => p.getAttribute("d"));
+    expect(paths).toEqual(["M0.0,8.0L5.0,8.0L10.0,8.0", "M0.0,8.0L10.0,8.0"]);
+  });
 });
 
 describe("KpiStrip", () => {

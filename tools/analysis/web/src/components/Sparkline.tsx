@@ -1,4 +1,7 @@
-// A small line per series (a trace per Chain) for table cells, drawn as plain SVG: no axes, one shared y range.
+// A small line per series (a trace per Chain) for table cells, drawn as plain SVG: no axes, one shared y range. Series
+// that vary only by rounding (`isConstant`) are drawn flat across the middle rather than as magnified noise.
+
+import { isConstant } from "../lib/stats";
 
 export interface SparklineProps {
   series: readonly (readonly number[])[];
@@ -21,8 +24,10 @@ export function sparkPath(values: readonly number[], width: number, height: numb
 
 export function Sparkline({ series, colours, width = 72, height = 16, label, domain }: SparklineProps) {
   const finite = series.flat().filter(Number.isFinite);
-  const lo = domain ? domain[0] : Math.min(...finite);
-  const hi = domain ? domain[1] : Math.max(...finite);
+  const flat = !domain && isConstant(finite);
+  // A constant series on a symmetric range about its value draws at mid-height.
+  const lo = domain ? domain[0] : flat ? finite[0]! - 1 : Math.min(...finite);
+  const hi = domain ? domain[1] : flat ? finite[0]! + 1 : Math.max(...finite);
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} className="block">
       {finite.length > 0 &&

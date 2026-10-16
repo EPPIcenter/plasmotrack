@@ -1,7 +1,8 @@
 // A quantity's trace per Chain with a brushable Draw range (ESS and R-hat over the range from /api/range), the
 // rank-normalised histogram per Chain, the burn-in toggle where the store's Traces have burn-in rows, and the
 // quantity's summary per Chain and pooled. The Quantity Inspector, the Overview's log posterior and the Convergence
-// workspace's split panel all use it.
+// workspace's split panel all use it. A quantity whose Draws agree up to rounding (`constantValue`) is said to be
+// constant and drawn flat: it has no ESS, R-hat or rank histograms.
 
 import * as Plot from "@observablehq/plot";
 import { brushX, type D3BrushEvent } from "d3-brush";
@@ -11,12 +12,10 @@ import { useChains } from "../api/analysis";
 import { useRange, useTrace, type Trace } from "../api/trace";
 import { useTheme } from "../app/theme";
 import type { Entity } from "../lib/entity";
-import { formatEss, formatNumber, formatRhat } from "../lib/format";
-
-const tick = (d: number) => formatNumber(d);
+import { formatNumber, formatRhat } from "../lib/format";
 import { chainScale } from "../lib/palette";
 import { rankFractions } from "../lib/ranks";
-import { chainDraws, traceSummary } from "../lib/trace";
+import { chainDraws, constantValue, traceSummary } from "../lib/trace";
 import { PanelState } from "./Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "./PlotFigure";
 import { StatusChip } from "./StatusChip";
@@ -25,6 +24,15 @@ type QuantityEntity = Extract<Entity, { kind: "quantity" }>;
 
 const BINS = 10;
 
+const tick = (d: number) => formatNumber(d);
+
+/** The half-height of a constant quantity's y range, relative to its magnitude (at least 1). */
+const CONSTANT_BAND = 0.01;
+
+/** In place of an ESS or R-hat of a constant quantity, which has none. */
+function NoDiagnostic({ of }: { of: "ESS" | "R-hat" }) {
+  return <span className="text-muted" title={`constant: no ${of}`}>–</span>;
+}
 interface Point {
   chain: string;
   iteration: number;
@@ -52,6 +60,12 @@ export function ChainLegend({ chains }: { chains: readonly string[] }) {
   );
 }
 
+/** A fixed y range about a constant value, so rounding noise is not magnified into a trace. */
+function constantDomain(value: number): [number, number] {
+  const band = CONSTANT_BAND * Math.max(1, Math.abs(value));
+  return [value - band, value + band];
+}
+
 export interface QuantityTraceProps {
   entity: QuantityEntity;
   /** Height of the trace plot; the rank histograms take a third of it. */
@@ -69,6 +83,7 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
   const { data: diag, error: rangeError } = useRange(entity, range, analysis);
   const analysisChains = useChains();
   const chains = trace?.chains.map((c) => c.chain) ?? analysisChains;
+  const constant = useMemo(() => (trace ? constantValue(trace) : null), [trace]);
 
   const drawTrace = useCallback(
     ({ width, height, theme }: PlotContext) => {
@@ -107,11 +122,14 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
         style: plotStyle(theme),
         color: chainScale(theme, chains),
         x: { label: "Sampling iteration →", grid: true, labelAnchor: "right", tickFormat: "~s" },
-        y: { label: null, grid: true, nice: true, ticks: 5, tickFormat: tick },
+        y:
+          constant === null
+            ? { label: null, grid: true, nice: true, ticks: 5, tickFormat: tick }
+            : { label: null, grid: true, domain: constantDomain(constant), ticks: [constant], tickFormat: tick },
         marks,
       });
     },
-    [trace, chains],
+    [trace, chains, constant],
   );
 
   const onRender = useCallback(
@@ -175,9 +193,15 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
     <div className="flex flex-col gap-1.5 p-2">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-axis">
         <ChainLegend chains={chains} />
-        <span className="text-ink-2 tabular-nums" aria-live="polite">
-          Over {span}: ESS <StatusChip kind="ess" value={diag?.ess ?? null} compact /> · R-hat <StatusChip kind="rhat" value={diag?.rhat ?? null} compact />
-        </span>
+        {constant === null ? (
+          <span className="text-ink-2 tabular-nums" aria-live="polite">
+            Over {span}: ESS <StatusChip kind="ess" value={diag?.ess ?? null} compact /> · R-hat <StatusChip kind="rhat" value={diag?.rhat ?? null} compact />
+          </span>
+        ) : (
+          <span className="font-medium tabular-nums" title="Every Draw of every Chain has this value up to rounding: no ESS, R-hat or rank histograms">
+            constant at {formatNumber(constant)}
+          </span>
+        )}
         {range && (
           <button type="button" className="text-accent hover:underline" onClick={() => setRange(null)}>
             Every Draw
@@ -191,9 +215,17 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
       {rangeError && <PanelState error={rangeError} />}
       {noBurnIn && <p className="text-axis text-muted">The {entity.group} group comes from derived tables, which hold Draws only: no burn-in.</p>}
       <PlotFigure plot={drawTrace} height={height} onRender={onRender} label={`Trace of ${entity.name} per Chain`} />
-      <p className="text-axis text-muted">Drag across the trace to recompute ESS and R-hat over a range of Draws.</p>
-      <h3 className="mt-1 text-axis font-semibold text-ink-2">Rank histograms <span className="font-normal text-muted">Draws per rank-fraction bin; flat when the Chains mix (the rule marks flat)</span></h3>
-      <PlotFigure plot={drawRanks} height={Math.max(96, Math.round(height / 2))} label="Rank-normalised histogram per Chain" />
+      {constant === null ? (
+        <>
+          <p className="text-axis text-muted">Drag across the trace to recompute ESS and R-hat over a range of Draws.</p>
+          <h3 className="mt-1 text-axis font-semibold text-ink-2">Rank histograms <span className="font-normal text-muted">Draws per rank-fraction bin; flat when the Chains mix (the rule marks flat)</span></h3>
+          <PlotFigure plot={drawRanks} height={Math.max(96, Math.round(height / 2))} label="Rank-normalised histogram per Chain" />
+        </>
+      ) : (
+        <p className="text-axis text-muted">
+          Rank histograms mean nothing for a constant quantity: every Draw ties. Nor do ESS and R-hat, which the backend leaves out.
+        </p>
+      )}
       {!compact && (
         <table className="mt-1 w-full text-table tabular-nums">
           <thead className="text-ink-2">
@@ -215,7 +247,7 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
                 <td className="num">{formatNumber(c.mean)}</td>
                 <td className="num">{formatNumber(c.lower)}</td>
                 <td className="num">{formatNumber(c.upper)}</td>
-                <td className="num">{formatEss(diag?.chains[k]?.ess ?? null)}</td>
+                <td className="num">{constant === null ? <StatusChip kind="ess" value={diag?.chains[k]?.ess ?? null} compact /> : <NoDiagnostic of="ESS" />}</td>
                 <td />
               </tr>
             ))}
@@ -225,13 +257,13 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
               <td className="num">{formatNumber(summary.pooled.mean)}</td>
               <td className="num">{formatNumber(summary.pooled.lower)}</td>
               <td className="num">{formatNumber(summary.pooled.upper)}</td>
-              <td className="num"><StatusChip kind="ess" value={diag?.ess ?? null} compact /></td>
-              <td className="num"><StatusChip kind="rhat" value={diag?.rhat ?? null} compact /></td>
+              <td className="num">{constant === null ? <StatusChip kind="ess" value={diag?.ess ?? null} compact /> : <NoDiagnostic of="ESS" />}</td>
+              <td className="num">{constant === null ? <StatusChip kind="rhat" value={diag?.rhat ?? null} compact /> : <NoDiagnostic of="R-hat" />}</td>
             </tr>
           </tbody>
         </table>
       )}
-      {compact ? null : <p className="text-axis text-muted">ESS and R-hat over {span}; R-hat {formatRhat(diag?.rhat ?? null)} is split R-hat over the Chains.</p>}
+      {compact || constant !== null ? null : <p className="text-axis text-muted">ESS and R-hat over {span}; R-hat {formatRhat(diag?.rhat ?? null)} is split R-hat over the Chains.</p>}
     </div>
   );
 }

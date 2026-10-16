@@ -1,7 +1,7 @@
 // A quantity's trace: each Chain's Draws within a Sampling-iteration range, and the summary the Quantity Inspector
 // shows (Draws, mean and the 2.5% and 97.5% quantiles per Chain and pooled). No DOM here.
 
-import { quantile } from "./stats";
+import { isConstant, quantile } from "./stats";
 
 export interface TraceLike {
   chains: { chain: string; iteration: number[]; phase: string[]; value: number[] }[];
@@ -37,4 +37,13 @@ export function traceSummary(trace: TraceLike, range: readonly [number, number] 
     chains: trace.chains.map((c, k) => ({ chain: c.chain, ...summarise(draws[k]!) })),
     pooled: summarise(draws.flat()),
   };
+}
+
+/** The value of a quantity whose Draws (sampling rows) of every Chain agree up to rounding (`isConstant`), e.g. a mean
+ *  of q when the Infections' q sum to a constant; null when they vary or there are none. ESS, R-hat and rank
+ *  histograms mean nothing for it. */
+export function constantValue(trace: TraceLike): number | null {
+  const draws = chainDraws(trace, null).flat().filter(Number.isFinite);
+  if (!draws.length || !isConstant(draws)) return null;
+  return draws.reduce((a, b) => a + b, 0) / draws.length;
 }
