@@ -5,6 +5,7 @@ import { formatFixed, formatProbability } from "./format";
 import { edgeKey, edgeSize, type EdgeAttributes, type Tooltip } from "./network";
 import { rampColour, type ChartTheme } from "./palette";
 import type { Entity } from "./entity";
+import type { Level } from "./status";
 import { recordsTable, type DataTable } from "./export";
 
 export type Source = "posterior" | "null" | "ibd";
@@ -195,13 +196,26 @@ export function edgeTruth(source: OverlaySource | undefined, parent: string, chi
 // --- calls at a threshold ---------------------------------------------------------------------------------------------
 
 /** How an edge of a set is called at a threshold: a true edge at or above it is a hit, under it missed; an edge at or
- *  above it that is not true is a direction error when its reverse is true, else false. Null for an edge neither true
- *  nor called, or without truth. The error table's kinds, plus hits. */
+ *  above it that is not true is a direction error when its reverse is true, else false. A true edge under it whose
+ *  false reverse is called is one error, its reverse's direction error, as /api/errors counts it: null, as for an edge
+ *  neither true nor called, or without truth. The error table's kinds, plus hits. */
 export type EdgeCall = "hit" | ErrorKind;
+
+/** How a call is drawn: its status level (a hit is right, a false edge critical, a missed or direction error a
+ *  warning) and a dash that tells the two warnings apart; always beside its label. */
+export const CALL_STYLE: Record<EdgeCall, { level: Level; dash: string; label: string }> = {
+  hit: { level: "ok", dash: "", label: "True, called" },
+  missed: { level: "warning", dash: "3 2", label: "Missed" },
+  false: { level: "critical", dash: "", label: "False" },
+  direction: { level: "warning", dash: "", label: "Direction" },
+};
 
 export function edgeCall(e: OverlayEdge, threshold: number): EdgeCall | null {
   if (e.true === null) return null;
-  if (e.true) return e.marginal >= threshold ? "hit" : "missed";
+  if (e.true) {
+    if (e.marginal >= threshold) return "hit";
+    return e.reverse_true === false && e.reverse_marginal !== null && e.reverse_marginal >= threshold ? null : "missed";
+  }
   if (e.marginal < threshold) return null;
   return e.reverse_true ? "direction" : "false";
 }
@@ -217,15 +231,17 @@ export interface ThresholdSummary extends Record<EdgeCall, number> {
 }
 
 /** The calls of an edge set at `threshold`, from the overlay's edges (every true edge and every edge above its
- *  floor, so any threshold at or above the floor counts every call). */
+ *  floor, so any threshold at or above the floor counts every call). `n_true` counts every true edge, also one whose
+ *  reverse's direction error stands for it. */
 export function thresholdSummary(edges: readonly OverlayEdge[], threshold: number): ThresholdSummary {
   const s = { hit: 0, missed: 0, false: 0, direction: 0 };
+  let n_true = 0;
   for (const e of edges) {
+    if (e.true) n_true++;
     const call = edgeCall(e, threshold);
     if (call) s[call]++;
   }
   const called = s.hit + s.false + s.direction;
-  const n_true = s.hit + s.missed;
   return { called, ...s, n_true, precision: called ? s.hit / called : null, recall: n_true ? s.hit / n_true : null };
 }
 

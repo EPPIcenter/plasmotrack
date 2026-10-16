@@ -3,6 +3,7 @@ import { LIGHT } from "./palette";
 import {
   edgeTruth,
   callArcs,
+  CALL_STYLE,
   edgeCall,
   errorCounts,
   errorEntity,
@@ -161,17 +162,37 @@ describe("edgeCall", () => {
     expect(edgeCall(edge("3", "1", 0.2, false, true), 0.5)).toBeNull();
     expect(edgeCall(edge("1", "3", 0.9, null), 0.5)).toBeNull();
   });
+
+  it("counts a true edge missed because its false reverse is called once, as the reverse's direction error", () => {
+    // As /api/errors does: 1 -> 3 is true at 0.2, 3 -> 1 false and called at 0.7.
+    expect(edgeCall({ ...edge("1", "3", 0.2, true), reverse_marginal: 0.7 }, 0.5)).toBeNull();
+    expect(edgeCall({ ...edge("3", "1", 0.7, false, true), reverse_marginal: 0.2 }, 0.5)).toBe("direction");
+    // Its reverse not called: missed.
+    expect(edgeCall({ ...edge("1", "3", 0.2, true), reverse_marginal: 0.4 }, 0.5)).toBe("missed");
+    // Both directions true: each is its own error.
+    expect(edgeCall({ ...edge("1", "3", 0.2, true, true), reverse_marginal: 0.7 }, 0.5)).toBe("missed");
+  });
+});
+
+describe("CALL_STYLE", () => {
+  it("gives each call a status level and a dash, so no two calls look alike", () => {
+    expect(CALL_STYLE.hit.level).toBe("ok");
+    expect(CALL_STYLE.false.level).toBe("critical");
+    const looks = Object.values(CALL_STYLE).map((s) => `${s.level}/${s.dash}`);
+    expect(new Set(looks).size).toBe(4);
+  });
 });
 
 describe("thresholdSummary", () => {
   it("counts the calls at the threshold and their precision and recall against the true edges", () => {
     const edges = [
-      edge("1", "2", 0.95, true), edge("2", "3", 0.6, true), edge("1", "4", 0.1, true),
-      edge("4", "1", 0.55, false, true), edge("3", "4", 0.8, false), edge("4", "5", 0.2, false),
+      edge("1", "2", 0.95, true), edge("2", "3", 0.6, true), edge("1", "4", 0.1, true), edge("5", "6", 0.3, true),
+      { ...edge("4", "1", 0.55, false, true), reverse_marginal: 0.1 }, edge("3", "4", 0.8, false), edge("4", "5", 0.2, false),
     ];
-    // Called at 0.5: 1>2, 2>3 (hits), 4>1 (direction), 3>4 (false); 1>4 missed.
-    expect(thresholdSummary(edges, 0.5)).toEqual({
-      called: 4, hit: 2, missed: 1, false: 1, direction: 1, n_true: 3, precision: 0.5, recall: 2 / 3,
+    // Called at 0.5: 1>2, 2>3 (hits), 4>1 (direction), 3>4 (false); 5>6 missed. 1>4 is true and not called, but its
+    // called reverse 4>1 is the one error for it (no missed edge), and it still counts towards recall.
+    expect(thresholdSummary(edges.map((e) => (e.parent === "1" && e.child === "4" ? { ...e, reverse_marginal: 0.55 } : e)), 0.5)).toEqual({
+      called: 4, hit: 2, missed: 1, false: 1, direction: 1, n_true: 4, precision: 0.5, recall: 2 / 4,
     });
   });
 

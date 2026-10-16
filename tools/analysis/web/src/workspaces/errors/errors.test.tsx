@@ -5,7 +5,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { ErrorRow, ErrorsPayload } from "../../lib/truth";
-import { fixture, renderApp } from "../../test/render";
+import type { TruthNetworkPayload } from "../../lib/truth";
+import { failure, fixture, renderApp } from "../../test/render";
 
 const errorRow = (kind: ErrorRow["kind"], parent: string, child: string, marginal: number): ErrorRow => ({
   kind, parent, child, marginal, confidence: kind === "missed" ? 1 - marginal : marginal, lag: 5,
@@ -58,5 +59,42 @@ describe("Errors", () => {
   it("draws the network thumbnail with the truth overlay", async () => {
     renderApp("/errors");
     expect(await screen.findByRole("img", { name: /Network with truth/ })).toContainHTML("<svg");
+  });
+
+  it("counts a true edge missed because its false reverse is called once, everywhere: KPIs, kind chips, legend, rail", async () => {
+    // Truth: 1 -> 3 (called, a hit) and 1 -> 2 (at 0.003, under the threshold); the posterior calls the false reverse
+    // 2 -> 1 at 0.7. /api/errors lists one error for it, the direction row 2 -> 1, and no missed row for 1 -> 2.
+    const overlay = fixture<TruthNetworkPayload>("truth-network");
+    const posterior = overlay.sources[0]!;
+    posterior.edges = posterior.edges.map((e) => (e.parent === "1" && e.child === "2" ? { ...e, reverse_marginal: 0.7 } : e));
+    posterior.edges.push({ parent: "2", child: "1", marginal: 0.7, true: false, reverse_true: true, reverse_marginal: 0.003, lag: -72 });
+    const direction = { ...errorRow("direction", "2", "1", 0.7), reverse_marginal: 0.003 };
+    const status = fixture<{ attention: Record<string, number> }>("status");
+    status.attention.errors = 1;
+    renderApp("/errors", { "/api/errors": { ...fixture<ErrorsPayload>("errors"), rows: [direction] }, "/api/truth-network": overlay, "/api/status": status });
+    const kpi = async (label: string) => (await screen.findByText(label, { selector: "dt" })).parentElement!;
+    await waitFor(async () => expect(await kpi("Direction")).toHaveTextContent("1"));
+    expect(await kpi("Missed")).toHaveTextContent("0");
+    expect(await kpi("Errors")).toHaveTextContent("1");
+    expect(screen.getByRole("checkbox", { name: /Missed/ }).parentElement).toHaveTextContent("Missed (0)");
+    expect(screen.getByRole("checkbox", { name: /Direction/ }).parentElement).toHaveTextContent("Direction (1)");
+    const legend = await screen.findByRole("list", { name: "Legend" });
+    expect(legend).toHaveTextContent(/Missed\s*0/);
+    expect(legend).toHaveTextContent(/Direction\s*1/);
+    // Recall still counts 1 -> 2 among the true edges: 1 hit of 2.
+    expect(await kpi("Recall")).toHaveTextContent("0.500");
+    const rail = screen.getByRole("navigation");
+    expect(within(rail).getByRole("link", { name: /Errors/ })).toHaveTextContent("1");
+    expect(within(await screen.findByRole("table", { name: "Error table" })).getAllByRole("row")).toHaveLength(1);
+  });
+
+  it("says when the errors could not load", async () => {
+    renderApp("/errors", { "/api/errors": failure(400, "the Analysis manifest names no pairwise scores") });
+    expect(await screen.findByText(/Could not load: .*names no pairwise scores/)).toBeInTheDocument();
+  });
+
+  it("says when the truth overlay could not load", async () => {
+    renderApp("/errors", { "/api/truth-network": failure(500, "truth file unreadable") });
+    expect(await screen.findByText(/Could not load: .*truth file unreadable/)).toBeInTheDocument();
   });
 });
