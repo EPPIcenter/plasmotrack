@@ -22,6 +22,25 @@ export interface ParentSetRow {
 
 export type ParentSetKey = keyof ParentSetRow;
 
+/** One fit's figures of a row: the posterior's, or the null-model Analysis's (undefined without one). */
+export interface FitFigures {
+  effective_size: number | undefined;
+  credible_size: number | undefined;
+  covered: boolean | null | undefined;
+  top_probability: number | undefined;
+}
+
+export type FitName = "posterior" | "null";
+
+export function fitFigures(r: ParentSetRow, fit: FitName): FitFigures {
+  return fit === "posterior"
+    ? { effective_size: r.effective_size, credible_size: r.credible_size, covered: r.covered, top_probability: r.top_probability }
+    : { effective_size: r.null_effective_size, credible_size: r.null_credible_size, covered: r.null_covered, top_probability: r.null_top_probability };
+}
+
+/** The column key of a fit's figure: the figure's name, prefixed `null_` for the null model. */
+export const fitKey = (fit: FitName, name: keyof FitFigures): ParentSetKey => (fit === "posterior" ? name : `null_${name}`);
+
 export interface ParentSetFit {
   fit: "posterior" | "null";
   label: string;

@@ -2,7 +2,8 @@
 // GET /api/network, the threshold slider's edge filter, the timeline layout, node search, node colours (q, a posterior
 // per-Infection quantity or an epi column) and the epi stratum filter with their URL state.
 
-import { CHAIN_COLOURS } from "./format";
+import { formatFixed, formatNumber, formatProbability } from "./format";
+import { rampColour, type ChartTheme } from "./palette";
 import type { Params } from "./params";
 
 /** An Infection: its observation time from the input, pooled q, and posterior infection-time interval (observation
@@ -156,42 +157,16 @@ export function findNode(ids: readonly string[], query: string): string | null {
   return k === undefined ? null : ids[k]!;
 }
 
-/** The sequential blue ramp, steps 250 to 700 of the reference palette: nodes near q = 0 stay visible on the light
- * surface (the ramp's lighter steps would recede into it). */
-export const Q_RAMP = ["#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95",
-  "#104281", "#0d366b"];
-/** The q ramp on the dark surface: steps 600 down to 100 of the same blue, so q near 0 stays visible (3:1 against the
- * dark surface) and a larger q is lighter, as the dark theme's sequential ramp runs. */
-export const Q_RAMP_DARK = ["#256abf", "#2a78d6", "#3987e5", "#5598e7", "#6da7ec", "#86b6ef", "#9ec5f4", "#b7d3f6",
-  "#cde2fb"];
+/** The colours node and edge colourings take: the theme's (src/lib/palette.ts). */
+export type NodePalette = Pick<ChartTheme, "qRamp" | "categories" | "noValue">;
 
-/** The ramp and categorical palette node colours take; the light theme's by default. */
-export interface NodePalette {
-  ramp: readonly string[];
-  categories: readonly string[];
-}
-
-/** An Infection without q. */
-export const NO_Q = "#a3a29d";
-
-const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-
-/** The colour of a node with unobserved-source inclusion `q`: linear in RGB between the ramp's steps. */
-export function qColour(q: number | null): string {
-  if (q === null || Number.isNaN(q)) return NO_Q;
-  return rampColour(q);
-}
-
-/** The ramp's colour at `x` in [0, 1] (clamped), linear in RGB between its steps. */
-export function rampColour(x: number, ramp: readonly string[] = Q_RAMP): string {
-  const t = Math.min(1, Math.max(0, x)) * (ramp.length - 1);
-  const k = Math.min(Math.floor(t), ramp.length - 2);
-  const [a, b] = [rgb(ramp[k]!), rgb(ramp[k + 1]!)];
-  return `#${a.map((v, i) => Math.round(v + (b[i]! - v) * (t - k)).toString(16).padStart(2, "0")).join("")}`;
+/** The colour of a node with unobserved-source inclusion `q` along the theme's q ramp; the no-value colour without q. */
+export function qColour(theme: NodePalette, q: number | null): string {
+  if (q === null || Number.isNaN(q)) return theme.noValue;
+  return rampColour(theme.qRamp, q);
 }
 
 export const NODE_SIZE = 5;
-export const EDGE_COLOUR = "#7d7c78";
 
 /** Edge width in pixels: from 0.5 at marginal 0 to 4 at marginal 1. */
 export const edgeSize = (marginal: number) => 0.5 + 3.5 * marginal;
@@ -214,17 +189,17 @@ export interface EdgeAttributes {
 
 /** The payload as graphology's serialised graph: a node per Infection coloured by q (at the origin until a layout
  * places it), and a directed edge parent -> child per edge, keyed `child<-parent` as in the convergence table. */
-export function graphData(payload: NetworkPayload) {
+export function graphData(payload: NetworkPayload, theme: NodePalette & Pick<ChartTheme, "edge">) {
   return {
     nodes: payload.nodes.map((n) => ({
       key: n.id,
-      attributes: { label: n.id, size: NODE_SIZE, color: qColour(n.q), x: 0, y: 0 } satisfies NodeAttributes,
+      attributes: { label: n.id, size: NODE_SIZE, color: qColour(theme, n.q), x: 0, y: 0 } satisfies NodeAttributes,
     })),
     edges: payload.edges.map((e) => ({
       key: edgeKey(e),
       source: e.parent,
       target: e.child,
-      attributes: { size: edgeSize(e.marginal), color: EDGE_COLOUR, marginal: e.marginal, weight: e.marginal } satisfies EdgeAttributes,
+      attributes: { size: edgeSize(e.marginal), color: theme.edge, marginal: e.marginal, weight: e.marginal } satisfies EdgeAttributes,
     })),
   };
 }
@@ -236,16 +211,14 @@ export interface Tooltip {
   rows: [string, string][];
 }
 
-const fixed = (x: number | null, digits: number) => (x === null || Number.isNaN(x) ? "–" : x.toFixed(digits));
-
 /** An edge's hover: pooled marginal, each Chain's mean marginal (Chains named in the payload's order) and lag. */
 export function edgeTooltip(e: NetworkEdge, chains: readonly string[]): Tooltip {
   return {
     title: `${e.parent} → ${e.child}`,
     rows: [
-      ["pooled marginal", fixed(e.marginal, 3)],
-      ...chains.map((chain, k): [string, string] => [chain, fixed(e.chains[k] ?? null, 3)]),
-      ["lag", fixed(e.lag, 1)],
+      ["pooled marginal", formatProbability(e.marginal)],
+      ...chains.map((chain, k): [string, string] => [chain, formatProbability(e.chains[k] ?? null)]),
+      ["lag", formatFixed(e.lag, 1)],
     ],
   };
 }
@@ -257,9 +230,9 @@ export function nodeTooltip(n: NetworkNode): Tooltip {
   return {
     title: `Infection ${n.id}`,
     rows: [
-      ["q", fixed(n.q, 3)],
-      ["observed", fixed(n.observation_time, 1)],
-      ["infection time", t ? `${fixed(t.lower, 1)} – ${fixed(t.upper, 1)} (median ${fixed(t.median, 1)})` : "–"],
+      ["q", formatProbability(n.q)],
+      ["observed", formatFixed(n.observation_time, 1)],
+      ["infection time", t ? `${formatFixed(t.lower, 1)} – ${formatFixed(t.upper, 1)} (median ${formatFixed(t.median, 1)})` : "–"],
       ["symptomatic", n.symptomatic ? "yes" : "no"],
       ...Object.entries(n.epi ?? {}).map(([column, value]): [string, string] => [column, value ?? "–"]),
     ],
@@ -294,7 +267,7 @@ export function readColour(params: URLSearchParams, payload: Pick<NetworkPayload
 }
 
 /** The legend of a colouring: a ramp from `lower` to `upper`, or one swatch per category; `missing` counts the
- * Infections without a value, drawn grey (NO_Q). */
+ * Infections without a value, drawn in the theme's no-value colour. */
 export type ColourLegend =
   | { kind: "ramp"; label: string; lower: string; upper: string; missing: number }
   | { kind: "categories"; label: string; items: { label: string; colour: string }[]; missing: number };
@@ -304,11 +277,7 @@ export interface NodeColours {
   legend: ColourLegend;
 }
 
-/** Node colours of a categorical column: the categorical palette without its orange, which the network view keeps
- * for the selected Infections and their edges. */
-export const CATEGORY_COLOURS = CHAIN_COLOURS.filter((c) => c !== "#eb6834");
-
-const short = (x: number) => String(Number(x.toPrecision(3)));
+const short = (x: number) => formatNumber(x, 3);
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 /** Each node's colour under `key`, and the legend. q runs along the ramp from 0 to 1; a numeric or date column and
@@ -317,9 +286,9 @@ const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 export function nodeColours(
   payload: NetworkPayload,
   key: ColourKey,
-  palette: NodePalette = { ramp: Q_RAMP, categories: CATEGORY_COLOURS },
+  palette: NodePalette,
 ): NodeColours {
-  const { ramp, categories } = palette;
+  const { qRamp: ramp, categories, noValue } = palette;
   const colours = new Map<string, string>();
   const column = key.startsWith("epi:") ? payload.epi_columns?.find((c) => c.name === key.slice(4)) : undefined;
 
@@ -327,13 +296,13 @@ export function nodeColours(
     const values = column.values.filter((v): v is string => v !== null);
     const colourOf = values.length <= categories.length
       ? values.map((_, i) => categories[i]!)
-      : values.map((_, i) => rampColour(i / (values.length - 1), ramp));
+      : values.map((_, i) => rampColour(ramp, i / (values.length - 1)));
     const byValue = new Map(values.map((v, i) => [v, colourOf[i]!]));
     let missing = 0;
     for (const n of payload.nodes) {
       const colour = byValue.get(n.epi?.[column.name] ?? "\u0000");
       if (colour === undefined) missing++;
-      colours.set(n.id, colour ?? NO_Q);
+      colours.set(n.id, colour ?? noValue);
     }
     return { colours, legend: { kind: "categories", label: column.name, items: values.map((v, i) => ({ label: v, colour: colourOf[i]! })), missing } };
   }
@@ -352,16 +321,16 @@ export function nodeColours(
     };
     if (column.type === "date") text = isoDay;
   } else if (key === "infection_time" || key === "observation_time") {
-    label = QUANTITIES.find((q) => q.key === key)!.label;
+    label = QUANTITIES.find((q) => q.key === key)?.label ?? key;
     value = key === "infection_time" ? (n) => n.infection_time?.median ?? null : (n) => n.observation_time;
-    text = (x) => x.toFixed(1);
+    text = (x) => formatFixed(x, 1);
   }
   const values = payload.nodes.map(value);
   const present = values.filter((x): x is number => x !== null && !Number.isNaN(x));
   const [lower, upper] = key === "q" && !column ? [0, 1] : [Math.min(...present), Math.max(...present)];
   payload.nodes.forEach((n, i) => {
     const x = values[i];
-    colours.set(n.id, x === null || x === undefined || Number.isNaN(x) ? NO_Q : rampColour(upper > lower ? (x - lower) / (upper - lower) : 0.5, ramp));
+    colours.set(n.id, x === null || x === undefined || Number.isNaN(x) ? noValue : rampColour(ramp, upper > lower ? (x - lower) / (upper - lower) : 0.5));
   });
   const legend: ColourLegend = present.length
     ? { kind: "ramp", label, lower: text(lower), upper: text(upper), missing: payload.nodes.length - present.length }

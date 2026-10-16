@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DARK, LIGHT } from "./palette";
-import { curveSeries, FIT_COLOURS, fitColour, metricsByName, metricsTable, randomPrecision, rankingTable, type RankingFit, type Ranking } from "./ranking";
+import { curveSeries, fitColour, metricsByName, metricsTable, randomPrecision, rankingTable, type RankingFit, type Ranking } from "./ranking";
 
 const ranking = (ap: number, curve: [number, number][]): Ranking => ({
   n_edge_universe: 6,
@@ -43,11 +43,6 @@ describe("metricsTable", () => {
   });
 });
 
-describe("FIT_COLOURS", () => {
-  it("gives each fit its own colour whatever fits are present", () => {
-    expect(new Set(Object.values(FIT_COLOURS)).size).toBe(3);
-  });
-});
 
 describe("randomPrecision", () => {
   it("is the share of true edges among the pairs a direction ranks: a random ranking's precision at any recall", () => {

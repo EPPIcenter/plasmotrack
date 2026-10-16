@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EDGE_COLOUR } from "./network";
+import { LIGHT } from "./palette";
 import {
   edgeTruth,
   callArcs,
@@ -7,7 +7,6 @@ import {
   errorCounts,
   errorEntity,
   errorsTable,
-  FALSE_COLOUR,
   filterErrors,
   matchText,
   overlayEdges,
@@ -16,7 +15,6 @@ import {
   pairLink,
   shownCount,
   thresholdSummary,
-  TRUE_RAMP,
   trueEdgeColour,
   type ErrorRow,
   type OverlayEdge,
@@ -29,44 +27,44 @@ const edge = (parent: string, child: string, marginal: number, truth: boolean | 
 
 describe("overlayStyle", () => {
   it("draws a true edge solid in the truth colour whatever its marginal, even under the threshold", () => {
-    expect(overlayStyle(edge("1", "3", 0.02, true), 0.5, true)).toEqual({
-      hidden: false, colour: trueEdgeColour(0.02), dashed: false, size: expect.any(Number),
+    expect(overlayStyle(edge("1", "3", 0.02, true), 0.5, true, LIGHT)).toEqual({
+      hidden: false, colour: trueEdgeColour(LIGHT, 0.02), dashed: false, size: expect.any(Number),
     });
   });
 
   it("draws a false edge at or above the threshold dashed, and hides it below", () => {
-    expect(overlayStyle(edge("1", "2", 0.5, false), 0.5, true)).toMatchObject({ hidden: false, colour: FALSE_COLOUR, dashed: true });
-    expect(overlayStyle(edge("1", "2", 0.49, false), 0.5, true)).toEqual({ hidden: true });
+    expect(overlayStyle(edge("1", "2", 0.5, false), 0.5, true, LIGHT)).toMatchObject({ hidden: false, colour: LIGHT.falseEdge, dashed: true });
+    expect(overlayStyle(edge("1", "2", 0.49, false), 0.5, true, LIGHT)).toEqual({ hidden: true });
   });
 
   it("with the truth toggle off, or without truth, draws edges above the threshold plainly", () => {
-    expect(overlayStyle(edge("1", "3", 0.02, true), 0.5, false)).toEqual({ hidden: true });
-    expect(overlayStyle(edge("1", "3", 0.6, true), 0.5, false)).toMatchObject({ hidden: false, colour: EDGE_COLOUR, dashed: false });
-    expect(overlayStyle(edge("1", "3", 0.6, null), 0.5, true)).toMatchObject({ colour: EDGE_COLOUR, dashed: false });
+    expect(overlayStyle(edge("1", "3", 0.02, true), 0.5, false, LIGHT)).toEqual({ hidden: true });
+    expect(overlayStyle(edge("1", "3", 0.6, true), 0.5, false, LIGHT)).toMatchObject({ hidden: false, colour: LIGHT.edge, dashed: false });
+    expect(overlayStyle(edge("1", "3", 0.6, null), 0.5, true, LIGHT)).toMatchObject({ colour: LIGHT.edge, dashed: false });
   });
 
   it("widens edges with the marginal", () => {
-    const thin = overlayStyle(edge("1", "3", 0.1, true), 0, true);
-    const wide = overlayStyle(edge("1", "3", 0.9, true), 0, true);
+    const thin = overlayStyle(edge("1", "3", 0.1, true), 0, true, LIGHT);
+    const wide = overlayStyle(edge("1", "3", 0.9, true), 0, true, LIGHT);
     expect(!thin.hidden && !wide.hidden && wide.size > thin.size).toBe(true);
   });
 });
 
 describe("trueEdgeColour", () => {
   it("runs the ramp from marginal 0 to 1, clipping outside", () => {
-    expect(trueEdgeColour(0)).toBe(TRUE_RAMP[0]);
-    expect(trueEdgeColour(1)).toBe(TRUE_RAMP.at(-1));
-    expect(trueEdgeColour(-1)).toBe(TRUE_RAMP[0]);
-    expect(trueEdgeColour(0.5)).not.toBe(trueEdgeColour(0.9));
+    expect(trueEdgeColour(LIGHT, 0)).toBe(LIGHT.truthRamp[0]);
+    expect(trueEdgeColour(LIGHT, 1)).toBe(LIGHT.truthRamp.at(-1));
+    expect(trueEdgeColour(LIGHT, -1)).toBe(LIGHT.truthRamp[0]);
+    expect(trueEdgeColour(LIGHT, 0.5)).not.toBe(trueEdgeColour(LIGHT, 0.9));
   });
 });
 
 describe("overlayEdges", () => {
   const source: OverlaySource = { source: "ibd", label: "IBD", directed: false, edges: [edge("1", "3", 0.8, true)] };
   it("keys edges as the network view does and draws an undirected set without arrows", () => {
-    const [e] = overlayEdges(source);
+    const [e] = overlayEdges(source, LIGHT);
     expect(e).toMatchObject({ key: "3<-1", source: "1", target: "3", attributes: { type: "line", marginal: 0.8 } });
-    expect(overlayEdges({ ...source, directed: true })[0]!.attributes.type).toBe("arrow");
+    expect(overlayEdges({ ...source, directed: true }, LIGHT)[0]!.attributes.type).toBe("arrow");
   });
 });
 

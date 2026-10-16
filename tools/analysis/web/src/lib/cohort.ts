@@ -2,7 +2,6 @@
 // every panel follows, identity-line points and the calibration curve pooled over the selected fits.
 
 import type { DataTable } from "./export";
-import { CHAIN_COLOURS } from "./format";
 import { chainColour, type ChartTheme } from "./palette";
 
 export type ColumnKind = "string" | "integer" | "number";
@@ -29,7 +28,6 @@ export interface CohortPayload {
 
 /** The fit types the cohort facets by, in display order, each with a fixed colour. */
 export const FITS = ["full", "partial", "null"] as const;
-export const FIT_COLOURS: Record<string, string> = { full: CHAIN_COLOURS[0]!, partial: CHAIN_COLOURS[2]!, null: CHAIN_COLOURS[1]! };
 
 /** The simulation factors a box plot can group by, as the fit summary names them. */
 export const FACTORS = [
@@ -190,9 +188,9 @@ export function cohortTable(p: CohortPayload, rows: readonly number[]): DataTabl
   return { columns: ["fit", ...names], rows: rows.map((r) => [fitLabel(p, r), ...names.map((c) => p.data[c]?.[r] ?? null)]) };
 }
 
-/** A fit label's colour in a theme, on the same categorical slots as `FIT_COLOURS`; other labels take slot 4. */
+/** A fit label's colour in a theme, full, null and partial on categorical slots 1 to 3; other labels take slot 4. */
 export const cohortFitColour = (theme: ChartTheme, fit: string) =>
-  chainColour(theme, ({ full: 0, null: 1, partial: 2 } as Record<string, number>)[fit] ?? 3);
+  chainColour(theme, fit === "full" ? 0 : fit === "null" ? 1 : fit === "partial" ? 2 : 3);
 
 const facetOrder = (fit: string) => {
   const k = (FITS as readonly string[]).indexOf(fit);
@@ -235,7 +233,8 @@ export const formatBrush = (b: Brush) => [b.x0, b.x1, b.y0, b.y1].join(",");
 /** The brush a URL value gives on the scatter of `x` against `y`, or null when it is absent or malformed. */
 export function parseBrush(text: string | undefined, x: string, y: string): Brush | null {
   const parts = text?.split(",").map(Number) ?? [];
-  if (parts.length !== 4 || parts.some((v) => !Number.isFinite(v))) return null;
-  const [x0, x1, y0, y1] = parts as [number, number, number, number];
+  const [x0, x1, y0, y1] = parts;
+  if (parts.length !== 4 || x0 === undefined || x1 === undefined || y0 === undefined || y1 === undefined) return null;
+  if (!parts.every(Number.isFinite)) return null;
   return { x, y, x0, x1, y0, y1 };
 }

@@ -1,7 +1,6 @@
 // The ranking panel's data: /api/ranking's payload, the curves to draw and the metrics table. No DOM here.
 
 import type { DataTable } from "./export";
-import { CHAIN_COLOURS } from "./format";
 import { chainColour, type ChartTheme } from "./palette";
 
 export interface CurvePoint {
@@ -47,12 +46,6 @@ export interface RankingPayload {
 
 export const FIT_NAMES: Record<FitKind, string> = { posterior: "Posterior", null: "Null model", ibd: "IBD" };
 
-/** A colour per fit, fixed whatever fits the Analysis has (categorical slots 1 to 3, validated together). */
-export const FIT_COLOURS: Record<string, string> = {
-  [FIT_NAMES.posterior]: CHAIN_COLOURS[0]!,
-  [FIT_NAMES.null]: CHAIN_COLOURS[1]!,
-  [FIT_NAMES.ibd]: CHAIN_COLOURS[2]!,
-};
 
 export interface SeriesPoint {
   fit: string;

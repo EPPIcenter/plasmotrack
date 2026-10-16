@@ -19,7 +19,6 @@ import { Panel, PanelState } from "../../components/Panel";
 import { recordsTable } from "../../lib/export";
 import { stratumLabel } from "../../lib/functionals";
 import {
-  CATEGORY_COLOURS,
   colourOptions,
   defaultThreshold,
   edgeKey,
@@ -27,31 +26,25 @@ import {
   EdgeThreshold,
   findNode,
   listedEdges,
-  NO_Q,
   nodeColours,
   nodeTooltip,
-  Q_RAMP,
-  Q_RAMP_DARK,
   readColour,
   readStratum,
   stratumParams,
   stratumPayload,
   type ColourLegend,
-  type NetworkNode,
 } from "../../lib/network";
-import type { ChartTheme } from "../../lib/palette";
 import {
-  FALSE_COLOUR,
   matchText,
   overlayStyle,
   overlayTooltip,
   shownCount,
   SOURCE_NAMES,
-  TRUE_RAMP,
   type OverlaySource,
   type Source,
 } from "../../lib/truth";
 import { NetworkGraph, type EdgeLook, type GraphEdge } from "./NetworkGraph";
+import { parseSource } from "../../lib/parse";
 
 interface NetworkSearch {
   threshold: number | null;
@@ -69,7 +62,7 @@ const parse = (s: SearchValues): NetworkSearch => {
     layout: s.layout === "timeline" ? "timeline" : "force",
     order: s.order === "lanes" ? "lanes" : "q",
     truth: s.truth === "1",
-    source: (s.source ?? "posterior") as Source,
+    source: parseSource(s.source),
     values: s,
   };
 };
@@ -78,13 +71,6 @@ const parse = (s: SearchValues): NetworkSearch => {
 interface ListedEdge extends GraphEdge {
   chains: (number | null)[] | null;
   lag: number | null;
-}
-
-/** The node palette of a theme: the light ramp and categorical palette, or the dark theme's. */
-function nodePalette(theme: ChartTheme) {
-  return theme.mode === "dark"
-    ? { ramp: Q_RAMP_DARK, categories: theme.chains.filter((_, i) => i !== 1) }
-    : { ramp: Q_RAMP, categories: CATEGORY_COLOURS };
 }
 
 const NONE = "\u0000";
@@ -119,7 +105,7 @@ function Legend({ legend, ramp, layout, truth }: { legend: ColourLegend; ramp: r
           ))}
         </>
       )}
-      {legend.missing > 0 && <li className={item}><Swatch colour={NO_Q} />no value ({legend.missing.toLocaleString()})</li>}
+      {legend.missing > 0 && <li className={item}><Swatch colour={chart.noValue} />no value ({legend.missing.toLocaleString()})</li>}
       <li className={item}><Swatch colour={chart.muted} ring />selected; their edges in <span style={{ color: chart.accent }}>accent</span></li>
       <li className={item}>edge width: pooled Edge marginal, parent → child</li>
       {layout === "timeline" && (
@@ -127,8 +113,8 @@ function Legend({ legend, ramp, layout, truth }: { legend: ColourLegend; ramp: r
       )}
       {truth && (
         <>
-          <li className={item}>true edge, by score <Ramp colours={TRUE_RAMP} lower="0" upper="1" /></li>
-          <li className={item}><span aria-hidden className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: FALSE_COLOUR }} />false edge at or above the threshold</li>
+          <li className={item}>true edge, by score <Ramp colours={chart.truthRamp} lower="0" upper="1" /></li>
+          <li className={item}><span aria-hidden className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: chart.falseEdge }} />false edge at or above the threshold</li>
         </>
       )}
     </ul>
@@ -216,16 +202,16 @@ export default function NetworkWorkspace() {
     (e: GraphEdge): EdgeLook => {
       const o = overlayByKey.get(e.key);
       if (overlaySource && o) {
-        const style = overlayStyle(o, threshold, truthShown);
+        const style = overlayStyle(o, threshold, truthShown, chart);
         return style.hidden ? style : { hidden: false, colour: style.dashed || o.true ? style.colour : undefined, dashed: style.dashed };
       }
       return e.marginal >= threshold ? { hidden: false } : { hidden: true };
     },
-    [overlayByKey, overlaySource, threshold, truthShown],
+    [overlayByKey, overlaySource, threshold, truthShown, chart],
   );
 
   const { colours, legend } = useMemo(
-    () => (payload ? nodeColours(payload, colour, nodePalette(chart)) : { colours: new Map<string, string>(), legend: null }),
+    () => (payload ? nodeColours(payload, colour, chart) : { colours: new Map<string, string>(), legend: null }),
     [payload, colour, chart],
   );
 
@@ -390,7 +376,7 @@ export default function NetworkWorkspace() {
                 focusNode={focusNode}
                 focusEdge={focusEdge}
                 find={find}
-                nodeTooltip={(id) => nodeTooltip(nodesById.get(id) as NetworkNode)}
+                nodeTooltip={(id) => { const n = nodesById.get(id); return n ? nodeTooltip(n) : { title: `Infection ${id}`, rows: [] }; }}
                 edgeTooltip={(key) => {
                   const o = overlayByKey.get(key);
                   if (overlaySource && o) return overlayTooltip(o, overlaySource);
@@ -403,7 +389,7 @@ export default function NetworkWorkspace() {
                 theme={chart}
               />
             </div>
-            <Legend legend={legend} ramp={nodePalette(chart).ramp} layout={search.layout} truth={truthShown} />
+            <Legend legend={legend} ramp={chart.qRamp} layout={search.layout} truth={truthShown} />
           </Panel>
         </Split>
         <Separator className="mx-1 w-px bg-line outline-none hover:bg-accent data-[separator=active]:bg-accent" />

@@ -15,7 +15,7 @@ describe("Parent sets", () => {
       "Infection", "Effective size", "Credible size", "True set in it", "Top probability",
     ]);
     const second = within(table).getAllByRole("row")[1]!;
-    expect(second).toHaveTextContent(/^2\s*1\.02\s*1\s*◆?no\s*0\.997/);
+    expect(second).toHaveTextContent(/^2\s*1\.02\s*1\s*◆?no.*0\.997/);
   });
 
   it("selects a row's Infection into the Inspector", async () => {

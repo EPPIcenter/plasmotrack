@@ -25,9 +25,15 @@ import {
   sortRows,
   summaryLine,
   type CoverageClass,
-  type ParentSetKey,
+  fitFigures,
+  fitKey,
+  type FitName,
   type ParentSetRow,
 } from "../../lib/parentsets";
+import { formatCount, formatFixed, formatProbability } from "../../lib/format";
+import { parseParentSetKey } from "../../lib/parse";
+import { statusColour } from "../../lib/status";
+import { StatusText } from "../../components/StatusChip";
 
 interface ParentSetsSearch {
   level: number;
@@ -42,42 +48,41 @@ const parse = (s: SearchValues): ParentSetsSearch => {
   };
 };
 
-const number = (x: number | undefined, digits: number) => (x === undefined || x === null ? "–" : x.toFixed(digits));
 const yesNo = (x: boolean | null | undefined) => (x === null || x === undefined ? "–" : x ? "yes" : "no");
 
 /** Coverage is right or wrong, so it wears the status colours, always with its label in the legend. */
 const coverageColour = (theme: ChartTheme, c: CoverageClass) =>
-  ({ "holds the true set": theme.status.good, "misses it": theme.status.critical, "no truth": theme.muted })[c];
+  statusColour(theme, ({ "holds the true set": "ok", "misses it": "critical", "no truth": "none" } as const)[c]);
 const coverageOf = (r: ParentSetRow): CoverageClass =>
   r.covered === true ? "holds the true set" : r.covered === false ? "misses it" : "no truth";
 
 function columns(withNull: boolean, withTruth: boolean): Column<ParentSetRow>[] {
-  const fit = (prefix: "" | "null_"): Column<ParentSetRow>[] => {
-    const label = (text: string) => (prefix ? `Null: ${text.toLowerCase()}` : text);
-    const k = (name: string) => `${prefix}${name}` as ParentSetKey;
+  const fit = (name: FitName): Column<ParentSetRow>[] => {
+    const label = (text: string) => (name === "null" ? `Null: ${text.toLowerCase()}` : text);
+    const of = (r: ParentSetRow) => fitFigures(r, name);
     return [
-      { id: k("effective_size"), header: label("Effective size"), title: "exp of the entropy of the pooled Parent-set weights", numeric: true, width: 112, descFirst: true,
-        value: (r) => r[k("effective_size")] as number, cell: (r) => number(r[k("effective_size")] as number, 2) },
-      { id: k("credible_size"), header: label("Credible size"), title: "Sets in the credible collection at the level", numeric: true, width: 104, descFirst: true,
-        value: (r) => r[k("credible_size")] as number },
+      { id: fitKey(name, "effective_size"), header: label("Effective size"), title: "exp of the entropy of the pooled Parent-set weights", numeric: true, width: 112, descFirst: true,
+        value: (r) => of(r).effective_size, cell: (r) => formatFixed(of(r).effective_size, 2) },
+      { id: fitKey(name, "credible_size"), header: label("Credible size"), title: "Sets in the credible collection at the level", numeric: true, width: 104, descFirst: true,
+        value: (r) => of(r).credible_size, cell: (r) => formatCount(of(r).credible_size) },
       ...(withTruth
         ? [{
-            id: k("covered"), header: label("True set in it"), title: "Whether the true Parent set is in the credible collection", width: 104,
-            value: (r: ParentSetRow) => { const v = r[k("covered")]; return v === null || v === undefined ? null : v ? 1 : 0; },
+            id: fitKey(name, "covered"), header: label("True set in it"), title: "Whether the true Parent set is in the credible collection", width: 104,
+            value: (r: ParentSetRow) => { const v = of(r).covered; return v === null || v === undefined ? null : v ? 1 : 0; },
             cell: (r: ParentSetRow) => {
-              const v = r[k("covered")] as boolean | null | undefined;
-              return <span className={v === false ? "text-critical-ink" : ""}>{v === false && <span aria-hidden className="mr-1 text-[9px]">◆</span>}{yesNo(v)}</span>;
+              const v = of(r).covered;
+              return <StatusText level={v === false ? "critical" : "none"} title={v === false ? "The true Parent set is outside the credible collection" : undefined} className={v === false ? "" : "!text-ink"}>{yesNo(v)}</StatusText>;
             },
           }]
         : []),
-      { id: k("top_probability"), header: label("Top probability"), title: "Pooled weight of the modal Parent set", numeric: true, width: 124,
-        value: (r) => r[k("top_probability")] as number, cell: (r) => number(r[k("top_probability")] as number, 3) },
+      { id: fitKey(name, "top_probability"), header: label("Top probability"), title: "Pooled weight of the modal Parent set", numeric: true, width: 124,
+        value: (r) => of(r).top_probability, cell: (r) => formatProbability(of(r).top_probability) },
     ];
   };
   return [
     { id: "infection", header: "Infection", title: "Infection id", width: 104, value: (r) => r.infection, cell: (r) => <EntityLink entity={{ kind: "infection", id: r.infection }} /> },
-    ...fit(""),
-    ...(withNull ? fit("null_") : []),
+    ...fit("posterior"),
+    ...(withNull ? fit("null") : []),
   ];
 }
 
@@ -116,7 +121,7 @@ function Figures({ rows, hovered }: { rows: readonly ParentSetRow[]; hovered: st
         marks: [
           Plot.dot(rows, { x: "effective_size", y: "top_probability", fill: (r: ParentSetRow) => coverageOf(r), r: 3.5, stroke: theme.surface, strokeWidth: 0.75, fillOpacity: 0.85 }),
           Plot.dot(rows.filter((r) => r.infection === hovered), { x: "effective_size", y: "top_probability", r: 7, stroke: theme.accent, strokeWidth: 2 }),
-          Plot.tip(rows, Plot.pointer({ x: "effective_size", y: "top_probability", title: (r: ParentSetRow) => `Infection ${r.infection}\neffective size ${r.effective_size.toFixed(2)}, credible size ${r.credible_size}\ntop probability ${r.top_probability.toFixed(3)}\n${coverageOf(r)}` })),
+          Plot.tip(rows, Plot.pointer({ x: "effective_size", y: "top_probability", title: (r: ParentSetRow) => `Infection ${r.infection}\neffective size ${formatFixed(r.effective_size, 2)}, credible size ${formatCount(r.credible_size)}\ntop probability ${formatProbability(r.top_probability)}\n${coverageOf(r)}` })),
         ],
       }),
     [rows, hovered, present.join()],
@@ -164,7 +169,7 @@ export default function ParentSetsWorkspace() {
     else setDraft(String(level));
   };
   const onSortingChange = useCallback((s: SortingState) => set({ sort: s[0]?.id, desc: s[0]?.desc ? "1" : undefined }), [set]);
-  const sortKey = (sorting[0]?.id ?? "infection") as ParentSetKey;
+  const sortKey = parseParentSetKey(sorting[0]?.id);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 p-2">

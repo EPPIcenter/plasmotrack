@@ -6,6 +6,12 @@
 // (2026-10-15): light passes every gate on adjacent pairs (worst CVD ΔE 9.1, normal-vision 19.6; slots 3 to 5 sit
 // below 3:1 on the surface, so Chain identity always comes with a legend or label); dark passes every gate (worst
 // CVD ΔE 8.4, normal-vision 19.3, all slots >= 3:1). The first three slots validate all-pairs in both modes.
+// `categories` (the eight without orange) passes the same gates on adjacent pairs in both modes (worst CVD ΔE 9.1
+// light, 8.4 dark). `qRamp`, `edgeRamp` and `truthRamp` pass the validator's --ordinal checks in their mode (one hue,
+// monotone lightness, step gaps >= 0.06, near-zero end >= 2:1 on the surface); charts interpolate between the stops.
+//
+// No colour is written anywhere else: views take them from the theme (`useTheme().chart`), status colours through
+// src/lib/status.ts.
 
 export type ThemeMode = "light" | "dark";
 
@@ -29,6 +35,22 @@ export interface ChartTheme {
   /** Diverging ramp for enrichment and net flow: blue, grey midpoint, red. */
   diverging: [string, string, string];
   status: { good: string; warning: string; serious: string; critical: string };
+  /** Node colours of a categorical column: the categorical palette without slot 2 (orange), which the network keeps
+   *  for the selected Infections and their edges. */
+  categories: string[];
+  /** q and other per-Infection magnitudes on nodes: blue, interpolated between these stops (validated as an ordinal
+   *  ramp, so its near-zero end stays visible on the surface). */
+  qRamp: string[];
+  /** Edge magnitudes (marginal, spread, ESS) when nodes take the blue ramp: violet, likewise. */
+  edgeRamp: string[];
+  /** True edges of the truth overlay by score: green, likewise. */
+  truthRamp: string[];
+  /** False edges of the truth overlay (slot 8, red), drawn dashed. */
+  falseEdge: string;
+  /** Edges with no other encoding. */
+  edge: string;
+  /** A node or mark without a value. */
+  noValue: string;
 }
 
 const SEQUENTIAL = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf",
@@ -50,6 +72,13 @@ export const LIGHT: ChartTheme = {
   sequential: SEQUENTIAL,
   diverging: ["#2a78d6", "#f0efec", "#e34948"],
   status: STATUS,
+  categories: ["#2a78d6", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"],
+  qRamp: ["#86b6ef", "#3987e5", "#1c5cab", "#0d366b"],
+  edgeRamp: ["#a093e6", "#6250d6", "#4a3aa7", "#30237a"],
+  truthRamp: ["#6cc39d", "#2fa271", "#137b52", "#085538"],
+  falseEdge: "#e34948",
+  edge: "#7d7c78",
+  noValue: "#a3a29d",
 };
 
 export const DARK: ChartTheme = {
@@ -68,6 +97,14 @@ export const DARK: ChartTheme = {
   sequential: [...SEQUENTIAL].reverse(),
   diverging: ["#3987e5", "#383835", "#e66767"],
   status: STATUS,
+  categories: ["#3987e5", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"],
+  // Dark surface: magnitudes run from dark (near zero, still 3:1 on the surface) to light.
+  qRamp: ["#256abf", "#5598e7", "#86b6ef", "#b7d3f6"],
+  edgeRamp: ["#5a4bc0", "#7a6be0", "#9085e9", "#b9b1f2"],
+  truthRamp: ["#137b52", "#2fa271", "#6cc39d", "#a8dec6"],
+  falseEdge: "#e66767",
+  edge: "#8f8e89",
+  noValue: "#6e6d69",
 };
 
 export const THEMES: Record<ThemeMode, ChartTheme> = { light: LIGHT, dark: DARK };
@@ -105,4 +142,15 @@ export function inkOn(fill: string): string {
     return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   });
   return 0.2126 * r! + 0.7152 * g! + 0.0722 * b! > 0.3 ? "#0b0b0b" : "#ffffff";
+}
+
+const rgbOf = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+/** The colour at `x` in [0, 1] (clamped) along `ramp`, linear in RGB between its stops. */
+export function rampColour(ramp: readonly string[], x: number): string {
+  const t = Math.min(1, Math.max(0, Number.isNaN(x) ? 0 : x)) * (ramp.length - 1);
+  const k = Math.min(Math.floor(t), ramp.length - 2);
+  if (k < 0) return ramp[0]!;
+  const [a, b] = [rgbOf(ramp[k]!), rgbOf(ramp[k + 1]!)];
+  return `#${a.map((v, i) => Math.round(v + (b[i]! - v) * (t - k)).toString(16).padStart(2, "0")).join("")}`;
 }

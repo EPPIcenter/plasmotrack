@@ -1,7 +1,9 @@
 // The truth overlay of the network view and the error table (U6, part 1), kept free of the DOM: the payloads of
 // GET /api/truth-network and GET /api/errors, the overlay's edge styling and the error table's filter.
 
-import { EDGE_COLOUR, edgeKey, edgeSize, type EdgeAttributes, type Tooltip } from "./network";
+import { formatFixed, formatProbability } from "./format";
+import { edgeKey, edgeSize, type EdgeAttributes, type Tooltip } from "./network";
+import { rampColour, type ChartTheme } from "./palette";
 import type { Entity } from "./entity";
 import { recordsTable, type DataTable } from "./export";
 
@@ -45,40 +47,30 @@ export interface TruthNetworkPayload {
   sources: OverlaySource[];
 }
 
-/** A sequential green ramp for true edges by marginal; its light end stays visible on the white stage, so a missed
- * true edge still shows. Distinct from the nodes' blue q ramp. */
-export const TRUE_RAMP = ["#8fd3b4", "#6cc39d", "#4cb387", "#2fa271", "#1b8f60", "#137b52", "#0d6845", "#085538"];
-/** A false edge at or above the threshold, drawn dashed. */
-export const FALSE_COLOUR = "#e34948";
+/** The overlay's colours: the theme's green truth ramp, its false-edge red and its plain edge grey. */
+export type OverlayPalette = Pick<ChartTheme, "truthRamp" | "falseEdge" | "edge">;
 
-const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-
-/** The colour of a true edge with this marginal: linear in RGB between the ramp's steps. */
-export function trueEdgeColour(marginal: number): string {
-  const t = Math.min(1, Math.max(0, marginal)) * (TRUE_RAMP.length - 1);
-  const k = Math.min(Math.floor(t), TRUE_RAMP.length - 2);
-  const [a, b] = [rgb(TRUE_RAMP[k]!), rgb(TRUE_RAMP[k + 1]!)];
-  return `#${a.map((v, i) => Math.round(v + (b[i]! - v) * (t - k)).toString(16).padStart(2, "0")).join("")}`;
-}
+/** The colour of a true edge with this marginal along the theme's truth ramp. */
+export const trueEdgeColour = (theme: OverlayPalette, marginal: number) => rampColour(theme.truthRamp, marginal);
 
 export type EdgeStyle = { hidden: true } | { hidden: false; colour: string; dashed: boolean; size: number };
 
 /** How the overlay draws an edge at `threshold`. With truth shown (and known), a true edge is drawn whatever its
  * marginal, coloured by it, and a false edge at or above the threshold dashed; otherwise an edge is drawn plainly
  * when at or above the threshold, as the network view does. */
-export function overlayStyle(edge: OverlayEdge, threshold: number, truthShown: boolean): EdgeStyle {
+export function overlayStyle(edge: OverlayEdge, threshold: number, truthShown: boolean, theme: OverlayPalette): EdgeStyle {
   const size = edgeSize(edge.marginal);
   if (truthShown && edge.true !== null) {
-    if (edge.true) return { hidden: false, colour: trueEdgeColour(edge.marginal), dashed: false, size };
-    return edge.marginal >= threshold ? { hidden: false, colour: FALSE_COLOUR, dashed: true, size } : { hidden: true };
+    if (edge.true) return { hidden: false, colour: trueEdgeColour(theme, edge.marginal), dashed: false, size };
+    return edge.marginal >= threshold ? { hidden: false, colour: theme.falseEdge, dashed: true, size } : { hidden: true };
   }
-  return edge.marginal >= threshold ? { hidden: false, colour: EDGE_COLOUR, dashed: false, size } : { hidden: true };
+  return edge.marginal >= threshold ? { hidden: false, colour: theme.edge, dashed: false, size } : { hidden: true };
 }
 
 /** The number of `edges` the overlay draws at `threshold`. */
 export function shownCount(edges: readonly OverlayEdge[], threshold: number, truthShown: boolean): number {
   let n = 0;
-  for (const e of edges) if (!overlayStyle(e, threshold, truthShown).hidden) n++;
+  for (const e of edges) if (truthShown && e.true !== null ? e.true || e.marginal >= threshold : e.marginal >= threshold) n++;
   return n;
 }
 
@@ -88,19 +80,17 @@ export interface OverlayEdgeAttributes extends EdgeAttributes {
 }
 
 /** An edge set as graphology edges, keyed `child<-parent` as the network view's are. */
-export function overlayEdges(source: OverlaySource) {
+export function overlayEdges(source: OverlaySource, theme: Pick<ChartTheme, "edge">) {
   return source.edges.map((e) => ({
     key: edgeKey(e),
     source: e.parent,
     target: e.child,
     attributes: {
-      size: edgeSize(e.marginal), color: EDGE_COLOUR, marginal: e.marginal, weight: e.marginal,
+      size: edgeSize(e.marginal), color: theme.edge, marginal: e.marginal, weight: e.marginal,
       type: source.directed ? "arrow" : "line",
     } satisfies OverlayEdgeAttributes,
   }));
 }
-
-const fixed = (x: number | null, digits: number) => (x === null || Number.isNaN(x) ? "–" : x.toFixed(digits));
 
 function truthText(e: OverlayEdge): string {
   if (e.true === null) return "–";
@@ -113,10 +103,10 @@ export function overlayTooltip(e: OverlayEdge, source: OverlaySource): Tooltip {
   return {
     title: `${e.parent} ${source.directed ? "→" : "–"} ${e.child}`,
     rows: [
-      [`${source.label} (${source.source})`, fixed(e.marginal, 3)],
+      [`${source.label} (${source.source})`, formatProbability(e.marginal)],
       ["truth", truthText(e)],
-      ...(source.directed ? [["reverse", fixed(e.reverse_marginal, 3)] as [string, string]] : []),
-      ["lag", fixed(e.lag, 1)],
+      ...(source.directed ? [["reverse", formatProbability(e.reverse_marginal)] as [string, string]] : []),
+      ["lag", formatFixed(e.lag, 1)],
     ],
   };
 }
@@ -130,6 +120,9 @@ export const ERROR_KINDS: { kind: ErrorKind; label: string; title: string }[] = 
   { kind: "false", label: "False", title: "An edge scoring at or above the threshold that is not true, nor its reverse" },
   { kind: "direction", label: "Direction", title: "An edge scoring at or above the threshold whose reverse is the true edge" },
 ];
+
+/** Each error kind's label. */
+export const ERROR_LABELS: Record<ErrorKind, string> = { missed: "Missed", false: "False", direction: "Direction" };
 
 export interface ErrorRow {
   kind: ErrorKind;

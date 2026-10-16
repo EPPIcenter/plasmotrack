@@ -48,6 +48,7 @@ import {
   type TargetRow,
   type TypeSeries,
 } from "../../lib/sampler";
+import { statusColour } from "../../lib/status";
 
 interface SamplersSearch {
   chain: string | null;
@@ -65,9 +66,8 @@ const fmt = (x: number | null) => (x === null ? "–" : Number(x.toPrecision(3))
 const windowText = (w: PanelWindow) =>
   `Window ${w.window} (${w.phase.replace("_", "-")}, iterations ${w.first_iteration}–${w.last_iteration})`;
 
-function severityColour(theme: ChartTheme, s: Severity) {
-  return s === "critical" ? theme.status.critical : s === "warning" ? theme.status.warning : theme.muted;
-}
+/** A Run event's colour: its severity's status colour, muted ink for a routine one. */
+const severityColour = (theme: ChartTheme, s: Severity) => statusColour(theme, s === "neutral" ? "none" : s);
 
 /** Burn-in shading and the Run events' rules, the same on every time axis so the rules line up across plots. */
 function timeMarks(p: SamplerPanel, rules: EventRule[], theme: ChartTheme): Plot.Markish[] {

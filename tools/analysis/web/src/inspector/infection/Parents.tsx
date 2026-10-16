@@ -12,6 +12,7 @@ import type { InspectorProps } from "../registry";
 import { EdgeMarginals } from "./EdgeMarginals";
 import { ChainLegend, ProbabilityBar } from "./ProbabilityBar";
 import { TabSection, TabState } from "./TabSection";
+import { StatusChip } from "../../components/StatusChip";
 
 /** Sets shown; the rest are summed in one line. */
 const CAP = 30;
@@ -90,7 +91,7 @@ export default function Parents({ entity }: InspectorProps<"infection">) {
                   <ProbabilityBar width={80} value={b.weight} chains={b.chains.map((c) => ({ chain: c.chain, value: c.weight }))} order={chains} emphasis={b.credible} label={b.label} />
                 </td>
                 <td className="num">{formatProbability(b.weight)}</td>
-                <td className={`num ${b.spread > 0.2 ? "text-warning-ink" : "text-muted"}`} title={b.spread > 0.2 ? "The Chains disagree by more than 0.2" : undefined}>{formatProbability(b.spread)}</td>
+                <td className="num"><StatusChip kind="spread" value={b.spread} compact /></td>
               </tr>
             ))}
           </tbody>

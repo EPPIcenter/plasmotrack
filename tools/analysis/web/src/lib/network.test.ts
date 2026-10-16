@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { DARK, LIGHT } from "./palette";
 import {
-  CATEGORY_COLOURS,
   colourOptions,
   defaultThreshold,
   EdgeThreshold,
@@ -8,12 +8,9 @@ import {
   findNode,
   listedEdges,
   graphData,
-  NO_Q,
   nodeColours,
   nodeTooltip,
   qColour,
-  Q_RAMP,
-  Q_RAMP_DARK,
   readColour,
   readStratum,
   stratumParams,
@@ -146,16 +143,17 @@ describe("node search", () => {
 });
 
 describe("node colour by q", () => {
-  it("runs the sequential blue ramp from step 250 at q = 0 to step 700 at q = 1, grey without q", () => {
-    expect(qColour(0)).toBe("#86b6ef");
-    expect(qColour(1 / 9)).toBe("#6da7ec");
-    expect(qColour(1)).toBe("#0d366b");
-    expect(qColour(null)).toBe("#a3a29d");
+  it("runs the theme's q ramp from its first stop at q = 0 to its last at q = 1, the no-value colour without q", () => {
+    expect(qColour(LIGHT, 0)).toBe("#86b6ef");
+    expect(qColour(LIGHT, 1 / 3)).toBe("#3987e5");
+    expect(qColour(LIGHT, 1)).toBe("#0d366b");
+    expect(qColour(LIGHT, null)).toBe(LIGHT.noValue);
+    expect(qColour(DARK, 1)).toBe("#b7d3f6");
   });
 
   it("clamps q outside [0, 1]", () => {
-    expect(qColour(1.0000001)).toBe("#0d366b");
-    expect(qColour(-0.1)).toBe("#86b6ef");
+    expect(qColour(LIGHT, 1.0000001)).toBe("#0d366b");
+    expect(qColour(LIGHT, -0.1)).toBe("#86b6ef");
   });
 });
 
@@ -167,16 +165,16 @@ describe("the graph the view draws", () => {
   };
 
   it("has a node per Infection coloured by q and a directed edge parent -> child keyed child<-parent", () => {
-    const data = graphData(payload);
+    const data = graphData(payload, LIGHT);
     expect(data.nodes.map((n) => [n.key, n.attributes.label, n.attributes.color])).toEqual([
-      ["1", "1", "#0d366b"], ["3", "3", qColour(0.17)]]);
+      ["1", "1", "#0d366b"], ["3", "3", qColour(LIGHT, 0.17)]]);
     expect(data.edges).toEqual([{ key: "3<-1", source: "1", target: "3",
                                   attributes: expect.objectContaining({ marginal: 0.83, weight: 0.83 }) }]);
   });
 
   it("draws a larger marginal as a wider edge", () => {
     const widths = [0.01, 0.5, 1].map(
-      (marginal) => graphData({ ...payload, edges: [{ ...payload.edges[0]!, marginal }] }).edges[0]!.attributes.size);
+      (marginal) => graphData({ ...payload, edges: [{ ...payload.edges[0]!, marginal }] }, LIGHT).edges[0]!.attributes.size);
     expect(widths[0]).toBeLessThan(widths[1]!);
     expect(widths[1]).toBeLessThan(widths[2]!);
   });
@@ -184,7 +182,7 @@ describe("the graph the view draws", () => {
   it("is built for 1,500 Infections and 20,000 edges in well under a second", () => {
     const { nodes, edges } = synthetic(1500, 20_000);
     const started = performance.now();
-    const data = graphData({ chains: ["a", "b"], floor: 0.01, nodes, edges });
+    const data = graphData({ chains: ["a", "b"], floor: 0.01, nodes, edges }, LIGHT);
     expect(performance.now() - started).toBeLessThan(300);
     expect([data.nodes.length, data.edges.length]).toEqual([1500, 20_000]);
   });
@@ -241,38 +239,38 @@ describe("epi strata and colours", () => {
   });
 
   it("colour q on its ramp, unchanged", () => {
-    const { colours, legend } = nodeColours(payload, "q");
-    expect(colours.get("1")).toBe(qColour(0.5));
-    expect(colours.get("4")).toBe(NO_Q);
+    const { colours, legend } = nodeColours(payload, "q", LIGHT);
+    expect(colours.get("1")).toBe(qColour(LIGHT, 0.5));
+    expect(colours.get("4")).toBe(LIGHT.noValue);
     expect(legend).toMatchObject({ kind: "ramp", lower: "0", upper: "1", missing: 1 });
   });
 
   it("colour a categorical column by the categorical palette in the column's value order, no value grey", () => {
-    const { colours, legend } = nodeColours(payload, "epi:district");
-    expect([...colours.values()]).toEqual([CATEGORY_COLOURS[0], CATEGORY_COLOURS[1], NO_Q, NO_Q]);
-    expect(CATEGORY_COLOURS).not.toContain("#eb6834"); // the selection's colour
+    const { colours, legend } = nodeColours(payload, "epi:district", LIGHT);
+    expect([...colours.values()]).toEqual([LIGHT.categories[0], LIGHT.categories[1], LIGHT.noValue, LIGHT.noValue]);
+    expect(LIGHT.categories).not.toContain("#eb6834"); // the selection's colour
     expect(legend).toEqual({ kind: "categories", label: "district", missing: 2,
-      items: [{ label: "North", colour: CATEGORY_COLOURS[0] }, { label: "South", colour: CATEGORY_COLOURS[1] }] });
+      items: [{ label: "North", colour: LIGHT.categories[0] }, { label: "South", colour: LIGHT.categories[1] }] });
   });
 
   it("colour more categories than the palette holds along an ordinal ramp", () => {
     const values = Array.from({ length: 12 }, (_, i) => `v${i}`);
     const many: NetworkPayload = { ...payload, epi_columns: [{ name: "village", type: "categorical", values }],
       nodes: values.map((v, i) => withEpi(node(String(i), i, 0, 0, 1), { village: v })) };
-    const { colours } = nodeColours(many, "epi:village");
-    expect(colours.get("0")).toBe(Q_RAMP[0]);
-    expect(colours.get("11")).toBe(Q_RAMP[Q_RAMP.length - 1]);
+    const { colours } = nodeColours(many, "epi:village", LIGHT);
+    expect(colours.get("0")).toBe(LIGHT.qRamp[0]);
+    expect(colours.get("11")).toBe(LIGHT.qRamp[LIGHT.qRamp.length - 1]);
   });
 
   it("colour a numeric or date column, or a posterior quantity, along the ramp from its smallest to its largest value", () => {
-    const age = nodeColours(payload, "epi:age");
-    expect([age.colours.get("1"), age.colours.get("2"), age.colours.get("3")]).toEqual([Q_RAMP[0], Q_RAMP[Q_RAMP.length - 1], NO_Q]);
+    const age = nodeColours(payload, "epi:age", LIGHT);
+    expect([age.colours.get("1"), age.colours.get("2"), age.colours.get("3")]).toEqual([LIGHT.qRamp[0], LIGHT.qRamp[LIGHT.qRamp.length - 1], LIGHT.noValue]);
     expect(age.legend).toMatchObject({ kind: "ramp", label: "age", lower: "4", upper: "30", missing: 2 });
-    const visit = nodeColours(payload, "epi:visit");
-    expect(visit.colours.get("2")).toBe(Q_RAMP[Q_RAMP.length - 1]);
+    const visit = nodeColours(payload, "epi:visit", LIGHT);
+    expect(visit.colours.get("2")).toBe(LIGHT.qRamp[LIGHT.qRamp.length - 1]);
     expect(visit.legend).toMatchObject({ lower: "2024-01-01", upper: "2024-03-01" });
-    const observed = nodeColours(payload, "observation_time");
-    expect([observed.colours.get("1"), observed.colours.get("4")]).toEqual([Q_RAMP[0], Q_RAMP[Q_RAMP.length - 1]]);
+    const observed = nodeColours(payload, "observation_time", LIGHT);
+    expect([observed.colours.get("1"), observed.colours.get("4")]).toEqual([LIGHT.qRamp[0], LIGHT.qRamp[LIGHT.qRamp.length - 1]]);
     expect(observed.legend).toMatchObject({ lower: "10.0", upper: "40.0", missing: 0 });
   });
 
@@ -335,12 +333,12 @@ describe("the default threshold", () => {
 
 describe("node colours in the dark theme", () => {
   it("run q along the dark ramp, light at q = 1, and categories along the given palette", () => {
-    const dark = { ramp: Q_RAMP_DARK, categories: ["#111111", "#222222"] };
+    const dark = { ...DARK, categories: ["#111111", "#222222"] };
     const p: NetworkPayload = { chains: [], floor: 0, edges: [],
       epi_columns: [{ name: "district", type: "categorical", values: ["North", "South"] }],
       nodes: [({ ...node("1", 0, 0, 0, 1), epi: { district: "South" } }), ({ ...node("2", 0, 1, 0, 1), epi: { district: "North" } })] };
     const q = nodeColours(p, "q", dark).colours;
-    expect([q.get("1"), q.get("2")]).toEqual([Q_RAMP_DARK[0], Q_RAMP_DARK[Q_RAMP_DARK.length - 1]]);
+    expect([q.get("1"), q.get("2")]).toEqual([DARK.qRamp[0], DARK.qRamp[DARK.qRamp.length - 1]]);
     expect([...nodeColours(p, "epi:district", dark).colours.values()]).toEqual(["#222222", "#111111"]);
   });
 });
