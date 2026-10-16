@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../../test/render";
+import { failure, renderApp } from "../../test/render";
 
 const table = () => screen.findByRole("table", { name: "Infections table" });
 const ids = async () =>
@@ -40,6 +40,45 @@ describe("Infections", () => {
     await userEvent.click(screen.getByRole("button", { name: /Top-decile out-degree/ }));
     await waitFor(async () => expect(await ids()).toEqual(["1"]));
     expect(search().quick).toBe("mixing,prolific");
+  });
+
+  it("names the top Parent set's class in the words every view uses", async () => {
+    renderApp("/infections");
+    const t = await table();
+    await waitFor(() => expect(within(t).getAllByRole("row")).toHaveLength(3));
+    const [one, , three] = within(t).getAllByRole("row");
+    expect(one).toHaveTextContent("unobserved only");
+    expect(three).toHaveTextContent("1 observed");
+    expect(three).not.toHaveTextContent("observed_1");
+  });
+
+  it("says each quick filter's rule with its threshold, and sorts by its column when turned on", async () => {
+    const { search } = renderApp("/infections");
+    await table();
+    expect(screen.getByRole("button", { name: /R-hat > 1.1/ })).toHaveAttribute("title", expect.stringMatching(/above 1\.1/));
+    expect(screen.getByRole("button", { name: /Top-decile out-degree/ })).toHaveAttribute("title", expect.stringMatching(/at least \d/));
+    await userEvent.click(screen.getByRole("button", { name: /R-hat > 1.1/ }));
+    await waitFor(() => expect(search().sort).toBe("worst_rhat"));
+    expect(search().desc).toBe("1");
+    // Infection 1's worst R-hat 1.105 is above 3's 1.104.
+    await waitFor(async () => expect(await ids()).toEqual(["1", "3"]));
+    expect(within(await table()).getByRole("columnheader", { name: /Worst R-hat/ })).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("marks a hovered row's values on the header distribution strips", async () => {
+    renderApp("/infections");
+    const t = await table();
+    await waitFor(() => expect(within(t).getAllByRole("row")).toHaveLength(3));
+    await userEvent.hover(within(t).getAllByRole("row")[2]!);
+    expect(await screen.findByRole("img", { name: /Distribution of q over Infections.*Infection 3 at 0\.169/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Distribution of Worst R-hat over Infections.*Infection 3 at 1\.104/ })).toBeInTheDocument();
+    await userEvent.unhover(t);
+    await waitFor(() => expect(screen.getByRole("img", { name: /Distribution of q over Infections/ })).not.toHaveAccessibleName(/Infection 3/));
+  });
+
+  it("says when the table could not load", async () => {
+    renderApp("/infections", { "/api/infections": failure(500, "no derived tables") });
+    expect(await screen.findByText(/Could not load: .*no derived tables/)).toBeInTheDocument();
   });
 
   it("filters on any column by typed text, in the URL", async () => {

@@ -31,9 +31,11 @@ import {
   selectedRows,
   type Brush,
   type CohortPayload,
+  formatCell,
 } from "../../lib/cohort";
-import { formatNumber } from "../../lib/format";
+import { formatCount, formatFixed, formatNumber, formatSpan } from "../../lib/format";
 import { CATEGORY_SLOTS, colourScale, Scatter } from "./Scatter";
+import { StatusText } from "../../components/StatusChip";
 
 /** A row of the selected-fits table: a cohort row index. */
 interface FitRow {
@@ -65,7 +67,6 @@ const parse = (s: SearchValues): CohortSearch => ({
 });
 
 const pick = (values: string[], chosen: string) => (values.includes(chosen) ? chosen : values[0] ?? "");
-const fmt = (v: unknown) => (typeof v === "number" ? formatNumber(v, 4) : String(v ?? "–"));
 const select = "h-5 max-w-56 rounded-[3px] border border-line bg-surface px-1 text-axis";
 
 function Picker({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
@@ -109,7 +110,7 @@ function Calibration({ p, rows }: { p: CohortPayload; rows: number[] }) {
           Plot.tip(points, Plot.pointer({
             x: "mean_score", y: "frequency",
             title: (d: { fit: string; lower: number; upper: number; n: number; n_true: number; frequency: number; mean_score: number }) =>
-              `${d.fit} fits, Edge marginal ${d.lower.toFixed(1)}–${d.upper.toFixed(1)}\n${d.n_true.toLocaleString()} true of ${d.n.toLocaleString()} pairs: ${d.frequency.toFixed(3)}\nmean marginal ${d.mean_score.toFixed(3)}`,
+              `${d.fit} fits, Edge marginal ${formatSpan(d.lower, d.upper, (x) => formatFixed(x, 1))}\n${formatCount(d.n_true)} true of ${formatCount(d.n)} pairs: ${formatFixed(d.frequency, 3)}\nmean marginal ${formatFixed(d.mean_score, 3)}`,
           })),
         ],
       });
@@ -137,7 +138,7 @@ function Identity({ p, rows, estimate, truth, label, onPick }: { p: CohortPayloa
           Plot.tip(points, Plot.pointer({
             x: "truth", y: "estimate",
             title: (d: { row: number; fit: string; truth: number; estimate: number }) =>
-              `${String(p.data.run_key?.[d.row] ?? "")}\n${d.fit} fit: true ${d.truth.toFixed(3)}, estimated ${d.estimate.toFixed(3)}\nclick for the fit`,
+              `${String(p.data.run_key?.[d.row] ?? "")}\n${d.fit} fit: true ${formatFixed(d.truth, 3)}, estimated ${formatFixed(d.estimate, 3)}\nclick for the fit`,
           })),
         ],
       });
@@ -222,15 +223,15 @@ function FitDetail({ p, row, file }: { p: CohortPayload; row: number; file: stri
     <section aria-label="Fit detail" className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-line bg-surface px-2 py-1 text-axis">
       <strong className="id text-table">{String(p.data.run_key?.[row] ?? `row ${row}`)}</strong>
       <span className="text-ink-2">{fitLabel(p, row)} fit</span>
-      <span className="tabular-nums text-ink-2">directed AP {fmt(p.data.directed_average_precision?.[row])}</span>
-      <span className="tabular-nums text-ink-2">ψ_edge {fmt(p.data.estimated_average_outdegree?.[row])} (true {fmt(p.data.true_average_outdegree?.[row])})</span>
+      <span className="tabular-nums text-ink-2">directed AP {formatCell(p.data.directed_average_precision?.[row])}</span>
+      <span className="tabular-nums text-ink-2">ψ_edge {formatCell(p.data.estimated_average_outdegree?.[row])} (true {formatCell(p.data.true_average_outdegree?.[row])})</span>
       {typeof manifest === "string" ? (
         <>
           <button type="button" onClick={open} disabled={state.busy} className="rounded-[3px] border border-line px-2 py-0.5 text-ui hover:bg-hover disabled:text-muted">
             {state.busy ? "Starting…" : "Open its Analysis"}
           </button>
           <code className="text-muted">{manifest}</code>
-          {state.error && <span className="text-critical-ink">Could not open: {state.error}</span>}
+          {state.error && <StatusText level="critical" className="justify-start">Could not open: {state.error}</StatusText>}
         </>
       ) : (
         <span className="text-muted">The cohort names no manifest for this fit.</span>
@@ -270,7 +271,7 @@ export default function CohortWorkspace() {
           { id: "run_key", header: "run_key", width: 420, value: ({ row }) => p.data.run_key?.[row] as string, cell: ({ row }) => <span className="id">{String(p.data.run_key?.[row] ?? "–")}</span> },
           { id: "fit", header: "Fit", width: 64, value: ({ row }) => fitLabel(p, row) },
           ...[x, y, metric].filter((c, i, a) => a.indexOf(c) === i).map((c): Column<FitRow> => ({
-            id: c, header: c, numeric: true, width: 210, value: ({ row }) => p.data[c]?.[row] as number, cell: ({ row }) => fmt(p.data[c]?.[row]),
+            id: c, header: c, numeric: true, width: 210, value: ({ row }) => p.data[c]?.[row] as number, cell: ({ row }) => formatCell(p.data[c]?.[row]),
           })),
         ]
       : [],
@@ -287,7 +288,7 @@ export default function CohortWorkspace() {
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-2 p-2">
+    <div className="flex min-h-full min-w-0 flex-col gap-2 p-2">
       <div className="flex flex-wrap items-center gap-3 text-axis">
         <FileBox draft={fileDraft} setDraft={setFileDraft} commit={(f) => set({ file: f || undefined, brush: undefined, row: undefined })} />
         <label className="flex items-center gap-1">
@@ -297,35 +298,34 @@ export default function CohortWorkspace() {
             {fits.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
         </label>
-        <span className="tabular-nums text-ink-2">{rows.length.toLocaleString()} of {p.n.toLocaleString()} fits selected</span>
+        <span className="tabular-nums text-ink-2">{formatCount(rows.length)} of {formatCount(p.n)} fits selected</span>
         {brush && (
           <button type="button" onClick={() => onBrush(null)} className="rounded-[3px] border border-line px-2 py-0.5 hover:bg-hover">Clear brush</button>
         )}
-        <span className="text-muted">{p.file}</span>
+        <span className="min-w-0 max-w-full truncate text-muted" title={p.file}>{p.file}</span>
         <FitLegend fits={fits} />
       </div>
       {picked !== null && <FitDetail p={p} row={picked} file={search.file} />}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+      {/* Columns by the room the workspace has (the Inspector narrows it), not by the viewport. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-2">
         <Panel title="Calibration" description="True-edge frequency per bin of pooled Edge marginal, pooled over the selected fits">
           {p.calibration ? <Calibration p={p} rows={rows} /> : <PanelState empty="No per-edge rows: summarize with --edges, then cohort, to draw it." />}
         </Panel>
         <Panel title="Average out-degree" description="ψ_edge estimated against realised; dashed: identity">
           <Identity p={p} rows={rows} estimate="estimated_average_outdegree" truth="true_average_outdegree" label="Average out-degree" onPick={onPick} />
         </Panel>
-        <Panel title="Unobserved-source proportion" description="Mean q estimated against realised; dashed: identity">
+        <Panel title="Mean q" description="Unobserved-source proportion estimated against realised; dashed: identity">
           <Identity p={p} rows={rows} estimate="estimated_unobserved_source_proportion" truth="true_unobserved_source_proportion" label="Unobserved-source proportion" onPick={onPick} />
         </Panel>
       </div>
       <Panel
         title="By simulation factor"
         description="Box plots over the selected fits, faceted by fit type"
-        actions={
-          <div className="flex items-center gap-2">
-            <Picker label="Metric" value={metric} options={numeric} onChange={(v) => set({ metric: v })} />
-            <Picker label="Factor" value={factor} options={factors} onChange={(v) => set({ factor: v })} />
-          </div>
-        }
       >
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-2 py-1">
+          <Picker label="Metric" value={metric} options={numeric} onChange={(v) => set({ metric: v })} />
+          <Picker label="Factor" value={factor} options={factors} onChange={(v) => set({ factor: v })} />
+        </div>
         <Boxes p={p} rows={rows} metric={metric} factor={factor} />
       </Panel>
       <Panel
@@ -334,14 +334,12 @@ export default function CohortWorkspace() {
         data={() => cohortTable(p, rows)}
         exportName="cohort"
         exportParams={{ ...(fit ? { fit } : {}), x, y }}
-        actions={
-          <div className="flex items-center gap-2">
-            <Picker label="x" value={x} options={numeric} onChange={(v) => set({ x: v, brush: undefined })} />
-            <Picker label="y" value={y} options={numeric} onChange={(v) => set({ y: v, brush: undefined })} />
-            <Picker label="Colour" value={colour} options={all} onChange={(v) => set({ colour: v })} />
-          </div>
-        }
       >
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-2 py-1">
+          <Picker label="x" value={x} options={numeric} onChange={(v) => set({ x: v, brush: undefined })} />
+          <Picker label="y" value={y} options={numeric} onChange={(v) => set({ y: v, brush: undefined })} />
+          <Picker label="Colour" value={colour} options={all} onChange={(v) => set({ colour: v })} />
+        </div>
         <div className="px-2 pt-1"><ColourLegend p={p} rows={rows} column={colour} /></div>
         <Scatter payload={p} rows={fitRows} selected={selected} x={x} y={y} colour={colour} brush={brush} onBrush={onBrush} onPick={onPick} picked={picked} />
       </Panel>

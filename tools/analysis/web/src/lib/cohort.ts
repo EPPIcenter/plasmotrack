@@ -2,6 +2,7 @@
 // every panel follows, identity-line points and the calibration curve pooled over the selected fits.
 
 import type { DataTable } from "./export";
+import { formatNumber } from "./format";
 import { chainColour, type ChartTheme } from "./palette";
 
 export type ColumnKind = "string" | "integer" | "number";
@@ -238,3 +239,6 @@ export function parseBrush(text: string | undefined, x: string, y: string): Brus
   if (!parts.every(Number.isFinite)) return null;
   return { x, y, x0, x1, y0, y1 };
 }
+
+/** A cohort cell as text: a number to four significant digits, any other value as it is, "–" when missing. */
+export const formatCell = (v: unknown): string => (typeof v === "number" ? formatNumber(v, 4) : v === null || v === undefined ? "–" : String(v));

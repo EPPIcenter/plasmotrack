@@ -26,7 +26,7 @@ describe("Infection Inspector", () => {
     const sets = await within(i).findByRole("table", { name: "Parent sets" });
     const first = within(sets).getAllByRole("row")[1]!;
     expect(first).toHaveTextContent("{1}");
-    expect(first).toHaveTextContent("observed_1");
+    expect(first).toHaveTextContent("1 observed"); expect(first).not.toHaveTextContent("observed_1");
     expect(first).toHaveTextContent("0.828");
     expect(within(first).getByTitle("In the 80% credible collection")).toBeInTheDocument();
     // Per-Chain agreement: chain1 weighs {1} 0.88, chain2 0.77.

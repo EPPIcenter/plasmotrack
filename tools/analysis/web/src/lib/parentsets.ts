@@ -1,6 +1,7 @@
 // The parent-set panel's data: /api/parent-sets' payload, sorting its rows and the summary line. No DOM here.
 
 import { recordsTable, type DataTable } from "./export";
+import { formatCount, formatFixed } from "./format";
 import { compareInfectionIds as compareIds } from "./ids";
 
 export interface ParentSetRow {
@@ -86,9 +87,9 @@ export function summaryLine(fit: ParentSetFit, level: number): string {
   const median = s[`median_credible_parent_set_size${suffix}`];
   const coverage = s[`credible_parent_set_coverage${suffix}`];
   const top = s.mean_top_parent_set_probability;
-  let line = `${FIT_NAMES[fit.fit]}: credible collection at ${level} has ${mean?.toFixed(2) ?? "–"} sets on average (median ${median ?? "–"})`;
-  if (coverage !== null && coverage !== undefined) line += `, holds the true set for ${(100 * coverage).toFixed(1)}% of Infections`;
-  return `${line}; mean top set probability ${top?.toFixed(3) ?? "–"}`;
+  let line = `${FIT_NAMES[fit.fit]}: credible collection at ${level} has ${formatFixed(mean, 2)} sets on average (median ${median ?? "–"})`;
+  if (coverage !== null && coverage !== undefined) line += `, holds the true set for ${formatFixed(100 * coverage, 1)}% of Infections`;
+  return `${line}; mean top set probability ${formatFixed(top, 3)}`;
 }
 
 /** The rows given with /api/parent-sets' column names, the `null_` columns only with a null-model fit. What the view
@@ -110,7 +111,7 @@ export const SIZE_RANGES = [
   [1, 1], [2, 2], [3, 5], [6, 10], [11, 50], [51, 100], [101, 500], [501, 1000], [1001, Infinity],
 ].map(([lo, hi]) => ({
   lo: lo!, hi: hi!,
-  label: hi === Infinity ? `> ${(lo! - 1).toLocaleString("en")}` : lo === hi ? String(lo) : `${lo!.toLocaleString("en")}–${hi!.toLocaleString("en")}`,
+  label: hi === Infinity ? `> ${formatCount(lo! - 1)}` : lo === hi ? String(lo) : `${formatCount(lo)}–${formatCount(hi)}`,
 }));
 
 /** Infections per range of credible collection size (`SIZE_RANGES`) and coverage class, ranges ascending, classes in

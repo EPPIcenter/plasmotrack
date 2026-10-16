@@ -7,6 +7,7 @@
 
 import * as Plot from "@observablehq/plot";
 import { useCallback, useMemo, useState } from "react";
+import { isHovered, useHovered } from "../../app/hover";
 import { Group, Panel as Split, Separator } from "react-resizable-panels";
 import { useErrors } from "../../api/accuracy";
 import { useTruthNetwork } from "../../api/network";
@@ -20,10 +21,11 @@ import { KpiStrip, type Kpi } from "../../components/KpiStrip";
 import { Panel, PanelState } from "../../components/Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
 import { formatEntity } from "../../lib/entity";
-import { formatNumber, formatProbability } from "../../lib/format";
+import { formatCount, formatFixed, formatNumber, formatProbability } from "../../lib/format";
 import type { NetworkNode } from "../../lib/network";
-import type { ChartTheme } from "../../lib/palette";
+import { statusColour } from "../../lib/status";
 import {
+  CALL_STYLE,
   callArcs,
   ERROR_KINDS,
   ERROR_LABELS,
@@ -60,41 +62,47 @@ const parse = (s: SearchValues): ErrorsSearch => {
   };
 };
 
-const CALL_LABEL: Record<EdgeCall, string> = { hit: "True, called", missed: "Missed", false: "False", direction: "Direction" };
 const CALL_ORDER: EdgeCall[] = ["hit", "missed", "false", "direction"];
-/** Calls wear the status colours (they are right or wrong), always beside a label and, for missed, a dash. */
-const callColour = (theme: ChartTheme, call: EdgeCall) =>
-  ({ hit: theme.status.good, missed: theme.status.serious, false: theme.status.critical, direction: theme.status.warning })[call];
-const CALL_DASH: Record<EdgeCall, string> = { hit: "", missed: "3 2", false: "", direction: "" };
 
-const fixed = (x: number | null | undefined, digits: number) => (x === null || x === undefined || Number.isNaN(x) ? "–" : x.toFixed(digits));
 const rowId = (r: ErrorRow) => `${r.kind}:${r.parent}>${r.child}`;
 
 function useKpis(rows: readonly ErrorRow[] | undefined, edges: readonly OverlayEdge[] | undefined, threshold: number): Kpi[] {
   const counts = rows ? errorCounts(rows) : null;
   const s = edges ? thresholdSummary(edges, threshold) : null;
-  const n = (x: number | undefined) => (x === undefined ? "…" : x.toLocaleString());
+  const n = (x: number | undefined) => (x === undefined ? "…" : formatCount(x));
+  // The error kinds count the distinct error rows, as the kind filters and the rail's badge (at the default
+  // threshold) do: a true edge missed because its false reverse is called is one direction error.
   return [
     { label: "True edges", value: n(s?.n_true), title: "True edges between observed Infections" },
-    { label: "Called", value: n(s?.called), detail: `score ≥ ${threshold}`, title: "Edges scoring at or above the threshold" },
-    { label: "Hits", value: n(s?.hit), title: "True edges called" },
+    { label: "Called", value: n(s?.called), detail: `${n(s?.hit)} hits at score ≥ ${threshold}`, title: "Edges scoring at or above the threshold; hits: the true edges among them" },
+    { label: "Errors", value: n(rows?.length), title: "Distinct errors at the threshold: missed, false and direction" },
     ...ERROR_KINDS.map(({ kind, label, title }) => ({ label, value: n(counts?.[kind]), title })),
-    { label: "Precision", value: s ? formatProbability(s.precision) : "…", title: "Hits over called edges" },
-    { label: "Recall", value: s ? formatProbability(s.recall) : "…", title: "Hits over true edges" },
+    { label: "Precision / recall", value: s ? `${formatProbability(s.precision)} / ${formatProbability(s.recall)}` : "…", title: "Precision: hits over called edges. Recall: hits over true edges" },
   ];
+}
+
+/** Whether an arc (keyed `parent>child`) is the hovered error's edge, or for an undirected set its pair. */
+function arcsLit(hovered: ReturnType<typeof useHovered>, directed: boolean): (key: string) => boolean {
+  if (!hovered) return () => false;
+  return (key) => {
+    const [parent = "", child = ""] = key.split(">");
+    return isHovered(hovered, errorEntity({ parent, child }, directed));
+  };
 }
 
 /** The network thumbnail with the truth overlay, as an arc diagram: every Infection on one line by observation time,
  *  and every call of the edge set at the threshold an arc from parent to child (arrowhead at the child), as high as
  *  it is long, coloured by its kind. */
-function Thumbnail({ nodes, edges, directed, threshold, hovered }: {
+function Thumbnail({ nodes, edges, directed, threshold }: {
   nodes: readonly NetworkNode[];
   edges: readonly OverlayEdge[];
   directed: boolean;
   threshold: number;
-  hovered: string | null;
 }) {
   const { select } = useSelection();
+  // The error table's hovered row (the shared hover store), drawn thicker.
+  const hover = useHovered();
+  const hovered = useMemo(() => arcsLit(hover, directed), [hover, directed]);
   const arcs = useMemo(() => {
     const found = callArcs(edges, new Map(nodes.map((n) => [n.id, n.observation_time])), threshold);
     // Hits under the errors, so an error is never hidden by a correct call.
@@ -123,9 +131,9 @@ function Thumbnail({ nodes, edges, directed, threshold, hovered }: {
               x: "x",
               y: "y",
               z: "key",
-              stroke: callColour(theme, call),
-              strokeWidth: (d: { key: string }) => (d.key === hovered ? 3.5 : 1.75),
-              strokeDasharray: CALL_DASH[call],
+              stroke: statusColour(theme, CALL_STYLE[call].level),
+              strokeWidth: (d: { key: string }) => (hovered(d.key) ? 3.5 : 1.75),
+              strokeDasharray: CALL_STYLE[call].dash,
               markerEnd: directed ? "arrow" : undefined,
             }),
           ),
@@ -134,7 +142,7 @@ function Thumbnail({ nodes, edges, directed, threshold, hovered }: {
             x: (a: CallArc) => a.apex.x,
             y: (a: CallArc) => a.apex.y,
             title: (a: CallArc) =>
-              `${a.edge.parent} ${directed ? "→" : "–"} ${a.edge.child}\n${CALL_LABEL[a.call]}\nscore ${formatNumber(a.edge.marginal, 3)}` +
+              `${a.edge.parent} ${directed ? "→" : "–"} ${a.edge.child}\n${CALL_STYLE[a.call].label}\nscore ${formatNumber(a.edge.marginal, 3)}` +
               (directed ? `, reverse ${formatNumber(a.edge.reverse_marginal, 3)}` : ""),
           })),
         ],
@@ -158,7 +166,7 @@ function Thumbnail({ nodes, edges, directed, threshold, hovered }: {
       <ul className="flex flex-wrap gap-x-3 px-2 pt-1 text-axis text-ink-2" aria-label="Legend">
         {CALL_ORDER.map((call) => (
           <li key={call} className="flex items-center gap-1">
-            <CallKey call={call} /> {CALL_LABEL[call]} <span className="tabular-nums text-muted">{arcs.filter((a) => a.call === call).length}</span>
+            <CallKey call={call} /> {CALL_STYLE[call].label} <span className="tabular-nums text-muted">{arcs.filter((a) => a.call === call).length}</span>
           </li>
         ))}
       </ul>
@@ -180,7 +188,7 @@ function CallKey({ call }: { call: EdgeCall }) {
   const { chart } = useTheme();
   return (
     <svg width="18" height="8" aria-hidden>
-      <line x1="0" y1="4" x2="18" y2="4" stroke={callColour(chart, call)} strokeWidth="2" strokeDasharray={CALL_DASH[call]} />
+      <line x1="0" y1="4" x2="18" y2="4" stroke={statusColour(chart, CALL_STYLE[call].level)} strokeWidth="2" strokeDasharray={CALL_STYLE[call].dash} />
     </svg>
   );
 }
@@ -189,10 +197,9 @@ export default function ErrorsWorkspace() {
   const [search, set] = useWorkspaceSearch(parse);
   const { source, threshold, kinds } = search;
   const { data, error, isLoading } = useErrors(source, threshold);
-  const { data: overlay } = useTruthNetwork();
-  const { data: network } = useNetwork();
+  const { data: overlay, error: overlayError, isLoading: overlayLoading } = useTruthNetwork();
+  const { data: network, error: networkError, isLoading: networkLoading } = useNetwork();
   const { entity, select } = useSelection();
-  const [hovered, setHovered] = useState<string | null>(null);
   const [draft, setDraft] = useState(String(threshold));
 
   const edgeSet = overlay?.sources.find((s) => s.source === source);
@@ -213,17 +220,17 @@ export default function ErrorsWorkspace() {
         id: "edge", header: "Edge", width: 156, value: (r) => `${r.parent} ${r.child}`,
         cell: (r) => <EntityLink entity={errorEntity(r, directed)}>{`${r.parent} ${arrow} ${r.child}`}</EntityLink>,
       },
-      { id: "marginal", header: "Score", title: "The edge's score in the set: the pooled Edge marginal, or the pairwise score", value: (r) => r.marginal, numeric: true, width: 64, descFirst: true, cell: (r) => fixed(r.marginal, 3) },
-      { id: "confidence", header: "Wrong by", title: "How confidently wrong: 1 − score for a missed edge, the score for a false one", value: (r) => r.confidence, numeric: true, width: 88, descFirst: true, cell: (r) => fixed(r.confidence, 3) },
+      { id: "marginal", header: "Score", title: "The edge's score in the set: the pooled Edge marginal, or the pairwise score", value: (r) => r.marginal, numeric: true, width: 64, descFirst: true, cell: (r) => formatProbability(r.marginal) },
+      { id: "confidence", header: "Wrong by", title: "How confidently wrong: 1 − score for a missed edge, the score for a false one", value: (r) => r.confidence, numeric: true, width: 88, descFirst: true, cell: (r) => formatProbability(r.confidence) },
       ...(directed
         ? [
-            { id: "reverse_marginal", header: "Reverse score", value: (r: ErrorRow) => r.reverse_marginal, numeric: true, width: 112, cell: (r: ErrorRow) => fixed(r.reverse_marginal, 3) },
+            { id: "reverse_marginal", header: "Reverse score", value: (r: ErrorRow) => r.reverse_marginal, numeric: true, width: 112, cell: (r: ErrorRow) => formatProbability(r.reverse_marginal) },
             { id: "reverse_true", header: "Reverse true", value: (r: ErrorRow) => (r.reverse_true ? 1 : 0), width: 104, cell: (r: ErrorRow) => (r.reverse_true ? "yes" : "no") },
           ]
         : []),
-      { id: "lag", header: "Lag", title: "Child's observation time minus the parent's", value: (r) => r.lag, numeric: true, width: 60, cell: (r) => fixed(r.lag, 1) },
-      { id: "parent_time", header: "Parent infected", title: "The parent's true infection time", value: (r) => r.parent_true_infection_time, numeric: true, width: 124, cell: (r) => fixed(r.parent_true_infection_time, 1) },
-      { id: "child_time", header: "Child infected", title: "The child's true infection time", value: (r) => r.child_true_infection_time, numeric: true, width: 120, cell: (r) => fixed(r.child_true_infection_time, 1) },
+      { id: "lag", header: "Lag", title: "Child's observation time minus the parent's", value: (r) => r.lag, numeric: true, width: 60, cell: (r) => formatFixed(r.lag, 1) },
+      { id: "parent_time", header: "Parent infected", title: "The parent's true infection time", value: (r) => r.parent_true_infection_time, numeric: true, width: 124, cell: (r) => formatFixed(r.parent_true_infection_time, 1) },
+      { id: "child_time", header: "Child infected", title: "The child's true infection time", value: (r) => r.child_true_infection_time, numeric: true, width: 120, cell: (r) => formatFixed(r.child_true_infection_time, 1) },
       {
         id: "pair", header: "Pair", width: 56, sortable: false, value: () => null,
         cell: (r) => <EntityLink entity={{ kind: "pair", a: r.parent, b: r.child }} title="Inspect the pair: order, genotypes, infection times">pair</EntityLink>,
@@ -276,7 +283,7 @@ export default function ErrorsWorkspace() {
           {ERROR_KINDS.map(({ kind, label, title }) => (
             <label key={kind} title={title} className="flex items-center gap-1">
               <input type="checkbox" checked={kinds.has(kind)} onChange={() => toggle(kind)} className="accent-accent" />
-              {label}{counts ? ` (${counts[kind].toLocaleString()})` : ""}
+              {label}{counts ? ` (${formatCount(counts[kind])})` : ""}
             </label>
           ))}
         </fieldset>
@@ -288,7 +295,7 @@ export default function ErrorsWorkspace() {
           <Panel
             className="flex-1"
             title="Errors"
-            description={data ? `${rows.length.toLocaleString()} of ${data.rows.length.toLocaleString()} errors of ${SOURCE_NAMES[data.source]} (${data.label}) at ${data.threshold}, most confidently wrong first` : undefined}
+            description={data ? `${formatCount(rows.length)} of ${formatCount(data.rows.length)} errors of ${SOURCE_NAMES[data.source]} (${data.label}) at ${data.threshold}, most confidently wrong first` : undefined}
             data={() => (data ? errorsTable(data, rows) : null)}
             exportName="errors"
             exportParams={{ source, threshold: String(threshold) }}
@@ -302,7 +309,7 @@ export default function ErrorsWorkspace() {
                 columns={columns}
                 getRowId={rowId}
                 onRowClick={(r) => select(errorEntity(r, directed))}
-                onRowHover={(r) => setHovered(r ? `${r.parent}>${r.child}` : null)}
+                hoverEntity={(r) => errorEntity(r, directed)}
                 activeRowId={active ? rows.map((r) => [rowId(r), formatEntity(errorEntity(r, directed))]).find(([, e]) => e === active)?.[0] ?? null : null}
                 emptyText={data?.rows.length ? "No error of the kinds chosen" : "No errors at this threshold"}
               />
@@ -313,9 +320,9 @@ export default function ErrorsWorkspace() {
         <Split id="thumbnail" minSize={300} className="flex min-w-0">
           <Panel className="flex-1" bodyClassName="overflow-y-auto" title="Network" description={`${edgeSet?.label ?? "edges"} against truth at ${threshold}`} exportName="errors network">
             {edgeSet && network ? (
-              <Thumbnail nodes={network.nodes} edges={edgeSet.edges} directed={edgeSet.directed} threshold={threshold} hovered={hovered} />
+              <Thumbnail nodes={network.nodes} edges={edgeSet.edges} directed={edgeSet.directed} threshold={threshold} />
             ) : (
-              <PanelState loading empty="No truth overlay" />
+              <PanelState loading={overlayLoading || networkLoading} error={overlayError ?? networkError} empty="No truth overlay" />
             )}
           </Panel>
         </Split>

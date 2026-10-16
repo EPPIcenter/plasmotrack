@@ -8,6 +8,7 @@ import { select } from "d3-selection";
 import { useCallback, useMemo } from "react";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
 import { nearestRow, scatterFacets, type Brush, type CohortPayload, type Value } from "../../lib/cohort";
+import { formatCount } from "../../lib/format";
 import type { ChartTheme } from "../../lib/palette";
 
 export interface ScatterProps {
@@ -125,7 +126,7 @@ function Facet({ fit, points, xDomain, yDomain, props }: {
   return (
     <div className="min-w-0">
       <h4 className="px-2 text-axis font-semibold text-ink-2">
-        {fit} fit{points.length === 1 ? "" : "s"} <span className="font-normal text-muted">{points.length.toLocaleString()}</span>
+        {fit} fit{points.length === 1 ? "" : "s"} <span className="font-normal text-muted">{formatCount(points.length)}</span>
       </h4>
       <PlotFigure plot={plot} onRender={onRender} height={300} label={`Scatter, ${fit} fits: ${y} against ${x}`} />
     </div>

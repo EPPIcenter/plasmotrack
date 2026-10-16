@@ -2,8 +2,10 @@
 // heatmaps, the net-flow bars, the lag histogram with its cutoff, and the spatial-scale table. No DOM here.
 
 import { intervalColumns, intervalFields, recordsTable, type NamedTable } from "./export";
+import { formatFixed, formatNumber } from "./format";
 import type { Interval } from "./functionals";
 import { stratumLabel } from "./functionals";
+import type { Entity } from "./entity";
 
 export interface AttributionCell {
   recipient: string | null;
@@ -127,7 +129,7 @@ export interface EnrichmentHeatCell extends EnrichmentCell {
   label: string;
 }
 
-const edgeCount = (x: number) => (x === 0 ? "0" : x >= 10 ? x.toFixed(1) : String(Number(x.toPrecision(2))));
+const edgeCount = (x: number) => (x === 0 ? "0" : x >= 10 ? formatFixed(x, 1) : formatNumber(x, 2));
 
 export function enrichmentCells(f: Flows): EnrichmentHeatCell[] {
   return f.enrichment.map((c) => ({
@@ -169,6 +171,52 @@ export function lagBars(l: Lags, cutoff: number | null): LagBar[] {
 export function cutoffDomain(l: Lags): { min: number; max: number; step: number } | null {
   if (!l.bins.length) return null;
   return { min: l.bins[0]!.x0, max: l.bins[l.bins.length - 1]!.x1, step: l.width / 10 };
+}
+
+/** Where the cutoff slider starts: twice the median fitted duration, inside the histogram; its end without a
+ *  duration, 0 without bins. */
+export function cutoffStart(l: Lags): number {
+  const domain = cutoffDomain(l);
+  if (!domain) return 0;
+  if (l.median_duration === null) return domain.max;
+  return Math.min(domain.max, Math.max(domain.min, Math.round(l.median_duration * 2)));
+}
+
+/** Room a heatmap leaves for its row labels, in pixels. */
+const ROW_LABELS = 118;
+/** The narrowest column a stratum name reads in without tilting. */
+const LABEL_WIDTH = 96;
+
+/** Whether a heatmap `width` wide with `columns` columns tilts its column labels to fit them. */
+export const tiltLabels = (width: number, columns: number) => (width - ROW_LABELS) / columns < LABEL_WIDTH;
+
+/** A row of the reassignment table: every Infection first, then each stratum (which selects itself). */
+export interface MovedRow extends Reassigned {
+  key: string;
+  label: string;
+  stratum: Entity | null;
+}
+
+export function movedRows(r: Reassignment, column: string | null): MovedRow[] {
+  return [
+    { ...r.overall, key: "all", label: "All Infections", stratum: null },
+    ...r.strata.map((s) => ({
+      ...s,
+      key: s.value ?? "\u0000none",
+      label: stratumLabel(column, s.value),
+      stratum: column ? ({ kind: "stratum", column, value: s.value } satisfies Entity) : null,
+    })),
+  ];
+}
+
+/** Spatial-scale shares laid end to end in their order (nearest first), a missing share as none. */
+export function spatialSegments<T extends { share: number | null }>(rows: readonly T[]): (T & { x1: number; x2: number })[] {
+  let x = 0;
+  return rows.map((r) => {
+    const seg = { ...r, x1: x, x2: x + (r.share ?? 0) };
+    x = seg.x2;
+    return seg;
+  });
 }
 
 export function movedSummary(r: Reassignment) {

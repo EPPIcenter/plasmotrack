@@ -26,9 +26,9 @@ export const formatProbability = (x: Maybe) => (missing(x) ? "–" : x > 0 && x 
 /** A count, thousands grouped. */
 export const formatCount = (x: Maybe) => (missing(x) ? "–" : Math.round(x).toLocaleString("en"));
 
-/** `digits` decimals, thousands grouped (times, lags, sizes). */
+/** `digits` decimals, thousands grouped (times, lags, sizes); a negative that rounds to zero prints as zero. */
 export const formatFixed = (x: Maybe, digits: number) =>
-  missing(x) ? "–" : x.toLocaleString("en", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  missing(x) ? "–" : x.toLocaleString("en", { minimumFractionDigits: digits, maximumFractionDigits: digits, signDisplay: "negative" });
 
 /** A share as a whole percentage. */
 export const formatPercent = (x: Maybe) => (missing(x) ? "–" : `${Math.round(100 * x)}%`);

@@ -3,6 +3,7 @@
 
 import { recordsTable, type DataTable } from "./export";
 import { num } from "./num";
+import { formatNumber, formatPercent } from "./format";
 import { quantile } from "./stats";
 
 type Cell = number | string | null;
@@ -135,26 +136,53 @@ export function parseFilter(text: string, numeric: boolean): (value: Cell | unde
   return (v) => typeof v === "number" && !Number.isNaN(v) && keep(v);
 }
 
-/** Quick filters for interesting Infections, by id. */
-export const QUICK = [
-  { id: "multi", label: "Multi-source", title: "Probability of more than one source (the unobserved source counted) at least 0.5" },
-  { id: "uncertain", label: "q uncertain", title: "Unobserved-source inclusion q between 0.2 and 0.8" },
-  { id: "spread", label: "Effective size > 3", title: "Posterior effective number of Parent sets above 3" },
-  { id: "mixing", label: "R-hat > 1.1", title: "Worst R-hat over the Infection's quantities and parent edges above 1.1" },
-  { id: "prolific", label: "Top-decile out-degree", title: "Expected out-degree in the top 10% of Infections" },
-] as const;
-
-export type QuickId = (typeof QUICK)[number]["id"];
-
 const MULTI = 0.5;
 const UNCERTAIN = [0.2, 0.8] as const;
 const SPREAD = 3;
 const MIXING = 1.1;
+/** The share of Infections the prolific filter keeps: those with the top out-degrees. */
+const PROLIFIC_SHARE = 0.1;
+
+/** Quick filters for interesting Infections, by id. */
+export const QUICK = [
+  { id: "multi", label: "Multi-source" },
+  { id: "uncertain", label: "q uncertain" },
+  { id: "spread", label: `Effective size > ${SPREAD}` },
+  { id: "mixing", label: `R-hat > ${MIXING}` },
+  { id: "prolific", label: "Top-decile out-degree" },
+] as const;
+
+export type QuickId = (typeof QUICK)[number]["id"];
 
 /** Thresholds of the quick filters that depend on every row: the out-degrees' 90th percentile. */
 export function quickThresholds(rows: readonly Pick<InfectionRow, "out_degree">[]): { prolific: number } {
   const sorted = rows.map((r) => r.out_degree).filter((x): x is number => x !== null && Number.isFinite(x)).sort((a, b) => a - b);
-  return { prolific: quantile(sorted, 0.9) ?? Infinity };
+  return { prolific: quantile(sorted, 1 - PROLIFIC_SHARE) ?? Infinity };
+}
+
+export interface QuickFilter {
+  id: QuickId;
+  label: string;
+  /** The rule with its threshold, for the chip's tooltip. */
+  title: string;
+  /** The column the rule tests, sorted the most interesting first when the filter is turned on. */
+  sort: { id: string; desc: boolean };
+}
+
+/** The quick filters with their rules in words, thresholds included (the prolific one computed from `rows`). */
+export function quickFilters(rows: readonly Pick<InfectionRow, "out_degree">[]): QuickFilter[] {
+  const { prolific } = quickThresholds(rows);
+  const rule: Record<QuickId, Omit<QuickFilter, "id" | "label">> = {
+    multi: { title: `Probability of more than one source (the unobserved source counted) at least ${MULTI}`, sort: { id: "multi_source", desc: true } },
+    uncertain: { title: `Unobserved-source inclusion q between ${UNCERTAIN[0]} and ${UNCERTAIN[1]}`, sort: { id: "q", desc: true } },
+    spread: { title: `Posterior effective number of Parent sets above ${SPREAD}`, sort: { id: "posterior_effective_size", desc: true } },
+    mixing: { title: `Worst R-hat over the Infection's quantities and parent edges above ${MIXING}`, sort: { id: "worst_rhat", desc: true } },
+    prolific: {
+      title: `Expected out-degree at least ${Number.isFinite(prolific) ? formatNumber(prolific, 3) : "–"} (the top ${formatPercent(PROLIFIC_SHARE)} of Infections)`,
+      sort: { id: "out_degree", desc: true },
+    },
+  };
+  return QUICK.map((q) => ({ ...q, ...rule[q.id] }));
 }
 
 function quickTest(id: QuickId, prolific: number): (r: InfectionRow) => boolean {

@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../../test/render";
+import { failure, renderApp } from "../../test/render";
 
 const list = () => screen.findByRole("table", { name: "Pairs" });
 
@@ -10,11 +10,11 @@ describe("Pairs", () => {
     renderApp("/pairs");
     const t = await list();
     expect(within(t).getAllByRole("columnheader").map((h) => h.textContent?.replace(/[▲▼]/g, ""))).toEqual([
-      "A", "B", "P(A before B)", "P chain1", "P chain2", "Spread", "Switches", "A → B", "B → A"]);
+      "A", "B", "P(A before B)", "P chain1", "P chain2", "Spread", "Switches", "A → B", "B → A", "Differing Loci"]);
     // The golden pairs (fixtures/pairs.json): 1 precedes 3 at every Draw; edge 1 -> 3 has marginal 0.834.
     const row = within(t).getAllByRole("row").find((r) => r.getAttribute("data-row-id") === "1,3")!;
     expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual(
-      ["1", "3", "1.000", "1.000", "1.000", "0.000", "0", "0.834", "0.000"]);
+      ["1", "3", "1.000", "1.000", "1.000", "0.000", "0", "0.834", "0.000", "0"]);
     expect(screen.getByRole("region", { name: "Pairs" })).toHaveTextContent("3 pairs");
   });
 
@@ -55,5 +55,25 @@ describe("Pairs", () => {
     await waitFor(() => expect([search().a, search().b]).toEqual(["2", "3"]));
     await userEvent.click(screen.getByRole("button", { name: "Swap A and B" }));
     await waitFor(() => expect([search().a, search().b]).toEqual(["3", "2"]));
+  });
+
+  it("sorts by the count of Loci where the pair's genotypes differ, in the URL", async () => {
+    const { search } = renderApp("/pairs");
+    const t = await list();
+    await userEvent.click(within(t).getByRole("button", { name: /Differing Loci/ }));
+    await waitFor(() => expect(search().sort).toBe("differing_loci"));
+    expect(search().desc).toBe("1");
+    // fixtures/pairs.json: 1,3 differ at no Locus, the other two pairs at one.
+    await waitFor(() => expect(within(t).getAllByRole("row").at(-1)).toHaveAttribute("data-row-id", "1,3"));
+  });
+
+  it("says when the list could not load", async () => {
+    renderApp("/pairs", { "/api/pairs": failure(400, "min must be at most max") });
+    expect(await screen.findByText(/Could not load: .*min must be at most max/)).toBeInTheDocument();
+  });
+
+  it("says when the Infection ids for the picker could not load", async () => {
+    renderApp("/pairs", { "/api/network": failure(500, "network unavailable") });
+    expect(await screen.findByText(/Could not load: .*network unavailable/)).toBeInTheDocument();
   });
 });

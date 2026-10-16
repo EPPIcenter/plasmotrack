@@ -32,6 +32,7 @@ import {
   type ScatterPoint,
 } from "../../lib/compare";
 import { METRICS, parseMetric } from "../../lib/parse";
+import { formatCount, formatNumber } from "../../lib/format";
 
 interface CompareSearch {
   x: string | null;
@@ -54,7 +55,6 @@ const parse = (s: SearchValues): CompareSearch => ({
 });
 
 const key = (q: Pick<ComparedQuantity, "group" | "name">) => `${q.group}/${q.name}`;
-const efficiency = (x: number | null) => (x === null || Number.isNaN(x) ? "–" : x.toPrecision(3));
 const select = "h-5 rounded-[3px] border border-line bg-surface px-1 text-axis text-ink";
 
 function Scatter({ points, x, y, metric, picked, onPick }: {
@@ -93,7 +93,7 @@ function Scatter({ points, x, y, metric, picked, onPick }: {
           Plot.tip(points, Plot.pointer({
             x: "x",
             y: "y",
-            title: (p: ScatterPoint) => `${p.group}: ${p.name}\n${label}: ${x} ${p.x.toPrecision(4)}, ${y} ${p.y.toPrecision(4)}\nClick for its traces`,
+            title: (p: ScatterPoint) => `${p.group}: ${p.name}\n${label}: ${x} ${formatNumber(p.x, 4)}, ${y} ${formatNumber(p.y, 4)}\nClick for its traces`,
           })),
         ],
       });
@@ -152,7 +152,7 @@ export default function CompareWorkspace() {
           width: c.key === "essPerInstruction" ? 180 : c.key === "essPerSecond" ? 124 : 72,
           cell: (q) => {
             const v = q.by[g.analysis]?.[c.key] ?? null;
-            return c.key === "ess" || c.key === "rhat" ? <StatusChip kind={c.key} value={v} compact /> : <span className="text-ink-2">{efficiency(v)}</span>;
+            return c.key === "ess" || c.key === "rhat" ? <StatusChip kind={c.key} value={v} compact /> : <span className="text-ink-2">{formatNumber(v, 3)}</span>;
           },
         })),
       ),
@@ -198,7 +198,7 @@ export default function CompareWorkspace() {
           <Panel
             className="flex-1"
             title="Convergence by Analysis"
-            description={`${shown.length.toLocaleString()} of ${all.length.toLocaleString()} quantities`}
+            description={`${formatCount(shown.length)} of ${formatCount(all.length)} quantities`}
             data={() => compareTable(ordered(), response.analyses, response.timed, response.instructions ?? [])}
             exportParams={{ ...(search.group ? { group: search.group } : {}), ...(name ? { name } : {}) }}
             actions={
@@ -241,7 +241,7 @@ export default function CompareWorkspace() {
           <Panel
             className="shrink-0"
             title="ESS, one Analysis against another"
-            description={scatter.missing ? `${scatter.missing.toLocaleString()} quantities without a positive ${METRIC_LABELS[metric]} in both left out` : "Per quantity; log axes; dashed: equal"}
+            description={scatter.missing ? `${formatCount(scatter.missing)} quantities without a positive ${METRIC_LABELS[metric]} in both left out` : "Per quantity; log axes; dashed: equal"}
             exportName="ess scatter"
             exportParams={{ x, y, metric }}
             actions={
