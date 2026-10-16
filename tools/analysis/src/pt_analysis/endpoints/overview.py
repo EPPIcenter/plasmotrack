@@ -15,7 +15,7 @@
 
 `set_disagreement` lists the ten Infections whose Parent-set distributions differ most between Chains: `tvd` is the
 largest total variation distance between two Chains' set weights, `top` the pooled MAP set's observed parents and
-`p_top` its pooled weight. `edge_counts` counts the edge table's rows (every edge with weight) by whether the parent is
+`p_top` its pooled weight; empty with fewer than two Chains with Draws. `edge_counts` counts the edge table's rows (every edge with weight) by whether the parent is
 an Infection or the unobserved source.
 
 `band_lo` and `band_hi` set the acceptance band sampler types are checked against (default 0.15 to 0.5). The overview

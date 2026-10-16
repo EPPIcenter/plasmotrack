@@ -11,9 +11,10 @@ import json
 from itertools import combinations
 
 from pt_analysis import parent_sets, sampler, summary
-from pt_analysis.derive import GROUPS, analysis_dir, analysis_source, derived, derived_analysis, source
+from pt_analysis.derive import GROUPS, analysis_dir, analysis_source, derived, derived_analysis, source, table
 from pt_analysis.edge_stats import edge_table
 from pt_analysis.quantiles import interval
+from pt_analysis.sql import Scope
 from pt_analysis.strata import strata as all_strata
 from pt_analysis.strata import per_draw
 from pt_analysis.times import observation_times
@@ -173,18 +174,36 @@ def _disagreement(analysis):
              "spread": a.spread} for a in summary.agreement(chains)[:LIST_LENGTH]]
 
 
+def _set_tvd(analysis):
+    """{Infection: largest total variation distance between two Chains' Parent-set weights}, over the Chains with
+    Draws, sets matched across Chains by their members; 0 with fewer than two such Chains. One query over every
+    Chain's `set_summary` and members."""
+    stores = [store for store in analysis.runs.values() if store.draws()]
+    pairs = list(combinations(range(len(stores)), 2))
+    if not pairs:
+        return {}
+    with Scope(stores[0].connection) as s:
+        sets = " UNION ALL ".join(f"""
+            SELECT {k} AS chain, w.infection, list_sort(list(m.member)) AS members, any_value(w.weight) AS weight
+            FROM {s.name(derived(store, "set_summary"))} w
+                 JOIN {s.name(table(store, "parent_set_members"))} m USING (infection, set_id)
+            GROUP BY w.infection, w.set_id""" for k, store in enumerate(stores))
+        weights = ", ".join(f"coalesce(sum(weight) FILTER (WHERE chain = {k}), 0) AS w{k}" for k in range(len(stores)))
+        tvd = ", ".join(f"0.5 * sum(abs(w{a} - w{b}))" for a, b in pairs)
+        rows = s.rows(f"""
+            WITH by_set AS (SELECT infection, {weights} FROM ({sets}) GROUP BY infection, members)
+            SELECT infection, greatest({tvd}) FROM by_set GROUP BY infection""")
+    return dict(rows)
+
+
 def _set_disagreement(analysis):
-    """The Infections whose Parent-set distributions differ most between Chains: per Infection the largest total
-    variation distance, 0.5 * sum over sets |w1 - w2|, between two Chains' set weights (over Chains with Draws), with
-    the pooled MAP set's observed parents and pooled weight. Largest first, ties by Infection id."""
-    chains = [label for label, store in analysis.runs.items() if store.draws()]
-    rows = []
-    for infection, sets in parent_sets.pooled_sets(analysis).items():
-        tvd = max((0.5 * sum(abs(s.chains[a] - s.chains[b]) for s in sets) for a, b in combinations(chains, 2)),
-                  default=0.0)
-        rows.append({"infection": infection, "tvd": tvd, "top": list(sets[0].parents), "p_top": sets[0].weight})
-    rows.sort(key=lambda r: (-r["tvd"], r["infection"]))
-    return rows[:LIST_LENGTH]
+    """The Infections whose Parent-set distributions differ most between Chains (`_set_tvd`), largest first, ties by
+    Infection id, with the pooled MAP set's observed parents and pooled weight (`parent_sets.pooled_sets`, read for
+    the listed Infections only)."""
+    ranked = sorted(_set_tvd(analysis).items(), key=lambda r: (-r[1], r[0]))[:LIST_LENGTH]
+    sets = parent_sets.pooled_sets(analysis, infections=[infection for infection, _ in ranked])
+    tops = {infection: found[0] for infection, found in sets.items()}
+    return [{"infection": i, "tvd": tvd, "top": list(tops[i].parents), "p_top": tops[i].weight} for i, tvd in ranked]
 
 
 def overview(analysis, band=BAND):

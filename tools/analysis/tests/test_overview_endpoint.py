@@ -133,6 +133,11 @@ def test_set_disagreement_takes_the_largest_tvd_over_pairs_of_chains(tmp_path):
     assert got["3"] == pytest.approx(0.11577, abs=2e-5)
 
 
+def test_one_chain_has_no_set_disagreement(tmp_path):
+    one = client_of(open_golden(tmp_path, runs={"chain1": "single-chain"}, label="one"))
+    assert one.get("/api/overview").json()["set_disagreement"] == []
+
+
 def test_edge_counts_split_every_edge_with_weight_by_whether_its_parent_is_the_unobserved_source(client):
     edges = client.get("/api/edges").json()["rows"]
     counts = client.get("/api/overview").json()["edge_counts"]
