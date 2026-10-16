@@ -3,12 +3,16 @@ import {
   attributionCells,
   clipEnrichment,
   cutoffDomain,
+  cutoffStart,
   enrichmentCells,
   flowsTables,
   lagBars,
   movedSummary,
   netFlowBars,
+  movedRows,
   spatialRows,
+  spatialSegments,
+  tiltLabels,
   type Flows,
   type Lags,
 } from "./flows";
@@ -121,6 +125,43 @@ describe("lag bars", () => {
   it("give the slider the histogram's range in steps of a tenth of a bin", () => {
     expect(cutoffDomain(lags)).toEqual({ min: 40, max: 80, step: 1 });
     expect(cutoffDomain({ ...lags, bins: [] })).toBeNull();
+  });
+});
+
+describe("cutoffStart", () => {
+  it("starts the slider at twice the median duration, inside the histogram", () => {
+    expect(cutoffStart(lags)).toBe(40); // 28, clamped up to the first bin
+    expect(cutoffStart({ ...lags, median_duration: 31 })).toBe(62);
+    expect(cutoffStart({ ...lags, median_duration: 100 })).toBe(80);
+  });
+
+  it("starts at the end without a median duration, and at 0 without bins", () => {
+    expect(cutoffStart({ ...lags, median_duration: null })).toBe(80);
+    expect(cutoffStart({ ...lags, bins: [] })).toBe(0);
+  });
+});
+
+describe("movedRows", () => {
+  it("lists every Infection, then each stratum, with the functionals before and after the move", () => {
+    const north = { value: "North", n: 2, psi_edge: interval(0.4), psi_edge_moved: interval(0.1), mean_q: interval(0.6), mean_q_moved: interval(0.9) };
+    const rows = movedRows({ ...lags.reassign!, strata: [north] }, "district");
+    expect(rows.map((r) => [r.key, r.label, r.n])).toEqual([["all", "All Infections", 3], ["North", "North", 2]]);
+    expect(rows[1]!.stratum).toEqual({ kind: "stratum", column: "district", value: "North" });
+    expect(rows[0]!.stratum).toBeNull();
+  });
+});
+
+describe("spatialSegments", () => {
+  it("lays the shares end to end, nearest first", () => {
+    const segs = spatialSegments([{ share: 0.4 }, { share: null }, { share: 0.25 }]);
+    expect(segs.map((g) => [g.x1, g.x2])).toEqual([[0, 0.4], [0.4, 0.4], [0.4, 0.65]]);
+  });
+});
+
+describe("tiltLabels", () => {
+  it("tilts a heatmap's column labels when a column is narrower than a stratum name", () => {
+    expect(tiltLabels(800, 5)).toBe(false);
+    expect(tiltLabels(500, 5)).toBe(true);
   });
 });
 

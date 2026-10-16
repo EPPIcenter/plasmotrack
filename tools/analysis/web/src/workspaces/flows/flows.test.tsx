@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../../test/render";
+import { failure, renderApp } from "../../test/render";
 
 const region = (name: string) => screen.findByRole("region", { name });
 
@@ -56,5 +56,25 @@ describe("Flows", () => {
     const table = await within(spatial).findByRole("table", { name: "Spatial-scale shares" });
     expect(table).toHaveTextContent("Same district");
     expect(table).toHaveTextContent("0.993");
+  });
+
+  it.each([
+    ["/api/flows", "Flows", "no epi column x"],
+    ["/api/lags", "Lag", "lags unavailable"],
+  ])("says when %s could not load", async (path, panel, message) => {
+    renderApp("/flows?column=district", { [path]: failure(500, message) });
+    const text = new RegExp(`Could not load: .*${message}`);
+    if (panel === "Flows") expect(await screen.findByText(text)).toBeInTheDocument();
+    else expect(await within(await region(panel)).findByText(text)).toBeInTheDocument();
+  });
+
+  it("says when the spatial scale could not load", async () => {
+    renderApp("/flows?column=district&unit=district&parent=region", { "/api/spatial": failure(400, "unit and parent must differ") });
+    expect(await within(await region("Spatial scale")).findByText(/Could not load: .*must differ/)).toBeInTheDocument();
+  });
+
+  it("says when the epi columns could not load", async () => {
+    renderApp("/flows?column=district", { "/api/epi": failure(500, "bad epi file") });
+    expect((await screen.findAllByText(/Could not load: .*bad epi file/)).length).toBeGreaterThan(0);
   });
 });
