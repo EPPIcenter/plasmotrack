@@ -31,6 +31,7 @@ import {
   type Metric,
   type ScatterPoint,
 } from "../../lib/compare";
+import { METRICS, parseMetric } from "../../lib/parse";
 
 interface CompareSearch {
   x: string | null;
@@ -42,12 +43,10 @@ interface CompareSearch {
   q: string | null;
 }
 
-const METRICS: Metric[] = ["ess", "rhat", "essPerSecond", "essPerInstruction"];
-
 const parse = (s: SearchValues): CompareSearch => ({
   x: s.x || null,
   y: s.y || null,
-  metric: METRICS.includes(s.metric as Metric) ? (s.metric as Metric) : "ess",
+  metric: parseMetric(s.metric),
   group: s.group ?? "",
   name: s.name ?? "",
   sorting: s.sort ? [{ id: s.sort, desc: s.desc === "1" }] : [],
@@ -126,7 +125,7 @@ export default function CompareWorkspace() {
   const analyses = response?.analyses ?? [];
   const x = search.x && analyses.includes(search.x) ? search.x : (analyses[0] ?? "");
   const y = search.y && analyses.includes(search.y) ? search.y : (analyses[1] ?? analyses[0] ?? "");
-  const metrics = response ? scatterMetrics(response) : (["ess"] as Metric[]);
+  const metrics: readonly Metric[] = response ? scatterMetrics(response) : ["ess"];
   const metric = metrics.includes(search.metric) ? search.metric : "ess";
 
   const shown = useMemo(() => filterCompared(all ?? [], { group: search.group, name }), [all, search.group, name]);
@@ -168,7 +167,8 @@ export default function CompareWorkspace() {
   const ordered = () => {
     const s = search.sorting[0];
     const [k, a] = s?.id.split(":") ?? [];
-    return k && a && METRICS.includes(k as Metric) ? sortCompared(shown, { key: k as Metric, analysis: a, descending: !!s?.desc }) : shown;
+    const metric = METRICS.find((m) => m === k);
+    return metric && a ? sortCompared(shown, { key: metric, analysis: a, descending: !!s?.desc }) : shown;
   };
 
   if (error || isLoading || !response || !all) return <div className="p-2"><PanelState loading={isLoading} error={error} /></div>;

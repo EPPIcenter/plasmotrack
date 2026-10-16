@@ -42,7 +42,7 @@ export interface Overview {
 
 export async function getOverview(analysis: string | null = null): Promise<Overview> {
   const o = await getJson<Overview>("/api/overview", scoped({}, analysis));
-  const nums = (xs: (number | string)[]) => xs.map((x) => num(x) as number);
+  const nums = (xs: (number | string)[]) => xs.map((x) => num(x) ?? NaN);
   return {
     ...o,
     groups: o.groups.map((g) => ({ ...g, ess: nums(g.ess), rhat: nums(g.rhat), rhat_max: num(g.rhat_max) })),

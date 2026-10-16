@@ -27,7 +27,7 @@ const HEIGHT = 120;
 
 function Density({ q, title, digits, chains }: { q: Quantity; title: string; digits: number; chains: string[] }) {
   const curves = useMemo(
-    () => q.chains.flatMap((c) => density(c.value.map((v) => num(v) as number).filter(Number.isFinite), 100).map((d) => ({ chain: c.chain, ...d }))),
+    () => q.chains.flatMap((c) => density(c.value.map((v) => num(v) ?? NaN).filter(Number.isFinite), 100).map((d) => ({ chain: c.chain, ...d }))),
     [q],
   );
   const caption = `median ${formatNumber(q.median, digits)}, 95% [${formatNumber(q.lower, digits)}, ${formatNumber(q.upper, digits)}]`;

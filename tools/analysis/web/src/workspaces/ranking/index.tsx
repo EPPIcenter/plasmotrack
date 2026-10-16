@@ -26,7 +26,9 @@ import {
 // Secondary encoding of the fit beside its colour.
 const DASHES: Record<FitKind, string> = { posterior: "", null: "7 4", ibd: "2 3" };
 const RANDOM_DASH = "1 3";
-const fitOf = (name: string) => (Object.keys(FIT_NAMES) as FitKind[]).find((k) => FIT_NAMES[k] === name)!;
+const FIT_KINDS: readonly FitKind[] = ["posterior", "null", "ibd"];
+/** The fit kind a curve's display name names; the posterior for a name no kind has. */
+const fitOf = (name: string): FitKind => FIT_KINDS.find((k) => FIT_NAMES[k] === name) ?? "posterior";
 
 const TITLES: Record<Direction, string> = {
   directed: "Directed (parent → child)",

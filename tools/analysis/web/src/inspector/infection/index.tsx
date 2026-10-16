@@ -13,6 +13,6 @@ const tabs = {
 };
 
 export default function InfectionInspector({ entity, tab }: InspectorProps<"infection">) {
-  const Tab = tabs[tab as keyof typeof tabs] ?? Summary;
+  const Tab = Object.entries(tabs).find(([id]) => id === tab)?.[1] ?? Summary;
   return <Tab entity={entity} tab={tab} />;
 }

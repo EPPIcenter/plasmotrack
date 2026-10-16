@@ -25,6 +25,7 @@ import type { ChartTheme } from "../../lib/palette";
 import {
   callArcs,
   ERROR_KINDS,
+  ERROR_LABELS,
   errorCounts,
   errorEntity,
   errorsTable,
@@ -39,6 +40,7 @@ import {
   type OverlayEdge,
   type Source,
 } from "../../lib/truth";
+import { parseErrorKinds, parseSource } from "../../lib/parse";
 
 interface ErrorsSearch {
   source: Source;
@@ -51,9 +53,9 @@ const KIND_NAMES = ERROR_KINDS.map((k) => k.kind);
 const parse = (s: SearchValues): ErrorsSearch => {
   const threshold = Number(s.threshold ?? 0.5);
   return {
-    source: s.source === "null" || s.source === "ibd" ? s.source : "posterior",
+    source: parseSource(s.source),
     threshold: threshold >= 0 && threshold <= 1 ? threshold : 0.5,
-    kinds: new Set(s.kinds === undefined ? KIND_NAMES : (s.kinds.split(",").filter((k) => KIND_NAMES.includes(k as ErrorKind)) as ErrorKind[])),
+    kinds: new Set(parseErrorKinds(s.kinds)),
   };
 };
 
@@ -204,7 +206,7 @@ export default function ErrorsWorkspace() {
     () => [
       {
         id: "kind", header: "Kind", width: 100, value: (r) => r.kind,
-        cell: (r) => <span className="flex items-center gap-1.5"><CallKey call={r.kind} />{ERROR_KINDS.find((k) => k.kind === r.kind)!.label}</span>,
+        cell: (r) => <span className="flex items-center gap-1.5"><CallKey call={r.kind} />{ERROR_LABELS[r.kind]}</span>,
       },
       {
         id: "edge", header: "Edge", width: 156, value: (r) => `${r.parent} ${r.child}`,

@@ -33,7 +33,7 @@ export interface RangeDiagnostics {
 
 export async function getTrace(q: QuantityEntity, burnIn: boolean, analysis: string | null = null): Promise<Trace> {
   const trace = await getJson<Trace>("/api/trace", scoped({ ...quantityParams(q), burn_in: String(burnIn) }, analysis));
-  for (const c of trace.chains) c.value = c.value.map((v) => num(v) as number);
+  for (const c of trace.chains) c.value = c.value.map((v) => num(v) ?? NaN);
   return trace;
 }
 

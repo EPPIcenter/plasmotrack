@@ -20,6 +20,7 @@ import { setLabel } from "../../lib/infection";
 import { filterInfections, infectionsTable, QUICK, type InfectionRow, type QuickId } from "../../lib/infections";
 import { chainColour, type ChartTheme } from "../../lib/palette";
 import { DistributionStrip } from "./DistributionStrip";
+import { parseQuickIds } from "../../lib/parse";
 
 /** Columns hidden until the user shows them. */
 const HIDDEN = ["multi_source_observed", "posterior_entropy", "entropy", "effective_size", "q_ess"];
@@ -32,7 +33,7 @@ interface InfectionsSearch {
 }
 
 const parse = (s: SearchValues): InfectionsSearch => ({
-  quick: (s.quick ?? "").split(",").filter((q): q is QuickId => QUICK.some((x) => x.id === q)),
+  quick: parseQuickIds(s.quick),
   filters: Object.fromEntries(Object.entries(s).filter(([k, v]) => k.startsWith("f.") && v).map(([k, v]) => [k.slice(2), v!])),
   hidden: s.hide === undefined ? HIDDEN : s.hide === "none" ? [] : s.hide.split(","),
   sorting: s.sort ? [{ id: s.sort, desc: s.desc === "1" }] : [],
@@ -199,8 +200,8 @@ export default function InfectionsWorkspace() {
   const shown = useMemo(
     () =>
       filterInfections(rows, {
-        filters: JSON.parse(filtersKey) as Record<string, string>,
-        quick: quickKey ? (quickKey.split(",") as QuickId[]) : [],
+        filters: search.filters,
+        quick: parseQuickIds(quickKey),
         ids: idsKey ? idsKey.split(",") : [],
       }),
     [rows, filtersKey, quickKey, idsKey],
@@ -211,7 +212,7 @@ export default function InfectionsWorkspace() {
   const hiddenKey = search.hidden.join();
   const columns = useMemo<Column<InfectionRow>[]>(() => {
     const hidden = new Set(hiddenKey.split(","));
-    const filters = JSON.parse(filtersKey) as Record<string, string>;
+    const filters = search.filters;
     return all.filter((s) => !hidden.has(s.id)).map((s) => {
       const numeric = s.numeric ?? false;
       const strip = s.strip ? (

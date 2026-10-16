@@ -3,6 +3,7 @@
 
 import { recordsTable, type DataTable } from "./export";
 import { num } from "./num";
+import { quantile } from "./stats";
 
 type Cell = number | string | null;
 
@@ -49,23 +50,59 @@ export interface InfectionRow {
   epi: Record<string, string | null>;
 }
 
-const NUMBERS = [
-  "observation_time", "infection_time_lower", "infection_time_median", "infection_time_upper", "q", "q_ess", "q_rhat",
-  "expected_observed_parents", "multi_source", "multi_source_observed", "posterior_entropy", "posterior_effective_size",
-  "entropy", "effective_size", "top_set_probability", "top_parent_marginal", "out_degree", "coi_median", "worst_rhat",
-] as const;
-const TEXTS = ["top_set_class", "top_parent", "worst_rhat_group", "worst_rhat_name"] as const;
+type Column = InfectionsPayload["columns"][string] | undefined;
+
+/** A number from a payload cell: a number, or the backend's text for a non-finite one; null for anything else. */
+function numberAt(c: Column, k: number): number | null {
+  const v = c?.[k];
+  return typeof v === "number" || typeof v === "string" ? num(v) : null;
+}
+
+const textAt = (c: Column, k: number): string | null => {
+  const v = c?.[k];
+  return typeof v === "string" ? v : null;
+};
+
+function listAt(c: Column, k: number): string[] | null {
+  const v = c?.[k];
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : null;
+}
 
 export function infectionRows(p: InfectionsPayload): InfectionRow[] {
   const c = p.columns;
-  return (c.infection as string[]).map((infection, k) => {
-    const row = { infection, symptomatic: Boolean(c.symptomatic?.[k] ?? true), top_set: (c.top_set?.[k] as string[] | null) ?? null } as InfectionRow;
-    const r = row as unknown as Record<string, unknown>;
-    for (const name of NUMBERS) r[name] = num((c[name]?.[k] as number | string | null) ?? null);
-    for (const name of TEXTS) r[name] = (c[name]?.[k] as string | null) ?? null;
-    row.qChains = Object.fromEntries(p.chains.map((chain) => [chain, num(p.q_chains[chain]?.[k] ?? null)]));
-    row.epi = Object.fromEntries(p.epi_columns.map(({ name }) => [name, (c[`epi:${name}`]?.[k] as string | null) ?? null]));
-    return row;
+  return (c.infection ?? []).map((_, k) => {
+    const n = (name: string) => numberAt(c[name], k);
+    const t = (name: string) => textAt(c[name], k);
+    return {
+      infection: t("infection") ?? String(c.infection?.[k]),
+      symptomatic: c.symptomatic?.[k] !== false,
+      observation_time: n("observation_time"),
+      infection_time_lower: n("infection_time_lower"),
+      infection_time_median: n("infection_time_median"),
+      infection_time_upper: n("infection_time_upper"),
+      q: n("q"),
+      q_ess: n("q_ess"),
+      q_rhat: n("q_rhat"),
+      qChains: Object.fromEntries(p.chains.map((chain) => [chain, num(p.q_chains[chain]?.[k] ?? null)])),
+      expected_observed_parents: n("expected_observed_parents"),
+      multi_source: n("multi_source"),
+      multi_source_observed: n("multi_source_observed"),
+      posterior_entropy: n("posterior_entropy"),
+      posterior_effective_size: n("posterior_effective_size"),
+      entropy: n("entropy"),
+      effective_size: n("effective_size"),
+      top_set: listAt(c.top_set, k),
+      top_set_class: t("top_set_class"),
+      top_set_probability: n("top_set_probability"),
+      top_parent: t("top_parent"),
+      top_parent_marginal: n("top_parent_marginal"),
+      out_degree: n("out_degree"),
+      coi_median: n("coi_median"),
+      worst_rhat: n("worst_rhat"),
+      worst_rhat_group: t("worst_rhat_group"),
+      worst_rhat_name: t("worst_rhat_name"),
+      epi: Object.fromEntries(p.epi_columns.map(({ name }) => [name, textAt(c[`epi:${name}`], k)])),
+    };
   });
 }
 
@@ -114,17 +151,10 @@ const UNCERTAIN = [0.2, 0.8] as const;
 const SPREAD = 3;
 const MIXING = 1.1;
 
-/** R's type-7 quantile of sorted values. */
-function quantile(sorted: number[], p: number): number {
-  const h = (sorted.length - 1) * p;
-  const lo = Math.floor(h);
-  return sorted[lo]! + (h - lo) * (sorted[Math.min(lo + 1, sorted.length - 1)]! - sorted[lo]!);
-}
-
 /** Thresholds of the quick filters that depend on every row: the out-degrees' 90th percentile. */
 export function quickThresholds(rows: readonly Pick<InfectionRow, "out_degree">[]): { prolific: number } {
   const sorted = rows.map((r) => r.out_degree).filter((x): x is number => x !== null && Number.isFinite(x)).sort((a, b) => a - b);
-  return { prolific: sorted.length ? quantile(sorted, 0.9) : Infinity };
+  return { prolific: quantile(sorted, 0.9) ?? Infinity };
 }
 
 function quickTest(id: QuickId, prolific: number): (r: InfectionRow) => boolean {
@@ -143,7 +173,7 @@ export function columnValue(r: InfectionRow, id: string): Cell {
   if (id.startsWith("epi:")) return r.epi[id.slice(4)] ?? null;
   if (id === "top_set") return r.top_set ? r.top_set.join(" ") : null;
   if (id === "symptomatic") return r.symptomatic ? "yes" : "no";
-  const v = (r as unknown as Record<string, unknown>)[id];
+  const v = Object.entries(r).find(([k]) => k === id)?.[1];
   return typeof v === "number" || typeof v === "string" ? v : null;
 }
 
