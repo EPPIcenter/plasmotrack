@@ -1,6 +1,7 @@
-// Convergence: every quantity's pooled ESS and split R-hat and each Chain's ESS, virtualised, sortable, filtered by
-// group and name; the selected quantity's trace in a split panel beside the table. A row shows its trace there; its
-// name selects it into the Inspector.
+// Convergence: every quantity's pooled ESS and split R-hat and each Chain's ESS (each flagged), a sparkline of its
+// series per Chain (fetched for the rows on screen only), virtualised, sortable, filtered by group and name; the
+// selected quantity's trace in a split panel beside the table. A row shows its trace there; its name selects it into
+// the Inspector. Hovering a row previews its quantity at the top of the trace panel (the shared hover store).
 //
 // URL: ?group=&name=&sort=<column>&desc=1&q=<group>/<name>
 
@@ -8,14 +9,19 @@ import { useCallback, useMemo, useState } from "react";
 import { Group, Panel as Split, Separator } from "react-resizable-panels";
 import { useChains } from "../../api/analysis";
 import { useQuantities } from "../../api/convergence";
+import { useQuantitySeries } from "../../api/series";
+import { isHovered, useHovered } from "../../app/hover";
+import { useTheme } from "../../app/theme";
 import { useWorkspaceSearch, type SearchValues } from "../../app/search";
 import { DataTable, type Column, type SortingState } from "../../components/DataTable";
 import { EntityLink } from "../../components/EntityLink";
 import { Panel, PanelState } from "../../components/Panel";
 import { QuantityTrace } from "../../components/QuantityTrace";
+import { Sparkline } from "../../components/Sparkline";
 import { StatusChip } from "../../components/StatusChip";
 import { convergenceTable, filterQuantities, groups, type Quantity } from "../../lib/convergence";
-import { formatEss } from "../../lib/format";
+import type { Entity } from "../../lib/entity";
+import { chainColour } from "../../lib/palette";
 
 interface ConvergenceSearch {
   group: string;
@@ -33,6 +39,33 @@ const parse = (s: SearchValues): ConvergenceSearch => ({
 });
 
 const key = (q: Pick<Quantity, "group" | "name">) => `${q.group}/${q.name}`;
+const entityOf = (q: Pick<Quantity, "group" | "name">): Entity => ({ kind: "quantity", group: q.group, name: q.name });
+
+/** A quantity's series per Chain as a sparkline, asked for when the cell renders (so only for rows on screen). */
+function QuantitySparkline({ q, width = 88, height = 16 }: { q: Pick<Quantity, "group" | "name">; width?: number; height?: number }) {
+  const { data, error } = useQuantitySeries(q);
+  const { chart } = useTheme();
+  if (error) return <span className="text-axis text-critical-ink" title={`Could not load: ${error.message}`}>!</span>;
+  if (data === null) return <span className="text-muted" title="No Chain has this quantity's series">–</span>;
+  if (!data) return null;
+  return <Sparkline series={data} colours={data.map((_, k) => chainColour(chart, k))} width={width} height={height} label={`${q.name} per Draw, per Chain`} />;
+}
+
+/** The hovered row's quantity at the top of the trace panel, unless it is the one traced there. */
+function HoverPreview({ all, traced }: { all: readonly Quantity[]; traced: Quantity | null }) {
+  const hovered = useHovered();
+  const q = hovered?.kind === "quantity" && !(traced && isHovered(hovered, entityOf(traced))) ? all.find((x) => x.group === hovered.group && x.name === hovered.name) : undefined;
+  if (!q) return null;
+  return (
+    <div role="status" aria-label="Hovered quantity" className="sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-surface px-2 py-1 text-axis">
+      <span className="min-w-0 truncate text-ink-2"><span className="text-muted">Hovered</span> {q.group}: {q.name}</span>
+      <span className="ml-auto flex shrink-0 items-center gap-2 tabular-nums text-ink-2">
+        ESS <StatusChip kind="ess" value={q.ess} compact /> R-hat <StatusChip kind="rhat" value={q.rhat} compact />
+      </span>
+      <QuantitySparkline q={q} width={160} height={24} />
+    </div>
+  );
+}
 
 export default function ConvergenceWorkspace() {
   const [search, set] = useWorkspaceSearch(parse);
@@ -55,8 +88,9 @@ export default function ConvergenceWorkspace() {
       { id: "ess", header: "ESS", title: "Multi-chain effective sample size", value: (q) => q.ess, numeric: true, width: 80, cell: (q) => <StatusChip kind="ess" value={q.ess} compact /> },
       { id: "rhat", header: "R-hat", title: "Split R-hat over the Chains", value: (q) => q.rhat, numeric: true, width: 80, descFirst: true, cell: (q) => <StatusChip kind="rhat" value={q.rhat} compact /> },
       ...chains.map(
-        (c): Column<Quantity> => ({ id: `ess:${c}`, header: `ESS ${c}`, title: `${c}'s own ESS`, value: (q) => q.chains[c] ?? null, numeric: true, width: 96, cell: (q) => <span className="text-ink-2">{formatEss(q.chains[c] ?? null)}</span> }),
+        (c): Column<Quantity> => ({ id: `ess:${c}`, header: `ESS ${c}`, title: `${c}'s own ESS`, value: (q) => q.chains[c] ?? null, numeric: true, width: 96, cell: (q) => <StatusChip kind="ess" value={q.chains[c] ?? null} compact /> }),
       ),
+      { id: "series", header: "Per Draw", title: "The quantity per Draw, one line per Chain (binned means past 40 Draws)", value: () => null, sortable: false, width: 104, cell: (q) => <QuantitySparkline q={q} /> },
     ],
     [chains],
   );
@@ -119,6 +153,7 @@ export default function ConvergenceWorkspace() {
                 sorting={search.sorting}
                 onSortingChange={onSortingChange}
                 onRowClick={(q) => set({ q: key(q) })}
+                hoverEntity={entityOf}
                 activeRowId={search.q}
                 emptyText="No quantity matches the filter"
               />
@@ -134,6 +169,7 @@ export default function ConvergenceWorkspace() {
             description={traced ? "Per Chain; brush a range of Draws" : "Click a row to see its trace"}
             exportName={traced ? `trace ${traced.group} ${traced.name}` : "trace"}
           >
+            <HoverPreview all={all ?? []} traced={traced} />
             {traced ? (
               <QuantityTrace key={key(traced)} entity={{ kind: "quantity", group: traced.group, name: traced.name }} height={240} />
             ) : (
