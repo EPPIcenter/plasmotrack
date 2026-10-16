@@ -71,7 +71,7 @@ export default function FlowsWorkspace() {
         <PanelState loading />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,400px),1fr))] gap-2">
             <Panel title="Attribution" description="Of each recipient stratum's attributed parent mass (expected observed parents plus q), the share from each source; rows sum to one" data={data} exportParams={params}>
               <Attribution f={f} />
               <StrataList f={f} />
@@ -80,7 +80,7 @@ export default function FlowsWorkspace() {
               <Enrichment f={f} />
             </Panel>
           </div>
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,480px),1fr))] gap-2">
             <Panel
               title="Net flow"
               description="Expected edges out of the stratum minus into it"

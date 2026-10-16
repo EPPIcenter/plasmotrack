@@ -169,14 +169,13 @@ export default function PairsWorkspace() {
             description={chosen && !picked ? "The top of the list; click another or enter two ids" : undefined}
             exportName={chosen ? `pair ${a} ${b}` : "pair"}
             data={() => (pair ? pairTables(pair) : null)}
-            actions={
-              <div className="flex items-center gap-2">
-                {networkError && <PanelState error={networkError} inline />}
-                <PairPicker a={a} b={b} ids={ids} onPick={pick} />
-                {chosen && <EntityLink entity={{ kind: "pair", a, b }} className="text-axis">Inspect</EntityLink>}
-              </div>
-            }
+            actions={chosen && <EntityLink entity={{ kind: "pair", a, b }} className="text-axis">Inspect</EntityLink>}
           >
+            {/* The picker wraps in the panel's body, so a narrow panel (the Inspector open) keeps its header. */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-line px-2 py-1">
+              <PairPicker a={a} b={b} ids={ids} onPick={pick} />
+              {networkError && <PanelState error={networkError} inline />}
+            </div>
             {chosen ? (
               <PairView key={`${a},${b}`} a={a} b={b} />
             ) : (

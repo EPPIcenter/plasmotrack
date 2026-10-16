@@ -94,7 +94,7 @@ export default function SamplersWorkspace() {
         <TypeTargets p={p} chain={chain} type={search.type} band={band} rules={rules} onClose={() => set({ type: undefined })} />
       )}
       {p && (
-        <div className="grid shrink-0 grid-cols-1 gap-2 xl:grid-cols-3">
+        <div className="grid shrink-0 grid-cols-[repeat(auto-fill,minmax(min(100%,320px),1fr))] gap-2">
           <Panel title="Swap acceptance per temperature pair" description="Accepted over attempted swaps per Window" exportName="swaps" data={tables("swaps")}>
             <Swaps p={p} rules={rules} />
           </Panel>
