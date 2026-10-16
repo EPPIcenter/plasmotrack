@@ -26,7 +26,7 @@ describe("Overview's composition bar", () => {
       observed_1_unobserved: { mean: 0.1, lower: 0, upper: 0 },
       observed_2: null,
     });
-    expect(segments.map((s) => s.label)).toEqual(["Unobserved only", "1 observed + unobserved", "1 observed only"]);
+    expect(segments.map((s) => s.label)).toEqual(["unobserved only", "1 observed + unobserved", "1 observed"]);
     expect(segments.map((s) => [s.x1, s.x2])).toEqual([[0, 0.6], [0.6, 0.7], [0.7, 1]]);
     expect(segments[0]!.functional).toBe("mean_unobserved_only");
   });

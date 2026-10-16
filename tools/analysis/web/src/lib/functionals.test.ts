@@ -81,10 +81,15 @@ describe("composition classes", () => {
     ]);
   });
 
-  it("have the manuscript's labels", () => {
-    expect(classLabel("unobserved_only")).toBe("Unobserved only");
+  it("have one wording in every view", () => {
+    expect(classLabel("unobserved_only")).toBe("unobserved only");
     expect(classLabel("observed_1_unobserved")).toBe("1 observed + unobserved");
-    expect(classLabel("observed_2")).toBe("2 observed only");
+    expect(classLabel("observed_2")).toBe("2 observed");
+    expect(classLabel("observed_10")).toBe("10 observed");
+  });
+
+  it("keep a label they do not know as it is", () => {
+    expect(classLabel("something_else")).toBe("something_else");
   });
 
   it("give one segment per stratum and class, laid end to end, partitioning each stratum's weight", () => {
@@ -92,7 +97,7 @@ describe("composition classes", () => {
     expect(segments).toHaveLength(10);
     const north = segments.filter((s) => s.stratum === "North");
     expect(north.map((s) => s.class)).toEqual(stackOrder(response.classes));
-    expect(north[0]).toMatchObject({ x1: 0, x2: 0.6176, share: 0.6176, label: "Unobserved only", functional: "mean_unobserved_only" });
+    expect(north[0]).toMatchObject({ x1: 0, x2: 0.6176, share: 0.6176, label: "unobserved only", functional: "mean_unobserved_only" });
     for (let i = 1; i < north.length; i++) expect(north[i]!.x1).toBe(north[i - 1]!.x2);
     for (const stratum of ["North", "No district"]) {
       const last = segments.filter((s) => s.stratum === stratum).at(-1)!;

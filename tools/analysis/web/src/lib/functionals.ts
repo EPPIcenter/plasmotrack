@@ -67,10 +67,13 @@ export function classShade(label: string): { category: ClassCategory; step: numb
   return { category: unobserved ? "mixed" : "observed_only", step: count - 1 };
 }
 
+/** A Parent set's composition class in words, the one wording every view uses: "unobserved only", "2 observed",
+ *  "1 observed + unobserved". A label of another form is shown as it is. */
 export function classLabel(label: string): string {
+  if (label !== "unobserved_only" && !/^observed_\d+(_unobserved)?$/.test(label)) return label;
   const { count, unobserved } = parseClass(label);
-  if (count === 0) return "Unobserved only";
-  return unobserved ? `${count} observed + unobserved` : `${count} observed only`;
+  if (count === 0) return "unobserved only";
+  return unobserved ? `${count} observed + unobserved` : `${count} observed`;
 }
 
 export interface Segment {

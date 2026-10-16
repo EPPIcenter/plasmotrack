@@ -7,6 +7,7 @@ import { useInfection } from "../../api/infection";
 import { EntityLink } from "../../components/EntityLink";
 import { useTheme } from "../../app/theme";
 import { formatProbability } from "../../lib/format";
+import { classLabel } from "../../lib/functionals";
 import { setBars } from "../../lib/infection";
 import type { InspectorProps } from "../registry";
 import { EdgeMarginals } from "./EdgeMarginals";
@@ -86,7 +87,7 @@ export default function Parents({ entity }: InspectorProps<"infection">) {
                   {b.credible ? <span className="text-accent" title={`In the ${pct} credible collection`}>●</span> : <span className="text-muted" title={`Outside the ${pct} credible collection`}>○</span>}
                 </td>
                 <td className="truncate pr-2" title={b.label}><Members members={pooled[k]!.members} infection={entity.id} /></td>
-                <td className="truncate pr-2 text-ink-2" title={`Rank ${b.rank}; cumulative mass ${b.cumulative_mass.toFixed(3)}`}>{b.class}</td>
+                <td className="truncate pr-2 text-ink-2" title={`Rank ${b.rank}; cumulative mass ${b.cumulative_mass.toFixed(3)}`}>{classLabel(b.class)}</td>
                 <td className="pr-2">
                   <ProbabilityBar width={80} value={b.weight} chains={b.chains.map((c) => ({ chain: c.chain, value: c.weight }))} order={chains} emphasis={b.credible} label={b.label} />
                 </td>

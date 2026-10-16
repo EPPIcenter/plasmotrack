@@ -21,7 +21,7 @@ describe("Functionals", () => {
     expect(within(degree).getByRole("heading", { name: /Out-degree by source stratum/ })).toBeInTheDocument();
     expect(within(degree).getByRole("heading", { name: /by recipient stratum/ })).toBeInTheDocument();
     expect(await within(degree).findByRole("img", { name: /ψ_MAP and ψ_edge per stratum/ })).toContainHTML("<svg");
-    expect(screen.getByRole("region", { name: "Parent-set composition" })).toHaveTextContent("Unobserved only");
+    expect(screen.getByRole("region", { name: "Parent-set composition" })).toHaveTextContent("unobserved only");
   });
 
   it("stratifies by an epi column from the URL, a row per stratum", async () => {
@@ -45,7 +45,7 @@ describe("Functionals", () => {
   it("lists the composition classes and the multi-source probabilities per stratum", async () => {
     renderApp("/functionals?column=district");
     const classes = await screen.findByRole("table", { name: "Composition classes per stratum" });
-    expect(within(classes).getAllByRole("columnheader").map((h) => h.textContent?.replace(/[▲▼]/g, ""))).toContain("Unobserved only");
+    expect(within(classes).getAllByRole("columnheader").map((h) => h.textContent?.replace(/[▲▼]/g, ""))).toContain("unobserved only");
     expect(classes).toHaveTextContent("0.583");
     expect(await screen.findByRole("img", { name: /Multi-source probabilities/ })).toContainHTML("<svg");
   });

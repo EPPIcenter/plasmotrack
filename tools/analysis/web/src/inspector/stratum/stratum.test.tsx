@@ -20,7 +20,7 @@ describe("Stratum Inspector", () => {
   it("shows its composition, its Infections and a link to the network filtered to it", async () => {
     const { search } = renderApp("/flows?sel=stratum:district=North");
     const panel = await inspector();
-    expect(await within(panel).findByText("Unobserved only")).toBeInTheDocument();
+    expect(await within(panel).findByText("unobserved only")).toBeInTheDocument();
     expect(within(panel).getByRole("img", { name: /Composition of North/ })).toBeInTheDocument();
     // The golden network's North Infections are 1 and 3 (fixtures/network.json).
     const list = await within(panel).findByRole("list", { name: "Infections in the stratum" });

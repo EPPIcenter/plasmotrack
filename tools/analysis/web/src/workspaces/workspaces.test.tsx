@@ -33,7 +33,7 @@ describe("Overview", () => {
     const mixing = screen.getByRole("region", { name: "Mixing by group" });
     for (const g of groups) expect(within(mixing).getAllByText(g).length).toBeGreaterThan(0);
     const headline = screen.getByRole("region", { name: "Posterior headline" });
-    expect(within(headline).getByText(/Unobserved only/)).toBeInTheDocument();
+    expect(within(headline).getByText(/unobserved only/)).toBeInTheDocument();
     expect(await within(headline).findByRole("img", { name: /Network thumbnail/ })).toContainHTML("<svg");
     await within(screen.getByRole("region", { name: "Log posterior" })).findByRole("img", { name: /Trace of log posterior/ });
   });
