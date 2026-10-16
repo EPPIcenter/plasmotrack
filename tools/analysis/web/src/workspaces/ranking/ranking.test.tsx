@@ -2,7 +2,7 @@
 
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../../test/render";
+import { failure, renderApp } from "../../test/render";
 
 describe("Ranking", () => {
   it("draws directed and undirected precision-recall curves with the random baseline", async () => {
@@ -26,5 +26,10 @@ describe("Ranking", () => {
   it("names the baselines the manifest lacks", async () => {
     renderApp("/ranking");
     expect(await screen.findByText(/no null-model Analysis or pairwise scores/)).toBeInTheDocument();
+  });
+
+  it("says when the ranking could not load", async () => {
+    renderApp("/ranking", { "/api/ranking": failure(400, "needs a truth file") });
+    expect(await screen.findByText(/Could not load: .*needs a truth file/)).toBeInTheDocument();
   });
 });

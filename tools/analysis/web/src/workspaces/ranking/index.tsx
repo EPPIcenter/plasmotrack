@@ -3,13 +3,14 @@
 // random ranking's precision as a rule; the metrics as a table under the fit summary's column names.
 
 import * as Plot from "@observablehq/plot";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useRanking } from "../../api/accuracy";
 import { useTheme } from "../../app/theme";
+import { DataTable, type Column } from "../../components/DataTable";
 import { KpiStrip, type Kpi } from "../../components/KpiStrip";
 import { Panel, PanelState } from "../../components/Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
-import { formatNumber } from "../../lib/format";
+import { formatCount, formatFixed, formatNumber } from "../../lib/format";
 import {
   curveSeries,
   FIT_NAMES,
@@ -19,6 +20,7 @@ import {
   rankingTable,
   type Direction,
   type FitKind,
+  type MetricsByNameRow,
   type RankingPayload,
   type SeriesPoint,
 } from "../../lib/ranking";
@@ -82,7 +84,7 @@ function Curve({ payload, direction }: { payload: RankingPayload; direction: Dir
     <div className="min-w-0">
       <h3 className="px-2 pt-1 text-axis font-semibold text-ink-2">
         {TITLES[direction]}{" "}
-        {r && <span className="font-normal text-muted">{r.n_true_edges.toLocaleString()} true of {r.n_edge_universe.toLocaleString()} pairs</span>}
+        {r && <span className="font-normal text-muted">{formatCount(r.n_true_edges)} true of {formatCount(r.n_edge_universe)} pairs</span>}
       </h3>
       <PlotFigure plot={plot} height={360} label={`${direction === "directed" ? "Directed" : "Undirected"} precision-recall curves`} />
     </div>
@@ -102,8 +104,8 @@ function useKpis(p: RankingPayload | undefined): Kpi[] {
   const post = p?.fits.find((f) => f.fit === "posterior");
   const n = (x: number | null | undefined, digits = 3) => (p ? formatNumber(x, digits) : "…");
   return [
-    { label: "Observed / simulated", value: t ? `${t.n_observed_cases.toLocaleString()} / ${t.n_true_cases.toLocaleString()}` : "…", title: "Infections in the Analysis, of the simulation's" },
-    { label: "True edges", value: post?.directed?.n_true_edges.toLocaleString() ?? "…", title: "True edges between observed Infections" },
+    { label: "Observed / simulated", value: t ? `${formatCount(t.n_observed_cases)} / ${formatCount(t.n_true_cases)}` : "…", title: "Infections in the Analysis, of the simulation's" },
+    { label: "True edges", value: post?.directed ? formatCount(post.directed.n_true_edges) : "…", title: "True edges between observed Infections" },
     { label: "True mean out-degree", value: n(t?.true_average_outdegree), title: "true_average_outdegree" },
     { label: "True unobserved-source share", value: n(t?.true_unobserved_source_proportion), title: "true_unobserved_source_proportion" },
     { label: "Directed AP", value: n(post?.directed?.average_precision), detail: `random ${n(p ? randomPrecision(p.fits, "directed") : null, 2)}`, title: "directed_average_precision of the posterior" },
@@ -114,33 +116,25 @@ function useKpis(p: RankingPayload | undefined): Kpi[] {
 const COUNTS = new Set(["n_edge_universe", "n_true_edges", "n_distinct_scores"]);
 
 function Metrics({ payload }: { payload: RankingPayload }) {
-  const rows = metricsByName(payload.fits);
-  const fits = payload.fits;
-  return (
-    <table className="w-full text-table tabular-nums" aria-label="Ranking metrics">
-      <thead className="sticky top-0 bg-surface">
-        <tr className="h-6 border-b border-line text-ink-2">
-          <th role="columnheader" className="px-2 text-left font-medium">Fit-summary column</th>
-          {fits.map((f) => (
-            <th key={f.fit} role="columnheader" className="num px-2 font-medium" title={f.label}>{FIT_NAMES[f.fit]}</th>
-          ))}
-          <th role="columnheader" className="num px-2 font-medium" title="A random ranking's expected precision: the share of true edges among the pairs">Random</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.column} className={`h-6 border-b border-line/60 hover:bg-hover ${r.metric === "n_edge_universe" && r.direction === "undirected" ? "border-t border-t-line" : ""}`}>
-            <td className="id px-2 text-ink-2">{r.column}</td>
-            {fits.map((f) => {
-              const v = r.values[f.fit];
-              return <td key={f.fit} className="num px-2">{v === null || v === undefined ? "–" : COUNTS.has(r.metric) ? v.toLocaleString() : v.toFixed(3)}</td>;
-            })}
-            <td className="num px-2 text-ink-2">{r.random === null ? "" : formatNumber(r.random, 3)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+  const rows = useMemo(() => metricsByName(payload.fits), [payload.fits]);
+  const columns = useMemo<Column<MetricsByNameRow>[]>(
+    () => [
+      { id: "column", header: "Fit-summary column", value: (r) => r.column, width: 250, sortable: false, cell: (r) => <span className="id text-ink-2">{r.column}</span> },
+      ...payload.fits.map((f): Column<MetricsByNameRow> => ({
+        id: f.fit, header: FIT_NAMES[f.fit], title: f.label, value: (r) => r.values[f.fit] ?? null, numeric: true, width: 90, sortable: false,
+        cell: (r) => {
+          const v = r.values[f.fit] ?? null;
+          return COUNTS.has(r.metric) ? formatCount(v) : formatFixed(v, 3);
+        },
+      })),
+      {
+        id: "random", header: "Random", title: "A random ranking's expected precision: the share of true edges among the pairs", value: (r) => r.random,
+        numeric: true, width: 80, sortable: false, cell: (r) => <span className="text-ink-2">{r.random === null ? "" : formatNumber(r.random, 3)}</span>,
+      },
+    ],
+    [payload.fits],
   );
+  return <DataTable label="Ranking metrics" rows={rows} columns={columns} getRowId={(r) => r.column} />;
 }
 
 export default function RankingWorkspace() {
@@ -180,7 +174,7 @@ export default function RankingWorkspace() {
           <Curve payload={data} direction="undirected" />
         </div>
       </Panel>
-      <Panel title="Metrics" description="By the fit summary's column names; Random is a random ranking's expected precision" data={() => rankingTable(data.fits)} exportName="ranking metrics">
+      <Panel title="Metrics" description="By the fit summary's column names; Random is a random ranking's expected precision" data={() => rankingTable(data.fits)} exportName="ranking metrics" className="min-h-[360px]">
         <Metrics payload={data} />
       </Panel>
       </div>
