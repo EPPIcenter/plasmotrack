@@ -91,7 +91,8 @@ of `/convergence?sel=...` opens the app there.
 - **Edges** (`src/workspaces/edges/`): `/api/edges` with lags from `/api/network`'s observation times; the per-Draw
   sparklines come from `/api/edge-series`, asked for only by the cells on screen and batched (`src/api/edges.ts`).
 - **Pairs** (`src/workspaces/pairs/`): `/api/pairs` and the pair picker; the chosen pair (the top of the list until
-  one is picked) is `PairView` from the Pair Inspector, every section at once.
+  one is picked) is `PairView` from the Pair Inspector, every section at once. The list has a sortable "Differing
+  Loci" column (`differing_loci`, the Loci where the pair's pooled Latent genotype modes differ).
 - **Inspector**: Edge (`src/inspector/edge/`) reads `/api/edges`, `/api/network` and, with truth, `/api/truth-network`;
   Pair (`src/inspector/pair/`) has Summary and Genotypes tabs over `/api/pair`. `src/inspector/layout.tsx` holds the
   dense section and figure-row pieces they share.
@@ -119,7 +120,12 @@ The Infections workspace (`src/workspaces/infections/`, logic in `src/lib/infect
 filters: `multi`, `uncertain`, `spread`, `mixing`, `prolific`, combined with AND), `f.<column>` (a column's typed
 filter: `>x`, `>=x`, `<x`, `<=x`, `=x`, `a..b` on numbers, a substring otherwise), `hide` (hidden columns; `none` for
 none, absent for the default) and `sort`/`desc`. Its header's second row (`Column.below` of `DataTable`) holds each
-column's distribution strip (every Infection grey, the filtered ones in the accent) and filter box.
+column's distribution strip (every Infection grey, the filtered ones in the accent, the hovered Infection as a rule:
+any view that sets the hover store, this table's rows included) and filter box. Each quick filter's tooltip states its
+rule and threshold (`quickFilters`; the prolific one from the rows' 90th percentile), and turning one on sorts by the
+column it tests (R-hat > 1.1 by worst R-hat, descending). The Class column, like every view that names a Parent set's
+composition class (Overview, Functionals, Stratum, the Infection Inspector's Parents tab), uses `classLabel` in
+`src/lib/functionals.ts`: "unobserved only", "2 observed", "1 observed + unobserved".
 
 Select with `useSelection().select(entity, tab?)` or render an `<EntityLink entity={...} />`; never navigate away
 from the workspace to show an entity.
@@ -133,7 +139,11 @@ from the workspace to show an entity.
   acceptance first, at most 500) as grey lines and a table: each target's status, its Infection, and the ESS in the
   Chain of the quantity its parameter is (`targetSubject`, `worstQuantity`). Swap acceptance per temperature pair and
   the ladder use ordinal steps of the sequential ramp (`slotColours`); Run events are rules on every time axis and a
-  list.
+  list. The burn-in-end proposal variances are one line when every scale of every type has one value
+  (`varianceSummary`: "All 1 (not adapted): …"), else a table per type. Acceptance and Run events carry status through
+  `acceptanceLevel` and `eventLevel` (levels of `src/lib/status.ts`) and `StatusText`. One component per panel:
+  `Acceptance.tsx`, `TypeTargets.tsx`, `Temperatures.tsx` (swaps, ladder), `Tables.tsx` (variances, events),
+  `shared.tsx` (time-axis marks).
 - **Compare** (`src/workspaces/compare/`, logic in `src/lib/compare.ts`, hook in `src/api/compare.ts`): with several
   Analyses open, the convergence table with a column group per Analysis, the scatter of ESS (or ESS per instruction
   retired or per second, `metric=`) of `x=` against `y=` on log axes, and the trace of the quantity clicked (`q=`) in
@@ -174,14 +184,18 @@ The route and the rail entry of every workspace in DESIGN.md exist; the ones not
   (ψ_edge, mean q and mean entropy for every Infection, ψ_edge and mean q for the six largest strata; mean entropy
   has no per-stratum series), and a table of every number with its interval. A mark or cell selects its per-Draw
   functional (`quantity:functionals/<name>@<column>=<value>`); a point summary (ψ_MAP, the size range) selects its
-  stratum. Logic in `src/lib/functionals.ts` (`functionalEntity`, `traceGrid`, `stratumSummary`, `classShade`).
+  stratum. Logic in `src/lib/functionals.ts` (`functionalEntity`, `traceGrid`, `stratumSummary`, `classShade`). A
+  functional whose Draws differ only by rounding (He01's mean q, whose Infections' q sum to a constant) prints as
+  "0.329 (constant)" (`formatEstimate`) and its trace is drawn flat in a fixed domain with that label (`traceAxis`)
+  rather than autoscaled to its noise.
 - **Flows** (`/flows?column=&min_infections=&max_lag=&unit=&parent=&spatial_lag=0`, in the rail only with epi
   data): attribution and enrichment heatmaps labelled with shares and expected edge counts, net flow bars with the
   minimum Infections per stratum, the lag histogram with the median fitted duration and the reassignment cutoff
   (the moved mass and ψ_edge and mean q before and after, overall and per stratum), and the spatial-scale shares of a
   unit column within a parent column. Without `column` it stratifies by the first categorical epi column. Cells and
   bars select their recipient stratum; the strata list under the attribution matrix opens the Network filtered to a
-  stratum (`/network?stratum_column=&stratum=`). Logic in `src/lib/flows.ts`; hooks in `src/api/flows.ts`.
+  stratum (`/network?stratum_column=&stratum=`). Logic in `src/lib/flows.ts`; hooks in `src/api/flows.ts`. One
+  component per panel: `Heatmaps.tsx`, `NetFlow.tsx`, `Lag.tsx`, `Spatial.tsx`.
 - **Stratum Inspector** (`sel=stratum:<column>=<value>`): the stratum's functionals with intervals and their
   source or recipient convention, its composition, its net flow, its Infections (from `/api/network`'s epi values)
   and a link to the Network filtered to it.
@@ -202,9 +216,13 @@ Shown when the manifest names a truth file (Errors, Ranking, Parent sets) or a t
 | Cohort | `/api/cohort`, `POST /api/cohort/open` | `file`, `fit` (full, partial, null), `metric`, `factor`, `x`, `y`, `colour`, `brush` (`x0,x1,y0,y1` on `x` and `y`), `row` |
 
 - Errors: the KPI strip counts the calls at the threshold (`thresholdSummary` in `src/lib/truth.ts`, from the overlay's
-  edges); the thumbnail is an arc diagram over observation time (`callArcs`). A row selects its `edge:` (its `pair:`
-  for the pairwise scores); the Edge Inspector shows truth status. The rail's Errors badge is `/api/status`'s
-  `attention.errors`: the posterior's error rows at threshold 0.5.
+  edges) and the distinct error rows by kind; the thumbnail is an arc diagram over observation time (`callArcs`). A
+  true edge missed because its false reverse is called is one error, the reverse's direction error, as `/api/errors`
+  lists it (`edgeCall` gives it no call of its own; it still counts among the true edges for recall), so the KPI
+  strip, the kind filters, the thumbnail's legend and the rail's badge agree. Calls take their colour from a status
+  level (`CALL_STYLE`). A row selects its `edge:` (its `pair:` for the pairwise scores) and lights its arc through the
+  hover store; the Edge Inspector shows truth status. The rail's Errors badge is `/api/status`'s `attention.errors`:
+  the posterior's error rows at threshold 0.5.
 - Ranking: the metrics table names each row by its fit-summary column (`metricsByName` in `src/lib/ranking.ts`), a
   column per fit and a random ranking's expected precision.
 - Cohort: the fit selector and the brush filter every panel; brushing any facet of the scatter selects the fits inside
