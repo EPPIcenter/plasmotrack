@@ -136,6 +136,8 @@ export function NetworkGraph(props: NetworkGraphProps) {
     lib: Loaded;
     force: FA2Layout | null;
     timer: number;
+    /** Fit the camera to the drawn Infections (force layout). */
+    frame: () => void;
   } | null>(null);
 
   // --- Mount: sigma, an empty graph, the reducers and the extra canvases ---------------------------------------------
@@ -307,6 +309,22 @@ export function NetworkGraph(props: NetworkGraphProps) {
           if (p.hoverNode && !p.hiddenNodes.has(p.hoverNode)) ring(p.hoverNode, t.ink, 3);
         });
 
+        // In the force layout, frame the drawn Infections: sigma otherwise fits every node, hidden ones too.
+        const frame = () => {
+          const p = live.current;
+          if (p.layout !== "force") return;
+          let [x0, x1, y0, y1] = [Infinity, -Infinity, Infinity, -Infinity];
+          if (p.hiddenNodes.size) {
+            graph.forEachNode((id, a) => {
+              if (p.hiddenNodes.has(id)) return;
+              [x0, x1, y0, y1] = [Math.min(x0, a.x), Math.max(x1, a.x), Math.min(y0, a.y), Math.max(y1, a.y)];
+            });
+          }
+          const pad = (lo: number, hi: number): [number, number] => (hi - lo > 1e-9 ? [lo, hi] : [lo - 1, hi + 1]);
+          renderer.setCustomBBox(Number.isFinite(x0) ? { x: pad(x0, x1), y: pad(y0, y1) } : null);
+        };
+        graph.on("eachNodeAttributesUpdated", frame);
+
         const refresh = () => renderer.refresh({ skipIndexation: true });
         renderer.on("enterNode", ({ node, event }) => {
           hovered.current.node = node;
@@ -332,7 +350,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
         renderer.on("clickEdge", ({ edge }) => live.current.onEdgeClick(edge));
         renderer.on("clickStage", ({ event }) => live.current.onStageClick(event.original.shiftKey));
 
-        api.current = { graph, renderer, lib, force: null, timer: 0 };
+        api.current = { graph, renderer, lib, force: null, timer: 0, frame };
         setReady(true);
       })
       .catch((e: Error) => !disposed && setFailed(e.message));
@@ -428,9 +446,12 @@ export function NetworkGraph(props: NetworkGraphProps) {
     if (ready) applyLayout();
   }, [layout, order]);
 
-  // The timeline's rows are the drawn Infections': lay it out again when the hidden ones change.
+  // The timeline's rows are the drawn Infections': lay it out again when the hidden ones change; the force layout
+  // frames them again.
   useLayoutEffect(() => {
-    if (ready && live.current.layout === "timeline") applyLayout();
+    if (!ready) return;
+    if (live.current.layout === "timeline") applyLayout();
+    else api.current?.frame();
   }, [hiddenNodes]);
 
   useLayoutEffect(() => {

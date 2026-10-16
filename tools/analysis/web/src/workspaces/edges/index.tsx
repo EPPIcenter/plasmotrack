@@ -119,7 +119,6 @@ export default function EdgesWorkspace() {
             className="flex-1"
             title="Edges"
             bodyClassName="flex flex-col"
-            description="Every edge with any weight; filter by child, parent, source"
             data={() => (data ? edgeStatsTable(shown, chains) : null)}
             exportParams={{ ...(child ? { child } : {}), ...(parent ? { parent } : {}) }}
             actions={

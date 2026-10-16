@@ -25,7 +25,7 @@ export function HoveredEdge({ row, chains }: { row: Pick<EdgeRow, "child" | "par
         marginTop: 6,
         marginBottom: 22,
         style: plotStyle(theme),
-        x: { label: "Draw bin →", labelAnchor: "right", ticks: 4 },
+        x: { label: null, ticks: 4 },
         y: { domain: [0, 1], label: null, ticks: 2, grid: true },
         color: chainScale(theme, chains),
         marks: [Plot.lineY(points, { x: "x", y: "y", z: "chain", stroke: "chain", strokeWidth: 1.5 })],

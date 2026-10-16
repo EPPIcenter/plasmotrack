@@ -62,7 +62,7 @@ export function Legend({ nodes, edges, layout, truth }: LegendProps) {
         </>
       )}
       <li className={item}><Swatch colour={chart.muted} ring />selected; their edges in <span style={{ color: chart.accent }}>accent</span></li>
-      <li className={item}>edge width: pooled Edge marginal, parent → child{layout === "timeline" ? "; arcs above run forward in time" : ""}</li>
+      <li className={item}>edge width: pooled Edge marginal, parent → child{layout === "timeline" ? ", arcing clockwise" : ""}</li>
       {layout === "timeline" && (
         <li className={item}><span aria-hidden className="inline-block h-1 w-5 rounded-sm" style={{ background: chart.ink2, opacity: 0.35 }} />95% posterior infection-time interval</li>
       )}

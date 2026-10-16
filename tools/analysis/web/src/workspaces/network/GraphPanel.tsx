@@ -52,7 +52,7 @@ export function GraphPanel({ view }: { view: NetworkView }) {
       className="flex-1"
       bodyClassName="flex flex-col"
       title="Network"
-      description={view.statusText}
+      description="Edge marginals between Infections"
       exportName="network"
       data={() => recordsTable(["parent", "child", "marginal", "lag"], view.listed)}
     >
@@ -72,6 +72,7 @@ export function GraphPanel({ view }: { view: NetworkView }) {
         selected={multi.ids}
         onClearSelection={multi.clear}
       />
+      <p className="shrink-0 border-b border-line px-2 py-0.5 text-axis text-ink-2">{view.statusText}</p>
       <div className="relative min-h-0 flex-1">
         <NetworkGraph
           nodes={shown.nodes}
