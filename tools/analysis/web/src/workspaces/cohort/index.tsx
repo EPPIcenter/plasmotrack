@@ -35,6 +35,7 @@ import {
 } from "../../lib/cohort";
 import { formatCount, formatFixed, formatNumber, formatSpan } from "../../lib/format";
 import { CATEGORY_SLOTS, colourScale, Scatter } from "./Scatter";
+import { StatusText } from "../../components/StatusChip";
 
 /** A row of the selected-fits table: a cohort row index. */
 interface FitRow {
@@ -230,7 +231,7 @@ function FitDetail({ p, row, file }: { p: CohortPayload; row: number; file: stri
             {state.busy ? "Starting…" : "Open its Analysis"}
           </button>
           <code className="text-muted">{manifest}</code>
-          {state.error && <span className="text-critical-ink">Could not open: {state.error}</span>}
+          {state.error && <StatusText level="critical" className="justify-start">Could not open: {state.error}</StatusText>}
         </>
       ) : (
         <span className="text-muted">The cohort names no manifest for this fit.</span>
