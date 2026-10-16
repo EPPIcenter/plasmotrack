@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { fixture, renderApp } from "../../test/render";
+import { failure, fixture, renderApp } from "../../test/render";
 
 // Two Analyses open side by side: the golden single-chain store as "single" (primary; timings with seconds and
 // instructions retired) and the replica-exchange store as "replica" (no timings). fixtures/compare-*.json.
@@ -56,5 +56,10 @@ describe("Compare", () => {
   it("says how to open several Analyses when one is open", async () => {
     renderApp("/compare");
     expect(await screen.findByText(/pt-analysis serve a.json b.json/, {}, { timeout: 4000 })).toBeInTheDocument();
+  });
+
+  it("says when its data could not load", async () => {
+    renderApp("/compare", { ...TWO, "/api/compare/convergence": failure(400, "analyses differ in input") });
+    expect((await screen.findAllByText(/Could not load: .*analyses differ in input/)).length).toBeGreaterThan(0);
   });
 });

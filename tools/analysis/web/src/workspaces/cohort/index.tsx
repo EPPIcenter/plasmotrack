@@ -31,8 +31,9 @@ import {
   selectedRows,
   type Brush,
   type CohortPayload,
+  formatCell,
 } from "../../lib/cohort";
-import { formatNumber } from "../../lib/format";
+import { formatCount, formatFixed, formatNumber, formatSpan } from "../../lib/format";
 import { CATEGORY_SLOTS, colourScale, Scatter } from "./Scatter";
 
 /** A row of the selected-fits table: a cohort row index. */
@@ -65,7 +66,6 @@ const parse = (s: SearchValues): CohortSearch => ({
 });
 
 const pick = (values: string[], chosen: string) => (values.includes(chosen) ? chosen : values[0] ?? "");
-const fmt = (v: unknown) => (typeof v === "number" ? formatNumber(v, 4) : String(v ?? "–"));
 const select = "h-5 max-w-56 rounded-[3px] border border-line bg-surface px-1 text-axis";
 
 function Picker({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
@@ -109,7 +109,7 @@ function Calibration({ p, rows }: { p: CohortPayload; rows: number[] }) {
           Plot.tip(points, Plot.pointer({
             x: "mean_score", y: "frequency",
             title: (d: { fit: string; lower: number; upper: number; n: number; n_true: number; frequency: number; mean_score: number }) =>
-              `${d.fit} fits, Edge marginal ${d.lower.toFixed(1)}–${d.upper.toFixed(1)}\n${d.n_true.toLocaleString()} true of ${d.n.toLocaleString()} pairs: ${d.frequency.toFixed(3)}\nmean marginal ${d.mean_score.toFixed(3)}`,
+              `${d.fit} fits, Edge marginal ${formatSpan(d.lower, d.upper, (x) => formatFixed(x, 1))}\n${formatCount(d.n_true)} true of ${formatCount(d.n)} pairs: ${formatFixed(d.frequency, 3)}\nmean marginal ${formatFixed(d.mean_score, 3)}`,
           })),
         ],
       });
@@ -137,7 +137,7 @@ function Identity({ p, rows, estimate, truth, label, onPick }: { p: CohortPayloa
           Plot.tip(points, Plot.pointer({
             x: "truth", y: "estimate",
             title: (d: { row: number; fit: string; truth: number; estimate: number }) =>
-              `${String(p.data.run_key?.[d.row] ?? "")}\n${d.fit} fit: true ${d.truth.toFixed(3)}, estimated ${d.estimate.toFixed(3)}\nclick for the fit`,
+              `${String(p.data.run_key?.[d.row] ?? "")}\n${d.fit} fit: true ${formatFixed(d.truth, 3)}, estimated ${formatFixed(d.estimate, 3)}\nclick for the fit`,
           })),
         ],
       });
@@ -222,8 +222,8 @@ function FitDetail({ p, row, file }: { p: CohortPayload; row: number; file: stri
     <section aria-label="Fit detail" className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-line bg-surface px-2 py-1 text-axis">
       <strong className="id text-table">{String(p.data.run_key?.[row] ?? `row ${row}`)}</strong>
       <span className="text-ink-2">{fitLabel(p, row)} fit</span>
-      <span className="tabular-nums text-ink-2">directed AP {fmt(p.data.directed_average_precision?.[row])}</span>
-      <span className="tabular-nums text-ink-2">ψ_edge {fmt(p.data.estimated_average_outdegree?.[row])} (true {fmt(p.data.true_average_outdegree?.[row])})</span>
+      <span className="tabular-nums text-ink-2">directed AP {formatCell(p.data.directed_average_precision?.[row])}</span>
+      <span className="tabular-nums text-ink-2">ψ_edge {formatCell(p.data.estimated_average_outdegree?.[row])} (true {formatCell(p.data.true_average_outdegree?.[row])})</span>
       {typeof manifest === "string" ? (
         <>
           <button type="button" onClick={open} disabled={state.busy} className="rounded-[3px] border border-line px-2 py-0.5 text-ui hover:bg-hover disabled:text-muted">
@@ -270,7 +270,7 @@ export default function CohortWorkspace() {
           { id: "run_key", header: "run_key", width: 420, value: ({ row }) => p.data.run_key?.[row] as string, cell: ({ row }) => <span className="id">{String(p.data.run_key?.[row] ?? "–")}</span> },
           { id: "fit", header: "Fit", width: 64, value: ({ row }) => fitLabel(p, row) },
           ...[x, y, metric].filter((c, i, a) => a.indexOf(c) === i).map((c): Column<FitRow> => ({
-            id: c, header: c, numeric: true, width: 210, value: ({ row }) => p.data[c]?.[row] as number, cell: ({ row }) => fmt(p.data[c]?.[row]),
+            id: c, header: c, numeric: true, width: 210, value: ({ row }) => p.data[c]?.[row] as number, cell: ({ row }) => formatCell(p.data[c]?.[row]),
           })),
         ]
       : [],
@@ -297,7 +297,7 @@ export default function CohortWorkspace() {
             {fits.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
         </label>
-        <span className="tabular-nums text-ink-2">{rows.length.toLocaleString()} of {p.n.toLocaleString()} fits selected</span>
+        <span className="tabular-nums text-ink-2">{formatCount(rows.length)} of {formatCount(p.n)} fits selected</span>
         {brush && (
           <button type="button" onClick={() => onBrush(null)} className="rounded-[3px] border border-line px-2 py-0.5 hover:bg-hover">Clear brush</button>
         )}

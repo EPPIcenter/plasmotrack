@@ -34,6 +34,7 @@ import { formatCount, formatFixed, formatProbability } from "../../lib/format";
 import { parseParentSetKey } from "../../lib/parse";
 import { statusColour } from "../../lib/status";
 import { StatusText } from "../../components/StatusChip";
+import { useHovered } from "../../app/hover";
 
 interface ParentSetsSearch {
   level: number;
@@ -86,8 +87,11 @@ function columns(withNull: boolean, withTruth: boolean): Column<ParentSetRow>[] 
   ];
 }
 
-function Figures({ rows, hovered }: { rows: readonly ParentSetRow[]; hovered: string | null }) {
+function Figures({ rows }: { rows: readonly ParentSetRow[] }) {
   const { select } = useSelection();
+  // The table's hovered row (the shared hover store), ringed on the scatter.
+  const hover = useHovered();
+  const hovered = hover?.kind === "infection" ? hover.id : null;
   const { chart } = useTheme();
   const present = COVERAGE_CLASSES.filter((c) => rows.some((r) => coverageOf(r) === c));
   const scale = (theme: ChartTheme) => ({ domain: [...present], range: present.map((c) => coverageColour(theme, c)) });
@@ -104,7 +108,7 @@ function Figures({ rows, hovered }: { rows: readonly ParentSetRow[]; hovered: st
         marks: [
           Plot.barY(counts, Plot.stackY({ x: "size", y: "n", fill: "coverage", order: [...COVERAGE_CLASSES], rx: 2, insetTop: 1 })),
           Plot.ruleY([0], { stroke: theme.axis }),
-          Plot.tip(counts, Plot.pointer(Plot.stackY({ x: "size", y: "n", z: "coverage", order: [...COVERAGE_CLASSES], title: (d: { size: string; coverage: string; n: number }) => `${d.n.toLocaleString()} Infections with ${d.size} set${d.size === "1" ? "" : "s"}\n${d.coverage}` }))),
+          Plot.tip(counts, Plot.pointer(Plot.stackY({ x: "size", y: "n", z: "coverage", order: [...COVERAGE_CLASSES], title: (d: { size: string; coverage: string; n: number }) => `${formatCount(d.n)} Infections with ${d.size} set${d.size === "1" ? "" : "s"}\n${d.coverage}` }))),
         ],
       });
     },
@@ -158,7 +162,6 @@ export default function ParentSetsWorkspace() {
   const { data, error, isLoading } = useParentSets(level);
   const { entity, select } = useSelection();
   const [draft, setDraft] = useState(String(level));
-  const [hovered, setHovered] = useState<string | null>(null);
   useEffect(() => setDraft(String(level)), [level]);
 
   const withNull = data?.fits.some((f) => f.fit === "null") ?? false;
@@ -200,7 +203,7 @@ export default function ParentSetsWorkspace() {
           <Panel
             className="flex-1"
             title="Parent sets"
-            description={data ? `${data.rows.length.toLocaleString()} Infections at level ${data.level}` : undefined}
+            description={data ? `${formatCount(data.rows.length)} Infections at level ${data.level}` : undefined}
             data={() => (data ? parentSetTable(sortRows(data.rows, sortKey, sorting[0]?.desc ?? false), withNull) : null)}
             exportName="parent sets"
             exportParams={{ level: String(level) }}
@@ -216,7 +219,7 @@ export default function ParentSetsWorkspace() {
                 sorting={sorting}
                 onSortingChange={onSortingChange}
                 onRowClick={(r) => select({ kind: "infection", id: r.infection })}
-                onRowHover={(r) => setHovered(r?.infection ?? null)}
+                hoverEntity={(r) => ({ kind: "infection", id: r.infection })}
                 activeRowId={entity?.kind === "infection" ? entity.id : null}
               />
             )}
@@ -225,7 +228,7 @@ export default function ParentSetsWorkspace() {
         <Separator className="mx-1 w-px bg-line outline-none hover:bg-accent data-[separator=active]:bg-accent" />
         <Split id="figures" minSize={300} className="flex min-w-0">
           <Panel className="flex-1" bodyClassName="overflow-y-auto" title="Over Infections" description="Credible collection sizes by coverage; effective size against top probability" exportName="parent sets figures">
-            {data ? <Figures rows={data.rows} hovered={hovered} /> : <PanelState loading={isLoading} />}
+            {data ? <Figures rows={data.rows} /> : <PanelState loading={isLoading} error={error} />}
           </Panel>
         </Split>
       </Group>

@@ -3,7 +3,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../../test/render";
+import { failure, renderApp } from "../../test/render";
 
 describe("Parent sets", () => {
   it("gives the summary line and a row per Infection with effective size, credible size, coverage and top probability", async () => {
@@ -36,5 +36,10 @@ describe("Parent sets", () => {
     renderApp("/parentsets");
     expect(await screen.findByRole("img", { name: /Credible collection size/ })).toContainHTML("<svg");
     expect(screen.getByRole("img", { name: /Effective size against top probability/ })).toContainHTML("<svg");
+  });
+
+  it("says when its data could not load", async () => {
+    renderApp("/parentsets", { "/api/parent-sets": failure(400, "needs a truth file") });
+    expect((await screen.findAllByText(/Could not load: .*needs a truth file/)).length).toBeGreaterThan(0);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DARK, LIGHT } from "./palette";
 import {
+  formatCell,
   boxData,
   calibrationCurve,
   cohortFitColour,
@@ -192,5 +193,13 @@ describe("cohortFitColour", () => {
     expect(cohortFitColour(LIGHT, "full")).toBe(LIGHT.chains[0]);
     expect(cohortFitColour(LIGHT, "null")).toBe(LIGHT.chains[1]);
     expect(cohortFitColour(DARK, "partial")).toBe(DARK.chains[2]);
+  });
+});
+
+describe("formatCell", () => {
+  it("prints a number to four significant digits, text as it is, a missing value as a dash", () => {
+    expect(formatCell(0.83333333)).toBe("0.8333");
+    expect(formatCell("panel_a")).toBe("panel_a");
+    expect(formatCell(null)).toBe("–");
   });
 });

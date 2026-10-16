@@ -3,6 +3,7 @@
 
 import { num } from "./num";
 import type { DataTable } from "./export";
+import { formatCount, formatNumber } from "./format";
 import { filterQuantities, sortQuantities, type Filter, type Quantity, type SortKey } from "./convergence";
 import type { Params } from "./params";
 
@@ -174,7 +175,7 @@ export function scatterMetrics(r: CompareResponse): Metric[] {
 
 /** What an Analysis's efficiency column is per: its instructions retired, else its sampling seconds. */
 export function timingText(a: AnalysisListing): string {
-  if (a.instructions_retired != null) return `${a.instructions_retired.toLocaleString("en")} instructions retired`;
-  if (a.sampling_seconds != null) return `${Number(a.sampling_seconds.toPrecision(4)).toLocaleString("en")} sampling seconds`;
+  if (a.instructions_retired != null) return `${formatCount(a.instructions_retired)} instructions retired`;
+  if (a.sampling_seconds != null) return `${formatNumber(a.sampling_seconds, 4)} sampling seconds`;
   return "no timings";
 }

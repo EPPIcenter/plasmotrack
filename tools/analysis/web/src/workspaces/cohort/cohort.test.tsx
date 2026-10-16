@@ -3,7 +3,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../../test/render";
+import { failure, renderApp } from "../../test/render";
 
 describe("Cohort", () => {
   // fixtures/cohort.json: three fits of the golden Analysis; row 0 the null fit, row 1 full, row 2 partial.
@@ -46,5 +46,10 @@ describe("Cohort", () => {
     await userEvent.click(within(detail).getByRole("button", { name: "Open its Analysis" }));
     await waitFor(() => expect(opened).toEqual(["http://127.0.0.1:9999/ranking"]));
     expect((calls.mock.calls as unknown as [RequestInfo, RequestInit | undefined][]).map(([u, init]) => [String(u), init?.method])).toContainEqual(["/api/cohort/open?row=1", "POST"]);
+  });
+
+  it("says when its data could not load", async () => {
+    renderApp("/cohort", { "/api/cohort": failure(400, "no cohort file") });
+    expect((await screen.findAllByText(/Could not load: .*no cohort file/)).length).toBeGreaterThan(0);
   });
 });
