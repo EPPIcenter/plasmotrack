@@ -42,7 +42,7 @@ function OrderSection({ p }: { p: PairResponse }) {
   const chains = p.order.chains.map((c) => c.chain);
   const draw = useCallback(
     ({ width, theme }: PlotContext) => {
-      const points = p.order.chains.flatMap((c) => c.iteration.map((iteration, i) => ({ chain: c.chain, iteration, before: c.before[i]! })));
+      const points = p.order.chains.flatMap((c) => c.iteration.map((iteration, i) => ({ chain: c.chain, iteration, before: c.before[i] ?? 0 })));
       const label = (d: number) => (d ? `${a} first` : `${b} first`);
       return Plot.plot({
         width,

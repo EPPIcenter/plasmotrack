@@ -28,7 +28,7 @@ const MAX_CELL = 22;
 const CHAR = 6.2;
 
 /** Posterior presence: from the surface's grid tone (absent) through the sequential ramp to its far end. */
-const presenceRange = (theme: ChartTheme) => [theme.grid, theme.sequential[5]!, theme.sequential[12]!];
+const presenceRange = (theme: ChartTheme) => [theme.grid, theme.sequential[5] ?? theme.ink2, theme.sequential[12] ?? theme.ink];
 
 function Heatmap({ loci, infection }: { loci: GenotypeLocus[]; infection: string }) {
   const cells = useMemo(() => heatmapCells(loci), [loci]);
