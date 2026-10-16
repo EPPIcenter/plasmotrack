@@ -40,9 +40,11 @@ export function Panel({ title, description, actions, data, exportName, exportPar
   );
 }
 
-/** What a panel shows while its data loads or when it failed. */
-export function PanelState({ loading, error, empty }: { loading?: boolean; error?: Error | null; empty?: string }) {
+/** What a panel shows while its data loads or when it failed; `inline` for a line inside a toolbar or a cell. */
+export function PanelState({ loading, error, empty, inline = false }: { loading?: boolean; error?: Error | null; empty?: string; inline?: boolean }) {
   const text = error ? `Could not load: ${error.message}` : loading ? "Loading…" : empty;
   if (!text) return null;
-  return <p className={`p-3 text-axis ${error ? "text-critical-ink" : "text-muted"}`}>{text}</p>;
+  const ink = error ? "text-critical-ink" : "text-muted";
+  if (inline) return <span className={`min-w-0 truncate text-axis ${ink}`} title={text}>{text}</span>;
+  return <p className={`p-3 text-axis ${ink}`}>{text}</p>;
 }

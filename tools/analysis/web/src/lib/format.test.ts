@@ -33,6 +33,7 @@ describe("number formats", () => {
   it("gives a fixed number of decimals, grouping thousands", () => {
     expect(formatFixed(1234.5678, 1)).toBe("1,234.6");
     expect(formatFixed(-0.25, 2)).toBe("-0.25");
+    expect(formatFixed(-0.0001, 3)).toBe("0.000");
     expect(formatFixed(NaN, 2)).toBe("–");
   });
 
