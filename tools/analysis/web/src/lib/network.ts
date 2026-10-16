@@ -2,9 +2,12 @@
 // GET /api/network, the threshold slider's edge filter, the timeline layout, node search, node colours (q, a posterior
 // per-Infection quantity or an epi column) and the epi stratum filter with their URL state.
 
-import { formatFixed, formatNumber, formatProbability } from "./format";
+import { formatCount, formatFixed, formatNumber, formatProbability } from "./format";
 import { rampColour, type ChartTheme } from "./palette";
 import type { Params } from "./params";
+import { parseOneOf, parseSource } from "./parse";
+import { ESS_CRITICAL, ESS_WARN, essLevel, statusColour, type Level } from "./status";
+import type { Source } from "./truth";
 
 /** An Infection: its observation time from the input, pooled q, and posterior infection-time interval (observation
  * time minus the 97.5%, 50% and 2.5% quantiles of its pooled duration). */
@@ -394,4 +397,137 @@ export function listedEdges<E extends { parent: string; child: string; marginal:
 ): E[] {
   const touching = selection?.size ? (e: E) => selection.has(e.parent) || selection.has(e.child) : () => true;
   return edges.filter((e) => shown(e) && touching(e)).sort((x, y) => y.marginal - x.marginal);
+}
+
+// --- The workspace's URL -------------------------------------------------------------------------------------------
+
+/** What colours the drawn edges: the pooled Edge marginal, the between-Chain spread, or ESS (from the edge table). */
+export type EdgeColourKey = "marginal" | "spread" | "ess";
+export const EDGE_COLOURS: readonly { key: EdgeColourKey; label: string }[] = [
+  { key: "marginal", label: "Edge marginal" },
+  { key: "spread", label: "between-Chain spread" },
+  { key: "ess", label: "ESS" },
+];
+
+export interface NetworkSearch {
+  /** The slider's threshold in [0, 1]; null opens at the default. */
+  threshold: number | null;
+  layout: "force" | "timeline";
+  order: "q" | "lanes";
+  truth: boolean;
+  source: Source;
+  edgeColour: EdgeColourKey;
+  /** Whether Infections without a shown edge are drawn (`isolated=1`); hidden by default. */
+  isolated: boolean;
+}
+
+/** The Network's parameters: `threshold`, `layout=timeline`, `order=lanes`, `truth=1`, `source`, `edge_colour` and
+ *  `isolated=1`; an unknown value reads as the default. */
+export function parseNetworkSearch(s: Record<string, string | undefined>): NetworkSearch {
+  const t = s.threshold === undefined ? NaN : Number(s.threshold);
+  return {
+    threshold: Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : null,
+    layout: parseOneOf(["force", "timeline"], s.layout, "force"),
+    order: parseOneOf(["q", "lanes"], s.order, "q"),
+    truth: s.truth === "1",
+    source: parseSource(s.source),
+    edgeColour: parseOneOf(EDGE_COLOURS.map((c) => c.key), s.edge_colour, "marginal"),
+    isolated: s.isolated === "1",
+  };
+}
+
+/** The Infections among `ids` that no shown edge touches, leaving out those in `keep` (the multi-selection and the
+ *  Inspector's Infection stay drawn). */
+export function isolatedNodes(ids: Iterable<string>, shown: readonly { parent: string; child: string }[], keep: ReadonlySet<string>): Set<string> {
+  const touched = new Set<string>();
+  for (const e of shown) {
+    touched.add(e.parent);
+    touched.add(e.child);
+  }
+  const out = new Set<string>();
+  for (const id of ids) if (!touched.has(id) && !keep.has(id)) out.add(id);
+  return out;
+}
+
+// --- Edge colours --------------------------------------------------------------------------------------------------
+
+/** An edge's convergence figures from the edge table (`/api/edges`). */
+export interface EdgeMetrics {
+  spread: number | null;
+  ess: number | null;
+}
+
+/** The spread at which the edge ramp ends: spreads above it take its darkest colour. */
+export const SPREAD_SCALE = 0.5;
+
+export type EdgeLegend =
+  | { kind: "ramp"; label: string; lower: string; upper: string }
+  | { kind: "levels"; label: string; items: { level: Level; label: string }[] };
+
+export interface EdgeColouring {
+  colour: (e: { key: string; marginal: number }) => string;
+  legend: EdgeLegend;
+}
+
+/** Each drawn edge's colour under `key`: the marginal along the edge ramp from 0 to 1; the between-Chain spread along it
+ *  from 0 to SPREAD_SCALE; ESS by its status level (low ESS is bad: under 20 critical, under 100 warning). Edges
+ *  without the figure (not in the edge table, or a constant series without ESS) take the no-value colour. */
+export function edgeColouring(
+  key: EdgeColourKey,
+  metrics: (edgeKey: string) => EdgeMetrics | undefined,
+  theme: ChartTheme,
+): EdgeColouring {
+  switch (key) {
+    case "marginal":
+      return {
+        colour: (e) => rampColour(theme.edgeRamp, e.marginal),
+        legend: { kind: "ramp", label: "edge colour: pooled Edge marginal", lower: "0", upper: "1" },
+      };
+    case "spread":
+      return {
+        colour: (e) => {
+          const x = metrics(e.key)?.spread;
+          return x === null || x === undefined || Number.isNaN(x) ? theme.noValue : rampColour(theme.edgeRamp, x / SPREAD_SCALE);
+        },
+        legend: { kind: "ramp", label: "edge colour: between-Chain spread", lower: "0, Chains agree", upper: `≥ ${SPREAD_SCALE}, Chains disagree` },
+      };
+    case "ess":
+      return {
+        colour: (e) => {
+          const level = essLevel(metrics(e.key)?.ess);
+          return level === "none" ? theme.noValue : statusColour(theme, level);
+        },
+        legend: {
+          kind: "levels",
+          label: "edge colour: ESS, low is poor mixing",
+          items: [
+            { level: "critical", label: `under ${ESS_CRITICAL}` },
+            { level: "warning", label: `${ESS_CRITICAL} to ${ESS_WARN}` },
+            { level: "ok", label: `${ESS_WARN} or more` },
+            { level: "none", label: "no ESS (constant)" },
+          ],
+        },
+      };
+  }
+}
+
+// --- Counts --------------------------------------------------------------------------------------------------------
+
+/** The Network's status line: of the payload's edges (those between Infections at or above the floor), how many show
+ *  at the threshold, and how many Infections are drawn. `stratum` names a stratum (" in district North") or is "". */
+export function networkSummary(c: { shown: number; total: number; floor: number; threshold: number; infections: number; hidden: number; stratum: string }): string {
+  const edges = `${formatCount(c.shown)} of the ${formatCount(c.total)} edges between Infections at or above ${c.floor} show at ≥ ${formatFixed(c.threshold, 3)}`;
+  const drawn = c.hidden
+    ? `${formatCount(c.infections - c.hidden)} of ${formatCount(c.infections)} Infections${c.stratum} drawn, ${formatCount(c.hidden)} without a shown edge hidden`
+    : `${formatCount(c.infections)} Infections${c.stratum}`;
+  return `${edges}; ${drawn}`;
+}
+
+// --- Timeline arcs -------------------------------------------------------------------------------------------------
+
+/** The control point of the quadratic curve sigma's curved-edge program (`@sigma/edge-curve`) draws from `s` to `t` in
+ *  screen pixels (y down): the midpoint moved by `curvature` times the edge's length, to the left of its direction, so
+ *  an edge forward in time arcs upward and one backward in time below. The dashed overlay draws the same curve. */
+export function arcControl(s: { x: number; y: number }, t: { x: number; y: number }, curvature: number): { x: number; y: number } {
+  return { x: (s.x + t.x) / 2 + curvature * (t.y - s.y), y: (s.y + t.y) / 2 - curvature * (t.x - s.x) };
 }

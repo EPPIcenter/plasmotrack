@@ -4,7 +4,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../../test/render";
+import { failure, renderApp } from "../../test/render";
 
 /** The Network panel once its payload has loaded (the loading panel has the same name). */
 const panel = async () => {
@@ -18,7 +18,9 @@ describe("Network", () => {
     renderApp("/network");
     const p = await panel();
     // The golden network has one edge from an observed parent above the floor: 1 -> 3, marginal 0.834.
-    await waitFor(() => expect(p).toHaveTextContent("1 of 1 edges shown, 3 Infections"));
+    // Infection 2 has no edge at the threshold, so it is hidden.
+    await waitFor(() => expect(p).toHaveTextContent(
+      "1 of the 1 edges between Infections at or above 0.01 show at ≥ 0.100; 2 of 3 Infections drawn, 1 without a shown edge hidden"));
     expect(screen.getByRole("slider", { name: "Edge marginal threshold" })).toHaveValue("0.1");
     expect(screen.getByRole("combobox", { name: "Colour" })).toHaveValue("q");
     expect(within(screen.getByRole("list", { name: "Legend" })).getByText(/q, unobserved-source inclusion/)).toBeInTheDocument();
@@ -28,9 +30,47 @@ describe("Network", () => {
     const { search } = renderApp("/network");
     const p = await panel();
     fireEvent.change(screen.getByRole("slider", { name: "Edge marginal threshold" }), { target: { value: "0.9" } });
-    await waitFor(() => expect(p).toHaveTextContent("0 of 1 edges shown"));
+    await waitFor(() => expect(p).toHaveTextContent("0 of the 1 edges between Infections at or above 0.01 show at ≥ 0.900"));
     await waitFor(() => expect(search().threshold).toBe("0.9"));
     expect(await screen.findByText("No edge at this threshold")).toBeInTheDocument();
+  });
+
+  it("draws the isolated Infections when asked, in the URL", async () => {
+    const { search, container } = renderApp("/network");
+    const p = await panel();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Hide isolated Infections" }));
+    expect(search().isolated).toBe("1");
+    await waitFor(() => expect(p).toHaveTextContent("show at ≥ 0.100; 3 Infections."));
+    expect(container.querySelector("[data-hidden-nodes]")).toHaveAttribute("data-hidden-nodes", "0");
+  });
+
+  it("keeps the inspected Infection drawn though it has no edge", async () => {
+    renderApp("/network?sel=infection:2");
+    const p = await panel();
+    await waitFor(() => expect(p).toHaveTextContent("3 Infections."));
+  });
+
+  it("colours edges by ESS from the edge table, with its status levels in the legend", async () => {
+    const { search, fetch } = renderApp("/network");
+    await panel();
+    expect(within(screen.getByRole("list", { name: "Legend" })).getByText(/edge colour: pooled Edge marginal/)).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Edge colour" }), "ess");
+    expect(search().edge_colour).toBe("ess");
+    const legend = screen.getByRole("list", { name: "Legend" });
+    expect(within(legend).getByText(/ESS, low is poor mixing/)).toBeInTheDocument();
+    expect(within(legend).getByText("under 20").closest("[data-level]")).toHaveAttribute("data-level", "critical");
+    await waitFor(() => expect(fetch.mock.calls.some(([u]) => String(u).includes("/api/edges"))).toBe(true));
+  });
+
+  it("says so when the edge table colouring the edges fails", async () => {
+    renderApp("/network?edge_colour=spread", { "/api/edges": failure(500, "no edge table") });
+    await panel();
+    expect(await screen.findByText("Could not load: no edge table")).toBeInTheDocument();
+  });
+
+  it("says so when the network fails", async () => {
+    renderApp("/network", { "/api/network": failure(500, "no network") });
+    expect(await screen.findByText("Could not load: no network")).toBeInTheDocument();
   });
 
   it("colours by an epi column with a swatch per value", async () => {
@@ -50,7 +90,7 @@ describe("Network", () => {
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Stratum value" }), "North");
     expect([search().stratum_column, search().stratum]).toEqual(["district", "North"]);
     // Infections 1 and 3 are in North, and so is the edge between them.
-    await waitFor(() => expect(p).toHaveTextContent("1 of 1 edges shown, 2 Infections in district North"));
+    await waitFor(() => expect(p).toHaveTextContent("show at ≥ 0.100; 2 Infections in district North"));
   });
 
   it("offers the truth overlay when the Analysis has truth", async () => {
@@ -71,7 +111,7 @@ describe("Network", () => {
     expect(within(screen.getByRole("list", { name: "Legend" })).getByText(/95% posterior infection-time interval/)).toBeInTheDocument();
   });
 
-  it("lists the edges shown beside the graph; hovering one focuses it in the graph, clicking inspects it", async () => {
+  it("lists the edges shown beside the graph; hovering one highlights it in the graph, clicking inspects it", async () => {
     const { search, container } = renderApp("/network");
     const list = await edgeList();
     const row = await within(list).findByRole("row", { name: /1 → 3/ });

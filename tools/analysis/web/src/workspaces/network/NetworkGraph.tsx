@@ -1,7 +1,8 @@
 // The network as a WebGL graph: sigma.js over a graphology graph, wrapped as a React component. Nodes are Infections,
 // edges parent -> child. Two layouts: force-directed (ForceAtlas2 in a web worker, stopping by itself after a few
 // seconds) and a timeline with observation time on x and each Infection's posterior infection-time interval drawn as
-// a bar behind its node. Hover dims all but a node's neighbours and shows a tooltip; click and shift-click report
+// a bar behind its node, edges drawn there as arcs (`@sigma/edge-curve`: an edge forward in time arcs above the
+// straight line, one backward in time below it, so long edges read as arcs over time rather than crossing strokes). Hover dims all but a node's neighbours and shows a tooltip; click and shift-click report
 // to the parent. The parent decides what each edge looks like (`edgeLook`), which nodes are selected and which node
 // and edge are in focus (the Inspector's entity, or the edge under the pointer in the edge table).
 //
@@ -13,8 +14,9 @@ import type Graph from "graphology";
 import type FA2Layout from "graphology-layout-forceatlas2/worker";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type SigmaRenderer from "sigma";
+import type { EdgeProgramType } from "sigma/rendering";
 import type { ChartTheme } from "../../lib/palette";
-import { edgeSize, NODE_SIZE, timelineLayout, type NetworkNode, type TimelineLayout, type Tooltip } from "../../lib/network";
+import { arcControl, edgeSize, NODE_SIZE, timelineLayout, type NetworkNode, type TimelineLayout, type Tooltip } from "../../lib/network";
 
 export interface GraphEdge {
   /** `child<-parent`. */
@@ -38,9 +40,13 @@ export interface NetworkGraphProps {
   order: "q" | "lanes";
   /** The multi-selection, ringed. */
   selected: ReadonlySet<string>;
+  /** Infections not drawn (those without a shown edge, when the workspace hides them). */
+  hiddenNodes: ReadonlySet<string>;
+  /** The Infection under the pointer elsewhere (a table row): ringed in ink. */
+  hoverNode: string | null;
   /** The Infection in focus (the Inspector's), ringed in the accent. */
   focusNode: string | null;
-  /** The edge in focus, `child<-parent`: drawn in ink over the others. */
+  /** The edge in focus, `child<-parent`: drawn in ink over the others, its ends enlarged. */
   focusEdge: string | null;
   /** Centre the camera on this Infection when `nonce` changes. */
   find: { id: string; nonce: number } | null;
@@ -63,23 +69,41 @@ interface EdgeAttrs {
   size: number;
   color: string;
   weight: number;
-  type: "arrow" | "line";
+  /** Straight in the force layout; curved (`curvedArrow`, `curved`) in the timeline. */
+  type: "arrow" | "line" | "curvedArrow" | "curved";
   key: string;
+  curvature?: number;
 }
+
+/** How far a timeline arc bows from the straight line, as a share of its length (twice the apex's height). */
+const CURVATURE = 0.3;
 
 /** How long ForceAtlas2 runs before it stops by itself; the Run layout button runs it again. */
 const FORCE_MS = 5000;
 
-type Loaded = { Sigma: typeof SigmaRenderer; Graph: typeof Graph; FA2: typeof FA2Layout; inferSettings: (g: Graph) => object };
+type Loaded = {
+  Sigma: typeof SigmaRenderer;
+  Graph: typeof Graph;
+  FA2: typeof FA2Layout;
+  inferSettings: (g: Graph) => object;
+  /** The timeline's curved programs: with an arrowhead, and without for an undirected edge set. */
+  curved: { arrow: EdgeProgramType<NodeAttrs, EdgeAttrs>; line: EdgeProgramType<NodeAttrs, EdgeAttrs> };
+};
 
 async function load(): Promise<Loaded> {
-  const [{ default: Sigma }, { default: G }, { default: FA2 }, { default: fa2 }] = await Promise.all([
+  const [{ default: Sigma }, { default: G }, { default: FA2 }, { default: fa2 }, { createEdgeCurveProgram }, { DEFAULT_EDGE_ARROW_HEAD_PROGRAM_OPTIONS }] = await Promise.all([
     import("sigma"),
     import("graphology"),
     import("graphology-layout-forceatlas2/worker"),
     import("graphology-layout-forceatlas2"),
+    import("@sigma/edge-curve"),
+    import("sigma/rendering"),
   ]);
-  return { Sigma, Graph: G, FA2, inferSettings: (g) => fa2.inferSettings(g) };
+  const curved = {
+    arrow: createEdgeCurveProgram<NodeAttrs, EdgeAttrs>({ arrowHead: DEFAULT_EDGE_ARROW_HEAD_PROGRAM_OPTIONS }),
+    line: createEdgeCurveProgram<NodeAttrs, EdgeAttrs>(),
+  };
+  return { Sigma, Graph: G, FA2, inferSettings: (g) => fa2.inferSettings(g), curved };
 }
 
 /** A canvas of the renderer's size at the device's pixel ratio, cleared, its context scaled to CSS pixels. */
@@ -124,6 +148,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
         const dashed = new Map<string, string>();
         const renderer = new lib.Sigma<NodeAttrs, EdgeAttrs>(graph, stage.current, {
           defaultEdgeType: "arrow",
+          edgeProgramClasses: { curvedArrow: lib.curved.arrow, curved: lib.curved.line },
           enableEdgeEvents: true,
           zIndex: true,
           labelFont: "Inter, system-ui, sans-serif",
@@ -159,8 +184,10 @@ export function NetworkGraph(props: NetworkGraphProps) {
           nodeReducer: (node, data) => {
             const p = live.current;
             const h = hovered.current.node;
-            const out: Partial<NodeAttrs> & { highlighted?: boolean; zIndex?: number } = { ...data };
-            if (p.selected.has(node) || node === p.focusNode) Object.assign(out, { size: data.size * 1.35, zIndex: 2 });
+            const out: Partial<NodeAttrs> & { highlighted?: boolean; zIndex?: number; hidden?: boolean } = { ...data };
+            if (p.hiddenNodes.has(node)) return { ...out, hidden: true };
+            const ends = p.focusEdge && graph.hasEdge(p.focusEdge) ? graph.extremities(p.focusEdge) : null;
+            if (p.selected.has(node) || node === p.focusNode || node === p.hoverNode || ends?.includes(node)) Object.assign(out, { size: data.size * 1.35, zIndex: 2 });
             if (h && node !== h && !graph.areNeighbors(node, h)) Object.assign(out, { color: p.theme.grid, label: "", zIndex: 0 });
             return out;
           },
@@ -169,7 +196,10 @@ export function NetworkGraph(props: NetworkGraphProps) {
             const out: Partial<EdgeAttrs> & { hidden?: boolean; zIndex?: number } = { ...data };
             dashed.delete(edge);
             const [source, target] = graph.extremities(edge);
-            const look = p.edgeLook({ key: edge, parent: source, child: target, marginal: data.weight, type: data.type });
+            const straight = data.type === "line" || data.type === "curved" ? "line" : "arrow";
+            const look = p.edgeLook({ key: edge, parent: source, child: target, marginal: data.weight, type: straight });
+            if (p.layout === "timeline") Object.assign(out, { type: straight === "arrow" ? "curvedArrow" : "curved", curvature: CURVATURE });
+            else out.type = straight;
             const h = hovered.current;
             if (look.hidden && edge !== p.focusEdge) return { ...out, hidden: true };
             if (h.node && source !== h.node && target !== h.node) return { ...out, hidden: true };
@@ -227,13 +257,22 @@ export function NetworkGraph(props: NetworkGraphProps) {
             const d = renderer.getNodeDisplayData(node)!;
             return { ...renderer.framedGraphToViewport(d), r: renderer.scaleSize(d.size) };
           };
+          const unit = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+            const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+            return [(b.x - a.x) / d, (b.y - a.y) / d] as const;
+          };
           for (const [edge, colour] of dashed) {
             const display = renderer.getEdgeDisplayData(edge);
             if (!display || display.hidden) continue;
-            const [s, e] = graph.extremities(edge).map(at) as [ReturnType<typeof at>, ReturnType<typeof at>];
+            const [source, target] = graph.extremities(edge);
+            const s = at(source);
+            const e = at(target);
             const length = Math.hypot(e.x - s.x, e.y - s.y);
             if (length <= s.r + e.r) continue;
-            const [ux, uy] = [(e.x - s.x) / length, (e.y - s.y) / length];
+            // In the timeline the edge is the arc sigma draws; its ends leave and arrive along the arc's tangents.
+            const control = p.layout === "timeline" ? arcControl(s, e, CURVATURE) : null;
+            const [sx, sy] = unit(s, control ?? e);
+            const [ux, uy] = unit(control ?? s, e);
             const w = Math.max(1, renderer.scaleSize(display.size));
             const head = graph.getEdgeAttribute(edge, "type") === "arrow" ? Math.min(length / 3, 4 + 2.5 * w) : 0;
             const end = { x: e.x - ux * (e.r + head), y: e.y - uy * (e.r + head) };
@@ -241,8 +280,9 @@ export function NetworkGraph(props: NetworkGraphProps) {
             o.lineWidth = w;
             o.setLineDash([5, 4]);
             o.beginPath();
-            o.moveTo(s.x + ux * s.r, s.y + uy * s.r);
-            o.lineTo(end.x, end.y);
+            o.moveTo(s.x + sx * s.r, s.y + sy * s.r);
+            if (control) o.quadraticCurveTo(control.x, control.y, end.x, end.y);
+            else o.lineTo(end.x, end.y);
             o.stroke();
             o.setLineDash([]);
             if (!head) continue;
@@ -262,8 +302,9 @@ export function NetworkGraph(props: NetworkGraphProps) {
             o.fillStyle = colour;
             o.fill();
           };
-          if (p.focusNode) ring(p.focusNode, t.accent, 4);
-          for (const id of p.selected) ring(id, t.ink, 2.5);
+          if (p.focusNode && !p.hiddenNodes.has(p.focusNode)) ring(p.focusNode, t.accent, 4);
+          for (const id of p.selected) if (!p.hiddenNodes.has(id)) ring(id, t.ink, 2.5);
+          if (p.hoverNode && !p.hiddenNodes.has(p.hoverNode)) ring(p.hoverNode, t.ink, 3);
         });
 
         const refresh = () => renderer.refresh({ skipIndexation: true });
@@ -338,7 +379,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
     stopForce();
     if (p.layout === "timeline") {
       // The timeline in graph units, its width set by the stage's aspect ratio so rows fill the height.
-      const nodes = p.nodes.filter((n) => graph.hasNode(n.id));
+      const nodes = p.nodes.filter((n) => graph.hasNode(n.id) && !p.hiddenNodes.has(n.id));
       const probe = timelineLayout(nodes, { width: 1, laneHeight: 1, order: p.order });
       let rows = 1;
       for (const pos of probe.positions.values()) rows = Math.max(rows, pos.y + 1);
@@ -347,7 +388,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
       timeline.current = tl;
       // Rows a few pixels apart: smaller nodes, so neighbours do not cover each other.
       const size = Math.max(2.5, Math.min(NODE_SIZE, height / rows / 2));
-      graph.updateEachNodeAttributes((id, attrs) => ({ ...attrs, ...tl.positions.get(id)!, size }));
+      graph.updateEachNodeAttributes((id, attrs) => ({ ...attrs, ...tl.positions.get(id), size }));
       renderer.setCustomBBox({ x: [0, tl.time.scale * (tl.time.max - tl.time.min)], y: [0, rows] });
     } else {
       timeline.current = null;
@@ -366,7 +407,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
   };
 
   // --- Data: nodes and edges into the graph, then the layout ---------------------------------------------------------
-  const { nodes, edges, layout, order, colours, theme, find } = props;
+  const { nodes, edges, layout, order, colours, theme, find, hiddenNodes } = props;
   useLayoutEffect(() => {
     const a = api.current;
     if (!ready || !a) return;
@@ -387,6 +428,11 @@ export function NetworkGraph(props: NetworkGraphProps) {
     if (ready) applyLayout();
   }, [layout, order]);
 
+  // The timeline's rows are the drawn Infections': lay it out again when the hidden ones change.
+  useLayoutEffect(() => {
+    if (ready && live.current.layout === "timeline") applyLayout();
+  }, [hiddenNodes]);
+
   useLayoutEffect(() => {
     const a = api.current;
     if (!ready || !a) return;
@@ -397,7 +443,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
   // Anything the reducers read: draw again without re-indexing.
   useEffect(() => {
     api.current?.renderer.refresh({ skipIndexation: true });
-  }, [ready, props.edgeLook, props.selected, props.focusNode, props.focusEdge, theme]);
+  }, [ready, props.edgeLook, props.selected, props.focusNode, props.focusEdge, props.hoverNode, hiddenNodes, theme]);
 
   useEffect(() => {
     const a = api.current;
@@ -418,8 +464,8 @@ export function NetworkGraph(props: NetworkGraphProps) {
   }, [ready]);
 
   return (
-    <div className="relative h-full min-h-0 w-full" data-focus-edge={props.focusEdge ?? undefined} data-layout={layout}>
-      <div ref={stage} className="absolute inset-0" role="img" aria-label={`Network of ${nodes.length} Infections`} />
+    <div className="relative h-full min-h-0 w-full" data-focus-edge={props.focusEdge ?? undefined} data-hover-node={props.hoverNode ?? undefined} data-hidden-nodes={hiddenNodes.size} data-layout={layout}>
+      <div ref={stage} className="absolute inset-0" role="img" aria-label={`Network of ${nodes.length - hiddenNodes.size} Infections`} />
       {failed && <p className="absolute inset-0 p-3 text-axis text-muted">The network needs WebGL, which this browser does not offer ({failed}).</p>}
       {layout === "force" && ready && (
         <button
