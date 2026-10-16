@@ -1,7 +1,9 @@
 // The table every workspace uses: TanStack Table for sorting and column sizing, TanStack Virtual for rows, so tens
 // of thousands of rows scroll smoothly. Sticky header, sort indicators, column resize by dragging a header's right
 // edge, numeric columns right-aligned with tabular numerals, 24 px rows, row hover and click callbacks, and an
-// optional second header row (`below`) for a column's distribution strip or filter.
+// optional second header row (`below`) for a column's distribution strip or filter. The table scrolls both ways
+// inside its panel with the first column (the row's name) sticky on the left. A row's entity (`hoverEntity`) is
+// shared with the workspace's charts while the pointer is on it.
 //
 // Columns are described with the small `Column` type below rather than TanStack's own, so workspaces need not know
 // the library: `value` is what sorts (null and NaN sort last), `cell` what shows (the value by default).
@@ -19,7 +21,9 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { hover } from "../app/hover";
+import type { Entity } from "../lib/entity";
 
 export interface Column<T extends RowData> {
   id: string;
@@ -54,6 +58,9 @@ export interface DataTableProps<T extends RowData> {
   onRowClick?: (row: T) => void;
   /** Called with the row under the pointer, and null when the pointer leaves the table. */
   onRowHover?: (row: T | null) => void;
+  /** The entity a row stands for: hovering the row sets the shared hover store (src/app/hover.ts), so charts of the
+   *  workspace that draw it highlight it. */
+  hoverEntity?: (row: T) => Entity | null;
   /** The row drawn as selected. */
   activeRowId?: string | null;
   rowHeight?: number;
@@ -81,6 +88,7 @@ export function DataTable<T extends RowData>({
   onSortingChange,
   onRowClick,
   onRowHover,
+  hoverEntity,
   activeRowId,
   rowHeight = 24,
   emptyText = "No rows",
@@ -120,6 +128,12 @@ export function DataTable<T extends RowData>({
     enableSortingRemoval: true,
   });
 
+  // Leaving the page with a row hovered must not leave its entity highlighted elsewhere.
+  const sharesHover = hoverEntity !== undefined;
+  useEffect(() => () => {
+    if (sharesHover) hover.set(null);
+  }, [sharesHover]);
+
   const scroll = useRef<HTMLDivElement>(null);
   const model = table.getRowModel().rows;
   const virtualizer = useVirtualizer({
@@ -156,7 +170,10 @@ export function DataTable<T extends RowData>({
       role="table"
       aria-label={label}
       aria-rowcount={model.length}
-      onMouseLeave={() => onRowHover?.(null)}
+      onMouseLeave={() => {
+        onRowHover?.(null);
+        if (hoverEntity) hover.set(null);
+      }}
     >
       <div role="rowgroup" className="sticky top-0 z-10 border-b border-line bg-surface" style={{ minWidth: total }}>
         {grouped && (
@@ -182,7 +199,7 @@ export function DataTable<T extends RowData>({
           </div>
         )}
         <div className="flex">
-        {headers.map((h) => {
+        {headers.map((h, i) => {
           const sorted = h.column.getIsSorted();
           const meta = h.column.columnDef.meta as { numeric?: boolean; title?: string } | undefined;
           const canSort = h.column.getCanSort();
@@ -192,7 +209,7 @@ export function DataTable<T extends RowData>({
               role="columnheader"
               aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined}
               title={meta?.title}
-              className="relative flex h-6 shrink-0 select-none items-center px-2 font-medium text-ink-2"
+              className={`relative flex h-6 shrink-0 select-none items-center px-2 font-medium text-ink-2 ${i === 0 ? "dt-sticky" : ""}`}
               style={{ width: `var(${slot.get(h.column.id)})`, justifyContent: meta?.numeric ? "flex-end" : "flex-start" }}
             >
               {canSort ? (
@@ -217,8 +234,8 @@ export function DataTable<T extends RowData>({
         </div>
         {columns.some((c) => c.below !== undefined) && (
           <div className="flex">
-            {headers.map((h) => (
-              <div key={h.id} className="shrink-0 px-1 pb-1" style={{ width: `var(${slot.get(h.column.id)})` }}>
+            {headers.map((h, i) => (
+              <div key={h.id} className={`shrink-0 px-1 pb-1 ${i === 0 ? "dt-sticky" : ""}`} style={{ width: `var(${slot.get(h.column.id)})` }}>
                 {columns.find((c) => c.id === h.column.id)?.below}
               </div>
             ))}
@@ -240,15 +257,18 @@ export function DataTable<T extends RowData>({
                 aria-selected={active || undefined}
                 data-row-id={row.id}
                 onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                onMouseEnter={onRowHover ? () => onRowHover(row.original) : undefined}
+                onMouseEnter={onRowHover || hoverEntity ? () => {
+                  onRowHover?.(row.original);
+                  if (hoverEntity) hover.set(hoverEntity(row.original));
+                } : undefined}
                 className={`absolute left-0 flex w-full items-center border-b border-line/60 ${onRowClick ? "cursor-pointer" : ""} ${active ? "bg-selected" : "hover:bg-hover"}`}
                 style={{ height: rowHeight, transform: `translateY(${item.start}px)` }}
               >
-                {row.getAllCells().map((cell) => (
+                {row.getAllCells().map((cell, i) => (
                   <div
                     key={cell.id}
                     role="cell"
-                    className={`shrink-0 truncate px-2 ${numeric(cell.column.columnDef.meta) ? "num" : ""}`}
+                    className={`shrink-0 truncate px-2 ${numeric(cell.column.columnDef.meta) ? "num" : ""} ${i === 0 ? "dt-sticky self-stretch leading-[23px]" : ""}`}
                     style={{ width: `var(${slot.get(cell.column.id)})` }}
                   >
                     {table.FlexRender({ cell })}

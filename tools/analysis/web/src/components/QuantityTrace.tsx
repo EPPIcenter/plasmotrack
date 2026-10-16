@@ -17,6 +17,7 @@ const tick = (d: number) => formatNumber(d);
 import { chainScale } from "../lib/palette";
 import { rankFractions } from "../lib/ranks";
 import { chainDraws, traceSummary } from "../lib/trace";
+import { PanelState } from "./Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "./PlotFigure";
 import { StatusChip } from "./StatusChip";
 
@@ -65,7 +66,7 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
   const [burnIn, setBurnIn] = useState(false);
   const [range, setRange] = useState<[number, number] | null>(null);
   const { data: trace, error, isLoading } = useTrace(entity, burnIn, analysis);
-  const { data: diag } = useRange(entity, range, analysis);
+  const { data: diag, error: rangeError } = useRange(entity, range, analysis);
   const analysisChains = useChains();
   const chains = trace?.chains.map((c) => c.chain) ?? analysisChains;
 
@@ -164,8 +165,7 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
     [fractions, chains],
   );
 
-  if (error) return <p className="p-3 text-axis text-critical-ink">Could not load the trace: {error.message}</p>;
-  if (isLoading || !trace) return <p className="p-3 text-axis text-muted">Loading the trace…</p>;
+  if (error || isLoading || !trace) return <PanelState loading={isLoading} error={error} empty="No trace" />;
 
   const summary = traceSummary(trace, range);
   const span = range ? `iterations ${Math.ceil(range[0])}–${Math.floor(range[1])}` : "every Draw";
@@ -188,6 +188,7 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
           Burn-in
         </label>
       </div>
+      {rangeError && <PanelState error={rangeError} />}
       {noBurnIn && <p className="text-axis text-muted">The {entity.group} group comes from derived tables, which hold Draws only: no burn-in.</p>}
       <PlotFigure plot={drawTrace} height={height} onRender={onRender} label={`Trace of ${entity.name} per Chain`} />
       <p className="text-axis text-muted">Drag across the trace to recompute ESS and R-hat over a range of Draws.</p>

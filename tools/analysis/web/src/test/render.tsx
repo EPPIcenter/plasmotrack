@@ -46,6 +46,13 @@ export function fixtureFor(url: string): unknown {
   }
 }
 
+/** An answer of the API that failed: `failure(400, "no quantity x")` as an override answers with that status and the
+ *  backend's error body. */
+export class Failure {
+  constructor(readonly status: number, readonly error: string) {}
+}
+export const failure = (status: number, error: string) => new Failure(status, error);
+
 /** Stub fetch with the fixtures; `overrides` replace a path's answer (a function of the URL, or a value). Returns the
  *  mock, whose calls are the requested URLs. */
 export function mockApi(overrides: Record<string, unknown> = {}) {
@@ -53,6 +60,7 @@ export function mockApi(overrides: Record<string, unknown> = {}) {
     const url = String(input);
     const path = new URL(url, "http://test").pathname;
     const body = path in overrides ? (typeof overrides[path] === "function" ? (overrides[path] as (u: string) => unknown)(url) : overrides[path]) : fixtureFor(url);
+    if (body instanceof Failure) return new Response(JSON.stringify({ error: body.error }), { status: body.status, headers: { "Content-Type": "application/json" } });
     return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
   });
   vi.stubGlobal("fetch", mock);

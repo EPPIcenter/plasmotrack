@@ -48,6 +48,13 @@ describe("DataTable", () => {
     expect(within(screen.getAllByRole("row")[0]!).getAllByRole("cell")[1]).toHaveClass("num");
   });
 
+  it("keeps the first column in view when the table scrolls sideways", () => {
+    render(<DataTable rows={rows} columns={columns} getRowId={(r) => r.id} />);
+    expect(screen.getByRole("columnheader", { name: /Quantity/ })).toHaveClass("dt-sticky");
+    expect(within(screen.getAllByRole("row")[0]!).getAllByRole("cell")[0]).toHaveClass("dt-sticky");
+    expect(within(screen.getAllByRole("row")[0]!).getAllByRole("cell")[1]).not.toHaveClass("dt-sticky");
+  });
+
   it("sorts by a header, missing values last either way", async () => {
     render(<DataTable rows={rows} columns={columns} getRowId={(r) => r.id} />);
     const header = screen.getByRole("columnheader", { name: /ESS/ });
