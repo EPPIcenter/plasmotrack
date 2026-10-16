@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatEstimate,
+  traceAxis,
   classLabel,
   compositionSegments,
   degreePoints,
@@ -238,5 +240,47 @@ describe("classShade", () => {
     expect(classShade("observed_2_unobserved")).toEqual({ category: "mixed", step: 1 });
     expect(classShade("observed_1")).toEqual({ category: "observed_only", step: 0 });
     expect(classShade("observed_3")).toEqual({ category: "observed_only", step: 2 });
+  });
+});
+
+describe("formatEstimate", () => {
+  it("prints an estimate with its interval", () => {
+    expect(formatEstimate({ mean: 1.1682, lower: 1.1501, upper: 1.1794 })).toBe("1.168 [1.150, 1.179]");
+  });
+
+  it("prints a functional that moves only by rounding as one constant value", () => {
+    // He01's mean q: the Infections' q sum to a constant, so its Draws differ in the eleventh digit.
+    expect(formatEstimate({ mean: 0.32934131736, lower: 0.329341317359, upper: 0.329341317361 })).toBe("0.329 (constant)");
+  });
+
+  it("prints a dash without an interval", () => {
+    expect(formatEstimate(null)).toBe("–");
+  });
+});
+
+describe("traceAxis", () => {
+  it("autoscales a moving series, labelling its extremes", () => {
+    const axis = traceAxis([1.15, 1.18, 1.16]);
+    expect(axis.constant).toBe(false);
+    expect(axis.domain).toBeUndefined();
+    expect(axis.ticks.map(axis.format)).toEqual(["1.15", "1.18"]);
+  });
+
+  it("draws a series constant up to rounding flat in the middle of a fixed domain, with one label", () => {
+    const v = 0.32934131736;
+    const axis = traceAxis([v, v + 1e-12, v - 1e-12, NaN]);
+    expect(axis.constant).toBe(true);
+    const [lo, hi] = axis.domain!;
+    expect(lo).toBeLessThan(v);
+    expect(hi).toBeGreaterThan(v);
+    expect((lo + hi) / 2).toBeCloseTo(v, 9);
+    // Wide enough that rounding noise draws as a flat line: far wider than the series' range.
+    expect(hi - lo).toBeGreaterThan(1e-4);
+    expect(axis.ticks.map(axis.format)).toEqual(["0.3293"]);
+    expect(axis.text).toBe("0.3293 (constant)");
+  });
+
+  it("has nothing to draw without a finite value", () => {
+    expect(traceAxis([NaN]).ticks).toEqual([]);
   });
 });

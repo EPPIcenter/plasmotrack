@@ -2,6 +2,8 @@
 // tables, and the trace parameters of a stratum's per-Draw functional. No DOM here.
 
 import { intervalColumns, intervalFields, recordsTable, type DataTable } from "./export";
+import { formatFixed, formatInterval, formatNumber } from "./format";
+import { isConstant } from "./stats";
 import type { Entity } from "./entity";
 import type { Params } from "./params";
 
@@ -246,4 +248,46 @@ export function functionalsTable(f: Functionals): DataTable {
     ...intervalFields("multi_source_augmented", s.multi_source_augmented),
     ...intervalFields("multi_source_observed", s.multi_source_observed),
   })));
+}
+
+const decimals3 = (x: number) => formatFixed(x, 3);
+
+/** An estimate and its interval, "1.168 [1.150, 1.179]"; a functional whose Draws differ only by rounding (`isConstant`)
+ *  as its one value, "0.329 (constant)"; "–" without one. */
+export function formatEstimate(i: Interval | null, format: (x: number) => string = decimals3): string {
+  if (!i) return "–";
+  if (isConstant([i.lower, i.upper])) return formatInterval(i.lower, i.upper, format);
+  return `${format(i.mean)} ${formatInterval(i.lower, i.upper, format)}`;
+}
+
+export interface TraceAxis {
+  /** Whether the series is constant up to rounding: drawn flat, not autoscaled to its noise. */
+  constant: boolean;
+  /** A fixed y domain for a constant series, centred on it; autoscaled (undefined) otherwise. */
+  domain: [number, number] | undefined;
+  /** The y ticks: a moving series' extremes, a constant series' value. */
+  ticks: number[];
+  format: (x: number) => string;
+  /** A constant series' value as words, e.g. "0.3293 (constant)"; null for a moving one. */
+  text: string | null;
+}
+
+/** The y axis of a compact per-Draw trace. A moving series is autoscaled with its extremes labelled at the precision
+ *  that tells them apart. A series constant up to rounding (He01's mean q moves in its eleventh digit) is drawn flat in
+ *  the middle of a domain a percent of its value wide, so the noise does not fill the cell, with one label. */
+export function traceAxis(values: readonly number[]): TraceAxis {
+  const finite = values.filter(Number.isFinite);
+  if (!finite.length) return { constant: false, domain: undefined, ticks: [], format: (x) => formatNumber(x), text: null };
+  const lo = Math.min(...finite);
+  const hi = Math.max(...finite);
+  if (isConstant(finite)) {
+    const v = (lo + hi) / 2;
+    const pad = Math.max(Math.abs(v) * 0.01, 1e-3);
+    const format = (x: number) => formatNumber(x, 4);
+    return { constant: true, domain: [v - pad, v + pad], ticks: [v], format, text: formatInterval(lo, hi, format) };
+  }
+  // Three significant digits when they tell the extremes apart, else four; one label when even four do not.
+  const digits = formatNumber(lo, 3) !== formatNumber(hi, 3) ? 3 : 4;
+  const format = (x: number) => formatNumber(x, digits);
+  return { constant: false, domain: undefined, ticks: format(lo) === format(hi) ? [lo] : [lo, hi], format, text: null };
 }

@@ -20,6 +20,7 @@ import type { Entity } from "../../lib/entity";
 import {
   classLabel,
   classShade,
+  formatEstimate,
   compositionSegments,
   degreePoints,
   functionalEntity,
@@ -30,17 +31,15 @@ import {
   traceGrid,
   type DegreePoint,
   type Functionals,
-  type Interval,
   type StratumFunctionals,
 } from "../../lib/functionals";
+import { formatFixed, formatInterval } from "../../lib/format";
 import { compositionColour, inkOn } from "../../lib/palette";
 import { FunctionalTrace } from "./FunctionalTrace";
 import { onPick, StratumColumnSelect } from "./shared";
 
 const parse = (s: SearchValues) => ({ column: s.column || null });
 
-const fmt = (x: number | null | undefined) => (x === null || x === undefined || Number.isNaN(x) ? "–" : x.toFixed(3));
-const fmtInterval = (i: Interval | null) => (i ? `${fmt(i.mean)} [${fmt(i.lower)}, ${fmt(i.upper)}]` : "–");
 
 const ROW = 26;
 
@@ -87,7 +86,7 @@ function Degree({ f }: { f: Functionals }) {
   }, [f.column, select]);
 
   const tip = (p: DegreePoint) =>
-    `${p.stratum}\n${p.quantity} ${fmt(p.y)}\n${p.quantity === "ψ_MAP" ? "size range (recipient)" : "95% interval"} [${fmt(p.lo)}, ${fmt(p.hi)}]\n${p.functional ? "click: its trace" : f.column ? "click: the stratum" : "a point summary"}`;
+    `${p.stratum}\n${p.quantity} ${formatFixed(p.y, 3)}\n${p.quantity === "ψ_MAP" ? "size range (recipient)" : "95% interval"} ${formatInterval(p.lo, p.hi, (x) => formatFixed(x, 3))}\n${p.functional ? "click: its trace" : f.column ? "click: the stratum" : "a point summary"}`;
 
   const outDegree = useCallback(
     ({ width, theme }: PlotContext) => {
@@ -184,7 +183,7 @@ function Composition({ f }: { f: Functionals }) {
             x: (s) => (s.x1 + s.x2) / 2, y: "stratum", text: (s) => `${Math.round(100 * s.share)}%`, fontWeight: 600,
             fill: (s) => inkOn(compositionColour(theme, classShade(s.class))),
           }),
-          Plot.tip(segments, Plot.pointer({ x: (s) => (s.x1 + s.x2) / 2, y: "stratum", title: (s) => `${s.stratum}\n${s.label} ${fmt(s.share)}\nclick: its trace`, maxRadius: 40 })),
+          Plot.tip(segments, Plot.pointer({ x: (s) => (s.x1 + s.x2) / 2, y: "stratum", title: (s) => `${s.stratum}\n${s.label} ${formatFixed(s.share, 3)}\nclick: its trace`, maxRadius: 40 })),
         ],
       }),
     [segments, strata, order, height],
@@ -240,7 +239,7 @@ function MultiSource({ f }: { f: Functionals }) {
           Plot.dot(aug, { y: "stratum", x: (p: P) => p.i.mean, dy: -4, r: 4, fill: theme.accent, stroke: theme.surface, strokeWidth: 1.5 }),
           Plot.ruleY(obs, { y: "stratum", x1: (p: P) => p.i.lower, x2: (p: P) => p.i.upper, dy: 4, stroke: theme.ink2, strokeWidth: 2, strokeOpacity: 0.7 }),
           Plot.dot(obs, { y: "stratum", x: (p: P) => p.i.mean, dy: 4, r: 3.5, fill: theme.surface, stroke: theme.ink2, strokeWidth: 1.5 }),
-          Plot.tip(points, Plot.pointer({ y: "stratum", x: (p: P) => p.i.mean, maxRadius: 30, title: (p: P) => `${p.stratum}\nmulti-source, ${p.kind} ${fmtInterval(p.i)}\nclick: its trace` })),
+          Plot.tip(points, Plot.pointer({ y: "stratum", x: (p: P) => p.i.mean, maxRadius: 30, title: (p: P) => `${p.stratum}\nmulti-source, ${p.kind} ${formatEstimate(p.i)}\nclick: its trace` })),
         ],
       });
     },
@@ -298,17 +297,17 @@ function SummaryTable({ f }: { f: Functionals }) {
       { id: "stratum", header: f.column ?? "Stratum", value: (s) => stratumLabel(f.column, s.value), width: 130, cell: (s) => <StratumName column={f.column} value={s.value} /> },
       { id: "n", header: "n", value: (s) => s.n, numeric: true, width: 50, descFirst: true },
       { id: "psi_map", header: "ψ_MAP (source)", title: "Mean number of children whose modal Parent set names an Infection of the stratum; a point summary", value: (s) => s.psi_map, numeric: true, width: 140, descFirst: true,
-        cell: (s) => <Cell entity={functionalEntity(f.column, s.value, null)} title="A point summary: no per-Draw series">{fmt(s.psi_map)}</Cell> },
+        cell: (s) => <Cell entity={functionalEntity(f.column, s.value, null)} title="A point summary: no per-Draw series">{formatFixed(s.psi_map, 3)}</Cell> },
       { id: "size_range", header: `Size range (recipient, ${f.level})`, title: "Mean min and max observed-parent count in the credible collection", value: (s) => s.size_range?.[0] ?? null, numeric: true, width: 190,
-        cell: (s) => <Cell entity={functionalEntity(f.column, s.value, null)}>{s.size_range ? `[${fmt(s.size_range[0])}, ${fmt(s.size_range[1])}]` : "–"}</Cell> },
+        cell: (s) => <Cell entity={functionalEntity(f.column, s.value, null)}>{formatInterval(s.size_range?.[0], s.size_range?.[1], (x) => formatFixed(x, 3))}</Cell> },
       { id: "psi_edge", header: "ψ_edge (source)", title: "Expected children per Infection; 95% interval over Draws", value: (s) => s.psi_edge?.mean ?? null, numeric: true, width: 160, descFirst: true,
-        cell: (s) => <Cell entity={q(s, "psi_edge")}>{fmtInterval(s.psi_edge)}</Cell> },
+        cell: (s) => <Cell entity={q(s, "psi_edge")}>{formatEstimate(s.psi_edge)}</Cell> },
       { id: "mean_q", header: "mean q (recipient)", title: "Mean unobserved-source inclusion; 95% interval over Draws", value: (s) => s.mean_q?.mean ?? null, numeric: true, width: 160, descFirst: true,
-        cell: (s) => <Cell entity={q(s, "mean_q")}>{fmtInterval(s.mean_q)}</Cell> },
+        cell: (s) => <Cell entity={q(s, "mean_q")}>{formatEstimate(s.mean_q)}</Cell> },
       { id: "ms_aug", header: "Multi-source, augmented (recipient)", value: (s) => s.multi_source_augmented?.mean ?? null, numeric: true, width: 250, descFirst: true,
-        cell: (s) => <Cell entity={q(s, "mean_multi_source_augmented")}>{fmtInterval(ms.get(s.value)?.augmented ?? null)}</Cell> },
+        cell: (s) => <Cell entity={q(s, "mean_multi_source_augmented")}>{formatEstimate(ms.get(s.value)?.augmented ?? null)}</Cell> },
       { id: "ms_obs", header: "Multi-source, observed (recipient)", value: (s) => s.multi_source_observed?.mean ?? null, numeric: true, width: 240, descFirst: true,
-        cell: (s) => <Cell entity={q(s, "mean_multi_source_observed")}>{fmtInterval(ms.get(s.value)?.observed ?? null)}</Cell> },
+        cell: (s) => <Cell entity={q(s, "mean_multi_source_observed")}>{formatEstimate(ms.get(s.value)?.observed ?? null)}</Cell> },
     ],
     [f, ms],
   );
@@ -328,7 +327,7 @@ function ClassTable({ f }: { f: Functionals }) {
       ...order.map((c): Column<StratumFunctionals> => ({
         id: c, header: classLabel(c), title: `${classLabel(c)}: mean weight over the stratum's Infections as recipients; 95% interval over Draws`,
         value: (s) => s.classes[c]?.mean ?? null, numeric: true, width: 180, descFirst: true,
-        cell: (s) => <Cell entity={functionalEntity(f.column, s.value, `mean_${c}`)}>{fmtInterval(s.classes[c] ?? null)}</Cell>,
+        cell: (s) => <Cell entity={functionalEntity(f.column, s.value, `mean_${c}`)}>{formatEstimate(s.classes[c] ?? null)}</Cell>,
       })),
     ],
     [f, order],
@@ -343,7 +342,8 @@ function ClassTable({ f }: { f: Functionals }) {
 // --- Workspace ------------------------------------------------------------------------------------------------------
 
 function EpiNote() {
-  const { data: epi } = useEpi();
+  const { data: epi, error } = useEpi();
+  if (error) return <PanelState error={error} inline />;
   if (!epi) return null;
   const notes: string[] = [];
   if (!epi.key) notes.push("No epi data: every Infection only.");

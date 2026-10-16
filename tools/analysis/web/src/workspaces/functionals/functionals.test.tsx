@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { renderApp } from "../../test/render";
+import type { Functionals } from "../../lib/functionals";
+import { failure, fixture, fixtureFor, renderApp } from "../../test/render";
 
 const table = () => screen.findByRole("table", { name: "Functionals per stratum" });
 const row = async (stratum: string) =>
@@ -55,5 +56,40 @@ describe("Functionals", () => {
     const traces = await screen.findByRole("region", { name: "Functional traces" });
     expect(await within(traces).findByRole("img", { name: "mean entropy, All Infections, per Chain" })).toContainHTML("<svg");
     expect(await within(traces).findByRole("img", { name: "ψ_edge, North, per Chain" })).toBeInTheDocument();
+  });
+
+  it("prints and draws a functional whose Draws differ only by rounding as constant", async () => {
+    // He01's mean q: the Infections' q sum to a constant, so its Draws move in the eleventh digit.
+    const v = 0.32934131736;
+    const functionals = fixture<Functionals>("functionals");
+    functionals.strata[0]!.mean_q = { mean: v, lower: v - 1e-12, upper: v + 1e-12 };
+    const trace = (url: string) => {
+      const t = fixtureFor(url) as { name: string; chains: { value: number[] }[] };
+      if (t.name === "mean_q") for (const c of t.chains) c.value = c.value.map((_, i) => v + (i % 2 ? 1e-12 : -1e-12));
+      return t;
+    };
+    renderApp("/functionals", { "/api/functionals": functionals, "/api/trace": trace });
+    expect(await row("All Infections")).toHaveTextContent("0.329 (constant)");
+    const traces = await screen.findByRole("region", { name: "Functional traces" });
+    const cell = await within(traces).findByRole("img", { name: "mean q, All Infections, per Chain" });
+    expect(cell.closest("button")).toHaveTextContent("0.3293 (constant)");
+    // A moving functional keeps its autoscaled trace and no such note.
+    expect((await within(traces).findByRole("img", { name: "ψ_edge, All Infections, per Chain" })).closest("button")).not.toHaveTextContent("constant");
+  });
+
+  it("says when the functionals could not load", async () => {
+    renderApp("/functionals", { "/api/functionals": failure(500, "no epi column x") });
+    expect(await screen.findByText(/Could not load: .*no epi column x/)).toBeInTheDocument();
+  });
+
+  it("says when a functional's trace could not load", async () => {
+    renderApp("/functionals", { "/api/trace": failure(400, "no quantity functionals/mean_q") });
+    const traces = await screen.findByRole("region", { name: "Functional traces" });
+    expect(await within(traces).findAllByText(/Could not load: .*no quantity/)).not.toHaveLength(0);
+  });
+
+  it("says when the epi columns could not load", async () => {
+    renderApp("/functionals", { "/api/epi": failure(500, "bad epi file") });
+    expect(await screen.findByText(/Could not load: .*bad epi file/)).toBeInTheDocument();
   });
 });
