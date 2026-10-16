@@ -105,7 +105,10 @@ export function edgeStatsTable(rows: readonly EdgeRow[], chains: readonly string
   return {
     columns: ["child", "parent", "unobserved", "chain", "mean", "switches", "spread", "ess"],
     rows: rows.flatMap((r) => [
-      ...chains.filter((c) => r.chains[c]).map((c) => [r.child, r.parent, r.unobserved, c, r.chains[c]!.mean, r.chains[c]!.switches, null, null]),
+      ...chains.flatMap((c) => {
+        const chain = r.chains[c];
+        return chain ? [[r.child, r.parent, r.unobserved, c, chain.mean, chain.switches, null, null]] : [];
+      }),
       [r.child, r.parent, r.unobserved, null, r.pooled, r.switches, r.spread, r.ess],
     ]),
   };

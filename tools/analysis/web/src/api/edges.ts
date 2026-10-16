@@ -49,9 +49,9 @@ async function send(analysis: string | null, batch: Map<string, Waiting[]>) {
     try {
       const body = await getJson<SeriesPayload>("/api/edge-series", scoped({ edges: part.join(","), points: String(SERIES_POINTS) }, analysis));
       const found = new Map(body.series.map((s) => [`${s.child}<-${s.parent}`, s.chains]));
-      for (const key of part) for (const w of batch.get(key)!) w.resolve(found.get(key) ?? []);
+      for (const key of part) for (const w of batch.get(key) ?? []) w.resolve(found.get(key) ?? []);
     } catch (e) {
-      for (const key of part) for (const w of batch.get(key)!) w.reject(e);
+      for (const key of part) for (const w of batch.get(key) ?? []) w.reject(e);
     }
   }
 }

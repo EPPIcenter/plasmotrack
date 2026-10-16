@@ -1,8 +1,10 @@
 // The network as a WebGL graph: sigma.js over a graphology graph, wrapped as a React component. Nodes are Infections,
 // edges parent -> child. Two layouts: force-directed (ForceAtlas2 in a web worker, stopping by itself after a few
 // seconds) and a timeline with observation time on x and each Infection's posterior infection-time interval drawn as
-// a bar behind its node, edges drawn there as arcs (`@sigma/edge-curve`: an edge forward in time arcs above the
-// straight line, one backward in time below it, so long edges read as arcs over time rather than crossing strokes). Hover dims all but a node's neighbours and shows a tooltip; click and shift-click report
+// a bar behind its node, edges drawn there as arcs (`@sigma/edge-curve`: every edge bows clockwise from parent to
+// child, so one forward in time arcs above the straight line and one backward below it; long edges read as arcs over
+// time rather than crossing strokes, and stay WebGL with sigma's own hover and click at 1,556 Infections). Hover dims
+// all but a node's neighbours and shows a tooltip; click and shift-click report
 // to the parent. The parent decides what each edge looks like (`edgeLook`), which nodes are selected and which node
 // and edge are in focus (the Inspector's entity, or the edge under the pointer in the edge table).
 //
@@ -256,8 +258,8 @@ export function NetworkGraph(props: NetworkGraphProps) {
 
           const o = prepare(overlay, width, height);
           const at = (node: string) => {
-            const d = renderer.getNodeDisplayData(node)!;
-            return { ...renderer.framedGraphToViewport(d), r: renderer.scaleSize(d.size) };
+            const d = renderer.getNodeDisplayData(node);
+            return d ? { ...renderer.framedGraphToViewport(d), r: renderer.scaleSize(d.size) } : null;
           };
           const unit = (a: { x: number; y: number }, b: { x: number; y: number }) => {
             const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
@@ -269,6 +271,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
             const [source, target] = graph.extremities(edge);
             const s = at(source);
             const e = at(target);
+            if (!s || !e) continue;
             const length = Math.hypot(e.x - s.x, e.y - s.y);
             if (length <= s.r + e.r) continue;
             // In the timeline the edge is the arc sigma draws; its ends leave and arrive along the arc's tangents.
@@ -297,8 +300,8 @@ export function NetworkGraph(props: NetworkGraphProps) {
           }
           // Rings under the nodes: ink for the multi-selection, the accent for the Inspector's Infection.
           const ring = (id: string, colour: string, gap: number) => {
-            if (!graph.hasNode(id)) return;
-            const n = at(id);
+            const n = graph.hasNode(id) ? at(id) : null;
+            if (!n) return;
             o.beginPath();
             o.arc(n.x, n.y, n.r + gap, 0, Math.PI * 2);
             o.fillStyle = colour;

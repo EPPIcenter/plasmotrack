@@ -72,7 +72,7 @@ of `/convergence?sel=...` opens the app there.
     the active row. Columns are `{ id, header, value, cell?, numeric?, width?, descFirst?, group? }`; consecutive
     columns of one `group` share a header above theirs.
   - `Sparkline`, `StatusChip` (R-hat above 1.1 amber and 1.2 red, ESS under 100 amber and 20 red; icon and title
-    as well as colour), `EntityLink`, `KpiStrip`, `ExportMenu`, `QuantityTrace` (trace per Chain with a brushable
+    as well as colour), `EntityLink`, `KpiStrip` (a figure's optional `group` keeps it with its group when the strip wraps), `ExportMenu`, `QuantityTrace` (trace per Chain with a brushable
     range, rank histograms, ESS and R-hat over the range), `CommandPalette`, `Placeholder`, `AnalysisSwitch` (the open Analyses as a segmented switch; nothing with one open).
     `QuantityTrace` takes `analysis` to read a given open Analysis rather than the active one.
 - **Exports**: every `Panel` exports its figures (SVG and canvases in its body) as SVG and PNG on the theme's surface,
@@ -81,15 +81,27 @@ of `/convergence?sel=...` opens the app there.
 
 ## Explore: Network, Edges, Pairs
 
-- **Network** (`src/workspaces/network/`): `NetworkGraph.tsx` wraps sigma.js (imported on mount; without WebGL it says
-  so) with ForceAtlas2 in a worker and the timeline layout, an underlay for interval bars and the time axis, and an
-  overlay for dashed edges and selection rings. The workspace decides each edge's look (`edgeLook`: threshold, truth
-  overlay) and passes the multi-selection, the Inspector's Infection and the focused edge (the Inspector's, or the row
-  under the pointer in the edge list beside the graph, which the container's `data-focus-edge` names for tests).
-  Without `threshold` in the URL it opens at `defaultThreshold` (0.1, or higher so at most 3,000 edges show). Click
-  selects into the Inspector, shift-click toggles the multi-selection (`ids`), a click on the stage clears it.
-- **Edges** (`src/workspaces/edges/`): `/api/edges` with lags from `/api/network`'s observation times; the per-Draw
-  sparklines come from `/api/edge-series`, asked for only by the cells on screen and batched (`src/api/edges.ts`).
+- **Network** (`src/workspaces/network/`): `useNetworkView.ts` holds the state (URL via `parseNetworkSearch`, the
+  payloads, each edge's look, the isolated Infections, colours, the edges listed, the status line); `GraphPanel.tsx`
+  (toolbar `Controls.tsx`, graph, `Legend.tsx`) and `EdgeList.tsx` render it; the logic is in `src/lib/network.ts`.
+  `NetworkGraph.tsx` wraps sigma.js (imported on mount; without WebGL it says so) with ForceAtlas2 in a worker and
+  the timeline layout, an underlay for interval bars and the time axis, and an overlay for dashed edges and selection
+  rings. In the timeline, edges are arcs (`@sigma/edge-curve`, bowing clockwise from parent to child; the dashed
+  overlay follows the same curve, `arcControl`), so they stay WebGL with sigma's hover and click at Zanzibar scale.
+  URL: `threshold`, `layout=timeline`, `order=lanes`, `colour` (nodes), `edge_colour=spread|ess` (edges, from
+  `/api/edges` rows; marginal by default along `edgeRamp`, spread along it up to 0.5, ESS by status level),
+  `isolated=1` (draw Infections without a shown edge; hidden by default, except the selected and inspected ones),
+  stratum, `truth=1`, `source`. The status line counts the payload's edges (between Infections at or above its
+  `floor`), those shown at the threshold, and the Infections drawn. Hovering a row of the edge list (or any table
+  whose rows are edges or Infections) highlights that edge and its ends through the hover store; the container's
+  `data-focus-edge` and `data-hover-node` name them for tests. Without `threshold` it opens at `defaultThreshold`
+  (0.1, or higher so at most 3,000 edges show). Click selects into the Inspector, shift-click toggles the
+  multi-selection (`ids`), a click on the stage clears it.
+- **Edges** (`src/workspaces/edges/`): `/api/edges` (every edge with any weight, from the unobserved source too; the
+  status line says how many of each and how many the filters keep, `edgeTableSummary`) with lags from
+  `/api/network`'s observation times; the per-Draw sparklines come from `/api/edge-series`, asked for only by the
+  cells on screen and batched (`src/api/edges.ts`). A hovered row's series is previewed above the trace panel
+  (`HoveredEdge.tsx`).
 - **Pairs** (`src/workspaces/pairs/`): `/api/pairs` and the pair picker; the chosen pair (the top of the list until
   one is picked) is `PairView` from the Pair Inspector, every section at once.
 - **Inspector**: Edge (`src/inspector/edge/`) reads `/api/edges`, `/api/network` and, with truth, `/api/truth-network`;
@@ -125,6 +137,14 @@ Select with `useSelection().select(entity, tab?)` or render an `<EntityLink enti
 from the workspace to show an entity.
 
 ## Assess workspaces
+
+- **Overview** (`src/workspaces/overview/`, logic in `src/lib/overview.ts`): `Kpis.tsx` (Shape, Mixing and
+  Posterior groups of `KpiStrip`, which wrap whole; Shape counts `/api/overview`'s `edge_counts`), `MixingByGroup.tsx`
+  (each row's name, strips and R-hat > 1.1 count open Convergence with `group=`), `Attention.tsx` (worst-mixing
+  quantities, edges and Parent sets the Chains disagree on, by total variation distance from `set_disagreement`;
+  a Parent-set row selects the Infection at its Parents tab), `Headline.tsx` (the thumbnail clips its marks and opens
+  the Network at its threshold through `WorkspaceLink`). The grids follow the workspace's width (container queries),
+  so the Inspector being open reflows them.
 
 - **Samplers** (`src/workspaces/samplers/`, logic in `src/lib/sampler.ts`, hooks in `src/api/sampler.ts`): per Chain
   (`chain=`), a small multiple per sampler type of the pooled acceptance over Windows with the band from its lowest to

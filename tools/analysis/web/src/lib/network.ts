@@ -115,7 +115,7 @@ export function timelineLayout(nodes: readonly NetworkNode[], options: TimelineO
   const positions = new Map<string, { x: number; y: number }>();
   const bars: TimelineLayout["bars"] = [];
   for (const n of nodes) {
-    const y = row.get(n.id)! * options.laneHeight;
+    const y = (row.get(n.id) ?? 0) * options.laneHeight;
     positions.set(n.id, { x: x(n.observation_time), y });
     if (n.infection_time) bars.push({ id: n.id, x1: x(n.infection_time.lower), x2: x(n.infection_time.upper), y });
   }
