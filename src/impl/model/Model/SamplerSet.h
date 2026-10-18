@@ -174,7 +174,7 @@ namespace transmission_nets::impl::Model {
                 auto alleleFrequencySampler = std::make_unique<SALTSampler<T, Engine>>(state->alleleFrequencies->alleleFrequencies(locus), target, r, 1, .1, 2);
                 alleleFrequencySampler->setLowerLimit_(MIN_ALLELE_FREQUENCY);
                 if constexpr (ALLELE_FREQUENCY_DIRICHLET_MOVE) {
-                    alleleFrequencySampler->enableDirichletMove(ALLELE_FREQUENCY_FIT_WINDOWS, ALLELE_FREQUENCY_DIRICHLET_WIDEN, SALT_UPDATE_FREQUENCY);
+                    alleleFrequencySampler->enableDirichletMove(ALLELE_FREQUENCY_FIT_WINDOWS, ALLELE_FREQUENCY_DIRICHLET_WIDEN, SALT_UPDATE_FREQUENCY, ALLELE_FREQUENCY_DIRICHLET_EVERY);
                 }
                 scheduler_.registerSampler({.sampler = std::move(alleleFrequencySampler),
                                             .id = fmt::format("SALTSampler/allele_frequencies/{}", locus_label),

@@ -42,7 +42,8 @@ namespace transmission_nets::core::samplers {
      * sampler's own trajectory (enableDirichletMove). The sampler observes the simplex after every update and refits
      * at the end of each fitting window, from that window's observations alone: the mean, and one precision for all
      * frequencies (the median of each frequency's moment estimate). After the last window the fit is fixed. Until the
-     * first fit every update runs the SALT sweep; after it, every saltEvery-th update does. The proposal is an equal
+     * first fit every update runs the SALT sweep; after it, every saltEvery-th update does, and every moveEvery-th
+     * update makes the Dirichlet move (the simplex is observed on every update). The proposal is an equal
      * mixture of Dirichlet(alpha) and Dirichlet(widen * alpha), as in DirichletIndependenceSampler.
      */
     template<typename T, typename Engine = boost::random::mt19937>
@@ -56,7 +57,7 @@ namespace transmission_nets::core::samplers {
 
         void setLowerLimit_(double lim) noexcept;
 
-        void enableDirichletMove(std::vector<int> fitWindows, double widen, int saltEvery);
+        void enableDirichletMove(std::vector<int> fitWindows, double widen, int saltEvery, int moveEvery = 1);
 
         // Accepted and proposed Dirichlet moves.
         [[nodiscard]] SamplerCounts dirichletCounts() const noexcept { return dirichletCounts_; }
@@ -105,6 +106,7 @@ namespace transmission_nets::core::samplers {
         std::vector<int> fitWindows_{};
         double widen_  = 1;
         int saltEvery_ = 1;
+        int moveEvery_ = 1;
         size_t window_ = 0;// the fitting window being observed; fitWindows_.size() once the fit is fixed
         int observed_  = 0;// observations in this window
         std::uint64_t moveUpdates_ = 0;
@@ -140,11 +142,12 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    void SALTSampler<T, Engine>::enableDirichletMove(std::vector<int> fitWindows, const double widen, const int saltEvery) {
+    void SALTSampler<T, Engine>::enableDirichletMove(std::vector<int> fitWindows, const double widen, const int saltEvery, const int moveEvery) {
         dirichletMove_ = true;
         fitWindows_    = std::move(fitWindows);
         widen_         = widen;
         saltEvery_     = std::max(1, saltEvery);
+        moveEvery_     = std::max(1, moveEvery);
         mean_.assign(variances_.size(), 0.0);
         m2_.assign(variances_.size(), 0.0);
     }
@@ -159,7 +162,7 @@ namespace transmission_nets::core::samplers {
             saltSweep();
         }
         observe();
-        if (not alpha_.empty()) {
+        if (not alpha_.empty() and moveUpdates_ % moveEvery_ == 0) {
             dirichletMove();
         }
         ++moveUpdates_;
