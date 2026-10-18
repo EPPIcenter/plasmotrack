@@ -45,6 +45,11 @@ namespace transmission_nets::core::samplers {
      * first fit every update runs the SALT sweep; after it, every saltEvery-th update does, and every moveEvery-th
      * update makes the Dirichlet move (the simplex is observed on every update). The proposal is an equal
      * mixture of Dirichlet(alpha) and Dirichlet(widen * alpha), as in DirichletIndependenceSampler.
+     *
+     * With a block size, a simplex of more frequencies than that is moved in blocks: a uniformly random partition into
+     * blocks of blockSize (the last takes the remainder), each proposed in turn by redrawing the block's shares of its
+     * current total from the mixture restricted to the block, which is the conditional of the full proposal. An
+     * independence proposal's acceptance falls with dimension, so this keeps loci with many alleles moving.
      */
     template<typename T, typename Engine = boost::random::mt19937>
     class SALTSampler : public AbstractSampler {
@@ -57,7 +62,8 @@ namespace transmission_nets::core::samplers {
 
         void setLowerLimit_(double lim) noexcept;
 
-        void enableDirichletMove(std::vector<int> fitWindows, double widen, int saltEvery, int moveEvery = 1);
+        // A block size of 0 moves the whole simplex at once.
+        void enableDirichletMove(std::vector<int> fitWindows, double widen, int saltEvery, int moveEvery = 1, size_t blockSize = 0);
 
         // Accepted and proposed Dirichlet moves.
         [[nodiscard]] SamplerCounts dirichletCounts() const noexcept { return dirichletCounts_; }
@@ -79,6 +85,8 @@ namespace transmission_nets::core::samplers {
         void saltSweep() noexcept;
         void observe() noexcept;
         void dirichletMove() noexcept;
+        void wholeDirichletMove() noexcept;
+        void dirichletBlockMove(const std::vector<int>& block) noexcept;
         [[nodiscard]] size_t fitSize() const noexcept { return 5 + 3 * variances_.size(); }
 
         double sampleProposal(double logitCurr, double variance) noexcept;
@@ -107,10 +115,11 @@ namespace transmission_nets::core::samplers {
         double widen_  = 1;
         int saltEvery_ = 1;
         int moveEvery_ = 1;
+        size_t blockSize_ = 0;
         size_t window_ = 0;// the fitting window being observed; fitWindows_.size() once the fit is fixed
         int observed_  = 0;// observations in this window
         std::uint64_t moveUpdates_ = 0;
-        std::vector<double> mean_{}, m2_{}, alpha_{}, wide_{}, draw_{};
+        std::vector<double> mean_{}, m2_{}, alpha_{}, wide_{}, draw_{}, blockNarrow_{}, blockWide_{}, blockCurrent_{};
         SamplerCounts dirichletCounts_{};
     };
 
@@ -142,12 +151,13 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    void SALTSampler<T, Engine>::enableDirichletMove(std::vector<int> fitWindows, const double widen, const int saltEvery, const int moveEvery) {
+    void SALTSampler<T, Engine>::enableDirichletMove(std::vector<int> fitWindows, const double widen, const int saltEvery, const int moveEvery, const size_t blockSize) {
         dirichletMove_ = true;
         fitWindows_    = std::move(fitWindows);
         widen_         = widen;
         saltEvery_     = std::max(1, saltEvery);
         moveEvery_     = std::max(1, moveEvery);
+        blockSize_     = blockSize;
         mean_.assign(variances_.size(), 0.0);
         m2_.assign(variances_.size(), 0.0);
     }
@@ -208,6 +218,54 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine>
     void SALTSampler<T, Engine>::dirichletMove() noexcept {
+        const size_t k = alpha_.size();
+        if (blockSize_ == 0 or k <= blockSize_) {
+            wholeDirichletMove();
+            return;
+        }
+        const auto order    = utils::generators::randomSequence(0, static_cast<int>(k), rng_);
+        const size_t blocks = k / blockSize_;
+        for (size_t b = 0; b < blocks; ++b) {
+            const auto end = b + 1 == blocks ? order.end() : order.begin() + static_cast<long>((b + 1) * blockSize_);
+            dirichletBlockMove(std::vector<int>(order.begin() + static_cast<long>(b * blockSize_), end));
+        }
+    }
+
+    template<typename T, typename Engine>
+    void SALTSampler<T, Engine>::dirichletBlockMove(const std::vector<int>& block) noexcept {
+        auto proposal = this->propose(*target_, *rng_);
+        ++dirichletCounts_.proposed;
+        const auto current = parameter_->value().frequencies();
+        blockNarrow_.clear();
+        blockWide_.clear();
+        blockCurrent_.clear();
+        double total = 0;
+        for (const int a : block) {
+            blockNarrow_.push_back(alpha_[a]);
+            blockWide_.push_back(wide_[a]);
+            total += current[a];
+        }
+        for (const int a : block) {
+            blockCurrent_.push_back(current[a] / total);
+        }
+        if (not dirichlet::drawMixture(blockNarrow_, blockWide_, lowerLimit_ / total, *rng_, draw_)) {
+            proposal.reject();
+            return;
+        }
+        auto next = current;
+        for (size_t i = 0; i < block.size(); ++i) {
+            next[block[i]] = total * draw_[i];
+        }
+        // The block's total is the same before and after, so the map from shares to frequencies has the same
+        // Jacobian both ways and the Hastings ratio is that of the shares.
+        proposal.change(*parameter_, datatypes::Simplex::exactly(next));
+        if (proposal.metropolis(dirichlet::logMixtureDensity(blockNarrow_, blockWide_, blockCurrent_) - dirichlet::logMixtureDensity(blockNarrow_, blockWide_, draw_))) {
+            ++dirichletCounts_.accepted;
+        }
+    }
+
+    template<typename T, typename Engine>
+    void SALTSampler<T, Engine>::wholeDirichletMove() noexcept {
         auto proposal = this->propose(*target_, *rng_);
         ++dirichletCounts_.proposed;
         if (not dirichlet::drawMixture(alpha_, wide_, lowerLimit_, *rng_, draw_)) {

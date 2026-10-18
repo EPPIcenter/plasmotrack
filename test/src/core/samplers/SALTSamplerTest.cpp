@@ -146,7 +146,7 @@ TEST(SALTSamplerTest, DirichletMoments) {
 
 namespace {
     struct WeakDirichletTarget {
-        explicit WeakDirichletTarget(std::shared_ptr<Parameter<Simplex>> freqs) : freqs_(std::move(freqs)) {
+        explicit WeakDirichletTarget(std::shared_ptr<Parameter<Simplex>> freqs, std::vector<double> alpha = {2, 3, 5}) : alpha(std::move(alpha)), freqs_(std::move(freqs)) {
             freqs_->add_post_change_listener([this]() { dirty_ = true; });
         }
 
@@ -161,7 +161,7 @@ namespace {
 
         [[nodiscard]] bool isDirty() const { return dirty_; }
 
-        std::vector<double> alpha{2, 3, 5};
+        std::vector<double> alpha;
         std::shared_ptr<Parameter<Simplex>> freqs_;
         bool dirty_ = true;
     };
@@ -202,6 +202,45 @@ TEST(SALTSamplerTest, DirichletMoveKeepsDirichletMoments) {
         EXPECT_NEAR(variance, alpha[j] * (10 - alpha[j]) / 1100, 0.001) << "frequency " << j;
     }
     const auto counts = sampler.dirichletCounts();
+    EXPECT_GT(static_cast<double>(counts.accepted - fittedCounts.accepted), 0.5 * static_cast<double>(counts.proposed - fittedCounts.proposed));
+}
+
+// Moved in blocks of 3 (3, 3 and 4 of the 10 frequencies, partitioned afresh each move), a Dirichlet target's moments
+// still hold.
+TEST(SALTSamplerTest, DirichletBlockMoveKeepsDirichletMoments) {
+    const std::vector<double> alpha{2, 3, 5, 1.5, 4, 2.5, 6, 3.5, 2, 4.5};
+    const double total = 34;
+    auto freqs         = std::make_shared<Parameter<Simplex>>(std::vector<double>(alpha.size(), 1.0 / alpha.size()));
+    auto target        = std::make_shared<WeakDirichletTarget>(freqs, alpha);
+    auto rng           = std::make_shared<boost::random::mt19937>(20261018);
+
+    SALTSampler sampler(freqs, target, rng, 1);
+    sampler.setLowerLimit_(1e-9);
+    sampler.enableDirichletMove({200, 1000}, 0.25, 10, 1, 3);
+
+    for (int i = 0; i < 5000; ++i) {
+        sampler.update();
+    }
+    ASSERT_EQ(sampler.dirichletAlpha().size(), alpha.size());
+    const auto fittedCounts = sampler.dirichletCounts();
+    constexpr int draws     = 200000;
+    std::vector<double> sum(alpha.size()), sumSquares(alpha.size());
+    for (int i = 0; i < draws; ++i) {
+        sampler.update();
+        for (unsigned int j = 0; j < alpha.size(); ++j) {
+            const double f = freqs->value().frequencies(j);
+            sum[j] += f;
+            sumSquares[j] += f * f;
+        }
+    }
+    for (unsigned int j = 0; j < alpha.size(); ++j) {
+        const double mean     = sum[j] / draws;
+        const double variance = sumSquares[j] / draws - mean * mean;
+        EXPECT_NEAR(mean, alpha[j] / total, 0.003) << "frequency " << j;
+        EXPECT_NEAR(variance, alpha[j] * (total - alpha[j]) / (total * total * (total + 1)), 0.0003) << "frequency " << j;
+    }
+    const auto counts = sampler.dirichletCounts();
+    EXPECT_EQ(counts.proposed - fittedCounts.proposed, 3u * draws);
     EXPECT_GT(static_cast<double>(counts.accepted - fittedCounts.accepted), 0.5 * static_cast<double>(counts.proposed - fittedCounts.proposed));
 }
 

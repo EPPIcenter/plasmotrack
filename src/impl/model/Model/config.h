@@ -34,13 +34,15 @@ namespace transmission_nets::impl::Model {
     constexpr size_t INFORMED_JUMP_MAX_TRIES = 4;
     // Allele-frequency (SALT) updates run every this many Sampling iterations.
     constexpr int SALT_UPDATE_FREQUENCY = 30;
-    // Each allele-frequency sampler, updated every iteration, also makes a whole-locus Dirichlet move every
+    // Each allele-frequency sampler, updated every iteration, also makes a Dirichlet move every
     // ALLELE_FREQUENCY_DIRICHLET_EVERY-th update, fitted to its own trajectory over these windows of updates and fixed
     // after the last; its SALT sweep then runs every SALT_UPDATE_FREQUENCY-th update.
     constexpr bool ALLELE_FREQUENCY_DIRICHLET_MOVE = true;
     constexpr int ALLELE_FREQUENCY_DIRICHLET_EVERY = 2;
     inline const std::vector<int> ALLELE_FREQUENCY_FIT_WINDOWS{20, 50, 100, 200, 400};
     constexpr double ALLELE_FREQUENCY_DIRICHLET_WIDEN = 0.25;
+    // A locus of more alleles than this is moved in random blocks of this many; 0 moves the whole locus at once.
+    constexpr size_t ALLELE_FREQUENCY_DIRICHLET_BLOCK = 4;
     // Share of RandomAllelesBitSetSampler3 updates whose parent-set option is uniform; the rest follow the
     // infection's parent-set posterior. 1 makes every option uniform.
     constexpr double PARENT_SET_PROPOSAL_UNIFORM_SHARE = 0.1;
