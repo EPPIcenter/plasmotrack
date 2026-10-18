@@ -126,7 +126,9 @@ namespace transmission_nets::impl::Model {
                 // The 0.01 rates apply only if the infection's sampled error counts are absent; those counts replace them.
                 scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, 1.0, upperBound, durations, 0.01, 0.01, RELINK_TRIES, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex], RELINK_SOURCE_WEIGHT_SCALE),
                                             .id = fmt::format("ParentRelinkSampler/infection/{}", infection_id)});
-                scheduler_.registerSampler({.sampler = std::make_unique<genetics::StrainCountSampler<T, Engine, InfectionEvent>>(infection, target, r, MAX_COI),
+                auto strainCountSampler = std::make_unique<genetics::StrainCountSampler<T, Engine, InfectionEvent>>(infection, target, r, MAX_COI);
+                strainCountSampler->enableObservedToggles(OBSERVED_ALLELE_TOGGLES);
+                scheduler_.registerSampler({.sampler = std::move(strainCountSampler),
                                             .id = fmt::format("StrainCountSampler/latent_genotypes/{}", infection_id)});
                 // Move the infection to the other side of a clone in the ordering.
                 using CloneOrderSwap = specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>;
