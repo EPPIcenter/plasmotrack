@@ -19,6 +19,42 @@
 
 namespace transmission_nets::core::samplers {
 
+    namespace dirichlet {
+        inline double logDensity(const std::vector<double>& alpha, const std::vector<double>& f) {
+            double sumAlpha = 0, out = 0;
+            for (size_t a = 0; a < alpha.size(); ++a) {
+                sumAlpha += alpha[a];
+                out += (alpha[a] - 1) * std::log(f[a]) - std::lgamma(alpha[a]);
+            }
+            return out + std::lgamma(sumAlpha);
+        }
+
+        // An equal mixture of Dirichlet(narrow) and Dirichlet(wide).
+        inline double logMixtureDensity(const std::vector<double>& narrow, const std::vector<double>& wide, const std::vector<double>& f) {
+            const double n = logDensity(narrow, f), w = logDensity(wide, f);
+            const double m = std::max(n, w);
+            return m + std::log(0.5 * std::exp(n - m) + 0.5 * std::exp(w - m));
+        }
+
+        // A draw from the mixture into `f`; false when an element falls below `lowerLimit`.
+        template<typename Engine>
+        bool drawMixture(const std::vector<double>& narrow, const std::vector<double>& wide, const double lowerLimit, Engine& rng, std::vector<double>& f) {
+            const auto& alpha = boost::random::uniform_01<>()(rng) < 0.5 ? narrow : wide;
+            f.resize(alpha.size());
+            double total = 0;
+            for (size_t a = 0; a < alpha.size(); ++a) {
+                f[a] = boost::random::gamma_distribution<>(alpha[a])(rng);
+                total += f[a];
+            }
+            bool inBounds = total > 0;
+            for (auto& x : f) {
+                x /= total;
+                inBounds = inBounds and x >= lowerLimit;
+            }
+            return inBounds;
+        }
+    }// namespace dirichlet
+
     /*
      * An independence Metropolis-Hastings move on a simplex. The proposal is an equal mixture of Dirichlet(alpha) and
      * Dirichlet(widen * alpha), the same mean with a heavier spread, so that a value in alpha's tails is still proposed
@@ -46,59 +82,26 @@ namespace transmission_nets::core::samplers {
 
         void update() noexcept override;
 
-        [[nodiscard]] double logProposalDensity(const std::vector<double>& f) const;
-
     private:
-        static double logDirichlet(const std::vector<double>& alpha, const std::vector<double>& f);
-
         std::shared_ptr<parameters::Parameter<datatypes::Simplex>> parameter_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
         std::vector<double> alpha_;
         std::vector<double> wide_;
         double lowerLimit_;
-        boost::random::uniform_01<> uniform_{};
+        std::vector<double> draw_{};
     };
 
     template<typename T, typename Engine>
-    double DirichletIndependenceSampler<T, Engine>::logDirichlet(const std::vector<double>& alpha, const std::vector<double>& f) {
-        double sumAlpha = 0, out = 0;
-        for (size_t a = 0; a < alpha.size(); ++a) {
-            sumAlpha += alpha[a];
-            out += (alpha[a] - 1) * std::log(f[a]) - std::lgamma(alpha[a]);
-        }
-        return out + std::lgamma(sumAlpha);
-    }
-
-    template<typename T, typename Engine>
-    double DirichletIndependenceSampler<T, Engine>::logProposalDensity(const std::vector<double>& f) const {
-        const double narrow = logDirichlet(alpha_, f), wide = logDirichlet(wide_, f);
-        const double m      = std::max(narrow, wide);
-        return m + std::log(0.5 * std::exp(narrow - m) + 0.5 * std::exp(wide - m));
-    }
-
-    template<typename T, typename Engine>
     void DirichletIndependenceSampler<T, Engine>::update() noexcept {
-        const auto& alpha = uniform_(*rng_) < 0.5 ? alpha_ : wide_;
-        std::vector<double> f(alpha.size());
-        double total = 0;
-        for (size_t a = 0; a < alpha.size(); ++a) {
-            f[a] = boost::random::gamma_distribution<>(alpha[a])(*rng_);
-            total += f[a];
-        }
-        bool outOfBounds = not(total > 0);
-        for (auto& x : f) {
-            x /= total;
-            outOfBounds = outOfBounds or not(x >= lowerLimit_);
-        }
         auto proposal = this->propose(*target_, *rng_);
-        if (outOfBounds) {
+        if (not dirichlet::drawMixture(alpha_, wide_, lowerLimit_, *rng_, draw_)) {
             proposal.reject();
             return;
         }
         const auto current = parameter_->value().frequencies();
-        proposal.change(*parameter_, datatypes::Simplex::exactly(f));
-        proposal.metropolis(logProposalDensity(current) - logProposalDensity(f));
+        proposal.change(*parameter_, datatypes::Simplex::exactly(draw_));
+        proposal.metropolis(dirichlet::logMixtureDensity(alpha_, wide_, current) - dirichlet::logMixtureDensity(alpha_, wide_, draw_));
     }
 
 }// namespace transmission_nets::core::samplers

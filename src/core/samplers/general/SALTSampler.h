@@ -15,6 +15,7 @@
 #include "core/datatypes/Simplex.h"
 #include "core/io/serialize.h"
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/general/DirichletIndependenceSampler.h"
 
 #include "core/utils/generators/RandomSequence.h"
 #include "core/utils/numerics.h"
@@ -36,6 +37,14 @@ namespace transmission_nets::core::samplers {
 
     using LogPQ = utils::LogPQ;
 
+    /*
+     * Optionally, each update also makes a Dirichlet independence move on the whole simplex, fitted to the
+     * sampler's own trajectory (enableDirichletMove). The sampler observes the simplex after every update and refits
+     * at the end of each fitting window, from that window's observations alone: the mean, and one precision for all
+     * frequencies (the median of each frequency's moment estimate). After the last window the fit is fixed. Until the
+     * first fit every update runs the SALT sweep; after it, every saltEvery-th update does. The proposal is an equal
+     * mixture of Dirichlet(alpha) and Dirichlet(widen * alpha), as in DirichletIndependenceSampler.
+     */
     template<typename T, typename Engine = boost::random::mt19937>
     class SALTSampler : public AbstractSampler {
     public:
@@ -46,6 +55,13 @@ namespace transmission_nets::core::samplers {
         [[nodiscard]] double getVariance(int idx) const noexcept;
 
         void setLowerLimit_(double lim) noexcept;
+
+        void enableDirichletMove(std::vector<int> fitWindows, double widen, int saltEvery);
+
+        // Accepted and proposed Dirichlet moves.
+        [[nodiscard]] SamplerCounts dirichletCounts() const noexcept { return dirichletCounts_; }
+        // The fitted concentrations; empty before the first fit.
+        [[nodiscard]] const std::vector<double>& dirichletAlpha() const noexcept { return alpha_; }
 
         void update() noexcept override;
 
@@ -59,6 +75,11 @@ namespace transmission_nets::core::samplers {
         void restoreAdaptationState(const AdaptationState& state) override;
 
     private:
+        void saltSweep() noexcept;
+        void observe() noexcept;
+        void dirichletMove() noexcept;
+        [[nodiscard]] size_t fitSize() const noexcept { return 5 + 3 * variances_.size(); }
+
         double sampleProposal(double logitCurr, double variance) noexcept;
         double logMetropolisHastingsAdjustment(LogPQ currLogPQ, LogPQ propLogPQ, int k) noexcept;
 
@@ -79,6 +100,16 @@ namespace transmission_nets::core::samplers {
         double lowerLimit_ = .01;
 
         int totalUpdates_ = 0;
+
+        bool dirichletMove_ = false;
+        std::vector<int> fitWindows_{};
+        double widen_  = 1;
+        int saltEvery_ = 1;
+        size_t window_ = 0;// the fitting window being observed; fitWindows_.size() once the fit is fixed
+        int observed_  = 0;// observations in this window
+        std::uint64_t moveUpdates_ = 0;
+        std::vector<double> mean_{}, m2_{}, alpha_{}, wide_{}, draw_{};
+        SamplerCounts dirichletCounts_{};
     };
 
     template<typename T, typename Engine>
@@ -109,7 +140,86 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
+    void SALTSampler<T, Engine>::enableDirichletMove(std::vector<int> fitWindows, const double widen, const int saltEvery) {
+        dirichletMove_ = true;
+        fitWindows_    = std::move(fitWindows);
+        widen_         = widen;
+        saltEvery_     = std::max(1, saltEvery);
+        mean_.assign(variances_.size(), 0.0);
+        m2_.assign(variances_.size(), 0.0);
+    }
+
+    template<typename T, typename Engine>
     void SALTSampler<T, Engine>::update() noexcept {
+        if (not dirichletMove_) {
+            saltSweep();
+            return;
+        }
+        if (alpha_.empty() or moveUpdates_ % saltEvery_ == 0) {
+            saltSweep();
+        }
+        observe();
+        if (not alpha_.empty()) {
+            dirichletMove();
+        }
+        ++moveUpdates_;
+    }
+
+    template<typename T, typename Engine>
+    void SALTSampler<T, Engine>::observe() noexcept {
+        if (window_ >= fitWindows_.size()) {
+            return;
+        }
+        const auto f = parameter_->value().frequencies();
+        ++observed_;
+        for (size_t a = 0; a < f.size(); ++a) {
+            const double d = f[a] - mean_[a];
+            mean_[a] += d / observed_;
+            m2_[a] += d * (f[a] - mean_[a]);
+        }
+        if (observed_ < fitWindows_[window_]) {
+            return;
+        }
+        std::vector<double> precisions;
+        for (size_t a = 0; a < f.size(); ++a) {
+            const double variance = observed_ > 1 ? m2_[a] / (observed_ - 1) : 0.0;
+            if (variance > 0) {
+                precisions.push_back(mean_[a] * (1 - mean_[a]) / variance - 1);
+            }
+        }
+        if (not precisions.empty()) {
+            std::nth_element(precisions.begin(), precisions.begin() + precisions.size() / 2, precisions.end());
+            const double precision = std::clamp(precisions[precisions.size() / 2], 1.0, 1e6);
+            alpha_.resize(f.size());
+            wide_.resize(f.size());
+            for (size_t a = 0; a < f.size(); ++a) {
+                alpha_[a] = std::max(mean_[a] * precision, 1e-3);
+                wide_[a]  = alpha_[a] * widen_;
+            }
+        }
+        ++window_;
+        observed_ = 0;
+        std::fill(mean_.begin(), mean_.end(), 0.0);
+        std::fill(m2_.begin(), m2_.end(), 0.0);
+    }
+
+    template<typename T, typename Engine>
+    void SALTSampler<T, Engine>::dirichletMove() noexcept {
+        auto proposal = this->propose(*target_, *rng_);
+        ++dirichletCounts_.proposed;
+        if (not dirichlet::drawMixture(alpha_, wide_, lowerLimit_, *rng_, draw_)) {
+            proposal.reject();
+            return;
+        }
+        const auto current = parameter_->value().frequencies();
+        proposal.change(*parameter_, datatypes::Simplex::exactly(draw_));
+        if (proposal.metropolis(dirichlet::logMixtureDensity(alpha_, wide_, current) - dirichlet::logMixtureDensity(alpha_, wide_, draw_))) {
+            ++dirichletCounts_.accepted;
+        }
+    }
+
+    template<typename T, typename Engine>
+    void SALTSampler<T, Engine>::saltSweep() noexcept {
         auto indices = utils::generators::randomSequence(0, parameter_->value().totalElements(), rng_);
         for (const auto idx : indices) {
             auto proposal = this->propose(*target_, *rng_);
@@ -193,6 +303,17 @@ namespace transmission_nets::core::samplers {
             const auto accepted = static_cast<std::uint64_t>(acceptances_[j]);
             state.scales.push_back({.variance = variances_[j], .counts = {.accepted = accepted, .proposed = accepted + static_cast<std::uint64_t>(rejections_[j])}});
         }
+        if (dirichletMove_) {
+            // window, observations, move updates, Dirichlet accepted and proposed, then per frequency the window's
+            // running mean and sum of squares and the fitted concentration (0 before the first fit).
+            state.fit = {static_cast<double>(window_), static_cast<double>(observed_), static_cast<double>(moveUpdates_), static_cast<double>(dirichletCounts_.accepted),
+                         static_cast<double>(dirichletCounts_.proposed)};
+            state.fit.insert(state.fit.end(), mean_.begin(), mean_.end());
+            state.fit.insert(state.fit.end(), m2_.begin(), m2_.end());
+            for (size_t j = 0; j < variances_.size(); ++j) {
+                state.fit.push_back(alpha_.empty() ? 0.0 : alpha_[j]);
+            }
+        }
         return state;
     }
 
@@ -206,6 +327,30 @@ namespace transmission_nets::core::samplers {
             rejections_[j]    = static_cast<double>(scale.counts.proposed - scale.counts.accepted);
         }
         totalUpdates_ = static_cast<int>(state.updates);
+        // A state without a fit (from before the move, or with it off) leaves the move to fit afresh.
+        if (not dirichletMove_ or state.fit.empty()) {
+            return;
+        }
+        if (state.fit.size() != fitSize()) {
+            throw std::invalid_argument("Dirichlet fit has " + std::to_string(state.fit.size()) + " values, sampler has " + std::to_string(fitSize()));
+        }
+        const size_t k   = variances_.size();
+        window_          = static_cast<size_t>(state.fit[0]);
+        observed_        = static_cast<int>(state.fit[1]);
+        moveUpdates_     = static_cast<std::uint64_t>(state.fit[2]);
+        dirichletCounts_ = {.accepted = static_cast<std::uint64_t>(state.fit[3]), .proposed = static_cast<std::uint64_t>(state.fit[4])};
+        mean_.assign(state.fit.begin() + 5, state.fit.begin() + 5 + k);
+        m2_.assign(state.fit.begin() + 5 + k, state.fit.begin() + 5 + 2 * k);
+        alpha_.assign(state.fit.begin() + 5 + 2 * k, state.fit.end());
+        if (alpha_[0] == 0.0) {
+            alpha_.clear();
+            wide_.clear();
+        } else {
+            wide_ = alpha_;
+            for (auto& a : wide_) {
+                a *= widen_;
+            }
+        }
     }
 
     template<typename T, typename Engine>

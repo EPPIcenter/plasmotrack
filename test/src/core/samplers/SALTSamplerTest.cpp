@@ -143,3 +143,105 @@ TEST(SALTSamplerTest, DirichletMoments) {
         EXPECT_NEAR(variance, alpha[j] * (10 - alpha[j]) / 1100, 0.001) << "frequency " << j;
     }
 }
+
+namespace {
+    struct WeakDirichletTarget {
+        explicit WeakDirichletTarget(std::shared_ptr<Parameter<Simplex>> freqs) : freqs_(std::move(freqs)) {
+            freqs_->add_post_change_listener([this]() { dirty_ = true; });
+        }
+
+        double value() {
+            double out = 0;
+            for (unsigned int i = 0; i < alpha.size(); i++) {
+                out += (alpha[i] - 1) * std::log(freqs_->value().frequencies(i));
+            }
+            dirty_ = false;
+            return out;
+        }
+
+        [[nodiscard]] bool isDirty() const { return dirty_; }
+
+        std::vector<double> alpha{2, 3, 5};
+        std::shared_ptr<Parameter<Simplex>> freqs_;
+        bool dirty_ = true;
+    };
+}// namespace
+
+// With the Dirichlet move, fitted and then fixed, the Dirichlet(2, 3, 5) moments still hold, and the fitted move is
+// accepted often.
+TEST(SALTSamplerTest, DirichletMoveKeepsDirichletMoments) {
+    auto freqs  = std::make_shared<Parameter<Simplex>>(std::vector{1.0 / 3, 1.0 / 3, 1.0 / 3});
+    auto target = std::make_shared<WeakDirichletTarget>(freqs);
+    auto rng    = std::make_shared<boost::random::mt19937>(20261017);
+
+    SALTSampler sampler(freqs, target, rng, 1);
+    sampler.setLowerLimit_(1e-9);
+    sampler.enableDirichletMove({200, 1000}, 0.25, 10);
+
+    for (int i = 0; i < 5000; ++i) {
+        sampler.update();
+    }
+    ASSERT_EQ(sampler.dirichletAlpha().size(), 3u);
+    const auto fittedCounts = sampler.dirichletCounts();
+    constexpr int draws     = 400000;
+    std::array<double, 3> sum{};
+    std::array<double, 3> sumSquares{};
+    for (int i = 0; i < draws; ++i) {
+        sampler.update();
+        for (unsigned int j = 0; j < 3; ++j) {
+            const double f = freqs->value().frequencies(j);
+            sum[j] += f;
+            sumSquares[j] += f * f;
+        }
+    }
+    const std::vector<double>& alpha = target->alpha;
+    for (unsigned int j = 0; j < 3; ++j) {
+        const double mean     = sum[j] / draws;
+        const double variance = sumSquares[j] / draws - mean * mean;
+        EXPECT_NEAR(mean, alpha[j] / 10, 0.005) << "frequency " << j;
+        EXPECT_NEAR(variance, alpha[j] * (10 - alpha[j]) / 1100, 0.001) << "frequency " << j;
+    }
+    const auto counts = sampler.dirichletCounts();
+    EXPECT_GT(static_cast<double>(counts.accepted - fittedCounts.accepted), 0.5 * static_cast<double>(counts.proposed - fittedCounts.proposed));
+}
+
+// A sampler restored mid-window continues exactly as the original does; a state without a fit restores and fits
+// afresh, and a fit of the wrong size is refused.
+TEST(SALTSamplerTest, DirichletFitRestores) {
+    auto make = [](std::shared_ptr<Parameter<Simplex>> freqs, std::shared_ptr<boost::random::mt19937> rng) {
+        auto target  = std::make_shared<WeakDirichletTarget>(freqs);
+        auto sampler = std::make_unique<SALTSampler<WeakDirichletTarget>>(freqs, target, rng, 1);
+        sampler->setLowerLimit_(1e-9);
+        sampler->enableDirichletMove({20, 50}, 0.25, 10);
+        return std::pair{std::move(sampler), target};
+    };
+    auto freqsA       = std::make_shared<Parameter<Simplex>>(std::vector{1.0 / 3, 1.0 / 3, 1.0 / 3});
+    auto rngA         = std::make_shared<boost::random::mt19937>(7);
+    auto [a, targetA] = make(freqsA, rngA);
+    for (int i = 0; i < 35; ++i) {
+        a->update();
+    }
+    const auto saved = a->adaptationState();
+    ASSERT_FALSE(saved.fit.empty());
+
+    auto freqsB       = std::make_shared<Parameter<Simplex>>(freqsA->value().frequencies());
+    auto rngB         = std::make_shared<boost::random::mt19937>(*rngA);
+    auto [b, targetB] = make(freqsB, rngB);
+    b->restoreAdaptationState(saved);
+    for (int i = 0; i < 100; ++i) {
+        a->update();
+        b->update();
+    }
+    EXPECT_EQ(freqsB->value().frequencies(), freqsA->value().frequencies());
+    EXPECT_EQ(b->dirichletAlpha(), a->dirichletAlpha());
+    EXPECT_EQ(b->adaptationState(), a->adaptationState());
+
+    auto [c, targetC] = make(std::make_shared<Parameter<Simplex>>(std::vector{1.0 / 3, 1.0 / 3, 1.0 / 3}), std::make_shared<boost::random::mt19937>(1));
+    auto withoutFit   = saved;
+    withoutFit.fit.clear();
+    c->restoreAdaptationState(withoutFit);
+    EXPECT_TRUE(c->dirichletAlpha().empty());
+    auto wrongSize = saved;
+    wrongSize.fit.pop_back();
+    EXPECT_THROW(c->restoreAdaptationState(wrongSize), std::invalid_argument);
+}

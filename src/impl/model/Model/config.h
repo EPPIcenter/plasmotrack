@@ -12,6 +12,8 @@
 
 #include "core/datatypes/Genotype.h"
 
+#include <vector>
+
 
 #include "core/distributions/ZTPoisson.h"
 #include "core/distributions/ZTGeometric.h"
@@ -32,6 +34,12 @@ namespace transmission_nets::impl::Model {
     constexpr size_t INFORMED_JUMP_MAX_TRIES = 4;
     // Allele-frequency (SALT) updates run every this many Sampling iterations.
     constexpr int SALT_UPDATE_FREQUENCY = 10;
+    // Each allele-frequency sampler also makes a whole-locus Dirichlet move every iteration, fitted to its own
+    // trajectory over these windows of updates and fixed after the last; its SALT sweep then runs every
+    // SALT_UPDATE_FREQUENCY-th update.
+    constexpr bool ALLELE_FREQUENCY_DIRICHLET_MOVE = true;
+    inline const std::vector<int> ALLELE_FREQUENCY_FIT_WINDOWS{20, 50, 100, 200, 400};
+    constexpr double ALLELE_FREQUENCY_DIRICHLET_WIDEN = 0.25;
     // Share of RandomAllelesBitSetSampler3 updates whose parent-set option is uniform; the rest follow the
     // infection's parent-set posterior. 1 makes every option uniform.
     constexpr double PARENT_SET_PROPOSAL_UNIFORM_SHARE = 0.1;

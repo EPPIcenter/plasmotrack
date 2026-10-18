@@ -139,10 +139,13 @@ TEST(CheckpointTest, EverySamplerKeepsItsCountsAndAdaptationState) {
         const auto& was = *original.ensemble->chains[replica].sampler;
         const auto& is  = *restored.ensemble->chains[replica].sampler;
         ASSERT_EQ(is.ids(), was.ids());
+        size_t fitted = 0;
         for (const auto& id : was.ids()) {
             EXPECT_EQ(is.sampler(id).counts(), was.sampler(id).counts()) << id;
             EXPECT_EQ(is.sampler(id).adaptationState(), was.sampler(id).adaptationState()) << id;
+            fitted += not was.sampler(id).adaptationState().fit.empty();
         }
+        EXPECT_GT(fitted, 0u);// the allele-frequency samplers' Dirichlet fits
     }
 }
 
