@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <map>
 #include <memory>
 #include <stdexcept>
@@ -192,4 +193,83 @@ TEST(CloneOrderSwapSamplerTest, OnlyMovesAgainstClones) {
         sampler.update();
     }
     EXPECT_EQ(sampler.counts().proposed, 0u);
+}
+
+namespace {
+    // A target over both durations, in 10-day bins (bin j holds days 10j + 1 to 10j + 10): a weight for each one's
+    // bin and one for the difference of the bins. Exchanging infection times (x observed 20 days before y) shifts each
+    // duration by 20 days, two bins.
+    double logPairTarget(const double xDuration, const double yDuration) {
+        if (xDuration < 1 or yDuration < 1 or xDuration >= DAYS - 0.5 or yDuration >= DAYS - 0.5) {
+            return -std::numeric_limits<double>::infinity();
+        }
+        constexpr std::array<double, 6> wx{0.4, -0.3, 0.8, 0.1, -0.6, 0.2}, wy{-0.2, 0.5, 0.0, 0.7, -0.4, 0.3};
+        const int jx = (static_cast<int>(std::round(xDuration)) - 1) / 10, jy = (static_cast<int>(std::round(yDuration)) - 1) / 10;
+        return wx[jx] + wy[jy] - 0.3 * std::abs(jy - jx - 2);
+    }
+
+    struct PairTarget {
+        const Fixture* f;
+        double value() const { return logPairTarget(f->x->infectionDuration()->value(), f->y->infectionDuration()->value()); }
+        [[nodiscard]] bool isDirty() const { return false; }
+    };
+}// namespace
+
+// With time exchange, the move still leaves a target over both clones' durations invariant, and exchanges happen.
+TEST(CloneOrderSwapSamplerTest, TimeExchangeLeavesPairTargetInvariant) {
+    Fixture f;
+    auto target = std::make_shared<PairTarget>(PairTarget{&f});
+    std::vector<double> shape(DAYS);
+    for (size_t day = 0; day < shape.size(); ++day) {
+        shape[day] = 1.0 + static_cast<double>(day);
+    }
+    auto partners = CloneOrderSwapSampler<PairTarget, Engine, InfectionEvent>::mutualPartners(f.state->infections, *f.state->allowedRelationships, f.state->indexOf("y"));
+    for (auto& partner : partners) {
+        partner.maxDuration = DAYS;
+    }
+    CloneOrderSwapSampler<PairTarget, Engine, InfectionEvent> sampler(f.y, std::move(partners), target, f.rng, 1.0, DAYS, shape);
+    sampler.enableTimeExchange();
+
+    // Exact draws: a pair of bins by weight, then each duration uniformly within its bin.
+    auto range = [](const int j) { return std::pair{j == 0 ? 1.0 : 10.0 * j + 0.5, j == 5 ? DAYS - 0.5 : 10.0 * j + 10.5}; };
+    std::vector<std::pair<int, int>> bins;
+    std::vector<double> cumulative, probability;
+    double total = 0;
+    for (int jx = 0; jx < 6; ++jx) {
+        for (int jy = 0; jy < 6; ++jy) {
+            const auto [x0, x1] = range(jx);
+            const auto [y0, y1] = range(jy);
+            const double weight = std::exp(logPairTarget((x0 + x1) / 2, (y0 + y1) / 2)) * (x1 - x0) * (y1 - y0);
+            bins.emplace_back(jx, jy);
+            probability.push_back(weight);
+            total += weight;
+            cumulative.push_back(total);
+        }
+    }
+    auto binOf = [](const double d) { return (static_cast<int>(std::round(d)) - 1) / 10; };
+
+    boost::random::uniform_01<> uniform;
+    constexpr int draws = 1000000;
+    std::map<std::pair<int, int>, int> visits;
+    int exchanged = 0;
+    for (int i = 0; i < draws; ++i) {
+        const double u     = uniform(*f.rng) * total;
+        const auto [jx, jy] = bins[std::min(bins.size() - 1, static_cast<size_t>(std::upper_bound(cumulative.begin(), cumulative.end(), u) - cumulative.begin()))];
+        const auto [x0, x1] = range(jx);
+        const auto [y0, y1] = range(jy);
+        const double xBefore = x0 + uniform(*f.rng) * (x1 - x0);
+        f.x->infectionDuration()->initializeValue(xBefore);
+        f.y->infectionDuration()->initializeValue(y0 + uniform(*f.rng) * (y1 - y0));
+
+        sampler.update();
+
+        exchanged += f.x->infectionDuration()->value() != xBefore;
+        ++visits[{binOf(f.x->infectionDuration()->value()), binOf(f.y->infectionDuration()->value())}];
+    }
+    double distance = 0;
+    for (size_t b = 0; b < bins.size(); ++b) {
+        distance += std::abs((visits.contains(bins[b]) ? visits.at(bins[b]) : 0) / static_cast<double>(draws) - probability[b] / total) / 2;
+    }
+    EXPECT_GT(exchanged, draws / 10);
+    EXPECT_LT(distance, 0.005);
 }

@@ -29,12 +29,19 @@ namespace transmission_nets::core::samplers::specialized {
      *
      * With latent parents summed out of the model, changing which of two clones came first is a duration change; a
      * random walk on the duration takes many steps to cross the partner, and this crosses it in one.
+     *
+     * Optionally (enableTimeExchange), each update then picks a clone again and exchanges the two infections'
+     * infection times, setting both durations. Clones observed on the same day then just trade places, which costs
+     * nothing when nothing else tells them apart, where a duration draw past the partner can cost a lot. The exchange
+     * is its own reverse and keeps the genomes, so the reverse picks the same clone with the same probability; a
+     * duration outside its bounds is rejected.
      */
     template<typename T, typename Engine, typename InfectionEventImpl>
     class CloneOrderSwapSampler : public AbstractSampler {
     public:
         struct Partner {
             std::shared_ptr<InfectionEventImpl> infection;
+            double maxDuration = std::numeric_limits<double>::infinity();// the partner's own duration bound
         };
 
         CloneOrderSwapSampler(std::shared_ptr<InfectionEventImpl> infection,
@@ -53,7 +60,12 @@ namespace transmission_nets::core::samplers::specialized {
 
         void update() noexcept override;
 
+        void enableTimeExchange() noexcept { exchangeTimes_ = true; }
+
     private:
+        void crossMove(const Partner& partner) noexcept;
+        void exchangeMove(const Partner& partner) noexcept;
+
         // The durations [first, second) for which the infection was infected before the partner (`before`) or after it.
         [[nodiscard]] std::pair<double, double> window(const InfectionEventImpl& partner, bool before) const;
 
@@ -66,6 +78,7 @@ namespace transmission_nets::core::samplers::specialized {
         DurationShape durationShape_;
 
         std::vector<size_t> clones_{};// indices into partners_
+        bool exchangeTimes_ = false;
     };
 
     template<typename T, typename Engine, typename InfectionEventImpl>
@@ -122,8 +135,31 @@ namespace transmission_nets::core::samplers::specialized {
             return;
         }
         boost::random::uniform_int_distribution<size_t> pickClone(0, clones_.size() - 1);
-        const auto& partner = partners_[clones_[pickClone(*rng_)]];
+        crossMove(partners_[clones_[pickClone(*rng_)]]);
+        if (exchangeTimes_) {
+            exchangeMove(partners_[clones_[pickClone(*rng_)]]);
+        }
+    }
 
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    void CloneOrderSwapSampler<T, Engine, InfectionEventImpl>::exchangeMove(const Partner& partner) noexcept {
+        auto& other            = *partner.infection;
+        const double ownTime   = infection_->infectionTime();
+        const double otherTime = other.infectionTime();
+        const double own       = infection_->observationTime()->value() - otherTime;
+        const double theirs    = other.observationTime()->value() - ownTime;
+        auto proposal          = this->propose(*target_, *rng_);
+        if (own < minDuration_ or own > maxDuration_ or theirs < minDuration_ or theirs > partner.maxDuration) {
+            proposal.reject();
+            return;
+        }
+        proposal.change(*infection_->infectionDuration(), own);
+        proposal.change(*other.infectionDuration(), theirs);
+        proposal.metropolis(0.0);
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    void CloneOrderSwapSampler<T, Engine, InfectionEventImpl>::crossMove(const Partner& partner) noexcept {
         auto duration              = infection_->infectionDuration();
         const double current       = duration->value();
         const bool before          = infection_->infectionTime() < partner.infection->infectionTime();

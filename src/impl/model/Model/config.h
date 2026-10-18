@@ -43,6 +43,8 @@ namespace transmission_nets::impl::Model {
     constexpr double ALLELE_FREQUENCY_DIRICHLET_WIDEN = 0.25;
     // A locus of more alleles than this is moved in random blocks of this many; 0 moves the whole locus at once.
     constexpr size_t ALLELE_FREQUENCY_DIRICHLET_BLOCK = 4;
+    // CloneOrderSwapSampler also exchanges an infection's infection time with a clone's.
+    constexpr bool CLONE_TIME_EXCHANGE = true;
     // Single observed-allele toggles each StrainCountSampler update makes after its strain-count move.
     constexpr unsigned int OBSERVED_ALLELE_TOGGLES = 8;
     // Share of RandomAllelesBitSetSampler3 updates whose parent-set option is uniform; the rest follow the

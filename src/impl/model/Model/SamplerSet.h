@@ -134,10 +134,15 @@ namespace transmission_nets::impl::Model {
                 using CloneOrderSwap = specialized::CloneOrderSwapSampler<T, Engine, InfectionEvent>;
                 auto mutualPartners  = CloneOrderSwap::mutualPartners(state->infections, *state->allowedRelationships, infectionIndex);
                 std::vector<std::shared_ptr<InfectionEvent>> partners;
-                for (const auto& partner : mutualPartners) {
+                for (auto& partner : mutualPartners) {
                     partners.push_back(partner.infection);
+                    partner.maxDuration = static_cast<double>((partner.infection->isSymptomatic() ? state->symptomaticInfectionDurationDist : state->asymptomaticInfectionDurationDist)->value().size());
                 }
-                scheduler_.registerSampler({.sampler = std::make_unique<CloneOrderSwap>(infection, std::move(mutualPartners), target, r, 1.0, upperBound, durations),
+                auto cloneOrderSwap = std::make_unique<CloneOrderSwap>(infection, std::move(mutualPartners), target, r, 1.0, upperBound, durations);
+                if constexpr (CLONE_TIME_EXCHANGE) {
+                    cloneOrderSwap->enableTimeExchange();
+                }
+                scheduler_.registerSampler({.sampler = std::move(cloneOrderSwap),
                                             .id = fmt::format("CloneOrderSwapSampler/ordering/{}", infection_id)});
                 scheduler_.registerSampler({.sampler = std::make_unique<specialized::InformedOrderJumpSampler<T, Engine, InfectionEvent>>(infection, std::move(partners), target, r, 1.0, upperBound, durations, INFORMED_JUMP_MAX_TRIES),
                                             .id = fmt::format("InformedOrderJumpSampler/ordering/{}", infection_id)});
