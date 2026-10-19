@@ -209,8 +209,11 @@ namespace transmission_nets::impl::Model {
                 return static_cast<double>((state->infections[i]->isSymptomatic() ? state->symptomaticInfectionDurationDist : state->asymptomaticInfectionDurationDist)->value().size());
             };
             scheduler_.registerSampler({.sampler = std::make_unique<GuidedPairs>(GuidedPairs::mutualPairs(state->infections, *state->allowedRelationships, maxDuration), target, r, 1.0, MAX_COI,
-                                                                                 typename GuidedPairs::Settings{.moves = GUIDED_PAIR_SWAPS, .maxDifferent = GUIDED_PAIR_MAX_DIFFERENT}),
-                                        .id = "GuidedPairSampler/pairs"});
+                                                                                 typename GuidedPairs::Settings{.moves = GUIDED_PAIR_SWAPS, .maxDifferent = GUIDED_PAIR_MAX_DIFFERENT,
+                                                                                                                .uniformShare = GUIDED_PAIR_UNIFORM_SHARE, .evaluations = GUIDED_PAIR_EVALUATIONS}),
+                                        .id              = "GuidedPairSampler/pairs",
+                                        .adaptationStart = 20,
+                                        .adaptationEnd   = GUIDED_PAIR_ADAPTATION_END});
         }
 
     }
