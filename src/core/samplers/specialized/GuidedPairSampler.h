@@ -44,8 +44,9 @@ namespace transmission_nets::core::samplers::specialized {
      * back as they were.
      *
      * Pairs are picked uniformly until the sampler adapts. Every accepted swap exchanges a pair's infection times, so a
-     * pair's mean acceptance is how often a swap reorders it. Each adapt() values every pair at its acceptance per
-     * target evaluation, both shrunk towards the active pairs' pooled rates by `priorSwaps` swaps, and picks a pair
+     * pair's mean acceptance is how often a swap reorders it. Each adapt() values every pair at its acceptance to the
+     * power `acceptancePower` per target evaluation, both shrunk towards the active pairs' pooled rates by `priorSwaps`
+     * swaps; a power below 1 spends less on pairs that reorder nearly every swap and are mixed already. It picks a pair
      * with `uniformShare` of the uniform weight and the rest in proportion to its value. With `evaluations` positive,
      * it also sets `moves` so an update spends about that many evaluations at the current weights. The weights and
      * `moves` depend only on swaps already made, never on the State an update starts from, so once adaptation stops
@@ -66,11 +67,12 @@ namespace transmission_nets::core::samplers::specialized {
         struct Settings {
             int moves        = 1;
             int maxDifferent = -1;
-            // Adaptation, see above: the weight kept uniform, the evaluations an update aims at (0 keeps `moves`), and
-            // the pooled swaps each pair's rates start from.
-            double uniformShare = 1;
-            double evaluations  = 0;
-            double priorSwaps   = 2;
+            // Adaptation, see above: the weight kept uniform, the evaluations an update aims at (0 keeps `moves`), the
+            // pooled swaps each pair's rates start from, and the power on acceptance in a pair's value.
+            double uniformShare    = 1;
+            double evaluations     = 0;
+            double priorSwaps      = 2;
+            double acceptancePower = 1;
         };
 
         // What the swaps on one pair have seen: the swaps proposed and accepted, their acceptance probabilities and
@@ -268,7 +270,7 @@ namespace transmission_nets::core::samplers::specialized {
             const double n   = static_cast<double>(p.stats.swaps);
             const double acc = (p.stats.acceptance + k * pooledAcceptance) / (n + k);
             const double c   = std::max(1.0, (p.stats.evaluations + k * pooledCost) / (n + k));
-            p.value          = acc / c;
+            p.value          = std::pow(acc, settings_.acceptancePower) / c;
         }
         weigh();
         if (settings_.evaluations > 0 and not cumulative_.empty()) {
