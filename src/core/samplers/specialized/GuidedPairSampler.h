@@ -12,9 +12,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <set>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -22,7 +24,9 @@
 namespace transmission_nets::core::samplers::specialized {
 
     /*
-     * A guided swap on one pair of infections, picked uniformly from a fixed list, `moves` times per update. Changing
+     * A guided swap on one pair of infections, picked uniformly from the active pairs, `moves` times per update: of a
+     * fixed list, those whose observed genotypes differ at no more than `maxDifferent` of the loci observed in both
+     * (all of them when negative). Changing
      * which of two infections came first can cost hundreds of log units until several alleles of both change with it.
      * The swap exchanges the pair's infection times, then sets the pair's genotypes in two steps, at the units: each
      * allele observed in either infection, which both infections' genotypes may hold or not, four options a unit.
@@ -50,13 +54,33 @@ namespace transmission_nets::core::samplers::specialized {
             Member first, second;
         };
 
+        struct Settings {
+            int moves        = 1;
+            int maxDifferent = -1;
+        };
+
+        // What the swaps on one pair have seen: the swaps proposed and accepted, their acceptance probabilities and
+        // those of the time exchange alone, summed, and the target evaluations they took.
+        struct PairStats {
+            std::uint64_t swaps = 0, accepted = 0;
+            double acceptance = 0, exchangeAcceptance = 0, evaluations = 0;
+        };
+
         // Every pair of infections that can infect each other, each infection's duration bounded by `maxDuration(i)`.
         template<typename AllowedRelationships, typename MaxDuration>
         static std::vector<Pair> mutualPairs(const std::vector<std::shared_ptr<InfectionEventImpl>>& infections, AllowedRelationships& allowed, MaxDuration&& maxDuration);
 
-        GuidedPairSampler(std::vector<Pair> pairs, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double minDuration, unsigned int maxCOI, int moves = 1);
+        GuidedPairSampler(std::vector<Pair> pairs, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double minDuration, unsigned int maxCOI, Settings settings = {});
 
         void update() noexcept override;
+
+        // Picks the active pairs again under `settings`; the pairs' stats stay.
+        void configure(Settings settings);
+
+        [[nodiscard]] size_t activePairs() const noexcept { return active_.size(); }
+
+        // Every pair, active or not, with the loci its observed genotypes differ at and its stats.
+        [[nodiscard]] std::vector<std::tuple<const Pair*, int, PairStats>> pairs() const;
 
     private:
         using Genotype  = std::remove_cvref_t<decltype(std::declval<InfectionEventImpl&>().latentGenotype(std::declval<std::shared_ptr<LocusImpl>>())->value())>;
@@ -71,6 +95,8 @@ namespace transmission_nets::core::samplers::specialized {
         struct Prepared {
             Pair pair;
             std::vector<Unit> units;
+            int different = 0;
+            PairStats stats{};
         };
 
         // Exchanges the pair's infection times if both durations stay in bounds and the target finite.
@@ -85,14 +111,16 @@ namespace transmission_nets::core::samplers::specialized {
         double walk(const Prepared& p, const Genotypes* towards) noexcept;
         [[nodiscard]] Genotypes snapshot(const Prepared& p) const;
         void restore(const Prepared& p, double durationA, double durationB, const Genotypes& genotypes) noexcept;
-        void swap(const Prepared& p) noexcept;
+        void swap(Prepared& p) noexcept;
 
         std::vector<Prepared> prepared_;
+        std::vector<size_t> active_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
         double minDuration_;
         unsigned int maxCOI_;
-        int moves_;
+        Settings settings_;
+        double evaluations_ = 0;
         SamplerCounts innerCounts_{};
     };
 
@@ -121,12 +149,11 @@ namespace transmission_nets::core::samplers::specialized {
                                                                                 std::shared_ptr<Engine> rng,
                                                                                 const double minDuration,
                                                                                 const unsigned int maxCOI,
-                                                                                const int moves)
+                                                                                const Settings settings)
         : target_(std::move(target)),
           rng_(std::move(rng)),
           minDuration_(minDuration),
-          maxCOI_(maxCOI),
-          moves_(moves) {
+          maxCOI_(maxCOI) {
         for (auto& pair : pairs) {
             Prepared p{.pair = std::move(pair)};
             for (const auto& locus : p.pair.first.infection->loci()) {
@@ -145,19 +172,46 @@ namespace transmission_nets::core::samplers::specialized {
                     p.units.push_back({locus, allele});
                 }
             }
+            for (const auto& [locus, observed] : p.pair.first.infection->observedGenotype()) {
+                if (p.pair.second.infection->observedGenotype().contains(locus)) {
+                    p.different += observed->value() != p.pair.second.infection->observedGenotype().at(locus)->value();
+                }
+            }
             if (not p.units.empty()) {
                 prepared_.push_back(std::move(p));
+            }
+        }
+        configure(settings);
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
+    void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::configure(const Settings settings) {
+        settings_ = settings;
+        active_.clear();
+        for (size_t i = 0; i < prepared_.size(); ++i) {
+            if (settings_.maxDifferent < 0 or prepared_[i].different <= settings_.maxDifferent) {
+                active_.push_back(i);
             }
         }
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
+    std::vector<std::tuple<const typename GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::Pair*, int, typename GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::PairStats>>
+    GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::pairs() const {
+        std::vector<std::tuple<const Pair*, int, PairStats>> out;
+        for (const auto& p : prepared_) {
+            out.emplace_back(&p.pair, p.different, p.stats);
+        }
+        return out;
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::update() noexcept {
-        if (prepared_.empty()) {
+        if (active_.empty()) {
             return;
         }
-        for (int m = 0; m < moves_; ++m) {
-            swap(prepared_[boost::random::uniform_int_distribution<size_t>(0, prepared_.size() - 1)(*rng_)]);
+        for (int m = 0; m < settings_.moves; ++m) {
+            swap(prepared_[active_[boost::random::uniform_int_distribution<size_t>(0, active_.size() - 1)(*rng_)]]);
         }
     }
 
@@ -205,6 +259,7 @@ namespace transmission_nets::core::samplers::specialized {
                 }
                 values.push_back(move.value());
                 move.revert();
+                evaluations_ += 1;
                 options.emplace_back(na, nb);
             }
         }
@@ -340,16 +395,19 @@ namespace transmission_nets::core::samplers::specialized {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::swap(const Prepared& p) noexcept {
+    void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::swap(Prepared& p) noexcept {
         const auto& a = *p.pair.first.infection;
         const auto& b = *p.pair.second.infection;
         const double before    = target_->value();
         const double durationA = a.infectionDuration()->value(), durationB = b.infectionDuration()->value();
         const auto current     = snapshot(p);
+        const double spent     = evaluations_;
+        ++p.stats.swaps;
         if (not exchange(p)) {
             countMove(false);
             return;
         }
+        p.stats.exchangeAcceptance += std::min(1.0, std::exp(target_->value() - before));
         pilot(p);
         const double logForward = walk(p, nullptr);
         const double after      = target_->value();
@@ -361,7 +419,11 @@ namespace transmission_nets::core::samplers::specialized {
             logReverse = walk(p, &current);
         }
         boost::random::uniform_01<> unit;
-        const bool accepted = std::isfinite(logReverse) and std::log(unit(*rng_)) < after - before + logReverse - logForward;
+        const double logAccept = std::isfinite(logReverse) ? after - before + logReverse - logForward : -std::numeric_limits<double>::infinity();
+        const bool accepted    = std::log(unit(*rng_)) < logAccept;
+        p.stats.acceptance += std::min(1.0, std::exp(logAccept));
+        p.stats.accepted += accepted;
+        p.stats.evaluations += evaluations_ - spent;
         if (accepted) {
             restore(p, proposedA, proposedB, proposed);
         } else {

@@ -52,6 +52,11 @@ namespace transmission_nets::impl::Model {
     constexpr double PARENT_SET_PROPOSAL_UNIFORM_SHARE = 0.1;
     // Loci RandomAllelesBitSetSampler3 redraws per update, chosen uniformly; 0 redraws every locus.
     constexpr size_t PARENT_SET_PROPOSAL_LOCI = 4;
+    // Guided swaps GuidedPairSampler makes per Sampling iteration, each on a pair of infections that can infect each
+    // other whose observed genotypes differ at no more than GUIDED_PAIR_MAX_DIFFERENT of the loci observed in both
+    // (every such pair when negative).
+    constexpr int GUIDED_PAIR_SWAPS         = 30;
+    constexpr int GUIDED_PAIR_MAX_DIFFERENT = 10;
 
 
     static constexpr int MAX_COI           = 20;

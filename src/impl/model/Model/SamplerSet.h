@@ -20,6 +20,7 @@
 #include "core/samplers/genetics/StrainCountSampler.h"
 #include "core/samplers/scheduler/Scheduler.h"
 #include "core/samplers/specialized/CloneOrderSwapSampler.h"
+#include "core/samplers/specialized/GuidedPairSampler.h"
 #include "core/samplers/specialized/InformedOrderJumpSampler.h"
 #include "core/samplers/specialized/ParentRelinkSampler.h"
 
@@ -201,6 +202,15 @@ namespace transmission_nets::impl::Model {
                                             .adaptationEnd = 200,
                                             .updateFrequency = ALLELE_FREQUENCY_DIRICHLET_MOVE ? 1 : SALT_UPDATE_FREQUENCY});
             }
+
+            // Last, so that the samplers before it keep their positions in a Checkpoint's record.
+            using GuidedPairs = specialized::GuidedPairSampler<T, Engine, InfectionEvent, LocusImpl>;
+            auto maxDuration  = [&](const size_t i) {
+                return static_cast<double>((state->infections[i]->isSymptomatic() ? state->symptomaticInfectionDurationDist : state->asymptomaticInfectionDurationDist)->value().size());
+            };
+            scheduler_.registerSampler({.sampler = std::make_unique<GuidedPairs>(GuidedPairs::mutualPairs(state->infections, *state->allowedRelationships, maxDuration), target, r, 1.0, MAX_COI,
+                                                                                 typename GuidedPairs::Settings{.moves = GUIDED_PAIR_SWAPS, .maxDifferent = GUIDED_PAIR_MAX_DIFFERENT}),
+                                        .id = "GuidedPairSampler/pairs"});
         }
 
     }
