@@ -78,6 +78,8 @@ namespace transmission_nets::impl::Model {
         std::int64_t burnIn  = 0;
         std::int64_t samples = 0;
         bool nullModel       = false;
+        // The Transmission process's leak ε; 0 is the model without one. A manifest written before it existed reads as 0.
+        double transmissionLeak = 0;
         std::optional<nlohmann::json> startedFrom{};
 
         bool operator==(const RunManifest&) const = default;

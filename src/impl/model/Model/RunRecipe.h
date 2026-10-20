@@ -33,6 +33,7 @@ namespace transmission_nets::impl::Model {
         inline constexpr unsigned int CORES         = 1;
         inline constexpr double GRADIENT            = 0;
         inline constexpr long SEED                  = -1;// draw a seed
+        inline constexpr double TRANSMISSION_LEAK   = 0;
     }// namespace defaults
 
     // What was given on the command line; an option not given is empty.
@@ -47,6 +48,7 @@ namespace transmission_nets::impl::Model {
         std::optional<double> gradient{};
         std::optional<long> seed{};
         bool nullModel = false;
+        std::optional<double> transmissionLeak{};
         std::optional<std::filesystem::path> outputDir{};
         std::optional<std::filesystem::path> resume{};
         std::optional<std::filesystem::path> startFrom{};

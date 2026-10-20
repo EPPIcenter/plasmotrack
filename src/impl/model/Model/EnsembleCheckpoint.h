@@ -30,7 +30,7 @@ namespace transmission_nets::impl::Model::checkpoint {
     // where the checkpoint left it, pending ladder barriers included; a new Run started from it calls
     // restartBurnIn(). Throws Refused for a checkpoint that doesn't fit the input. Whether it fits the Run is the Run
     // recipe's to check.
-    std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint, const std::shared_ptr<Engine>& runRng, const Study& study, bool nullModel, unsigned int numCores);
+    std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint, const std::shared_ptr<Engine>& runRng, const Study& study, bool nullModel, unsigned int numCores, double transmissionLeak = 0);
 }// namespace transmission_nets::impl::Model::checkpoint
 
 #endif//TRANSMISSION_NETWORKS_APP_ENSEMBLECHECKPOINT_H

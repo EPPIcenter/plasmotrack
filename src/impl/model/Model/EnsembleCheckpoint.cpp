@@ -204,11 +204,11 @@ namespace transmission_nets::impl::Model::checkpoint {
         return checkpoint;
     }
 
-    std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint, const std::shared_ptr<Engine>& runRng, const Study& study, const bool nullModel, const unsigned int numCores) {
+    std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint, const std::shared_ptr<Engine>& runRng, const Study& study, const bool nullModel, const unsigned int numCores, const double transmissionLeak) {
         std::unique_ptr<Ensemble> ensemble;
         try {
             ensemble = std::make_unique<Ensemble>(checkpoint.ensemble, runRng, numCores, [&](const size_t, const ChainState& saved, std::shared_ptr<Engine> chainRng) {
-                auto state = std::make_shared<State>(study, std::move(chainRng), nullModel);
+                auto state = std::make_shared<State>(study, std::move(chainRng), nullModel, transmissionLeak);
                 restoreState(checkpoint.layout, saved, *state);
                 return state;
             });

@@ -37,6 +37,7 @@ namespace transmission_nets::impl::Model {
         ThinOutOfRange,
         WindowOutOfRange,
         ParentSetFloorOutOfRange,
+        TransmissionLeakOutOfRange,
     };
 
     struct Refusal {

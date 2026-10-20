@@ -94,6 +94,7 @@ namespace transmission_nets::impl::Model {
                     {"burn_in", m.burnIn},
                     {"samples", m.samples},
                     {"null_model", m.nullModel},
+                    {"transmission_leak", m.transmissionLeak},
                     {"thin", options.thin},
                     {"window", options.window},
                     {"parent_set_floor", options.parentSetFloor},
@@ -137,7 +138,8 @@ namespace transmission_nets::impl::Model {
                       .chains        = j.at("chains").get<int>(),
                       .burnIn        = j.at("burn_in").get<std::int64_t>(),
                       .samples       = j.at("samples").get<std::int64_t>(),
-                      .nullModel     = j.at("null_model").get<bool>()};
+                      .nullModel     = j.at("null_model").get<bool>(),
+                      .transmissionLeak = j.value("transmission_leak", 0.0)};
         if (j.contains("gradient")) {
             m.gradient = j.at("gradient").get<double>();
         }
