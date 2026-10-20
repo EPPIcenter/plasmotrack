@@ -43,9 +43,9 @@ describe("Convergence", () => {
   it("lists every quantity with per-Chain ESS columns, worst R-hat first", async () => {
     renderApp("/convergence");
     const table = await screen.findByRole("table", { name: "Convergence table" });
-    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent?.replace(/[▲▼]/g, ""))).toEqual(["Group", "Name", "ESS", "R-hat", "Per Draw", "ESS chain1", "ESS chain2"]);
+    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent?.replace(/[▲▼]/g, ""))).toEqual(["Name", "ESS", "R-hat", "Per Draw", "Group", "ESS chain1", "ESS chain2"]);
     expect(screen.getByRole("region", { name: "Convergence" })).toHaveTextContent("42 of 42 quantities");
-    expect(within(within(table).getAllByRole("row")[0]!).getAllByRole("cell")[1]).toHaveTextContent("AS1[6]");
+    expect(within(within(table).getAllByRole("row")[0]!).getAllByRole("cell")[0]).toHaveTextContent("AS1[6]");
   });
 
   it("filters by group and name, in the URL", async () => {

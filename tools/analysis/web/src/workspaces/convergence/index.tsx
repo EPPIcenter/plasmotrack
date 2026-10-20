@@ -1,5 +1,6 @@
 // Convergence: every quantity's pooled ESS and split R-hat and each Chain's ESS (each flagged), a sparkline of its
-// series per Chain (fetched for the rows on screen only), virtualised, sortable, filtered by group and name; the
+// series per Chain (fetched for the rows on screen only), virtualised, sortable, filtered by group and name. The name,
+// ESS, R-hat and sparkline come first (the name's tooltip names its group), so they show beside the Inspector; the
 // selected quantity's trace in a split panel beside the table. A row shows its trace there; its name selects it into
 // the Inspector. Hovering a row previews its quantity at the top of the trace panel (the shared hover store).
 //
@@ -77,17 +78,17 @@ export default function ConvergenceWorkspace() {
   const shown = useMemo(() => filterQuantities(all ?? [], { group: search.group, name }), [all, search.group, name]);
   const columns = useMemo<Column<Quantity>[]>(
     () => [
-      { id: "group", header: "Group", value: (q) => q.group, width: 170, cell: (q) => <span className="text-ink-2">{q.group}</span> },
       {
         id: "name",
         header: "Name",
         value: (q) => q.name,
-        width: 200,
+        width: 132,
         cell: (q) => <EntityLink entity={{ kind: "quantity", group: q.group, name: q.name }} className="no-underline">{q.name}</EntityLink>,
       },
-      { id: "ess", header: "ESS", title: "Multi-chain effective sample size", value: (q) => q.ess, numeric: true, width: 80, cell: (q) => <StatusChip kind="ess" value={q.ess} compact /> },
-      { id: "rhat", header: "R-hat", title: "Split R-hat over the Chains", value: (q) => q.rhat, numeric: true, width: 80, descFirst: true, cell: (q) => <StatusChip kind="rhat" value={q.rhat} compact /> },
-      { id: "series", header: "Per Draw", title: "The quantity per Draw, one line per Chain (binned means past 40 Draws)", value: () => null, sortable: false, width: 104, cell: (q) => <QuantitySparkline q={q} /> },
+      { id: "ess", header: "ESS", title: "Multi-chain effective sample size", value: (q) => q.ess, numeric: true, width: 60, cell: (q) => <StatusChip kind="ess" value={q.ess} compact /> },
+      { id: "rhat", header: "R-hat", title: "Split R-hat over the Chains", value: (q) => q.rhat, numeric: true, width: 68, descFirst: true, cell: (q) => <StatusChip kind="rhat" value={q.rhat} compact /> },
+      { id: "series", header: "Per Draw", title: "The quantity per Draw, one line per Chain (binned means past 40 Draws)", value: () => null, sortable: false, width: 84, cell: (q) => <QuantitySparkline q={q} width={68} /> },
+      { id: "group", header: "Group", value: (q) => q.group, width: 150, cell: (q) => <span className="block truncate text-ink-2" title={q.group}>{q.group}</span> },
       ...chains.map(
         (c): Column<Quantity> => ({ id: `ess:${c}`, header: `ESS ${c}`, title: `${c}'s own ESS`, value: (q) => q.chains[c] ?? null, numeric: true, width: 96, cell: (q) => <StatusChip kind="ess" value={q.chains[c] ?? null} compact /> }),
       ),
@@ -108,7 +109,7 @@ export default function ConvergenceWorkspace() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 p-2">
       <Group orientation="horizontal" className="min-h-0 flex-1" id="convergence">
-        <Split id="table" minSize={360} defaultSize="58" className="flex min-w-0">
+        <Split id="table" minSize={360} defaultSize="60" className="flex min-w-0">
           <Panel
             className="flex-1"
             title="Convergence"
@@ -161,7 +162,7 @@ export default function ConvergenceWorkspace() {
           </Panel>
         </Split>
         <Separator className="mx-1 w-px bg-line outline-none hover:bg-accent data-[separator=active]:bg-accent" />
-        <Split id="trace" minSize={320} className="flex min-w-0">
+        <Split id="trace" minSize={240} className="flex min-w-0">
           <Panel
             className="flex-1"
             bodyClassName="overflow-y-auto"

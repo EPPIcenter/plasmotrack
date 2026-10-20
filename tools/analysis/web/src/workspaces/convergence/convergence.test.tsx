@@ -31,6 +31,15 @@ describe("the Convergence table", () => {
     expect(requests[0]).toContain("points=40");
   });
 
+  it("puts the name, ESS, R-hat and sparkline first, so a narrow table beside the Inspector still shows them", async () => {
+    renderApp("/convergence", { "/api/series": series });
+    const headers = within(await table()).getAllByRole("columnheader").map((h) => h.textContent?.replace(/[▲▼]/g, ""));
+    expect(headers).toEqual(["Name", "ESS", "R-hat", "Per Draw", "Group", "ESS chain1", "ESS chain2"]);
+    // The name says its group when hovered, since names repeat across groups.
+    const row = await rowOf("log posterior", "log posterior");
+    expect(within(row).getAllByRole("cell")[0]!.querySelector("[title]")).toHaveAttribute("title", "Inspect log posterior: log posterior");
+  });
+
   it("flags each Chain's ESS as it flags the pooled ESS", async () => {
     renderApp("/convergence", { "/api/series": series });
     const row = await rowOf("log posterior", "log posterior");
