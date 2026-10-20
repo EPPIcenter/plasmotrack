@@ -17,7 +17,7 @@ import { chainScale } from "../lib/palette";
 import { rankFractions } from "../lib/ranks";
 import { chainDraws, constantValue, traceSummary } from "../lib/trace";
 import { PanelState } from "./Panel";
-import { PlotFigure, plotStyle, type PlotContext } from "./PlotFigure";
+import { PlotFigure, plotStyle, TICK_ROOM, type PlotContext } from "./PlotFigure";
 import { StatusChip } from "./StatusChip";
 
 type QuantityEntity = Extract<Entity, { kind: "quantity" }>;
@@ -125,7 +125,7 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
         width,
         height,
         marginLeft: 60,
-        marginRight: 8,
+        marginRight: TICK_ROOM,
         marginTop: 8,
         marginBottom: 28,
         style: plotStyle(theme),
@@ -177,7 +177,7 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
         width,
         height,
         marginLeft: 60,
-        marginRight: 8,
+        marginRight: TICK_ROOM,
         marginTop: 16,
         marginBottom: 18,
         style: plotStyle(theme),

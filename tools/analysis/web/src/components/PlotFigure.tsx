@@ -55,6 +55,10 @@ export function PlotFigure({ plot, height, fallbackWidth = 640, onRender, classN
 }
 
 /** Plot options every figure shares: the theme's ink, 11 px tabular axis text, a transparent background. */
+/** A right margin that holds half the widest right-end tick label ("110", "4,000"), which Plot centres on the last tick,
+ *  so the panel does not clip it. */
+export const TICK_ROOM = 18;
+
 export function plotStyle(theme: ChartTheme): Plot.PlotOptions["style"] {
   return {
     color: theme.ink2,

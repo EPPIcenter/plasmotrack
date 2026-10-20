@@ -7,7 +7,7 @@ import type { Overview } from "../../api/overview";
 import { useSelection } from "../../app/selection";
 import { useTheme } from "../../app/theme";
 import { EntityLink } from "../../components/EntityLink";
-import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
+import { PlotFigure, plotStyle, TICK_ROOM, type PlotContext } from "../../components/PlotFigure";
 import { WorkspaceLink } from "../../components/WorkspaceLink";
 import { formatFixed, formatPercent, formatProbability } from "../../lib/format";
 import { classShade } from "../../lib/functionals";
@@ -27,7 +27,7 @@ const histogram = (values: number[], label: string, domain?: [number, number]) =
       width,
       height: 120,
       marginLeft: 32,
-      marginRight: 8,
+      marginRight: TICK_ROOM,
       marginTop: 8,
       marginBottom: 28,
       style: plotStyle(theme),
