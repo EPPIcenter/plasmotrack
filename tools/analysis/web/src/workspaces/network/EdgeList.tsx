@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { useSelection } from "../../app/selection";
 import { DataTable, type Column } from "../../components/DataTable";
 import { EntityLink } from "../../components/EntityLink";
-import { Panel } from "../../components/Panel";
+import { Panel, PanelState } from "../../components/Panel";
 import { formatCount, formatFixed, formatProbability } from "../../lib/format";
 import type { GraphEdge } from "./NetworkGraph";
 
@@ -26,9 +26,11 @@ export interface EdgeListProps {
   /** The edges are the credible collection: the score column is the level at which the parent enters. */
   collection: boolean;
   selectionSize: number;
+  /** The edge set has not arrived yet. */
+  loading?: boolean;
 }
 
-export function EdgeList({ edges, chains, scored, collection, selectionSize }: EdgeListProps) {
+export function EdgeList({ edges, chains, scored, collection, selectionSize, loading = false }: EdgeListProps) {
   const { entity, select } = useSelection();
   const columns = useMemo<Column<ListedEdge>[]>(
     () => [
@@ -55,7 +57,7 @@ export function EdgeList({ edges, chains, scored, collection, selectionSize }: E
       description={`${formatCount(edges.length)}${selectionSize ? " touching the selection" : ""}; hover to find one in the graph`}
       noExport
     >
-      <DataTable
+      {loading ? <PanelState loading /> : <DataTable
         label="Edges shown"
         rows={edges}
         columns={columns}
@@ -68,7 +70,7 @@ export function EdgeList({ edges, chains, scored, collection, selectionSize }: E
             ? selectionSize ? "No edge in the credible collection touches the selected Infections" : "No edge in the credible collection at this level"
             : selectionSize ? "No edge at this threshold touches the selected Infections" : "No edge at this threshold"
         }
-      />
+      />}
     </Panel>
   );
 }

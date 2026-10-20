@@ -171,6 +171,8 @@ export function useNetworkView() {
     overlayError: !collection && (search.truth || search.source !== "posterior") ? overlayQuery.error : null,
     collection,
     collectionError: collection ? collectionQuery.error : null,
+    /** The credible collection is asked for and has not arrived: the graph and the list say so. */
+    collectionLoading: collection && collectionQuery.isLoading,
     level,
     setLevel,
     overlaySource,

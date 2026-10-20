@@ -141,6 +141,17 @@ describe("Network", () => {
     expect(await within(await edgeList()).findByRole("columnheader", { name: "Enters" })).toBeInTheDocument();
   });
 
+  it("says the credible collection is loading, not that it is empty, until it arrives", async () => {
+    renderApp("/network?edges=collection", { "/api/collection-edges": () => new Promise(() => {}) });
+    await screen.findByRole("slider", { name: "Credible level" });
+    const p = screen.getByRole("region", { name: "Network" });
+    await waitFor(() => expect(p).toHaveTextContent("Loading the credible collection…"));
+    const list = screen.getByRole("region", { name: "Edges shown" });
+    expect(within(list).getByText("Loading…")).toBeInTheDocument();
+    expect(within(list).queryByText(/No edge in the credible collection/)).not.toBeInTheDocument();
+    expect(within(p).getByText("Loading…")).toBeInTheDocument();
+  });
+
   it("lists only the selected Infections' edges when some are selected, and clears the selection", async () => {
     const { search } = renderApp("/network?ids=2");
     await edgeList();

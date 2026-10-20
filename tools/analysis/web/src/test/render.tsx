@@ -59,7 +59,8 @@ export function mockApi(overrides: Record<string, unknown> = {}) {
   const mock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     const path = new URL(url, "http://test").pathname;
-    const body = path in overrides ? (typeof overrides[path] === "function" ? (overrides[path] as (u: string) => unknown)(url) : overrides[path]) : fixtureFor(url);
+    // An override function may answer with a promise, to hold the response back.
+    const body: unknown = await (path in overrides ? (typeof overrides[path] === "function" ? (overrides[path] as (u: string) => unknown)(url) : overrides[path]) : fixtureFor(url));
     if (body instanceof Failure) return new Response(JSON.stringify({ error: body.error }), { status: body.status, headers: { "Content-Type": "application/json" } });
     return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
   });

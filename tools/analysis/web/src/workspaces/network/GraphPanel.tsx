@@ -85,7 +85,7 @@ export function GraphPanel({ view }: { view: NetworkView }) {
         onClearSelection={multi.clear}
       />
       <p className="shrink-0 border-b border-line px-2 py-0.5 text-axis text-ink-2">{view.statusText}</p>
-      <div className="relative min-h-0 flex-1">
+      {view.collectionLoading ? <div className="min-h-0 flex-1"><PanelState loading /></div> : <div className="relative min-h-0 flex-1">
         <NetworkGraph
           nodes={shown.nodes}
           edges={edges}
@@ -106,7 +106,7 @@ export function GraphPanel({ view }: { view: NetworkView }) {
           onStageClick={onStageClick}
           theme={chart}
         />
-      </div>
+      </div>}
       <PanelState error={view.metricsError ?? view.overlayError ?? view.collectionError} />
       <Legend nodes={nodeColouring.legend} edges={view.edgeLegend} layout={view.search.layout} truth={view.truthShown} />
     </Panel>
