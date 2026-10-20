@@ -2,7 +2,8 @@
 // series per Chain (fetched for the rows on screen only), virtualised, sortable, filtered by group and name. The name,
 // ESS, R-hat and sparkline come first (the name's tooltip names its group), so they show beside the Inspector; the
 // selected quantity's trace in a split panel beside the table. A row shows its trace there; its name selects it into
-// the Inspector. Hovering a row previews its quantity at the top of the trace panel (the shared hover store).
+// the Inspector, whose quantity the panel traces while no row is clicked. Hovering a row previews its quantity at the
+// top of the trace panel (the shared hover store).
 //
 // URL: ?group=&name=&sort=<column>&desc=1&q=<group>/<name>
 
@@ -12,6 +13,7 @@ import { useChains } from "../../api/analysis";
 import { useQuantities } from "../../api/convergence";
 import { useQuantitySeries } from "../../api/series";
 import { isHovered, useHovered } from "../../app/hover";
+import { useSelection } from "../../app/selection";
 import { useTheme } from "../../app/theme";
 import { useWorkspaceSearch, type SearchValues } from "../../app/search";
 import { DataTable, type Column, type SortingState } from "../../components/DataTable";
@@ -96,10 +98,13 @@ export default function ConvergenceWorkspace() {
     [chains],
   );
 
+  // The clicked row's quantity, or else the Inspector's, so the panel beside the table follows the selection.
+  const { entity } = useSelection();
+  const tracedKey = search.q ?? (entity?.kind === "quantity" && !entity.stratum ? key(entity) : null);
   const traced = useMemo(() => {
-    const found = search.q ? (all ?? []).find((q) => key(q) === search.q) : undefined;
+    const found = tracedKey ? (all ?? []).find((q) => key(q) === tracedKey) : undefined;
     return found ?? null;
-  }, [all, search.q]);
+  }, [all, tracedKey]);
 
   const onSortingChange = useCallback(
     (s: SortingState) => set({ sort: s[0]?.id, desc: s[0]?.desc ? "1" : undefined }),
@@ -155,7 +160,7 @@ export default function ConvergenceWorkspace() {
                 onSortingChange={onSortingChange}
                 onRowClick={(q) => set({ q: key(q) })}
                 hoverEntity={entityOf}
-                activeRowId={search.q}
+                activeRowId={tracedKey}
                 emptyText="No quantity matches the filter"
               />
             )}

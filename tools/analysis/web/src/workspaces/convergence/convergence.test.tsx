@@ -49,6 +49,15 @@ describe("the Convergence table", () => {
     expect(chain2.querySelector("[data-level]")).toHaveAttribute("data-level", "critical");
   });
 
+  it("traces the Inspector's quantity beside the table until a row is clicked", async () => {
+    renderApp("/convergence?sel=quantity:global%20scalars/mean_coi", { "/api/series": series });
+    await table();
+    expect(await screen.findByRole("region", { name: /^global scalars: mean_coi/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Click a row of the table/)).not.toBeInTheDocument();
+    fireEvent.click(await rowOf("log posterior", "log posterior"));
+    expect(await screen.findByRole("region", { name: /^log posterior: log posterior/ })).toBeInTheDocument();
+  });
+
   it("previews the hovered row's quantity in the trace panel", async () => {
     renderApp("/convergence?q=log%20posterior/log%20posterior", { "/api/series": series });
     const row = await rowOf("global scalars", "mean_coi");

@@ -176,7 +176,7 @@ from the workspace to show an entity.
 
 - **Convergence** (`src/workspaces/convergence/`): the quantity table with each Chain's ESS flagged (`StatusChip`) and
   a Per Draw sparkline from `/api/series`, asked for only by the cells on screen and batched into requests of at most
-  200 quantities (`src/api/series.ts`, `useQuantitySeries`); the clicked row's `QuantityTrace` beside it (`q=`). The
+  200 quantities (`src/api/series.ts`, `useQuantitySeries`); the clicked row's `QuantityTrace` beside it (`q=`; without it, the Inspector's quantity). The
   name, ESS, R-hat and sparkline come first and the Group column after them, so they show at 1100 px with the Inspector
   open; the name's tooltip names its group.
   Rows set the shared hover store, and the trace panel previews the hovered quantity (its group, name, ESS, R-hat
