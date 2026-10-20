@@ -1,5 +1,6 @@
 // The edges the Network draws, beside it (the selection's when there is one): hovering a row highlights the edge and
-// its two Infections in the graph through the shared hover store; clicking inspects the edge.
+// its two Infections in the graph through the shared hover store; clicking inspects the edge. The columns are narrow
+// and the edge, its score and lag come first, so a narrow list shows them; each Chain's mean scrolls in after.
 
 import { useMemo } from "react";
 import { useSelection } from "../../app/selection";
@@ -34,19 +35,19 @@ export function EdgeList({ edges, chains, scored, collection, selectionSize, loa
   const { entity, select } = useSelection();
   const columns = useMemo<Column<ListedEdge>[]>(
     () => [
-      { id: "edge", header: "Edge", value: (e) => e.child, width: 140, cell: (e) => <EntityLink entity={{ kind: "edge", parent: e.parent, child: e.child }} className="no-underline" /> },
+      { id: "edge", header: "Edge", value: (e) => e.child, width: 128, cell: (e) => <EntityLink entity={{ kind: "edge", parent: e.parent, child: e.child }} className="no-underline" /> },
       {
         id: "marginal",
         header: collection ? "Enters" : scored ? "Score" : "Pooled",
         title: collection ? "The pooled mass of the Parent sets ranked above the first one containing this parent" : "Pooled Edge marginal, or the edge set's score",
         value: (e) => (collection ? e.entry ?? null : e.marginal),
         numeric: true,
-        width: 68,
+        width: 70,
         descFirst: !collection,
         cell: (e) => (collection ? formatFixed(e.entry ?? null, 3) : formatProbability(e.marginal)),
       },
-      ...chains.map((c, k): Column<ListedEdge> => ({ id: `chain:${c}`, header: c, title: `${c}'s mean`, value: (e) => e.chains?.[k] ?? null, numeric: true, width: 76, cell: (e) => <span className="text-ink-2">{formatProbability(e.chains?.[k])}</span> })),
       { id: "lag", header: "Lag", title: "The child's observation time minus the parent's", value: (e) => e.lag, numeric: true, width: 56, cell: (e) => <span className="text-ink-2">{formatFixed(e.lag, 1)}</span> },
+      ...chains.map((c, k): Column<ListedEdge> => ({ id: `chain:${c}`, header: c, title: `${c}'s mean`, value: (e) => e.chains?.[k] ?? null, numeric: true, width: 66, cell: (e) => <span className="text-ink-2">{formatProbability(e.chains?.[k])}</span> })),
     ],
     [chains, scored, collection],
   );

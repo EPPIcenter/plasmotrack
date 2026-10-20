@@ -121,6 +121,13 @@ describe("Network", () => {
     expect(search().sel).toBe("edge:1>3");
   });
 
+  it("lists the edge, its score and lag first, then each Chain's mean, as a narrow list beside the graph can show", async () => {
+    renderApp("/network");
+    const list = await edgeList();
+    const headers = within(list).getAllByRole("columnheader").map((h) => h.textContent?.replace(/[▲▼]/g, "").trim());
+    expect(headers).toEqual(["Edge", "Pooled", "Lag", "chain1", "chain2"]);
+  });
+
   it("draws the credible collection at a level, in the URL", async () => {
     const { search } = renderApp("/network", {
       "/api/collection-edges": {

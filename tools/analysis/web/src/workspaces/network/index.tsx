@@ -36,7 +36,7 @@ export default function NetworkWorkspace() {
           <GraphPanel view={view} />
         </Split>
         <Separator className="mx-1 w-px bg-line outline-none hover:bg-accent data-[separator=active]:bg-accent" />
-        <Split id="edges" minSize={200} className="flex min-w-0">
+        <Split id="edges" minSize={260} className="flex min-w-0">
           <EdgeList edges={view.listed} chains={view.collection || view.overlaySource ? [] : view.payload.chains} scored={Boolean(view.overlaySource && view.overlaySource.source !== "posterior")} collection={view.collection} selectionSize={view.multi.ids.length} loading={view.collectionLoading} />
         </Split>
       </Group>

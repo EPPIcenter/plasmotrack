@@ -101,7 +101,8 @@ of `/convergence?sel=...` opens the app there.
   URL: `threshold`, `layout=timeline`, `order=lanes`, `colour` (nodes), `edge_colour=spread|ess` (edges, from
   `/api/edges` rows; marginal by default along `edgeRamp`, spread along it up to 0.5, ESS by status level),
   `isolated=1` (draw Infections without a shown edge; hidden by default, except the selected and inspected ones),
-  stratum, `truth=1`, `source`. The status line counts the payload's edges (between Infections at or above its
+  stratum, `truth=1`, `source`. The edge list beside the graph puts the edge, its score and lag first, then each
+  Chain's mean (scrolling sideways when the list is narrow). The status line counts the payload's edges (between Infections at or above its
   `floor`), those shown at the threshold, and the Infections drawn. Hovering a row of the edge list (or any table
   whose rows are edges or Infections) highlights that edge and its ends through the hover store; the container's
   `data-focus-edge` and `data-hover-node` name them for tests. Without `threshold` it opens at `defaultThreshold`
