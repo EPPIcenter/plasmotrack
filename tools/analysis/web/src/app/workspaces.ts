@@ -14,6 +14,7 @@ import {
   Columns2,
   Gauge,
   GitCompareArrows,
+  Dna,
   LayoutDashboard,
   ListOrdered,
   Microscope,
@@ -28,7 +29,7 @@ import type { Capabilities } from "../api/analysis";
 export type WorkspaceGroup = "Assess" | "Explore" | "Posterior" | "Accuracy";
 
 export const WORKSPACE_IDS = [
-  "overview", "convergence", "samplers", "compare", "network", "edges", "infections", "pairs", "functionals", "flows",
+  "overview", "convergence", "samplers", "compare", "network", "edges", "infections", "pairs", "genotypes", "functionals", "flows",
   "errors", "ranking", "parentsets", "cohort",
 ] as const;
 
@@ -78,6 +79,7 @@ export const workspaces: Workspace[] = [
   { id: "edges", title: "Edges", group: "Explore", description: "Edge marginals per Chain, spread, switches, ESS", icon: ArrowRightLeft, load: () => import("../workspaces/edges") },
   { id: "infections", title: "Infections", group: "Explore", description: "One row per Infection: times, q, parents, COI, mixing", icon: Microscope, load: () => import("../workspaces/infections") },
   { id: "pairs", title: "Pairs", group: "Explore", description: "Pairs whose order is uncertain or disagrees between Chains", icon: GitCompareArrows, load: () => import("../workspaces/pairs") },
+  { id: "genotypes", title: "Genotypes", group: "Explore", description: "Allele strips of the selected Infections, one column each", icon: Dna, load: () => import("../workspaces/genotypes") },
   { id: "functionals", title: "Functionals", group: "Posterior", description: "ψ_MAP, ψ_edge, mean q and composition, overall and by stratum", icon: Sigma, load: () => import("../workspaces/functionals") },
   { id: "flows", title: "Flows", group: "Posterior", description: "Attribution, enrichment, net flow, lags, spatial scale", icon: Waypoints, load: () => import("../workspaces/flows"), needs: EPI },
   { id: "errors", title: "Errors", group: "Accuracy", description: "Missed, false and direction errors against truth", icon: CircleAlert, load: () => import("../workspaces/errors"), needs: TRUTH },

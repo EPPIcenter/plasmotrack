@@ -21,6 +21,8 @@ describe("differing Loci", () => {
   it("says so when no Locus differs, and uses the singular for one", () => {
     expect(differingLoci([row("AS1", "01", "01")]).text).toBe("No Locus of 1 differs");
     expect(differingLoci([row("AS1", "01", "10"), row("AS2", "1", "1")]).text).toBe("1 of 2 Loci differs: AS1");
+    const many = ["A", "B", "C", "D", "E"].map((locus) => row(locus, "01", "10"));
+    expect(differingLoci(many).text).toBe("5 of 5 Loci differ: A, B, C, D and 1 more");
   });
 });
 

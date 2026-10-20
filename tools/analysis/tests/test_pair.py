@@ -11,7 +11,7 @@ from conftest import open_golden
 from starlette.testclient import TestClient
 from test_derive import quantile_type_7
 
-from pt_analysis.pair import PairError, inspect_pair, order_summary
+from pt_analysis.pair import MAX_GROUP, PairError, group_genotypes, inspect_pair, order_summary
 from pt_analysis.server import create_app
 from pt_analysis.summary import ordered_before, pair_order
 
@@ -196,3 +196,25 @@ def test_the_endpoint_refuses_a_missing_id_an_unknown_infection_and_a_pair_of_on
     assert response.status_code == 404
     assert "99" in response.json()["error"]
     assert client.get("/api/pair", params={"a": "2", "b": "2"}).status_code == 400
+
+
+def test_a_group_lines_each_infection_up_at_every_locus(golden_analysis):
+    got = group_genotypes(golden_analysis, ["3", "1", "3"])
+    assert got["infections"] == ["3", "1"]
+    assert got["differing"] == sum(locus["differs"] for locus in got["loci"])
+    first = got["loci"][0]
+    assert [member["id"] for member in first["members"]] == ["3", "1"]
+    assert first["alleles"] >= len(first["members"][0]["mode"] or "")
+    assert group_genotypes(golden_analysis, []) == {"infections": [], "loci": [], "differing": 0}
+    with pytest.raises(PairError, match=str(MAX_GROUP)):
+        group_genotypes(golden_analysis, [str(i) for i in range(MAX_GROUP + 1)])
+
+
+def test_the_genotypes_endpoint_serves_the_group_and_refuses_a_bad_request(client, golden_analysis):
+    response = client.get("/api/genotypes", params={"ids": "1,3"})
+    assert response.status_code == 200, response.text
+    assert response.json() == group_genotypes(golden_analysis, ["1", "3"])
+    assert client.get("/api/genotypes").status_code == 400
+    missing = client.get("/api/genotypes", params={"ids": "99"})
+    assert missing.status_code == 404
+    assert "99" in missing.json()["error"]

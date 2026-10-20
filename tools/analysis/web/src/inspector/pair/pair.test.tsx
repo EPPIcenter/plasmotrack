@@ -83,11 +83,11 @@ describe("the pair's genotype table", () => {
     renderWithProviders(<PairView a="1" b="3" part="genotypes" />);
     const table = await screen.findByRole("table", { name: "Genotypes per Locus" });
     expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(
-      ["Locus", "Observed 1", "Latent 1", "Agr.", "Latent 3", "Agr.", "Observed 3", "True 1", "True 3"]);
+      ["Locus", "1", "3", "True 1", "True 3"]);
     const first = within(table).getAllByRole("row")[1]!;
-    const cells = within(first).getAllByRole("cell").map((c) => c.textContent);
-    expect(cells[6]).toBe("unobserved");
-    expect(cells[7]).toBe(pair.genotypes.rows[0]!.latent_a);
-    expect(cells[8]).toBe("–");
+    const cells = within(first).getAllByRole("cell");
+    expect(within(cells[2]!).getByRole("img")).toHaveAccessibleName(/Observed unobserved/);
+    expect(within(cells[3]!).getByRole("img")).toHaveAccessibleName(new RegExp(pair.genotypes.rows[0]!.latent_a!));
+    expect(cells[4]).toHaveTextContent("–");
   });
 });

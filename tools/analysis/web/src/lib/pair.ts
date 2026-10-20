@@ -47,8 +47,11 @@ export interface PairResponse {
 export function differingLoci(rows: GenotypeRow[]): { count: number; loci: string[]; text: string } {
   const loci = rows.filter((r) => r.differs).map((r) => r.locus);
   const of = `${rows.length} ${rows.length === 1 ? "Locus" : "Loci"}`;
+  const named = loci.slice(0, 4);
+  const more = loci.length - named.length;
+  const list = more ? `${named.join(", ")} and ${more} more` : named.join(", ");
   const text = loci.length
-    ? `${loci.length} of ${of} ${loci.length === 1 ? "differs" : "differ"}: ${loci.join(", ")}`
+    ? `${loci.length} of ${of} ${loci.length === 1 ? "differs" : "differ"}: ${list}`
     : `No Locus of ${rows.length} differs`;
   return { count: loci.length, loci, text };
 }

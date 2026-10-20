@@ -133,6 +133,40 @@ def latent_modes_of(analysis, infections):
     return out
 
 
+MAX_GROUP = 12
+
+
+def group_genotypes(analysis, infections):
+    """The selected Infections lined up by Locus, in the order given: each Locus has its Allele count and, per
+    Infection, the Observed genotype (None where unobserved) and the Latent posterior mode with the fraction of Draws
+    that have it. `differs` is whether those modes are not all the same. At most `MAX_GROUP` Infections."""
+    ids = list(dict.fromkeys(i for i in infections if i))
+    if len(ids) > MAX_GROUP:
+        raise PairError(f"a genotype group holds at most {MAX_GROUP} Infections, not {len(ids)}")
+    known = infection_ids(analysis)
+    for infection in ids:
+        if infection not in known:
+            raise UnknownInfection(f"no Infection {infection} in the Analysis")
+    if not ids:
+        return {"infections": [], "loci": [], "differing": 0}
+    modes = latent_modes_of(analysis, ids)
+    node = inputs.nodes(analysis.input)
+    observed = {i: inputs.genotypes(node.get(i, {}).get("observed_genotype")) for i in ids}
+    counts = dict(next(iter(analysis.runs.values())).structure("loci").aggregate("locus, max(allele) + 1").fetchall())
+    order = inputs.loci(analysis.input)
+    names = order + sorted(set().union(*(set(modes.get(i, {})) for i in ids)) - set(order))
+    loci = []
+    for locus in names:
+        members = []
+        for infection in ids:
+            mode, agreement = modes.get(infection, {}).get(locus, (None, None))
+            members.append({"id": infection, "observed": observed[infection].get(locus), "mode": mode, "agreement": agreement})
+        differs = len({m["mode"] for m in members}) > 1
+        width = max([counts.get(locus, 0), *(len(m["mode"] or "") for m in members), *(len(m["observed"] or "") for m in members)])
+        loci.append({"locus": locus, "alleles": width, "differs": differs, "members": members})
+    return {"infections": ids, "loci": loci, "differing": sum(l["differs"] for l in loci)}
+
+
 def differing_loci(modes_a, modes_b):
     """The number of Loci at which two Infections' Latent modes (`latent_modes`) differ, a Locus without a mode
     counting as None, as `genotype_rows` counts them."""

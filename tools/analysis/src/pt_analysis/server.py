@@ -37,6 +37,7 @@ ENDPOINTS = [
 
     # U3 pair inspector
     "pt_analysis.endpoints.pair",  # U3: order, edges, co-inclusion, genotypes and infection times of a pair
+    "pt_analysis.endpoints.genotypes",  # a group's genotypes, one column per Infection
 
     # U9 functionals panel
     "pt_analysis.endpoints.functionals",  # U9: epi columns, functionals overall and per stratum

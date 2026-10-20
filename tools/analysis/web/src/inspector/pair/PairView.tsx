@@ -7,6 +7,7 @@ import * as Plot from "@observablehq/plot";
 import { useCallback, useState, type ReactNode } from "react";
 import { usePair } from "../../api/pairs";
 import { useTheme } from "../../app/theme";
+import { AlleleStrip } from "../../components/AlleleStrip";
 import { EntityLink } from "../../components/EntityLink";
 import { PanelState } from "../../components/Panel";
 import { PlotFigure, plotStyle, type PlotContext } from "../../components/PlotFigure";
@@ -195,9 +196,8 @@ const DIFFERS_STICKY = {
   boxShadow: "inset 2px 0 0 var(--warning), inset -1px 0 0 var(--line)",
 };
 
-/** A genotype's Allele bits; `missing` where there is none ("unobserved" only for an Observed genotype). */
-function Bits({ bits, missing = "–" }: { bits: string | null | undefined; missing?: string }) {
-  return bits ? <span className="id">{bits}</span> : <span className="text-muted">{missing}</span>;
+function stripWidth(bits: Array<string | null | undefined>): number {
+  return Math.max(0, ...bits.map((b) => b?.length ?? 0));
 }
 
 function GenotypesSection({ p }: { p: PairResponse }) {
@@ -206,7 +206,7 @@ function GenotypesSection({ p }: { p: PairResponse }) {
   const differing = differingLoci(p.genotypes.rows);
   const truth = p.genotypes.truth;
   const shown = onlyDiffering ? p.genotypes.rows.filter((r) => r.differs) : p.genotypes.rows;
-  const head = ["Locus", `Observed ${a}`, `Latent ${a}`, "Agr.", `Latent ${b}`, "Agr.", `Observed ${b}`, ...(truth ? [`True ${a}`, `True ${b}`] : [])];
+  const head = ["Locus", a, b, ...(truth ? [`True ${a}`, `True ${b}`] : [])];
   return (
     <Section
       title="Genotypes"
@@ -218,36 +218,35 @@ function GenotypesSection({ p }: { p: PairResponse }) {
       }
     >
       <p className={`mb-1 ${differing.count ? "font-medium text-warning-ink" : "text-ink-2"}`}>{differing.text}.</p>
-      <p className="mb-1 text-axis text-muted">Latent: posterior mode over every Chain's Draws; Agr.: the fraction of Draws that had it.</p>
+      <p className="mb-1 text-axis text-muted">Filled slot: an Allele of the Latent mode, lighter when fewer Draws have it. Outline: the Observed genotype has that Allele. The same slot is the same Allele.</p>
       {/* Wider than the Inspector: it scrolls sideways here, the Locus column staying in view (as DataTable's). */}
       <div className="-mx-3 overflow-x-auto">
         <table className="min-w-full text-table tabular-nums" aria-label="Genotypes per Locus">
           <thead className="text-ink-2">
             <tr className="border-b border-line">
               {head.map((h, i) => (
-                <th key={i} className={`whitespace-nowrap py-0.5 pr-2 text-left font-medium ${h === "Agr." ? "text-right" : ""} ${i === 0 ? "dt-sticky pl-3" : ""}`}>{h}</th>
+                <th key={h} className={`whitespace-nowrap py-0.5 pr-3 text-left font-medium ${i === 0 ? "dt-sticky pl-3" : ""}`}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {shown.map((r) => (
-              <tr
-                key={r.locus}
-                data-differs={r.differs}
-                title={r.differs ? "The Latent modes differ" : undefined}
-                className={`border-b border-line/60 ${r.differs ? "bg-warning/15 font-medium" : ""}`}
-              >
-                <td className="dt-sticky whitespace-nowrap py-0.5 pl-3 pr-2" style={r.differs ? DIFFERS_STICKY : undefined}>{r.locus}</td>
-                <td className="pr-2"><Bits bits={r.observed_a} missing="unobserved" /></td>
-                <td className="pr-2"><Bits bits={r.latent_a} /></td>
-                <td className="num pr-2">{formatProbability(r.agreement_a)}</td>
-                <td className="pr-2"><Bits bits={r.latent_b} /></td>
-                <td className="num pr-2">{formatProbability(r.agreement_b)}</td>
-                <td className="pr-2"><Bits bits={r.observed_b} missing="unobserved" /></td>
-                {truth && <td className="pr-2"><Bits bits={r.true_a} /></td>}
-                {truth && <td className="pr-3"><Bits bits={r.true_b} /></td>}
-              </tr>
-            ))}
+            {shown.map((r) => {
+              const alleles = stripWidth([r.observed_a, r.latent_a, r.observed_b, r.latent_b, r.true_a, r.true_b]);
+              return (
+                <tr
+                  key={r.locus}
+                  data-differs={r.differs}
+                  title={r.differs ? "The Latent modes differ" : undefined}
+                  className={`border-b border-line/60 ${r.differs ? "bg-warning/15 font-medium" : ""}`}
+                >
+                  <td className="dt-sticky whitespace-nowrap py-0.5 pl-3 pr-2" style={r.differs ? DIFFERS_STICKY : undefined}>{r.locus}</td>
+                  <td className="py-0.5 pr-3"><AlleleStrip latent={r.latent_a} observed={r.observed_a} agreement={r.agreement_a} alleles={alleles} missing="unobserved" /></td>
+                  <td className="py-0.5 pr-3"><AlleleStrip latent={r.latent_b} observed={r.observed_b} agreement={r.agreement_b} alleles={alleles} missing="unobserved" /></td>
+                  {truth && <td className="py-0.5 pr-3"><AlleleStrip latent={r.true_a ?? null} observed={r.true_a ?? null} agreement={r.true_a ? 1 : null} alleles={alleles} /></td>}
+                  {truth && <td className="py-0.5 pr-3"><AlleleStrip latent={r.true_b ?? null} observed={r.true_b ?? null} agreement={r.true_b ? 1 : null} alleles={alleles} /></td>}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -3,6 +3,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { SearchValues } from "../../app/search";
+import { WorkspaceLink } from "../../components/WorkspaceLink";
 import { formatFixed } from "../../lib/format";
 import { stratumLabel } from "../../lib/functionals";
 import {
@@ -197,6 +198,7 @@ export function Controls(p: ControlsProps) {
         <span className="flex min-w-0 items-center gap-1">
           Selected {p.selected.length}: <span className="id truncate" title={p.selected.join(", ")}>{p.selected.slice(0, 3).join(", ")}{p.selected.length > 3 ? ", …" : ""}</span>
           <button type="button" onClick={p.onClearSelection} className="rounded-[3px] px-1 text-accent hover:bg-hover">Clear selection</button>
+          <WorkspaceLink to="genotypes">Genotypes</WorkspaceLink>
         </span>
       )}
     </div>
