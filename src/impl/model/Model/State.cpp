@@ -41,8 +41,9 @@ namespace transmission_nets::impl::Model {
         }
     }// namespace
 
-    State::State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const bool null_model) {
-        nullModel = null_model;
+    State::State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const bool null_model, const double transmission_leak) {
+        nullModel        = null_model;
+        transmissionLeak = transmission_leak;
 
         // Loci, in input order, so that their uids follow the input.
         std::vector<std::shared_ptr<LocusImpl>> lociInOrder;
