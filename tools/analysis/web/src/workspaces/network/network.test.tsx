@@ -121,6 +121,26 @@ describe("Network", () => {
     expect(search().sel).toBe("edge:1>3");
   });
 
+  it("draws the credible collection at a level, in the URL", async () => {
+    const { search } = renderApp("/network", {
+      "/api/collection-edges": {
+        edges: [
+          { parent: "1", child: "3", entry: 0 },
+          { parent: "2", child: "3", entry: 0.5 },
+        ],
+      },
+    });
+    const p = await panel();
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Edges" }), "collection");
+    await waitFor(() => expect(search().edges).toBe("collection"));
+    await waitFor(() => expect(p).toHaveTextContent("2 of 2 edges are inside the credible collection at 0.80"));
+    expect(screen.queryByRole("slider", { name: "Edge marginal threshold" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("slider", { name: "Credible level" }), { target: { value: "0.4" } });
+    await waitFor(() => expect(p).toHaveTextContent("1 of 2 edges are inside the credible collection at 0.40"));
+    await waitFor(() => expect(search().level).toBe("0.4"));
+    expect(await within(await edgeList()).findByRole("columnheader", { name: "Enters" })).toBeInTheDocument();
+  });
+
   it("lists only the selected Infections' edges when some are selected, and clears the selection", async () => {
     const { search } = renderApp("/network?ids=2");
     await edgeList();

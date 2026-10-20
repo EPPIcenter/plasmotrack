@@ -17,6 +17,26 @@ export const useNetwork = (enabled = true) => {
   });
 };
 
+/** One observed parent and the pooled mass of the Parent sets ranked above the first that contains it. */
+export interface CollectionEdge {
+  parent: string;
+  child: string;
+  entry: number;
+}
+
+/** Every observed parent, with the level at which it enters its child's credible collection. Fetched only when the
+ *  Network is drawing that edge set. */
+export function useCollectionEdges(enabled: boolean) {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["collection-edges", analysis],
+    queryFn: () => getJson<{ edges: CollectionEdge[] }>("/api/collection-edges", scoped({}, analysis)),
+    staleTime: Infinity,
+    enabled,
+    retry: false,
+  });
+}
+
 export const useTruthNetwork = (enabled = true) => {
   const analysis = useActiveAnalysis();
   return useQuery({

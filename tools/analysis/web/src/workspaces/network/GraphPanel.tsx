@@ -5,6 +5,7 @@ import { useSelection } from "../../app/selection";
 import { useTheme } from "../../app/theme";
 import { Panel, PanelState } from "../../components/Panel";
 import { recordsTable } from "../../lib/export";
+import { formatFixed } from "../../lib/format";
 import { edgeKey, edgeTooltip, nodeTooltip } from "../../lib/network";
 import { overlayTooltip } from "../../lib/truth";
 import { Controls } from "./Controls";
@@ -40,11 +41,18 @@ export function GraphPanel({ view }: { view: NetworkView }) {
     return n ? nodeTooltip(n) : { title: `Infection ${id}`, rows: [] };
   }, [nodesById]);
   const edgeTip = useCallback((key: string) => {
+    if (view.collection) {
+      const listed = edgesByKey.get(key);
+      const enters: [string, string] = ["Enters at", formatFixed(listed?.entry ?? null, 3)];
+      return listed
+        ? { title: `${listed.parent} → ${listed.child}`, rows: [enters] }
+        : { title: key, rows: [] };
+    }
     const o = overlayByKey.get(key);
     if (overlaySource && o) return overlayTooltip(o, overlaySource);
     const e = payloadEdges.get(key);
     return e && payload ? edgeTooltip(e, payload.chains) : { title: key, rows: [] };
-  }, [overlayByKey, overlaySource, payloadEdges, payload]);
+  }, [view.collection, edgesByKey, overlayByKey, overlaySource, payloadEdges, payload]);
 
   if (!payload || !shown || !nodeColouring) return null;
   return (
@@ -52,9 +60,11 @@ export function GraphPanel({ view }: { view: NetworkView }) {
       className="flex-1"
       bodyClassName="flex flex-col"
       title="Network"
-      description="Edge marginals between Infections"
+      description={view.collection ? "Edges inside the credible collection" : "Edge marginals between Infections"}
       exportName="network"
-      data={() => recordsTable(["parent", "child", "marginal", "lag"], view.listed)}
+      data={() => (view.collection
+        ? recordsTable(["parent", "child", "entry"], view.listed)
+        : recordsTable(["parent", "child", "marginal", "lag"], view.listed))}
     >
       <Controls
         payload={payload}
@@ -62,6 +72,8 @@ export function GraphPanel({ view }: { view: NetworkView }) {
         set={view.set}
         threshold={view.threshold}
         onThreshold={view.setThreshold}
+        level={view.level}
+        onLevel={view.setLevel}
         colour={view.colour}
         stratum={view.stratum}
         sources={view.overlay?.sources ?? []}
@@ -95,7 +107,7 @@ export function GraphPanel({ view }: { view: NetworkView }) {
           theme={chart}
         />
       </div>
-      <PanelState error={view.metricsError ?? view.overlayError} />
+      <PanelState error={view.metricsError ?? view.overlayError ?? view.collectionError} />
       <Legend nodes={nodeColouring.legend} edges={view.edgeLegend} layout={view.search.layout} truth={view.truthShown} />
     </Panel>
   );

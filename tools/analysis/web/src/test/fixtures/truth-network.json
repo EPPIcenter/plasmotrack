@@ -5,6 +5,7 @@
    "directed": true,
    "edges": [
     {
+     "candidate": true,
      "child": "3",
      "lag": 116.4263,
      "marginal": 0.8335394349,
@@ -14,6 +15,7 @@
      "true": true
     },
     {
+     "candidate": true,
      "child": "2",
      "lag": 72.15599999999998,
      "marginal": 0.0029108084,

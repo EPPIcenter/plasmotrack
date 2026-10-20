@@ -9,12 +9,14 @@ import { parseOneOf, parseSource } from "./parse";
 import { ESS_CRITICAL, ESS_WARN, essLevel, statusColour, type Level } from "./status";
 import type { Source } from "./truth";
 
-/** An Infection: its observation time from the input, pooled q, and posterior infection-time interval (observation
- * time minus the 97.5%, 50% and 2.5% quantiles of its pooled duration). */
+/** An Infection: its observation time and candidate parents from the input, pooled q, and posterior infection-time
+ * interval (observation time minus the 97.5%, 50% and 2.5% quantiles of its pooled duration). */
 export interface NetworkNode {
   id: string;
   observation_time: number;
   symptomatic: boolean;
+  /** The input's `allowed_parents`: the Infections it lets be a parent of this one. */
+  candidate_parents: string[];
   q: number | null;
   infection_time: { lower: number; median: number; upper: number } | null;
   /** Each epi column's value as text, null where the Infection has none; empty without epi data. */
@@ -416,21 +418,28 @@ export interface NetworkSearch {
   order: "q" | "lanes";
   truth: boolean;
   source: Source;
+  /** `marginal` draws pooled Edge marginals; `collection` draws the parents inside each child's credible collection. */
+  edges: "marginal" | "collection";
+  /** The credible level, when `edges` is `collection`. Null means the page's default, 0.8. */
+  level: number | null;
   edgeColour: EdgeColourKey;
   /** Whether Infections without a shown edge are drawn (`isolated=1`); hidden by default. */
   isolated: boolean;
 }
 
-/** The Network's parameters: `threshold`, `layout=timeline`, `order=lanes`, `truth=1`, `source`, `edge_colour` and
- *  `isolated=1`; an unknown value reads as the default. */
+/** The Network's parameters: `threshold`, `layout=timeline`, `order=lanes`, `truth=1`, `source`, `edges=collection`,
+ *  `level`, `edge_colour` and `isolated=1`; an unknown value reads as the default. */
 export function parseNetworkSearch(s: Record<string, string | undefined>): NetworkSearch {
   const t = s.threshold === undefined ? NaN : Number(s.threshold);
+  const level = s.level === undefined ? NaN : Number(s.level);
   return {
     threshold: Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : null,
     layout: parseOneOf(["force", "timeline"], s.layout, "force"),
     order: parseOneOf(["q", "lanes"], s.order, "q"),
     truth: s.truth === "1",
     source: parseSource(s.source),
+    edges: s.edges === "collection" ? "collection" : "marginal",
+    level: Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : null,
     edgeColour: parseOneOf(EDGE_COLOURS.map((c) => c.key), s.edge_colour, "marginal"),
     isolated: s.isolated === "1",
   };

@@ -44,6 +44,7 @@
  "floor": 0.01,
  "nodes": [
   {
+   "candidate_parents": [],
    "epi": {
     "district": "North",
     "observed": "2020-01-05",
@@ -60,6 +61,9 @@
    "symptomatic": true
   },
   {
+   "candidate_parents": [
+    "1"
+   ],
    "epi": {
     "district": "South",
     "observed": "2020-02-01",
@@ -76,6 +80,10 @@
    "symptomatic": true
   },
   {
+   "candidate_parents": [
+    "1",
+    "2"
+   ],
    "epi": {
     "district": "North",
     "observed": "2020-03-10",

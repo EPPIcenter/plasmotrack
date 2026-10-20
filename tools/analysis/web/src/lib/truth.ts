@@ -22,6 +22,8 @@ export interface OverlayEdge {
   reverse_true: boolean | null;
   reverse_marginal: number | null;
   lag: number | null;
+  /** Whether the input's `allowed_parents` let the parent be a parent of the child (either way round when undirected). */
+  candidate: boolean;
 }
 
 export interface OverlaySource {
@@ -133,6 +135,9 @@ export interface ErrorRow {
   reverse_true: boolean | null;
   reverse_marginal: number | null;
   lag: number | null;
+  /** Whether the input allows the edge. A missed edge that is not a candidate was screened out by the input, so no
+   *  fit of it could call it; such rows come after the others. */
+  candidate: boolean;
   /** How confidently wrong: 1 - marginal for a missed edge, the marginal for a false one. Rows come ranked by it. */
   confidence: number;
   parent_true_infection_time: number | null;
@@ -160,6 +165,9 @@ export function errorCounts(rows: readonly ErrorRow[]): Record<ErrorKind, number
   return counts;
 }
 
+/** The missed edges the input does not allow. */
+export const screenedCount = (rows: readonly ErrorRow[]) => rows.filter((r) => r.kind === "missed" && !r.candidate).length;
+
 /** The pair a row selects into the Inspector, its parent as A. */
 export const pairLink = (r: { parent: string; child: string }): Entity => ({ kind: "pair", a: r.parent, b: r.child });
 
@@ -178,8 +186,8 @@ export function matchText(m: TruthMatch): string {
  *  set and threshold it was called at. What the view exports as CSV. */
 export function errorsTable(p: Pick<ErrorsPayload, "source" | "label" | "threshold">, rows: readonly ErrorRow[]): DataTable {
   return recordsTable(
-    ["source", "threshold", "kind", "parent", "child", "marginal", "confidence", "reverse_marginal", "reverse_true", "lag",
-      "parent_true_infection_time", "child_true_infection_time"],
+    ["source", "threshold", "kind", "parent", "child", "candidate", "marginal", "confidence", "reverse_marginal", "reverse_true",
+      "lag", "parent_true_infection_time", "child_true_infection_time"],
     rows.map((r) => ({ source: p.source, threshold: p.threshold, ...r })),
   );
 }

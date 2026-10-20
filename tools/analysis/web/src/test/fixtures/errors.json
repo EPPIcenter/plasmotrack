@@ -3,6 +3,7 @@
  "label": "golden",
  "rows": [
   {
+   "candidate": true,
    "child": "2",
    "child_true_infection_time": 0.0,
    "confidence": 0.9970891916,

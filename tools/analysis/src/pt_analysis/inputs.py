@@ -31,6 +31,13 @@ def nodes(path):
     return {str(node["id"]): node for node in read_json(path)["nodes"]}
 
 
+def candidate_parents(path):
+    """{Infection id: [its `allowed_parents` that are Infections of the input, as strings]} of an input file."""
+    found = nodes(path)
+    return {child: [str(p) for p in node.get("allowed_parents") or [] if str(p) in found]
+            for child, node in found.items()}
+
+
 def loci(path):
     """The Locus names of an input file, in its order."""
     return [locus["locus"] for locus in read_json(path)["loci"]]

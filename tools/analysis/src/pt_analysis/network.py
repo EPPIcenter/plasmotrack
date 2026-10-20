@@ -1,7 +1,7 @@
 """The network view's payload (U8): Infections as nodes and pooled Edge marginals as edges.
 
-Nodes are the input's Infections, in input order, with their observation time and symptomatic flag from the input,
-the pooled unobserved-source inclusion q, and the posterior infection time: the observation time minus the 97.5%,
+Nodes are the input's Infections, in input order, with their observation time, symptomatic flag and candidate parents
+(`allowed_parents`, the Infections the input lets be a parent of it) from the input, the pooled unobserved-source inclusion q, and the posterior infection time: the observation time minus the 97.5%,
 50% and 2.5% quantiles of `infection_duration` over every Draw of every Chain. Edges are the pooled Edge marginals
 from observed parents at or above a floor, with each Chain's mean and the lag (child's observation time minus the
 parent's). Edges from the unobserved source are left out; q carries them.
@@ -43,10 +43,11 @@ def network(analysis, floor=DEFAULT_FLOOR):
     epi = load_epi(analysis)
     columns = list(epi.columns) if epi is not None else []
     values = {column: epi.values(column) for column in columns}
+    candidates = inputs.candidate_parents(analysis.input)
     nodes = []
     for id, node in inputs.nodes(analysis.input).items():
         nodes.append({"id": id, "observation_time": node["observation_time"],
-                      "symptomatic": node.get("symptomatic", True), "q": q.get(id),
+                      "symptomatic": node.get("symptomatic", True), "candidate_parents": candidates[id], "q": q.get(id),
                       "infection_time": intervals.get(id),
                       "epi": {column: values[column].get(id) for column in columns}})
     epi_columns = [{"name": c, "type": epi.columns[c], "values": epi.stratum_values(c)} for c in columns]

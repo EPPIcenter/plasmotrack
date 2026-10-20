@@ -13,6 +13,8 @@ import type { GraphEdge } from "./NetworkGraph";
 export interface ListedEdge extends GraphEdge {
   chains: (number | null)[] | null;
   lag: number | null;
+  /** The pooled mass above this parent, when the edge comes from the credible collection. */
+  entry?: number;
 }
 
 export interface EdgeListProps {
@@ -21,19 +23,30 @@ export interface EdgeListProps {
   chains: string[];
   /** The edge set's score is not the posterior's Edge marginal. */
   scored: boolean;
+  /** The edges are the credible collection: the score column is the level at which the parent enters. */
+  collection: boolean;
   selectionSize: number;
 }
 
-export function EdgeList({ edges, chains, scored, selectionSize }: EdgeListProps) {
+export function EdgeList({ edges, chains, scored, collection, selectionSize }: EdgeListProps) {
   const { entity, select } = useSelection();
   const columns = useMemo<Column<ListedEdge>[]>(
     () => [
       { id: "edge", header: "Edge", value: (e) => e.child, width: 140, cell: (e) => <EntityLink entity={{ kind: "edge", parent: e.parent, child: e.child }} className="no-underline" /> },
-      { id: "marginal", header: scored ? "Score" : "Pooled", title: "Pooled Edge marginal, or the edge set's score", value: (e) => e.marginal, numeric: true, width: 68, descFirst: true, cell: (e) => formatProbability(e.marginal) },
+      {
+        id: "marginal",
+        header: collection ? "Enters" : scored ? "Score" : "Pooled",
+        title: collection ? "The pooled mass of the Parent sets ranked above the first one containing this parent" : "Pooled Edge marginal, or the edge set's score",
+        value: (e) => (collection ? e.entry ?? null : e.marginal),
+        numeric: true,
+        width: 68,
+        descFirst: !collection,
+        cell: (e) => (collection ? formatFixed(e.entry ?? null, 3) : formatProbability(e.marginal)),
+      },
       ...chains.map((c, k): Column<ListedEdge> => ({ id: `chain:${c}`, header: c, title: `${c}'s mean`, value: (e) => e.chains?.[k] ?? null, numeric: true, width: 76, cell: (e) => <span className="text-ink-2">{formatProbability(e.chains?.[k])}</span> })),
       { id: "lag", header: "Lag", title: "The child's observation time minus the parent's", value: (e) => e.lag, numeric: true, width: 56, cell: (e) => <span className="text-ink-2">{formatFixed(e.lag, 1)}</span> },
     ],
-    [chains, scored],
+    [chains, scored, collection],
   );
   return (
     <Panel
@@ -50,7 +63,11 @@ export function EdgeList({ edges, chains, scored, selectionSize }: EdgeListProps
         hoverEntity={(e) => ({ kind: "edge", parent: e.parent, child: e.child })}
         onRowClick={(e) => select({ kind: "edge", parent: e.parent, child: e.child })}
         activeRowId={entity?.kind === "edge" ? `${entity.child}<-${entity.parent}` : null}
-        emptyText={selectionSize ? "No edge at this threshold touches the selected Infections" : "No edge at this threshold"}
+        emptyText={
+          collection
+            ? selectionSize ? "No edge in the credible collection touches the selected Infections" : "No edge in the credible collection at this level"
+            : selectionSize ? "No edge at this threshold touches the selected Infections" : "No edge at this threshold"
+        }
       />
     </Panel>
   );

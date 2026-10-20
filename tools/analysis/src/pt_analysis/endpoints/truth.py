@@ -3,11 +3,11 @@
     GET /api/truth-network[?floor=0.01]
         {floor, truth: {n_true_edges, unmatched_infections, unobserved_truth_infections} or null,
          sources: [{source, label, directed, edges: [{parent, child, marginal, true, reverse_true, reverse_marginal,
-                                                      lag}]}]}
+                                                      lag, candidate}]}]}
     GET /api/errors[?source=posterior&threshold=0.5]
         {source, label, directed, threshold, truth, sources: [source names],
          rows: [{kind: missed | false | direction, parent, child, marginal, reverse_true, reverse_marginal, lag,
-                 confidence, parent_true_infection_time, child_true_infection_time}]}
+                 candidate, confidence, parent_true_infection_time, child_true_infection_time}]}
         404 without a truth file or when the manifest does not name that source
 
 `sources` holds the posterior, then the null-model Analysis (`null`) and the pairwise scores (`ibd`, undirected) when

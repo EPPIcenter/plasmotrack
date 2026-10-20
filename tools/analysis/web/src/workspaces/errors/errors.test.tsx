@@ -8,8 +8,8 @@ import type { ErrorRow, ErrorsPayload } from "../../lib/truth";
 import type { TruthNetworkPayload } from "../../lib/truth";
 import { failure, fixture, renderApp } from "../../test/render";
 
-const errorRow = (kind: ErrorRow["kind"], parent: string, child: string, marginal: number): ErrorRow => ({
-  kind, parent, child, marginal, confidence: kind === "missed" ? 1 - marginal : marginal, lag: 5,
+const errorRow = (kind: ErrorRow["kind"], parent: string, child: string, marginal: number, candidate = true): ErrorRow => ({
+  kind, parent, child, marginal, candidate, confidence: kind === "missed" ? 1 - marginal : marginal, lag: 5,
   reverse_true: kind === "direction", reverse_marginal: 0.1, parent_true_infection_time: 1, child_true_infection_time: 2,
 });
 
@@ -29,6 +29,16 @@ describe("Errors", () => {
     expect(await kpi("Precision / recall")).toHaveTextContent(/\/ 0\.500/);
     const table = await screen.findByRole("table", { name: "Error table" });
     expect(within(table).getAllByRole("row")[0]).toHaveTextContent(/Missed.*1 → 2/);
+  });
+
+  it("marks missed edges the input does not allow, and counts them on the Missed figure", async () => {
+    renderApp("/errors", { "/api/errors": { ...errors, rows: [...errors.rows, errorRow("missed", "2", "1", 0, false)] } });
+    const table = await screen.findByRole("table", { name: "Error table" });
+    await waitFor(() => expect(within(table).getAllByRole("row")).toHaveLength(4));
+    expect(within(table).getAllByRole("row")[3]).toHaveTextContent(/Missed.*2 → 1.*no, screened/);
+    expect(within(table).getAllByRole("row")[0]).toHaveTextContent(/Missed.*1 → 2.*yes/);
+    const missed = (await screen.findByText("Missed", { selector: "dt" })).parentElement!;
+    expect(missed).toHaveTextContent("1 not candidates in the input");
   });
 
   it("selects a row's edge into the Inspector", async () => {
@@ -67,7 +77,7 @@ describe("Errors", () => {
     const overlay = fixture<TruthNetworkPayload>("truth-network");
     const posterior = overlay.sources[0]!;
     posterior.edges = posterior.edges.map((e) => (e.parent === "1" && e.child === "2" ? { ...e, reverse_marginal: 0.7 } : e));
-    posterior.edges.push({ parent: "2", child: "1", marginal: 0.7, true: false, reverse_true: true, reverse_marginal: 0.003, lag: -72 });
+    posterior.edges.push({ parent: "2", child: "1", marginal: 0.7, true: false, reverse_true: true, reverse_marginal: 0.003, lag: -72, candidate: true });
     const direction = { ...errorRow("direction", "2", "1", 0.7), reverse_marginal: 0.003 };
     const status = fixture<{ attention: Record<string, number> }>("status");
     status.attention.errors = 1;

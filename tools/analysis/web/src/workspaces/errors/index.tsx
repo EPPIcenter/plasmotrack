@@ -1,5 +1,6 @@
 // Errors: an edge set's errors against the truth of a simulated input at a threshold. Missed true edges rank by how
-// low their score is, false edges by how high; a false edge whose reverse is true is a direction error. A KPI strip
+// low their score is, false edges by how high; a false edge whose reverse is true is a direction error. Missed edges
+// the input's allowed_parents rule out are marked not candidates and come last. A KPI strip
 // counts the calls; the error table filters by kind; the network thumbnail draws every call with the truth overlay.
 // A row (or an edge of the thumbnail) selects its edge into the Inspector, or its pair for the pairwise scores.
 //
@@ -34,6 +35,7 @@ import {
   errorsTable,
   filterErrors,
   matchText,
+  screenedCount,
   SOURCE_NAMES,
   thresholdSummary,
   type CallArc,
@@ -76,7 +78,12 @@ function useKpis(rows: readonly ErrorRow[] | undefined, edges: readonly OverlayE
     { label: "True edges", value: n(s?.n_true), title: "True edges between observed Infections" },
     { label: "Called", value: n(s?.called), detail: `${n(s?.hit)} hits at score ≥ ${threshold}`, title: "Edges scoring at or above the threshold; hits: the true edges among them" },
     { label: "Errors", value: n(rows?.length), title: "Distinct errors at the threshold: missed, false and direction" },
-    ...ERROR_KINDS.map(({ kind, label, title }) => ({ label, value: n(counts?.[kind]), title })),
+    ...ERROR_KINDS.map(({ kind, label, title }) => {
+      const screened = kind === "missed" && rows ? screenedCount(rows) : 0;
+      return screened
+        ? { label, value: n(counts?.[kind]), detail: `${formatCount(screened)} not candidates in the input`, title: `${title}. Not candidates: the input's allowed_parents rule them out, so no fit of it could call them` }
+        : { label, value: n(counts?.[kind]), title };
+    }),
     { label: "Precision / recall", value: s ? `${formatProbability(s.precision)} / ${formatProbability(s.recall)}` : "…", title: "Precision: hits over called edges. Recall: hits over true edges" },
   ];
 }
@@ -219,6 +226,11 @@ export default function ErrorsWorkspace() {
       {
         id: "edge", header: "Edge", width: 156, value: (r) => `${r.parent} ${r.child}`,
         cell: (r) => <EntityLink entity={errorEntity(r, directed)}>{`${r.parent} ${arrow} ${r.child}`}</EntityLink>,
+      },
+      {
+        id: "candidate", header: "Candidate", width: 92, value: (r) => (r.candidate ? 1 : 0),
+        title: "Whether the input's allowed_parents let the parent be a parent of the child; a missed edge that is not a candidate could never be called",
+        cell: (r) => (r.candidate ? "yes" : <span className="text-muted">no, screened</span>),
       },
       { id: "marginal", header: "Score", title: "The edge's score in the set: the pooled Edge marginal, or the pairwise score", value: (r) => r.marginal, numeric: true, width: 64, descFirst: true, cell: (r) => formatProbability(r.marginal) },
       { id: "confidence", header: "Wrong by", title: "How confidently wrong: 1 − score for a missed edge, the score for a false one", value: (r) => r.confidence, numeric: true, width: 88, descFirst: true, cell: (r) => formatProbability(r.confidence) },

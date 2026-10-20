@@ -6,8 +6,8 @@
 // Infections tables read), click an edge to inspect it. Beside the graph, the edges it shows (the selection's when
 // there is one): hovering a row highlights that edge and its Infections.
 //
-// URL: ?threshold=&layout=timeline&order=lanes&colour=&edge_colour=spread|ess&isolated=1&stratum_column=&stratum=
-//      &truth=1&source=
+// URL: ?threshold=&edges=collection&level=&layout=timeline&order=lanes&colour=&edge_colour=spread|ess&isolated=1
+//      &stratum_column=&stratum=&truth=1&source=
 // Without `threshold`, the Network opens at 0.1, or higher so that at most 3,000 edges show (Zanzibar scale).
 
 import { Group, Panel as Split, Separator } from "react-resizable-panels";
@@ -37,7 +37,7 @@ export default function NetworkWorkspace() {
         </Split>
         <Separator className="mx-1 w-px bg-line outline-none hover:bg-accent data-[separator=active]:bg-accent" />
         <Split id="edges" minSize={200} className="flex min-w-0">
-          <EdgeList edges={view.listed} chains={view.overlaySource ? [] : view.payload.chains} scored={Boolean(view.overlaySource && view.overlaySource.source !== "posterior")} selectionSize={view.multi.ids.length} />
+          <EdgeList edges={view.listed} chains={view.collection || view.overlaySource ? [] : view.payload.chains} scored={Boolean(view.overlaySource && view.overlaySource.source !== "posterior")} collection={view.collection} selectionSize={view.multi.ids.length} />
         </Split>
       </Group>
     </div>

@@ -52,8 +52,17 @@ describe("the Edge Inspector", () => {
     expect(await within(box).findByRole("img", { name: "Trace of 3 per Chain" })).toBeInTheDocument();
   });
 
-  it("says when the Analysis has no such edge", async () => {
-    renderApp("/overview?sel=edge:2>1");
-    expect(await within(await inspector()).findByText(/No Draw of any Chain has 2 as a parent of 1/)).toBeInTheDocument();
+  it("says when the input does not allow the edge, and links to the pair", async () => {
+    const { search } = renderApp("/overview?sel=edge:2>1");
+    const box = await inspector();
+    expect(await within(box).findByText(/The input does not allow 2 as a parent of 1, which has no candidate parents/)).toBeInTheDocument();
+    expect(within(box).getByText(/their pair is/)).toBeInTheDocument();
+    await userEvent.click(within(box).getByRole("link", { name: "2, 1" }));
+    expect(search().sel).toBe("pair:2,1");
+  });
+
+  it("says when no Draw has an edge the input does not rule out", async () => {
+    renderApp("/overview?sel=edge:3_copy>2");
+    expect(await within(await inspector()).findByText(/No Draw of any Chain has 3_copy as a parent of 2/)).toBeInTheDocument();
   });
 });

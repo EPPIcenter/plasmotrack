@@ -39,7 +39,7 @@ function synthetic(n: number, m: number): { nodes: NetworkNode[]; edges: Network
     const observation_time = random() * 1000;
     const median = observation_time - 10 - random() * 20;
     return {
-      id: String(i), observation_time, symptomatic: random() < 0.5, q: random(),
+      id: String(i), observation_time, symptomatic: random() < 0.5, candidate_parents: [], q: random(),
       infection_time: { lower: median - 15, median, upper: median + 5 },
     };
   });
@@ -78,7 +78,7 @@ describe("the threshold slider", () => {
 });
 
 const node = (id: string, observation_time: number, q: number | null, lower: number, upper: number): NetworkNode => ({
-  id, observation_time, symptomatic: true, q, infection_time: { lower, median: (lower + upper) / 2, upper },
+  id, observation_time, symptomatic: true, candidate_parents: [], q, infection_time: { lower, median: (lower + upper) / 2, upper },
 });
 
 describe("the timeline layout", () => {
@@ -365,10 +365,10 @@ describe("the edges beside the graph", () => {
 describe("the Network's URL", () => {
   it("reads every parameter, falling back on unknown values", () => {
     expect(parseNetworkSearch({})).toEqual({
-      threshold: null, layout: "force", order: "q", truth: false, source: "posterior", edgeColour: "marginal", isolated: false,
+      threshold: null, layout: "force", order: "q", truth: false, source: "posterior", edges: "marginal", level: null, edgeColour: "marginal", isolated: false,
     });
-    expect(parseNetworkSearch({ threshold: "0.25", layout: "timeline", order: "lanes", truth: "1", source: "ibd", edge_colour: "ess", isolated: "1" })).toEqual({
-      threshold: 0.25, layout: "timeline", order: "lanes", truth: true, source: "ibd", edgeColour: "ess", isolated: true,
+    expect(parseNetworkSearch({ threshold: "0.25", layout: "timeline", order: "lanes", truth: "1", source: "ibd", edge_colour: "ess", isolated: "1", edges: "collection", level: "0.85" })).toEqual({
+      threshold: 0.25, layout: "timeline", order: "lanes", truth: true, source: "ibd", edges: "collection", level: 0.85, edgeColour: "ess", isolated: true,
     });
     expect(parseNetworkSearch({ threshold: "7", layout: "circle", edge_colour: "rainbow" })).toMatchObject({ threshold: 1, layout: "force", edgeColour: "marginal" });
     expect(parseNetworkSearch({ threshold: "x" }).threshold).toBeNull();

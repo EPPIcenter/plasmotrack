@@ -1,6 +1,7 @@
 // The Edge Inspector (parent -> child): pooled and per-Chain marginal, spread, switches, ESS and lag; the reverse
 // edge's marginal; truth status when the Analysis has truth; links to the pair and both Infections; and the edge's
-// trace per Chain (the child's q for an edge from the unobserved source).
+// trace per Chain (the child's q for an edge from the unobserved source). An edge no Draw has says whether the
+// input's allowed_parents rule it out.
 
 import { useMemo } from "react";
 import { useEdges } from "../../api/edges";
@@ -36,12 +37,19 @@ export default function EdgeInspector({ entity, page }: InspectorProps<"edge">) 
   const row = index.get(parent, child);
   const infection = (id: string) => <EntityLink entity={{ kind: "infection", id }} />;
   if (!row) {
+    const nodes = network?.nodes;
+    const candidates = nodes?.find((n) => n.id === child)?.candidate_parents;
+    const screened = candidates && nodes?.some((n) => n.id === parent) && !candidates.includes(parent);
     return (
       <div className="text-ui">
         <Section title="Edge">
-          <p className="text-ink-2">No Draw of any Chain has {parent} as a parent of {child}: its Edge marginal is 0.</p>
+          <p className="text-ink-2">
+            {screened
+              ? `The input does not allow ${parent} as a parent of ${child}${candidates.length ? "" : `, which has no candidate parents`}, so no Draw can have this edge: its Edge marginal is 0.`
+              : `No Draw of any Chain has ${parent} as a parent of ${child}: its Edge marginal is 0.`}
+          </p>
           <p className="mt-1 text-ink-2">
-            Infections {infection(parent)} and {infection(child)}; their <EntityLink entity={{ kind: "pair", a: parent, b: child }} />.
+            Infections {infection(parent)} and {infection(child)}; their pair is <EntityLink entity={{ kind: "pair", a: parent, b: child }} />.
           </p>
         </Section>
       </div>

@@ -23,7 +23,7 @@ import {
 } from "./truth";
 
 const edge = (parent: string, child: string, marginal: number, truth: boolean | null, reverse: boolean | null = false): OverlayEdge => ({
-  parent, child, marginal, true: truth, reverse_true: reverse, reverse_marginal: 0, lag: 10,
+  parent, child, marginal, true: truth, reverse_true: reverse, reverse_marginal: 0, lag: 10, candidate: true,
 });
 
 describe("overlayStyle", () => {
@@ -79,7 +79,7 @@ describe("overlayTooltip", () => {
 });
 
 const row = (kind: ErrorRow["kind"], parent: string, child: string): ErrorRow => ({
-  kind, parent, child, marginal: 0.5, reverse_true: false, reverse_marginal: 0, lag: 1, confidence: 0.5,
+  kind, parent, child, marginal: 0.5, reverse_true: false, reverse_marginal: 0, lag: 1, candidate: true, confidence: 0.5,
   parent_true_infection_time: null, child_true_infection_time: null,
 });
 
@@ -123,16 +123,16 @@ describe("shownCount", () => {
 describe("errorsTable", () => {
   it("writes the rows shown with the payload's fields, unrounded, and the edge set and threshold they were called at", () => {
     const t = errorsTable({ source: "null", label: "null fit", threshold: 0.5 }, [row("missed", "3", "9")]);
-    expect(t.columns).toEqual(["source", "threshold", "kind", "parent", "child", "marginal", "confidence", "reverse_marginal", "reverse_true",
-      "lag", "parent_true_infection_time", "child_true_infection_time"]);
-    expect(t.rows).toEqual([["null", 0.5, "missed", "3", "9", 0.5, 0.5, 0, false, 1, null, null]]);
+    expect(t.columns).toEqual(["source", "threshold", "kind", "parent", "child", "candidate", "marginal", "confidence", "reverse_marginal",
+      "reverse_true", "lag", "parent_true_infection_time", "child_true_infection_time"]);
+    expect(t.rows).toEqual([["null", 0.5, "missed", "3", "9", true, 0.5, 0.5, 0, false, 1, null, null]]);
   });
 });
 
 describe("an edge's truth status", () => {
   const posterior: OverlaySource = { source: "posterior", label: "golden", directed: true, edges: [
-    { parent: "1", child: "3", marginal: 0.83, true: true, reverse_true: false, reverse_marginal: 0, lag: 116 },
-    { parent: "2", child: "3", marginal: 0.2, true: false, reverse_true: false, reverse_marginal: 0, lag: 4 },
+    { parent: "1", child: "3", marginal: 0.83, true: true, reverse_true: false, reverse_marginal: 0, lag: 116, candidate: true },
+    { parent: "2", child: "3", marginal: 0.2, true: false, reverse_true: false, reverse_marginal: 0, lag: 4, candidate: true },
   ] };
 
   it("reads a listed edge's truth and its reverse's", () => {

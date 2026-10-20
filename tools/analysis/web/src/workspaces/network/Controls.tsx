@@ -54,6 +54,8 @@ export interface ControlsProps {
   set: (patch: SearchValues) => void;
   threshold: number;
   onThreshold: (t: number) => void;
+  level: number;
+  onLevel: (level: number) => void;
   colour: ColourKey;
   stratum: Stratum | null;
   /** The edge sets on offer (more than the posterior's), and the one drawn. */
@@ -71,24 +73,50 @@ export function Controls(p: ControlsProps) {
   const { payload, search, set } = p;
   const columns = payload.epi_columns ?? [];
   const column = columns.find((c) => c.name === p.stratum?.column);
-  // Edge colours are the posterior's; the truth overlay and the other edge sets colour edges their own way.
-  const edgeColours = p.overlaySource === null;
+  // Edge colours are the posterior's; the truth overlay, the other edge sets and the credible collection colour
+  // edges their own way.
+  const collection = search.edges === "collection";
+  const edgeColours = p.overlaySource === null && !collection;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-2 py-1 text-axis text-ink-2">
       <label className="flex items-center gap-1">
-        Edge marginal ≥
-        <input
-          type="range"
-          aria-label="Edge marginal threshold"
-          min={payload.floor}
-          max={1}
-          step={0.005}
-          value={p.threshold}
-          onChange={(e) => p.onThreshold(Number(e.target.value))}
-          className="w-32 accent-[var(--accent)]"
-        />
-        <output className="w-10 tabular-nums text-ink">{formatFixed(p.threshold, 3)}</output>
+        Edges
+        <select aria-label="Edges" className={select} value={search.edges} onChange={(e) => set({ edges: e.target.value === "marginal" ? undefined : e.target.value })}>
+          <option value="marginal">marginal</option>
+          <option value="collection">credible collection</option>
+        </select>
       </label>
+      {collection ? (
+        <label className="flex items-center gap-1" title="A parent stays when it belongs to some parent set inside the child's credible collection at this level. A higher level keeps a longer prefix of sets, so it retains more edges.">
+          Credible level
+          <input
+            type="range"
+            aria-label="Credible level"
+            min={0.05}
+            max={0.99}
+            step={0.01}
+            value={p.level}
+            onChange={(e) => p.onLevel(Number(e.target.value))}
+            className="w-32 accent-[var(--accent)]"
+          />
+          <output className="w-10 tabular-nums text-ink">{formatFixed(p.level, 2)}</output>
+        </label>
+      ) : (
+        <label className="flex items-center gap-1">
+          Edge marginal ≥
+          <input
+            type="range"
+            aria-label="Edge marginal threshold"
+            min={payload.floor}
+            max={1}
+            step={0.005}
+            value={p.threshold}
+            onChange={(e) => p.onThreshold(Number(e.target.value))}
+            className="w-32 accent-[var(--accent)]"
+          />
+          <output className="w-10 tabular-nums text-ink">{formatFixed(p.threshold, 3)}</output>
+        </label>
+      )}
       <label className="flex items-center gap-1" title="Infections without an edge at or above the threshold">
         <input type="checkbox" checked={!search.isolated} onChange={(e) => set({ isolated: e.target.checked ? undefined : "1" })} className="accent-[var(--accent)]" />
         Hide isolated Infections
@@ -150,13 +178,13 @@ export function Controls(p: ControlsProps) {
           )}
         </label>
       )}
-      {p.offerTruth && (
+      {p.offerTruth && !collection && (
         <label className="flex items-center gap-1">
           <input type="checkbox" checked={search.truth} onChange={(e) => set({ truth: e.target.checked ? "1" : undefined })} className="accent-[var(--accent)]" />
           Truth
         </label>
       )}
-      {p.sources.length > 1 && (
+      {p.sources.length > 1 && !collection && (
         <label className="flex items-center gap-1">
           Edge set
           <select aria-label="Edge set" className={select} value={p.overlaySource?.source ?? "posterior"} onChange={(e) => set({ source: e.target.value === "posterior" ? undefined : e.target.value })}>

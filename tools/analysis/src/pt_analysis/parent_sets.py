@@ -113,6 +113,23 @@ class PooledSet:
         return self.members[:self.n_observed]
 
 
+def collection_entries(analysis):
+    """[(parent, child, entry)] for every observed parent that appears in any of a child's Parent sets, pooled over
+    the Chains. `entry` is the pooled mass of the sets ranked above the first one containing the parent, so the parent
+    is inside the child's credible collection at every level above `entry` and outside it at every level up to it.
+    The unobserved source is not an edge. Ordered by entry, then child, then parent."""
+    rows = []
+    for child, sets in pooled_sets(analysis, 1).items():
+        seen = {}
+        for s in sets:
+            for parent in s.parents:
+                if parent not in seen:
+                    seen[parent] = s.cumulative_mass - s.weight
+        rows.extend((parent, child, entry) for parent, entry in seen.items())
+    rows.sort(key=lambda r: (r[2], r[1], r[0]))
+    return rows
+
+
 def pooled_sets(analysis, level=LEVEL, infection=None, infections=None):
     """{Infection: [PooledSet] in rank order by the MAP rule}, pooled over every Draw of every Chain, with each set's
     membership of the credible collection at `level`. With `infection`, only that Infection; with `infections`, only
