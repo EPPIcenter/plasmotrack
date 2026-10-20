@@ -141,6 +141,14 @@ describe("Network", () => {
     expect(await within(await edgeList()).findByRole("columnheader", { name: "Enters" })).toBeInTheDocument();
   });
 
+  it("lists each credible-collection edge's lag from the Infections' observation times", async () => {
+    renderApp("/network?edges=collection", { "/api/collection-edges": { edges: [{ parent: "1", child: "3", entry: 0 }] } });
+    const list = await edgeList();
+    // Infection 3 is observed at 350.5, Infection 1 at 234.0737.
+    const row = await within(list).findByRole("row", { name: /1 → 3/ });
+    expect(within(row).getByText("116.4")).toBeInTheDocument();
+  });
+
   it("says the credible collection is loading, not that it is empty, until it arrives", async () => {
     renderApp("/network?edges=collection", { "/api/collection-edges": () => new Promise(() => {}) });
     await screen.findByRole("slider", { name: "Credible level" });

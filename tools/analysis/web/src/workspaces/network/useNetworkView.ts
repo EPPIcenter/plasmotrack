@@ -9,6 +9,7 @@ import { useHovered } from "../../app/hover";
 import { useWorkspaceSearch } from "../../app/search";
 import { useMultiSelection, useSelection } from "../../app/selection";
 import { useTheme } from "../../app/theme";
+import { edgeLag } from "../../lib/edges";
 import { formatCount, formatFixed } from "../../lib/format";
 import { stratumLabel } from "../../lib/functionals";
 import {
@@ -83,6 +84,7 @@ export function useNetworkView() {
   }, [collection, overlay, search.truth, search.source]);
   const truthShown = Boolean(search.truth && overlay?.truth);
   const nodeIds = useMemo(() => new Set(shown?.nodes.map((n) => n.id) ?? []), [shown]);
+  const times = useMemo(() => new Map(payload?.nodes.map((n) => [n.id, n.observation_time]) ?? []), [payload]);
 
   const edges = useMemo<ListedEdge[]>(() => {
     if (!shown) return [];
@@ -97,7 +99,7 @@ export function useNetworkView() {
           marginal: Math.min(1, Math.max(0.15, 1 - e.entry)),
           type: "arrow" as const,
           chains: null,
-          lag: null,
+          lag: edgeLag({ ...e, unobserved: false }, times),
           entry: e.entry,
         }));
     }
@@ -107,7 +109,7 @@ export function useNetworkView() {
         .map((e) => ({ key: edgeKey(e), parent: e.parent, child: e.child, marginal: e.marginal, type: overlaySource.directed ? "arrow" : "line", chains: null, lag: e.lag }));
     }
     return shown.edges.map((e) => ({ key: edgeKey(e), parent: e.parent, child: e.child, marginal: e.marginal, type: "arrow" as const, chains: e.chains, lag: e.lag }));
-  }, [shown, collection, collectionQuery.data, level, overlaySource, nodeIds]);
+  }, [shown, collection, collectionQuery.data, level, overlaySource, nodeIds, times]);
   const overlayByKey = useMemo(() => new Map(overlaySource?.edges.map((e) => [edgeKey(e), e]) ?? []), [overlaySource]);
 
   const metrics = useMemo(() => new Map<string, EdgeMetrics>((table.data?.rows ?? []).map((r) => [edgeKey(r), { spread: r.spread, ess: r.ess }])), [table.data]);
