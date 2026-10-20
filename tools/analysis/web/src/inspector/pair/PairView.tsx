@@ -4,8 +4,9 @@
 // by tab; the Pairs workspace shows all of it as its main content.
 
 import * as Plot from "@observablehq/plot";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { usePair } from "../../api/pairs";
+import { useSearchState } from "../../app/search";
 import { useTheme } from "../../app/theme";
 import { AlleleStrip } from "../../components/AlleleStrip";
 import { EntityLink } from "../../components/EntityLink";
@@ -203,7 +204,9 @@ function stripWidth(bits: Array<string | null | undefined>): number {
 
 function GenotypesSection({ p }: { p: PairResponse }) {
   const { a, b } = p;
-  const [onlyDiffering, setOnlyDiffering] = useState(false);
+  // As on the Genotypes page: the differing Loci only, unless the URL asks for every Locus (`loci=all`).
+  const [search, set] = useSearchState();
+  const onlyDiffering = search.loci !== "all";
   const differing = differingLoci(p.genotypes.rows);
   const truth = p.genotypes.truth;
   const shown = onlyDiffering ? p.genotypes.rows.filter((r) => r.differs) : p.genotypes.rows;
@@ -213,14 +216,17 @@ function GenotypesSection({ p }: { p: PairResponse }) {
       title="Genotypes"
       aside={
         <label className="flex items-center gap-1 text-ink-2">
-          <input type="checkbox" checked={onlyDiffering} onChange={(e) => setOnlyDiffering(e.target.checked)} className="accent-[var(--accent)]" />
+          <input type="checkbox" checked={onlyDiffering} onChange={(e) => set({ loci: e.target.checked ? undefined : "all" })} className="accent-[var(--accent)]" />
           Differing only
         </label>
       }
     >
       <p className={`mb-1 ${differing.count ? "font-medium text-warning-ink" : "text-ink-2"}`}>{differing.text}.</p>
       <p className="mb-1 text-axis text-muted">Filled slot: an Allele of the Latent mode, lighter when fewer Draws have it. Outline: the Observed genotype has that Allele. The same slot is the same Allele.</p>
-      {/* Wider than the Inspector: it scrolls sideways here, the Locus column staying in view (as DataTable's). */}
+      {shown.length === 0 && p.genotypes.rows.length > 0 ? (
+        <button type="button" className="text-axis text-accent hover:underline" onClick={() => set({ loci: "all" })}>Show every Locus</button>
+      ) : (
+      /* Wider than the Inspector: it scrolls sideways here, the Locus column staying in view (as DataTable's). */
       <div className="-mx-3 overflow-x-auto">
         <table className="min-w-full text-table tabular-nums" aria-label="Genotypes per Locus">
           <thead className="text-ink-2">
@@ -251,6 +257,7 @@ function GenotypesSection({ p }: { p: PairResponse }) {
           </tbody>
         </table>
       </div>
+      )}
     </Section>
   );
 }

@@ -117,8 +117,8 @@ of `/convergence?sel=...` opens the app there.
   one is picked) is `PairView` from the Pair Inspector, every section at once. The list has a sortable "Differing
   Loci" column (`differing_loci`, the Loci where the pair's pooled Latent genotype modes differ).
 - **Inspector**: Edge (`src/inspector/edge/`) reads `/api/edges`, `/api/network` and, with truth, `/api/truth-network`;
-  Pair (`src/inspector/pair/`) has Summary and Genotypes tabs over `/api/pair`; its genotype table scrolls sideways
-  with the Locus column sticky, and shows truth columns only when `genotypes.truth` (a missing true genotype reads
+  Pair (`src/inspector/pair/`) has Summary and Genotypes tabs over `/api/pair`; its genotype table shows the differing Loci only unless
+  `loci=all` (as the Genotypes page), scrolls sideways with the Locus column sticky, and shows truth columns only when `genotypes.truth` (a missing true genotype reads
   "–", "unobserved" is for a missing Observed genotype). `src/inspector/layout.tsx` holds the dense section and
   figure-row pieces they share, and `Sections` (one under another, or in columns as the page).
 - **Errors**: every query an entity or tab makes renders `PanelState`'s "Could not load: <message>" when it fails, a

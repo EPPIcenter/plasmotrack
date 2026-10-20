@@ -37,7 +37,7 @@ describe("an entity opened as a page", () => {
   });
 
   it("shows both parts of a pair side by side", async () => {
-    renderApp("/inspect?sel=pair:1,3");
+    renderApp("/inspect?sel=pair:1,3&loci=all");
     const page = await screen.findByRole("article", { name: "Pair 1, 3" });
     expect(await within(page).findByRole("region", { name: "Order" })).toBeInTheDocument();
     expect(await within(page).findByRole("table", { name: "Genotypes per Locus" })).toBeInTheDocument();

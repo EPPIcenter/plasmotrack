@@ -1,4 +1,5 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { PairResponse } from "../../lib/pair";
 import { fixture, mockApi, renderApp, renderWithProviders } from "../../test/render";
@@ -51,17 +52,36 @@ describe("the pair's genotypes", () => {
     expect(differing.map((r) => within(r).getAllByRole("cell")[0]!.textContent)).toEqual(["AS11"]);
   });
 
+  it("open on the differing Loci only, as the Genotypes page does, with a toggle to show every Locus", async () => {
+    const pair = fixture<PairResponse>("pair-1-3");
+    pair.genotypes.rows[1]!.differs = true;
+    mockApi({ "/api/pair": pair });
+    const { search } = renderWithProviders(<PairView a="1" b="3" part="genotypes" />);
+    const table = await screen.findByRole("table", { name: "Genotypes per Locus" });
+    const loci = () => within(table).getAllByRole("row").slice(1).map((r) => within(r).getAllByRole("cell")[0]!.textContent);
+    expect(loci()).toEqual(["AS11"]);
+    const toggle = screen.getByRole("checkbox", { name: "Differing only" });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    await waitFor(() => expect(loci()).toEqual(["AS1", "AS11"]));
+    expect(search().loci).toBe("all");
+  });
+
   it("say so when no Locus differs", async () => {
     renderApp("/overview?sel=pair:1,3&tab=genotypes");
     const genotypes = await within(await inspector()).findByRole("region", { name: "Genotypes" });
     expect(genotypes).toHaveTextContent("No Locus of 2 differs");
+    // With the differing Loci only, there is no table to show but a way to every Locus.
+    expect(within(genotypes).queryByRole("table")).toBeNull();
+    await userEvent.click(within(genotypes).getByRole("button", { name: "Show every Locus" }));
+    expect(await within(genotypes).findByRole("table", { name: "Genotypes per Locus" })).toBeInTheDocument();
   });
 });
 
 describe("the pair's genotype table", () => {
   it("scrolls sideways inside its section with the Locus column kept in view", async () => {
     mockApi();
-    renderWithProviders(<PairView a="1" b="3" part="genotypes" />);
+    renderWithProviders(<PairView a="1" b="3" part="genotypes" />, "/?loci=all");
     const table = await screen.findByRole("table", { name: "Genotypes per Locus" });
     expect(table.parentElement).toHaveClass("overflow-x-auto");
     expect(within(table).getByRole("columnheader", { name: "Locus" })).toHaveClass("dt-sticky");
@@ -70,7 +90,7 @@ describe("the pair's genotype table", () => {
 
   it("has no truth columns when the truth file has no genotypes", async () => {
     mockApi();
-    renderWithProviders(<PairView a="1" b="3" part="genotypes" />);
+    renderWithProviders(<PairView a="1" b="3" part="genotypes" />, "/?loci=all");
     const table = await screen.findByRole("table", { name: "Genotypes per Locus" });
     expect(within(table).queryByRole("columnheader", { name: /True/ })).toBeNull();
   });
@@ -80,7 +100,7 @@ describe("the pair's genotype table", () => {
     pair.genotypes.truth = true;
     pair.genotypes.rows = pair.genotypes.rows.map((r, i) => ({ ...r, observed_b: i ? r.observed_b : null, true_a: r.latent_a, true_b: null }));
     mockApi({ "/api/pair": pair });
-    renderWithProviders(<PairView a="1" b="3" part="genotypes" />);
+    renderWithProviders(<PairView a="1" b="3" part="genotypes" />, "/?loci=all");
     const table = await screen.findByRole("table", { name: "Genotypes per Locus" });
     expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(
       ["Locus", "1", "3", "True 1", "True 3"]);
