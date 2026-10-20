@@ -70,6 +70,21 @@ TEST(StudyTest, TheJsonAdapterReadsEveryFieldAndDefaultsSymptomatic) {
     EXPECT_EQ(study.asymptomaticInfectionDurations.size(), 45u);
 }
 
+// R's jsonlite writes an empty list as {}; the simulation inputs use it for an Infection that has no permitted parents.
+TEST(StudyTest, TheJsonAdapterReadsAnEmptyObjectAsNoPermittedParents) {
+    const auto input = nlohmann::json::parse(R"({
+        "loci": [{"locus": "L0", "num_alleles": 2, "allele_freqs": [0.5, 0.5]}],
+        "nodes": [{"id": "a", "observation_time": 400, "allowed_parents": {}, "observed_genotype": []}]
+    })");
+
+    const auto study = studyFromJson(input, {}, {});
+
+    ASSERT_EQ(study.infections.size(), 1u);
+    EXPECT_TRUE(study.infections[0].permittedParents.empty());
+    const auto notAList = nlohmann::json::parse(R"({"loci": [], "nodes": [{"id": "a", "observation_time": 400, "allowed_parents": {"b": 1}, "observed_genotype": []}]})");
+    EXPECT_THROW(studyFromJson(notAList, {}, {}), Refused);
+}
+
 TEST(StudyTest, TheJsonAdapterRefusesADocumentThatLacksAField) {
     const auto noNodes = nlohmann::json::parse(R"({"loci": []})");
     EXPECT_THROW(studyFromJson(noNodes, {}, {}), Refused);
