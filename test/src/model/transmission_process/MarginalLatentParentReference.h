@@ -12,6 +12,10 @@
 //   g_l(k, m) = sum_{U ⊆ C_l, U ≠ ∅} sum_w P(G ∩ C_l = U, |G \ C_l| = w | k) f_l(m; U, |U| + w).
 // P(U, w | k) comes from the exponential generating function of k draws:
 //   P(U, w | k) = k! [t^k x^w] prod_{i ∈ U} (e^{π_i t} - 1) prod_{i ∉ C} (1 + x (e^{π_i t} - 1)).
+// With a transmission leak ε > 0, U = ∅ is possible for the latent parent alone, so the sum over U includes it.
+//
+// leakyLocusLogTerm() is the locus term with a leak, written plainly: the pool over every allele, then the strains
+// drawn one at a time, tracking the set of alleles drawn so far.
 //
 
 #ifndef TRANSMISSION_NETWORKS_TEST_MARGINALLATENTPARENTREFERENCE_H
@@ -27,6 +31,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <span>
 #include <vector>
 
 namespace transmission_nets::model::transmission_process::marginal {
@@ -65,9 +70,13 @@ namespace transmission_nets::model::transmission_process::marginal {
         g.fill(0.0);
         const auto& childAlleles = overlap.childAlleles();
         const unsigned int numMasks = 1u << childAlleles.size();
-        for (unsigned int mask = 1; mask < numMasks; ++mask) {
+        // U = ∅ only contributes with a leak and the latent parent alone; logTerm says it is impossible otherwise.
+        for (unsigned int mask = 0; mask < numMasks; ++mask) {
             for (unsigned int w = 0; w <= overlap.maxW(); ++w) {
                 const auto r = static_cast<int>(std::popcount(mask) + w);
+                if (r == 0) {
+                    continue;// a latent parent carries at least one allele
+                }
                 if (r > MAX_COI) {
                     break;
                 }
@@ -131,6 +140,63 @@ namespace transmission_nets::model::transmission_process::marginal {
             sum += std::exp(t - maxTerm);
         }
         return maxTerm + std::log(sum) + logParentSetSizeProb;
+    }
+
+    // log f(m), m = 1..MAX_STRAINS, at one locus with a transmission leak: m strains drawn from the pool
+    //   p_j = (1 - leak) (1/n) sum_{q in parents} 1[j in G_q] / |G_q| + leak π_j
+    // show exactly the child's alleles. `parents` are every parent of the set, the latent parent included (last when
+    // `latentWithObserved`, which applies the rule that it must share an allele with the child). nullopt when no m is
+    // possible. Computed by following the set of child alleles drawn so far, strain by strain; a draw outside the child's
+    // alleles ends the path.
+    template<int MAX_STRAINS>
+    std::optional<std::array<double, MAX_STRAINS>> leakyLocusLogTerm(const core::datatypes::Genotype& child, const std::vector<const core::datatypes::Genotype*>& parents, const std::vector<double>& frequencies,
+                                                                     const double leak, const bool latentWithObserved) {
+        const unsigned int A = child.totalAlleles();
+        std::vector<unsigned int> childAlleles;
+        for (unsigned int a = 0; a < A; ++a) {
+            if (child.allele(a)) {
+                childAlleles.push_back(a);
+            }
+        }
+        if (childAlleles.empty()) {
+            return std::nullopt;
+        }
+        if (latentWithObserved and core::datatypes::Genotype::truePositiveCount(*parents.back(), child) == 0) {
+            return std::nullopt;
+        }
+        std::vector<double> pool(A, 0.0);
+        for (const auto* parent : parents) {
+            const double size = parent->totalPositiveCount();
+            for (unsigned int a = 0; a < A; ++a) {
+                if (parent->allele(a)) {
+                    pool[a] += 1.0 / size / static_cast<double>(parents.size());
+                }
+            }
+        }
+        for (unsigned int a = 0; a < A; ++a) {
+            pool[a] = (1 - leak) * pool[a] + leak * frequencies[a];
+        }
+        const unsigned int c    = childAlleles.size();
+        const unsigned int full = (1u << c) - 1;
+        std::vector<double> drawn(1u << c, 0.0), next(1u << c);
+        drawn[0] = 1.0;
+        std::array<double, MAX_STRAINS> out{};
+        bool any = false;
+        for (int m = 1; m <= MAX_STRAINS; ++m) {
+            std::fill(next.begin(), next.end(), 0.0);
+            for (unsigned int set = 0; set <= full; ++set) {
+                for (unsigned int i = 0; i < c; ++i) {
+                    next[set | 1u << i] += drawn[set] * pool[childAlleles[i]];
+                }
+            }
+            std::swap(drawn, next);
+            out[m - 1] = drawn[full] > 0 ? std::log(drawn[full]) : -std::numeric_limits<double>::infinity();
+            any        = any or drawn[full] > 0;
+        }
+        if (not any) {
+            return std::nullopt;
+        }
+        return out;
     }
 
     // Adds a locus' table to a running sum (-inf absorbs).

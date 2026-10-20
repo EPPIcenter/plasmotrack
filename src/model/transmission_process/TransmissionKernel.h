@@ -13,6 +13,11 @@
 // The arithmetic, including operation order and the zero-probability cutoffs, is the code it was moved from, so
 // results are bit-identical.
 //
+// The transmission leak ε (0 by default): the parent pool at a locus becomes (1 - ε) p + ε π, π the locus' Allele
+// frequencies, so a child allele no parent carries is improbable rather than impossible. With ε = 0 the kernel takes
+// the code paths above unchanged; with ε > 0 f is computed from the leaky pool by a generating function with no
+// cancellation (leakyLocusTerms()). See section 6 of doc/marginal-latent-parent.md.
+//
 
 #ifndef TRANSMISSION_NETWORKS_APP_TRANSMISSIONKERNEL_H
 #define TRANSMISSION_NETWORKS_APP_TRANSMISSIONKERNEL_H
@@ -29,6 +34,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -43,6 +49,11 @@ namespace transmission_nets::model::transmission_process {
         using Genotype = core::datatypes::Genotype;
 
     public:
+        explicit TransmissionKernel(const double leak = 0) : leak_(leak) {}
+
+        // The transmission leak ε.
+        [[nodiscard]] double leak() const { return leak_; }
+
         using Likelihood  = double;
         using Probability = double;
         static constexpr Likelihood NEG_INF = -std::numeric_limits<Likelihood>::infinity();
@@ -138,8 +149,9 @@ namespace transmission_nets::model::transmission_process {
         }
 
         // log f_l(m) for one locus from the genotypes at it: the child's, the observed parents' in parent-set order,
-        // and the latent parent's (null for the observed-parents variant).
-        LocusTerm locusTerm(const Variant variant, const Genotype& childGenotype, const std::span<const Genotype* const> parents, const Genotype* latentParent) {
+        // and the latent parent's (null for the observed-parents variant). `frequencies` are the locus' Allele
+        // frequencies, by allele index; read only with a leak, and required then.
+        LocusTerm locusTerm(const Variant variant, const Genotype& childGenotype, const std::span<const Genotype* const> parents, const Genotype* latentParent, const std::vector<double>* frequencies = nullptr) {
             LocusTerm out{};
             const size_t numParents = parents.size() + (latentParent != nullptr ? 1 : 0);
 
@@ -201,6 +213,16 @@ namespace transmission_nets::model::transmission_process {
                 }
             }
 
+            if (leak_ > 0) {
+                // The leaky pool on the child's alleles: (1 - ε) p_j + ε π_j.
+                assert(frequencies != nullptr && "a leaky locus term needs the locus' Allele frequencies");
+                for (size_t k = 0; k < childAlleles_.size(); ++k) {
+                    parentPopFreqs_[k] = (1.0 - leak_) * parentPopFreqs_[k] + leak_ * (*frequencies)[childAlleles_[k]];
+                }
+                leakyLocusTerms(out);
+                return out;
+            }
+
             Probability constrainedSetProb = 0.0;
             prVec_.clear();
             bool zeroProbEvent = false;
@@ -223,6 +245,49 @@ namespace transmission_nets::model::transmission_process {
                 out.terms[idx] = pamVec[idx] >= 1.0 ? NEG_INF : std::log(1.0 - pamVec[idx]) + logConstrainedSetProb * numStrains;
             }
             return out;
+        }
+
+        // log f(m) from the pool on the child's alleles in parentPopFreqs_ (the pool's other alleles enter only through
+        // these, as they sum to 1 with them): the probability that m draws from the pool show exactly the child's
+        // alleles is m! [t^m] prod_{j in C} (e^{p_j t} - 1). Every coefficient is non-negative, so there is no
+        // cancellation however small a leaked p_j is.
+        void leakyLocusTerms(LocusTerm& out) const {
+            const size_t c = parentPopFreqs_.size();
+            if (c == 0 or c > static_cast<size_t>(MAX_STRAINS)) {
+                out.impossible = true;
+                return;
+            }
+            std::array<double, MAX_STRAINS + 1> series{};
+            std::array<double, MAX_STRAINS + 1> next{};
+            series[0] = 1.0;
+            std::array<double, MAX_STRAINS + 1> drawn{};
+            for (size_t k = 0; k < c; ++k) {
+                // e^{p t} - 1 to degree MAX_STRAINS.
+                const double p = parentPopFreqs_[k];
+                double power   = 1.0;
+                for (int b = 1; b <= MAX_STRAINS; ++b) {
+                    power *= p;
+                    drawn[b] = power * INVERSE_FACTORIAL[b];
+                }
+                // Each allele so far needs a draw, so series[a] is 0 for a < k.
+                next.fill(0.0);
+                for (int a = static_cast<int>(k); a < MAX_STRAINS; ++a) {
+                    if (series[a] == 0) {
+                        continue;
+                    }
+                    for (int b = 1; a + b <= MAX_STRAINS; ++b) {
+                        next[a + b] += series[a] * drawn[b];
+                    }
+                }
+                series = next;
+            }
+            bool any = false;
+            for (int m = 1; m <= MAX_STRAINS; ++m) {
+                const double f   = series[m] * FACTORIAL[m];
+                out.terms[m - 1] = f > 0 ? std::log(f) : NEG_INF;
+                any              = any or f > 0;
+            }
+            out.impossible = not any;
         }
 
         // A parent set's log-likelihood marginalised over strain counts, before the parent-set-size term. numParents
@@ -335,7 +400,8 @@ namespace transmission_nets::model::transmission_process {
         };
 
         // The F table for a child genotype and the observed parents' genotypes (none for the latent parent alone).
-        FTable fTable(const Genotype& child, const std::span<const Genotype* const> parents) {
+        // `frequencies` as for locusTerm(): with a leak the table depends on them.
+        FTable fTable(const Genotype& child, const std::span<const Genotype* const> parents, const std::vector<double>* frequencies = nullptr) {
             const auto childAlleles = allelesOf(child);
             const unsigned int A    = child.totalAlleles();
             const auto c            = static_cast<unsigned int>(childAlleles.size());
@@ -345,9 +411,10 @@ namespace transmission_nets::model::transmission_process {
                 return table;
             }
             // A child allele in no observed parent has frequency 0 unless the latent parent carries it, so masks
-            // without all of them are impossible and skipped without computing their terms.
+            // without all of them are impossible and skipped without computing their terms. With a leak no allele is
+            // required.
             unsigned int required = 0;
-            for (unsigned int i = 0; i < c; ++i) {
+            for (unsigned int i = 0; i < c and leak_ == 0; ++i) {
                 if (std::ranges::none_of(parents, [&](const Genotype* parent) { return parent->allele(childAlleles[i]); })) {
                     required |= 1u << i;
                 }
@@ -364,7 +431,11 @@ namespace transmission_nets::model::transmission_process {
                 }
             }
             Genotype latent = child;
-            for (unsigned int mask = 1; mask < numMasks; ++mask) {
+            // With a leak, the latent parent alone may share no allele with the child (U = ∅): the child's alleles
+            // then all come from the leak. With observed parents U = ∅ stays impossible (the latent parent must share
+            // an allele with the child), as does any U = ∅ without a leak.
+            const unsigned int firstMask = leak_ > 0 and parents.empty() ? 0 : 1;
+            for (unsigned int mask = firstMask; mask < numMasks; ++mask) {
                 if ((mask & required) != required) {
                     continue;
                 }
@@ -381,7 +452,10 @@ namespace transmission_nets::model::transmission_process {
                     if (w > 0) {
                         latent.set(outside[w - 1]);
                     }
-                    const auto term = locusTerm(variant, child, parents, &latent);
+                    if (mask == 0 and w == 0) {
+                        continue;// a latent parent carries at least one allele
+                    }
+                    const auto term = locusTerm(variant, child, parents, &latent, frequencies);
                     if (term.impossible) {
                         continue;
                     }
@@ -504,6 +578,23 @@ namespace transmission_nets::model::transmission_process {
         }
 
     private:
+        static constexpr std::array<double, MAX_STRAINS + 1> FACTORIAL = [] {
+            std::array<double, MAX_STRAINS + 1> out{};
+            out[0] = 1.0;
+            for (int b = 1; b <= MAX_STRAINS; ++b) {
+                out[b] = out[b - 1] * b;
+            }
+            return out;
+        }();
+        static constexpr std::array<double, MAX_STRAINS + 1> INVERSE_FACTORIAL = [] {
+            std::array<double, MAX_STRAINS + 1> out{};
+            for (int b = 0; b <= MAX_STRAINS; ++b) {
+                out[b] = 1.0 / FACTORIAL[b];
+            }
+            return out;
+        }();
+
+        double leak_ = 0;
         core::utils::probAnyMissingFunctor probAnyMissing_{};
         // Scratch buffers reused across locus evaluations.
         std::vector<size_t> childAlleles_{};
