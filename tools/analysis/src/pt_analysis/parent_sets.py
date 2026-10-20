@@ -117,17 +117,62 @@ def collection_entries(analysis):
     """[(parent, child, entry)] for every observed parent that appears in any of a child's Parent sets, pooled over
     the Chains. `entry` is the pooled mass of the sets ranked above the first one containing the parent, so the parent
     is inside the child's credible collection at every level above `entry` and outside it at every level up to it.
-    The unobserved source is not an edge. Ordered by entry, then child, then parent."""
-    rows = []
-    for child, sets in pooled_sets(analysis, 1).items():
-        seen = {}
-        for s in sets:
-            for parent in s.parents:
-                if parent not in seen:
-                    seen[parent] = s.cumulative_mass - s.weight
-        rows.extend((parent, child, entry) for parent, entry in seen.items())
-    rows.sort(key=lambda r: (r[2], r[1], r[0]))
-    return rows
+    The unobserved source is not an edge. Ordered by entry, then child, then parent.
+
+    The same numbers as `pooled_sets(analysis, 1)` gives (each set's pooled weight sums its Chains in Analysis order,
+    the cumulative mass adds down the ranking), computed in one query over every Chain's `set_summary` rather than
+    by building every PooledSet."""
+    draws = {label: store.draws() for label, store in analysis.runs.items()}
+    total = sum(draws.values())
+    if not total:
+        return []
+    labels = list(analysis.runs)
+    connection = next(iter(analysis.runs.values())).connection
+    with Scope(connection) as s:
+        def union(relation_of):
+            return " UNION ALL ".join(f"SELECT {i} AS chain, * FROM {s.name(relation_of(store))}"
+                                      for i, store in enumerate(analysis.runs.values()))
+        # Each Chain's weight times its Draws, added in Analysis order as `pooled_sets` adds them.
+        pooled = " + ".join(f"coalesce(max(weight) FILTER (WHERE chain = {i}), 0) * {draws[label]}"
+                            for i, label in enumerate(labels))
+        members = union(lambda st: table(st, "parent_set_members"))
+        latent = union(lambda st: st.structure("infections").project("infection, latent_parent"))
+        summary = union(lambda st: derived(st, "set_summary").project("infection, set_id, weight"))
+        # A set's members joined by a separator below every character of an id, so the keys sort as the members
+        # tuples do (the MAP rule's tie-break) and match a set across Chains.
+        rows = s.rows(f"""
+            WITH m AS MATERIALIZED (SELECT m.*, m.member = l.latent_parent AS latent
+                       FROM ({members}) m JOIN ({latent}) l USING (chain, infection)),
+            x AS ({summary}),
+            named AS MATERIALIZED (  -- observed parents in id order, then the Latent parent when it is a member
+                SELECT chain, infection, set_id,
+                       concat_ws(chr(1), array_to_string(list_sort(list(member) FILTER (WHERE NOT latent)), chr(1)),
+                                 any_value(member) FILTER (WHERE latent)) AS key
+                FROM m SEMI JOIN x USING (chain, infection, set_id) GROUP BY chain, infection, set_id),
+            sets AS (
+                SELECT infection, key, ({pooled}) / {total} AS weight
+                FROM x JOIN named USING (chain, infection, set_id) GROUP BY infection, key),
+            ranked AS MATERIALIZED (
+                SELECT infection, key, weight,
+                       row_number() OVER (PARTITION BY infection ORDER BY weight DESC, key) AS rank
+                FROM sets),
+            firsts AS (  -- the rank of the first set containing each observed parent
+                SELECT infection, m.member AS parent, min(rank) AS rank
+                FROM named JOIN ranked USING (infection, key) JOIN m USING (chain, infection, set_id)
+                WHERE NOT m.latent GROUP BY ALL)
+            SELECT w.infection, w.weights, f.firsts
+            FROM (SELECT infection, list(weight ORDER BY rank) AS weights FROM ranked GROUP BY infection) w
+                 LEFT JOIN (SELECT infection, list((parent, rank)) AS firsts FROM firsts GROUP BY infection) f
+                 USING (infection)""")
+    out = []
+    for child, weights, firsts in rows:
+        mass, entries = 0.0, []
+        for w in weights:  # the entry of the set at each rank: the mass down to it, less its weight
+            mass += w
+            entries.append(mass - w)
+        out.extend((parent, child, entries[rank - 1]) for parent, rank in firsts or [])
+    out.sort(key=lambda r: (r[2], r[1], r[0]))
+    return out
 
 
 def pooled_sets(analysis, level=LEVEL, infection=None, infections=None):
