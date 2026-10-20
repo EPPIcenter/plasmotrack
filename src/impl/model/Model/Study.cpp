@@ -23,7 +23,11 @@ namespace transmission_nets::impl::Model {
                 for (const auto& genotype : node.at("observed_genotype")) {
                     infection.observedGenotypes.push_back({.locus = genotype.at("locus"), .alleles = genotype.at("genotype")});
                 }
-                infection.permittedParents = node.at("allowed_parents").get<std::vector<std::string>>();
+                // R's jsonlite writes an empty list as {}.
+                const auto& allowedParents = node.at("allowed_parents");
+                if (!(allowedParents.is_object() && allowedParents.empty())) {
+                    infection.permittedParents = allowedParents.get<std::vector<std::string>>();
+                }
                 study.infections.push_back(std::move(infection));
             }
         } catch (const nlohmann::json::exception& e) {
