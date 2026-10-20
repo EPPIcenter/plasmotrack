@@ -74,9 +74,9 @@ function PairPicker({ a, b, ids, onPick }: { a: string; b: string; ids: string[]
     e.preventDefault();
     onPick(x.trim(), y.trim());
   };
-  const box = "h-5 w-28 rounded-[3px] border border-line bg-surface px-1.5 text-axis id";
+  const box = "h-5 w-24 rounded-[3px] border border-line bg-surface px-1.5 text-axis id";
   return (
-    <form onSubmit={submit} className="flex items-center gap-1 text-axis text-ink-2">
+    <form onSubmit={submit} className="flex flex-wrap items-center gap-1 text-axis text-ink-2">
       <datalist id="pair-ids">
         {ids.map((id) => <option key={id} value={id} />)}
       </datalist>

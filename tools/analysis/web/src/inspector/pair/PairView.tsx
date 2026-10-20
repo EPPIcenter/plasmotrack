@@ -26,7 +26,7 @@ function Table({ label, head, children }: { label: string; head: ReactNode[]; ch
       <thead className="text-ink-2">
         <tr className="border-b border-line">
           {head.map((h, i) => (
-            <th key={i} className={`py-0.5 font-medium ${i ? "text-right" : "text-left"}`}>{h}</th>
+            <th key={i} className={`py-0.5 align-bottom font-medium ${i ? "pl-3 text-right" : "text-left"}`}>{h}</th>
           ))}
         </tr>
       </thead>
@@ -35,7 +35,8 @@ function Table({ label, head, children }: { label: string; head: ReactNode[]; ch
   );
 }
 
-const td = (i: number) => (i ? "num" : "py-0.5");
+// Cells after the first keep a gap from their neighbour, so a long header (P(A before B)) wraps rather than touching.
+const td = (i: number) => (i ? "num pl-3" : "whitespace-nowrap py-0.5");
 
 function OrderSection({ p }: { p: PairResponse }) {
   const { a, b } = p;
