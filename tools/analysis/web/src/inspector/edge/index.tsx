@@ -35,6 +35,10 @@ export default function EdgeInspector({ entity, page }: InspectorProps<"edge">) 
   if (error || isLoading || !data) return <PanelState loading={isLoading} error={error} />;
 
   const row = index.get(parent, child);
+  // An id that is neither an Infection nor a Latent parent (an unobserved source in the edge table) is an error, as
+  // the Infection Inspector reports it, not an edge with marginal 0. Decided once the network's nodes are in.
+  const unknown = !row && network ? [parent, child].filter((id) => !network.nodes.some((n) => n.id === id) && !data.rows.some((r) => r.unobserved && r.parent === id)) : [];
+  if (unknown.length) return <PanelState error={new Error(`no Infection ${[...new Set(unknown)].join(" or ")} in the Analysis`)} />;
   const infection = (id: string) => <EntityLink entity={{ kind: "infection", id }} />;
   if (!row) {
     const nodes = network?.nodes;

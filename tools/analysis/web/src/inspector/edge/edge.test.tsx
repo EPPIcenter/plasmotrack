@@ -61,6 +61,13 @@ describe("the Edge Inspector", () => {
     expect(search().sel).toBe("pair:2,1");
   });
 
+  it("says an id is no Infection of the Analysis, as the Infection Inspector does", async () => {
+    renderApp("/overview?sel=edge:nope>3");
+    const box = await inspector();
+    expect(await within(box).findByText("Could not load: no Infection nope in the Analysis")).toBeInTheDocument();
+    expect(within(box).queryByText(/Edge marginal is 0/)).not.toBeInTheDocument();
+  });
+
   it("says when no Draw has an edge the input does not rule out", async () => {
     renderApp("/overview?sel=edge:3_copy>2");
     expect(await within(await inspector()).findByText(/No Draw of any Chain has 3_copy as a parent of 2/)).toBeInTheDocument();
