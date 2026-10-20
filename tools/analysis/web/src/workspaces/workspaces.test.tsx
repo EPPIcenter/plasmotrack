@@ -26,6 +26,12 @@ describe("Overview", () => {
     expect(within(attention).getByRole("link", { name: /log posterior/ })).toBeInTheDocument();
   });
 
+  it("labels the worst-mixing quantities' R-hat and ESS", async () => {
+    renderApp("/overview");
+    const worst = await screen.findByRole("table", { name: "Worst-mixing quantities" });
+    expect(within(worst).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Quantity", "R-hat", "ESS"]);
+  });
+
   it("draws the log posterior, mixing by group and the headline", async () => {
     renderApp("/overview");
     expect(await screen.findByRole("img", { name: "ESS of every quantity, per group" })).toContainHTML("<svg");

@@ -30,7 +30,17 @@ const tr = "h-6 border-b border-line/60 hover:bg-hover";
 export function Attention({ o }: { o: Overview }) {
   return (
     <div className="grid grid-cols-1 gap-x-3 gap-y-2 p-1 @2xl:grid-cols-2 @7xl:grid-cols-4">
-      <List title="Worst-mixing quantities" empty="None">
+      <List
+        title="Worst-mixing quantities"
+        empty="None"
+        header={
+          <>
+            <th className="px-2 text-left font-normal">Quantity</th>
+            <th className="num w-16 font-normal" title="Split R-hat over the Chains">R-hat</th>
+            <th className="num w-12 pr-2 font-normal" title="Multi-chain effective sample size">ESS</th>
+          </>
+        }
+      >
         {o.worst.map((w) => (
           <tr key={`${w.group}/${w.name}`} className={tr}>
             <td className="truncate px-2" title={`${w.group}: ${w.name}`}>
