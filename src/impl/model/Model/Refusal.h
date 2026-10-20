@@ -20,6 +20,7 @@ namespace transmission_nets::impl::Model {
         NothingToResume,      // the store given to --resume holds no Run
         // What was given, on the file system.
         InputMissing,
+        InvalidInput,// the input does not describe a study
         OutputDirMissing,
         UnreadableRunManifest,
         UnusableCheckpoint,// can't be opened, isn't a checkpoint, has another format version, or doesn't fit the input

@@ -11,8 +11,7 @@
 #include "Checkpoint.h"
 #include "Ensemble.h"
 #include "State.h"
-
-#include <nlohmann/json.hpp>
+#include "Study.h"
 
 #include <memory>
 #include <vector>
@@ -27,17 +26,11 @@ namespace transmission_nets::impl::Model::checkpoint {
     // Takes a checkpoint of `ensemble`.
     Checkpoint capture(const Ensemble& ensemble, Identity identity, RunPosition position, ParentSetIdDictionary parentSetIds);
 
-    // Builds an ensemble from `checkpoint` and the Run's input, with `runRng` as its top-level engine, continued from
+    // Builds an ensemble from `checkpoint` and the Run's Study, with `runRng` as its top-level engine, continued from
     // where the checkpoint left it, pending ladder barriers included; a new Run started from it calls
     // restartBurnIn(). Throws Refused for a checkpoint that doesn't fit the input. Whether it fits the Run is the Run
     // recipe's to check.
-    std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint,
-                                      const std::shared_ptr<Engine>& runRng,
-                                      const nlohmann::json& input,
-                                      const std::vector<core::computation::Probability>& symptomaticIDPDist,
-                                      const std::vector<core::computation::Probability>& asymptomaticIDPDist,
-                                      bool nullModel,
-                                      unsigned int numCores);
+    std::unique_ptr<Ensemble> restore(const Checkpoint& checkpoint, const std::shared_ptr<Engine>& runRng, const Study& study, bool nullModel, unsigned int numCores);
 }// namespace transmission_nets::impl::Model::checkpoint
 
 #endif//TRANSMISSION_NETWORKS_APP_ENSEMBLECHECKPOINT_H

@@ -136,7 +136,7 @@ TEST(RunDriverTest, TheBurnInCheckpointHoldsTheStateAtBurnInEnd) {
     EXPECT_EQ(burnIn.position, (RunPosition{.iteration = 13, .phase = Phase::Sampling, .lastClosedWindow = 2, .burnInRemaining = 0, .samplingRemaining = 12}));
     EXPECT_EQ(hotReplica(burnIn).state.scalars.at("mean_coi"), scalarAt(store, "mean_coi", 13));
     auto rng            = std::make_shared<Engine>();
-    const auto restored = checkpoint::restore(burnIn, rng, inputs().input, IDP, IDP, false, 1);
+    const auto restored = checkpoint::restore(burnIn, rng, study(), false, 1);
     EXPECT_NEAR(restored->hotChain().model->getLikelihood(), scalarAt(store, "likelihood", 13), 1e-9);
     EXPECT_NEAR(restored->hotChain().model->getPrior(), scalarAt(store, "prior", 13), 1e-9);
 }

@@ -6,6 +6,8 @@
 
 #include "gtest/gtest.h"
 
+#include "Studies.h"
+
 #include "core/samplers/meta/ReplicaExchange.h"
 #include "impl/model/Model/Checkpoint.h"
 #include "impl/model/Model/EnsembleCheckpoint.h"
@@ -25,19 +27,14 @@
 
 using namespace transmission_nets::impl::Model;
 using transmission_nets::core::samplers::ReplicaExchange;
+using namespace transmission_nets::test::studies;
 
 namespace {
     using Exchange = ReplicaExchange<State, Model, SamplerSet>;
 
-    nlohmann::json exampleInput() {
-        std::ifstream in(EXAMPLE_INPUT_PATH);
-        return nlohmann::json::parse(in);
-    }
-
     std::unique_ptr<Exchange> makeExchange(const int numChains, const unsigned int seed) {
-        const std::vector<double> idp(60, 1.0 / 60);
         auto rng = std::make_shared<boost::random::mt19937>(seed);
-        return std::make_unique<Exchange>(numChains, 0.5, rng, false, 1, exampleInput(), idp, idp);
+        return std::make_unique<Exchange>(numChains, 0.5, rng, false, 1, exampleStudy());
     }
 }// namespace
 
@@ -413,10 +410,9 @@ namespace {
 
     // The ensemble `saved` records, its States rebuilt from the example input.
     std::unique_ptr<Exchange> restoredFrom(const Record& saved, const unsigned int seed = 99) {
-        const std::vector<double> idp(60, 1.0 / 60);
         auto rng = std::make_shared<boost::random::mt19937>(seed);
         return std::make_unique<Exchange>(saved, rng, 1, [&](const size_t, const ChainState& state, std::shared_ptr<boost::random::mt19937> chainRng) {
-            auto fresh = std::make_shared<State>(exampleInput(), idp, idp, std::move(chainRng), false);
+            auto fresh = std::make_shared<State>(exampleStudy(), std::move(chainRng), false);
             checkpoint::restoreState(checkpoint::stateLayout(*fresh), state, *fresh);
             return fresh;
         });
