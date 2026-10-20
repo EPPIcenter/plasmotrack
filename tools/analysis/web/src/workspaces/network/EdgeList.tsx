@@ -55,7 +55,7 @@ export function EdgeList({ edges, chains, scored, collection, selectionSize, loa
     <Panel
       className="flex-1"
       title="Edges shown"
-      description={`${formatCount(edges.length)}${selectionSize ? " touching the selection" : ""}; hover to find one in the graph`}
+      description={loading ? "Loading…" : `${formatCount(edges.length)}${selectionSize ? " touching the selection" : ""}; hover to find one in the graph`}
       noExport
     >
       {loading ? <PanelState loading /> : <DataTable

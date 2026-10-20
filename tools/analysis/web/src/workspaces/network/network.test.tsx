@@ -162,7 +162,8 @@ describe("Network", () => {
     const p = screen.getByRole("region", { name: "Network" });
     await waitFor(() => expect(p).toHaveTextContent("Loading the credible collection…"));
     const list = screen.getByRole("region", { name: "Edges shown" });
-    expect(within(list).getByText("Loading…")).toBeInTheDocument();
+    // The header's count and the list both wait for the edges.
+    expect(within(list).getAllByText("Loading…")).toHaveLength(2);
     expect(within(list).queryByText(/No edge in the credible collection/)).not.toBeInTheDocument();
     expect(within(p).getByText("Loading…")).toBeInTheDocument();
   });
