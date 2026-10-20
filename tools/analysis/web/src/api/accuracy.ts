@@ -1,6 +1,6 @@
 // The Accuracy workspaces' payloads: errors (`/api/errors`), ranking and parent sets (`/api/ranking`,
-// `/api/parent-sets`), each of the active Analysis (`analysis=`, see active.ts), and the cohort (`/api/cohort`,
-// `/api/cohort/open`), which is the manifest's. The truth overlay is `useTruthNetwork` in network.ts.
+// `/api/parent-sets`) and the cohort (`/api/cohort`, `/api/cohort/open`, the manifest's cohort or a `file` beside
+// it), each of the active Analysis (`analysis=`, see active.ts). The truth overlay is `useTruthNetwork` in network.ts.
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { CohortPayload } from "../lib/cohort";
@@ -42,15 +42,17 @@ export const useParentSets = (level: number) => {
   });
 };
 
-/** The manifest's cohort, or the cohort `file` (relative to the manifest's directory). */
-export const useCohort = (file: string) =>
-  useQuery({
-    queryKey: ["cohort", file],
-    queryFn: () => getJson<CohortPayload>("/api/cohort", file ? { file } : {}),
+/** The active Analysis's cohort, or the cohort `file` (relative to its manifest's directory). */
+export const useCohort = (file: string) => {
+  const analysis = useActiveAnalysis();
+  return useQuery({
+    queryKey: ["cohort", file, analysis],
+    queryFn: () => getJson<CohortPayload>("/api/cohort", scoped(file ? { file } : {}, analysis)),
     staleTime: Infinity,
     retry: false,
   });
+};
 
-/** Serve the Analysis of cohort row `row` and return its address. */
-export const openCohortFit = (row: number, file: string) =>
-  getJson<{ url: string; manifest: string }>("/api/cohort/open", { row: String(row), ...(file ? { file } : {}) }, { method: "POST" });
+/** Serve the Analysis of row `row` of the active Analysis's cohort (or `file`) and return its address. */
+export const openCohortFit = (row: number, file: string, analysis: string | null) =>
+  getJson<{ url: string; manifest: string }>("/api/cohort/open", scoped({ row: String(row), ...(file ? { file } : {}) }, analysis), { method: "POST" });

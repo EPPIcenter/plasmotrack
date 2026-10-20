@@ -32,7 +32,7 @@ describe("the Analysis switcher", () => {
     for (const r of own) expect(r, r.path).toEqual({ path: r.path, analysis: "replica" });
   });
 
-  it.each([["/errors", "/api/errors"], ["/ranking", "/api/ranking"], ["/parentsets", "/api/parent-sets"]])(
+  it.each([["/errors", "/api/errors"], ["/ranking", "/api/ranking"], ["/parentsets", "/api/parent-sets"], ["/cohort", "/api/cohort"]])(
     "makes the Accuracy workspace %s read the active Analysis", async (route, path) => {
       const { fetch } = renderApp(`${route}?analysis=replica`, { "/api/analyses": fixture("compare-analyses") });
       await waitFor(() => expect(requests(fetch).some((r) => r.path === path)).toBe(true));

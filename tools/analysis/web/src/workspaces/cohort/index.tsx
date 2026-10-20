@@ -11,6 +11,7 @@
 import * as Plot from "@observablehq/plot";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { openCohortFit, useCohort } from "../../api/accuracy";
+import { useActiveAnalysis } from "../../api/active";
 import { useWorkspaceSearch, type SearchValues } from "../../app/search";
 import { useTheme } from "../../app/theme";
 import { DataTable, type Column } from "../../components/DataTable";
@@ -206,13 +207,14 @@ function ColourLegend({ p, rows, column }: { p: CohortPayload; rows: number[]; c
 }
 
 function FitDetail({ p, row, file }: { p: CohortPayload; row: number; file: string }) {
+  const analysis = useActiveAnalysis();
   const [state, setState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   useEffect(() => setState({ busy: false, error: null }), [row]);
   const manifest = p.data.manifest?.[row];
   const open = async () => {
     setState({ busy: true, error: null });
     try {
-      const { url } = await openCohortFit(row, file);
+      const { url } = await openCohortFit(row, file, analysis);
       window.open(`${url.replace(/\/?$/, "/")}ranking`, "_blank");
       setState({ busy: false, error: null });
     } catch (e) {
