@@ -3,7 +3,9 @@
 Can the latent parent's genome be summed out of the model exactly, so the State no longer holds it? Yes. The sum is
 exact, and it is now how the model works: each Infection's transmission term is log( W0 + Σ_S E_{L~Source}[W(S ∪ {L})] ),
 and no latent-parent genome is sampled. Sections 1–4 give the derivation and its validation, done before integration;
-section 5 describes the implementation.
+section 5 describes the implementation. Section 6 adds an optional transmission leak ε (`--transmission-leak`), which
+mixes the Allele frequencies into every parent pool so that the subset rule is soft; with ε = 0 nothing in sections 1–5
+changes.
 
 Code:
 
@@ -34,7 +36,8 @@ n = |P| parents (L counts). π_l are the Allele frequencies at l.
 1. m ~ P(m | n): the strains transmitted. It is a sum of n zero-truncated Poisson(λ) variables, so m ≥ n. In the
    code it is truncated to m ≤ MAX_STRAINS = 12 and renormalised: `value()`, read with `probNumStrains(m, n)`.
 2. The parent pool at locus l is p_j = (1/n) Σ_{q ∈ P} 1[j ∈ G_q] / |G_q|. Each parent contributes equal weight,
-   spread uniformly over its alleles.
+   spread uniformly over its alleles. With a transmission leak ε > 0 the pool is (1 − ε) p_j + ε π_j instead
+   (section 6).
 3. Given m, the child's latent genotype is the set of distinct alleles in m i.i.d. draws from p. So
    f_l(m, P) = P(distinct alleles of m draws = C_l) = (Σ_{j∈C} p_j)^m · (1 − PAM(p|_C normalised, m)),
    where PAM is "probability any allele is missing" (`ProbAnyMissing`, by inclusion–exclusion). Equivalently,
@@ -277,4 +280,118 @@ What would close the gap changes the sampler, not the model:
 - fewer allele-frequency proposals per sweep (one random allele per locus instead of all of them);
 - delayed acceptance for them, with a cheap surrogate (each Infection's own genotype as a Source draw) screening
   proposals before the exact evaluation.
+
+## 6. The transmission leak
+
+Without a leak a child's latent alleles must come from its parent set: p_j = 0 for an allele no parent carries, so
+any parent set whose parents lack one of the child's alleles is impossible. The Latent parent alone can always supply
+them, which makes the hard subset rule the reason W0 = −∞ in 15 of 16 infection-states (section 3) and a candidate
+for why chains trap. The leak softens it.
+
+**Model.** With ε ∈ [0, 1), the pool at locus l, for every parent set (observed parents only, observed parents with
+L, and L alone), is
+
+  p^ε_j = (1 − ε) p_j + ε π_j,
+
+with p_j as in section 1 and π_l the locus' Allele frequencies. Both p and π sum to 1 over the locus' alleles, so p^ε
+does too. Read as a generative story: each of the m strains drawn at a locus takes its allele from the parents with
+probability 1 − ε and from the Source's frequencies with probability ε, independently per locus. A child allele no
+parent carries then costs about ε π_j per strain carrying it, instead of being impossible. Everything else is as in
+section 1: P(m | n), ψ(n), the Source and L's COI k. Rule 5 is kept as a separate modelling rule: with L and at least
+one observed parent, G_L ∩ C_l = ∅ is still impossible.
+
+**The locus term.** f_l(m, P) is still the probability that the distinct alleles of m i.i.d. draws from the pool are
+exactly C. By inclusion–exclusion over which of C's alleles are drawn,
+
+  f(m) = Σ_{T⊆C} (−1)^{|C∖T|} (Σ_{j∈T} p^ε_j)^m.
+
+Every T is a subset of C, so f reads the pool only through its values on C; alleles outside C enter only through the
+mass they take, which is 1 − Σ_{j∈C} p^ε_j and is already in these sums. So, as before, alleles outside C are
+excluded from f, and the leak only changes the per-allele values p^ε_j for j ∈ C. Two consequences:
+
+- For j ∈ C with no parent carrying j, p^ε_j = ε π_j > 0, so f > 0 for m ≥ |C| (and |C| ≤ 12): finite where it was
+  impossible.
+- f now depends on π restricted to C, so locus terms of sets without L depend on the Allele frequencies.
+
+The same quantity has a generating-function form with no cancellation:
+
+  f(m) = m! [t^m] Π_{j∈C} (e^{p^ε_j t} − 1),
+
+each factor counting the draws of allele j (at least one). Every coefficient is non-negative, so this is accurate
+however small ε π_j is, where 1 − PAM would cancel. The kernel uses it for ε > 0 (`leakyLocusTerms`, c·M²/2
+multiply-adds against 2^c·M for PAM), and drops the zero-probability cutoffs: a leaky term is impossible only when
+|C| = 0 or |C| > M, or π_j = 0 for an allele no parent carries.
+
+**With the Latent parent.** For j ∈ C,
+
+  p^ε_j = (1 − ε)(a_j + 1[j∈U]/r)/n + ε π_j,
+
+so f still depends on G_L only through U = G_L ∩ C and r = |G_L|, and section 2 carries over:
+
+  g_l(k, m) = Σ_{U⊆C_l} Σ_{w≥0} P_l(U, w | k) · f_l(m; U, |U|+w),
+
+with these changes:
+
+- U = ∅ now contributes for L alone: p^ε on C is ε π|_C, every child allele comes from the leak. It needs w ≥ 1 (L
+  carries at least one allele). The Source overlap gives P(∅, w | k) = k! [t^k x^w] Π_{i∉C}(1 + x(e^{π_i t} − 1)),
+  the mask-0 row of the same EGF, which `SourceOverlap` already computes. With observed parents, rule 5 keeps U = ∅
+  impossible; without a leak, U = ∅ gives f = 0 as before.
+- No mask is required: without a leak, U had to contain every child allele the observed parents lack.
+- f(m; U, r) depends on π|_C, so the F table is no longer free of the frequencies. A frequency change at locus l
+  recomputes the F tables at l, not only their contraction.
+- The support of g is still a rectangle, k ≥ rMin and m ≥ mMin, with rMin = 1 now possible through U = ∅, w = 1.
+
+**Implementation.**
+
+- `TransmissionKernel(ε)`: `locusTerm` and `fTable` take the locus' frequencies. ε = 0 takes the code paths of
+  sections 1–5 unchanged, so results are bit-identical.
+- `TransmissionMemo(…, ε)`: locus terms and F tables are keyed by frequency id as well as genotypes when ε > 0 (id 0
+  otherwise, so keys without a leak are unchanged). Both maps are cleared when frequency ids are forgotten. Parent-set
+  sums are not memoised by genome when ε > 0, since they depend on every locus' frequencies.
+- `TransmissionTerm`: every term already depends on the Allele frequencies at each of its child's loci. With ε > 0:
+  - entries without L are summed per locus at the frequency ids the cache records (`observedSumsFromScratch`), like
+    the latent entries;
+  - a frequency change swaps the changed locus' term in every entry without L, as well as its table in every entry
+    with L;
+  - genotype swaps read terms at the recorded frequency id;
+  - a new frequency generation recomputes every entry.
+- `--transmission-leak ε` (default 0) is part of the Run recipe and recorded as `transmission_leak` in the Run
+  manifest. A manifest without it reads as 0. Resuming needs the same value; a Run started from a checkpoint takes
+  the value given, since a checkpoint holds no model choice.
+- Samplers that use the subset rule only to build proposals are unchanged. `ParentSetGenotypeProposal` (and through
+  it `RandomAllelesBitSetSampler3` and `ParentRelinkSampler`) never proposes an allele no chosen parent carries, so
+  from a state with such an allele its reverse probability can be 0 and those moves are rejected. Such states were
+  already valid through the sets with L; the single-locus, strain-count and allele-swap samplers still leave them.
+
+**Tests.**
+
+- With ε = 0 every Trace and Block table of the golden-run commands (one chain and four) is byte-identical to the
+  binary before the leak; only the manifest gains `transmission_leak`.
+- `MarginalLatentParentTest`:
+  - `LeakyLocusTermMatchesStrainByStrainDraws`: the kernel's leaky term against `leakyLocusLogTerm` in
+    `MarginalLatentParentReference.h`, which follows the set of alleles drawn strain by strain. All three variants,
+    300 random cases.
+  - `ALeakMakesAnUncarriedChildAlleleFinite`: impossible at ε = 0, finite at ε > 0, for observed parents and for L
+    alone; rule 5 holds at ε > 0.
+  - `LeakyMatchesBruteForceOverLatentParentGenomes`: the model's path (F table, contraction, sums, outer sum) against
+    every L genome scored with the plain term, for L alone and with one or two observed parents, and observed-only
+    sets against the plain term. 200 cases, worst 2e-13 log units.
+  - `SourceOverlapMatchesEnumeration` now checks U = ∅ too.
+- `ModelCacheConsistencyTest.WithATransmissionLeakCachedTermsFollowAlleleFrequencies`: the whole consistency check
+  at ε = 0.03, with the plain leaky terms as reference. It also checks that a frequency change marks every term at
+  that locus dirty.
+
+**Cost.** One simulation input (200 nodes, MOI 1, high diversity, `sim_0_s0`), seed 7, instructions retired
+(`/usr/bin/time -l`), with start-up and the first two Sampling iterations (a `-b 1 -s 1` run) subtracted from a
+20-iteration run:
+
+| | ε = 0 | ε = 0.02 |
+|---|---|---|
+| start-up + 2 iterations | 87 G | 382 G |
+| per iteration, iterations 3–20 | 37 G | 183 G (4.9x) |
+
+Most of the extra time is F tables rebuilt by allele-frequency proposals (`leakyLocusTerms` under `locusTable`).
+With a leak an F table depends on π, so every proposal at a locus rebuilds the F table of every latent entry there,
+where without a leak only the contraction is redone. The pair and order moves also pay more: observed-only sets are
+now finite, and they are summed per locus rather than taken from the genome memo.
 
