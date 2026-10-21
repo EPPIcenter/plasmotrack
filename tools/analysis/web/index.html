@@ -4,10 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>pt-analysis</title>
+    <script>
+      // The theme before the first paint: the saved choice, else the system's.
+      try {
+        const saved = localStorage.getItem("pt-analysis:theme");
+        document.documentElement.dataset.theme =
+          saved === "light" || saved === "dark" ? saved : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      } catch {}
+    </script>
   </head>
   <body>
-    <header id="header"></header>
-    <main id="view"></main>
-    <script type="module" src="/src/main.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

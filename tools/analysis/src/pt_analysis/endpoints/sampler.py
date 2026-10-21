@@ -15,11 +15,11 @@ per field.
 from starlette.routing import Route
 
 from pt_analysis import sampler
-from pt_analysis.endpoints import error, json
+from pt_analysis.endpoints import error, json, requested_analysis
 
 
 async def sampler_panel(request):
-    runs = request.app.state.analysis.runs
+    runs = requested_analysis(request).runs
     chain = request.query_params.get("chain") or next(iter(runs))
     if chain not in runs:
         return error(f"no Chain '{chain}'; the Chains are {', '.join(runs)}", 404)

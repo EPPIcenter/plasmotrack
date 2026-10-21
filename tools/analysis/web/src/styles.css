@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+/* Dark mode follows the <html data-theme> the theme toggle sets, not the media query. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Theme tokens. Values match src/lib/palette.ts (the charts' copy) and the dataviz reference palette's chrome. */
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb;
+  --plane: #f4f4f1;
+  --raised: #ffffff;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --line: #e6e5df;
+  --axis: #c3c2b7;
+  --accent: #2a78d6;
+  --accent-wash: rgb(42 120 214 / 0.1);
+  --hover: rgb(11 11 11 / 0.04);
+  --selected: rgb(42 120 214 / 0.12);
+  --good: #0ca30c;
+  --good-ink: #006300;
+  --warning: #fab219;
+  --warning-ink: #8a5a00;
+  --critical: #d03b3b;
+  --critical-ink: #b42323;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1a1a19;
+  --plane: #121211;
+  --raised: #222221;
+  --ink: #f0efec;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --line: #2c2c2a;
+  --axis: #383835;
+  --accent: #3987e5;
+  --accent-wash: rgb(57 135 229 / 0.16);
+  --hover: rgb(255 255 255 / 0.05);
+  --selected: rgb(57 135 229 / 0.2);
+  --good-ink: #0ca30c;
+  --warning-ink: #fab219;
+  --critical-ink: #ef6b6b;
+}
+
+@theme inline {
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-ui: 13px;
+  --text-ui--line-height: 18px;
+  --text-table: 12px;
+  --text-table--line-height: 16px;
+  --text-axis: 11px;
+  --text-axis--line-height: 14px;
+
+  --color-surface: var(--surface);
+  --color-plane: var(--plane);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-grid: var(--grid);
+  --color-line: var(--line);
+  --color-rule: var(--axis);
+  --color-accent: var(--accent);
+  --color-accent-wash: var(--accent-wash);
+  --color-hover: var(--hover);
+  --color-selected: var(--selected);
+  --color-good: var(--good);
+  --color-good-ink: var(--good-ink);
+  --color-warning: var(--warning);
+  --color-warning-ink: var(--warning-ink);
+  --color-critical: var(--critical);
+  --color-critical-ink: var(--critical-ink);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--plane);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 18px;
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  ::selection {
+    background: var(--accent-wash);
+  }
+}
+
+@layer components {
+  /* Every numeric cell and axis aligns its digits. */
+  .num {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .id {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+  }
+  /* A DataTable's first column stays in view when the table scrolls sideways: opaque, over the other cells, with the
+     row's hover and selection washes laid over the surface. */
+  .dt-sticky {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--surface);
+    box-shadow: inset -1px 0 0 var(--line);
+  }
+  [role="row"]:hover > .dt-sticky {
+    background: linear-gradient(var(--hover), var(--hover)), var(--surface);
+  }
+  [role="row"][aria-selected="true"] > .dt-sticky {
+    background: linear-gradient(var(--selected), var(--selected)), var(--surface);
+  }
+  /* Observable Plot output: tabular axis numbers, theme ink, transparent background. */
+  .plot svg,
+  svg.plot {
+    font-variant-numeric: tabular-nums;
+    overflow: visible;
+  }
+  .plot [aria-label="tip"] {
+    font-size: 11px;
+  }
+}

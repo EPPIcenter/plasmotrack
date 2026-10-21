@@ -8,8 +8,11 @@ is true when a true edge joins it either way. Scores, truth and pooling are `pt_
 
 The overlay draws every true edge with its score and the false edges scoring at least a floor. The error table calls
 an edge at a threshold: a true edge scoring below it is missed, a false edge scoring at or above it is a false edge,
-or a direction error when its reverse is true. Rows rank by how confidently wrong they are: 1 - score for a missed
-edge, the score for a false one.
+or a direction error when its reverse is true. A true edge missed because its false reverse is called is one error,
+the direction error, so it has no missed row. Rows rank by how confidently wrong they are: 1 - score for a missed
+edge, the score for a false one. Every edge is marked `candidate` when the input's `allowed_parents` let its parent
+be a parent of its child; a missed edge that is not a candidate was screened out by the input, scores 0 in every fit
+of it, and ranks after the other errors.
 """
 
 from dataclasses import dataclass
@@ -64,9 +67,10 @@ def match(analysis):
             "unobserved_truth_infections": [i for i in simulated if i not in inside]}
 
 
-def _edges(edge_set, ids, true_edges, observed):
+def _edges(edge_set, ids, true_edges, observed, candidates):
     """Every true edge and every scored pair of the set, both ends among `ids`, as rows {parent, child, marginal, true,
-    reverse_true, reverse_marginal, lag}. `true_edges` None marks no edge true or false."""
+    reverse_true, reverse_marginal, lag, candidate}. `true_edges` None marks no edge true or false. `candidate` is
+    whether the input allows the parent as a parent of the child, either way round for an undirected set."""
     inside = set(ids)
     scores = {k: metrics.normalise(s) for k, s in edge_set.scores.items()
               if k[0] in inside and k[1] in inside and k[0] != k[1]}
@@ -82,24 +86,27 @@ def _edges(edge_set, ids, true_edges, observed):
             true_pairs.setdefault(metrics.pair(p, c), (p, c))
         keys = scores.keys() | true_pairs.keys()
         rows = [(*true_pairs.get(k, k), scores.get(k, 0.0), k in true_pairs, None, None) for k in keys]
+    allowed = {(p, c) for c, parents in candidates.items() for p in parents}
     return [{"parent": p, "child": c, "marginal": m, "true": t if known else None,
-             "reverse_true": r if known else None, "reverse_marginal": rm, "lag": times.lag(observed, p, c)}
+             "reverse_true": r if known else None, "reverse_marginal": rm, "lag": times.lag(observed, p, c),
+             "candidate": (p, c) in allowed or (not edge_set.directed and (c, p) in allowed)}
             for p, c, m, t, r, rm in rows]
 
 
 def _context(analysis):
     ids = [str(i) for i in metrics.infections(analysis)]
     truth = metrics.load_truth(analysis.truth, ids) if analysis.truth else None
-    return ids, times.observation_times(analysis), truth
+    return ids, times.observation_times(analysis), truth, inputs.candidate_parents(analysis.input)
 
 
 def overlay(analysis, floor=DEFAULT_FLOOR):
     """{floor, truth, sources}: per edge set its true edges whatever their score and its other edges scoring at least
     `floor`, by score descending. `truth` is `match` without a truth file None, and then no edge is marked."""
-    ids, observed, truth = _context(analysis)
+    ids, observed, truth, candidates = _context(analysis)
     sources = []
     for s in edge_sets(analysis):
-        rows = [r for r in _edges(s, ids, truth and truth.edges, observed) if r["true"] or r["marginal"] >= floor]
+        rows = [r for r in _edges(s, ids, truth and truth.edges, observed, candidates)
+                if r["true"] or r["marginal"] >= floor]
         rows.sort(key=lambda r: (-r["marginal"], r["parent"], r["child"]))
         sources.append({"source": s.source, "label": s.label, "directed": s.directed, "edges": rows})
     return {"floor": floor, "truth": match(analysis) if truth else None, "sources": sources}
@@ -107,8 +114,11 @@ def overlay(analysis, floor=DEFAULT_FLOOR):
 
 def errors(analysis, source="posterior", threshold=DEFAULT_THRESHOLD):
     """{source, label, directed, threshold, truth, sources, rows}: the error rows of one edge set at `threshold`, each
-    {kind, parent, child, marginal, reverse_true, reverse_marginal, lag, confidence, parent_true_infection_time,
-    child_true_infection_time}, most confidently wrong first.
+    {kind, parent, child, marginal, reverse_true, reverse_marginal, lag, candidate, confidence,
+    parent_true_infection_time, child_true_infection_time}, most confidently wrong first, except that missed edges the
+    input does not allow (`candidate` false) come last: no fit of that input could have called them. A true p->c
+    below `threshold` whose reverse c->p is called and false is counted once, as c->p's direction row; p->c has no
+    missed row.
     Raises UnknownSource for an edge set the Analysis does not have. Needs a truth file."""
     if source not in SOURCES:
         raise UnknownSource(f"source is one of {', '.join(SOURCES)}, not '{source}'")
@@ -116,10 +126,12 @@ def errors(analysis, source="posterior", threshold=DEFAULT_THRESHOLD):
     if edge_set is None:
         missing = "null-model Analysis" if source == "null" else "pairwise scores"
         raise UnknownSource(f"the Analysis manifest names no {missing}")
-    ids, observed, truth = _context(analysis)
+    ids, observed, truth, candidates = _context(analysis)
     rows = []
-    for r in _edges(edge_set, ids, truth.edges, observed):
+    for r in _edges(edge_set, ids, truth.edges, observed, candidates):
         if r["true"] and r["marginal"] < threshold:
+            if r["reverse_true"] is False and r["reverse_marginal"] >= threshold:
+                continue  # the called reverse is a direction error; one error, its row
             rows.append({"kind": "missed", **r, "confidence": 1 - r["marginal"]})
         elif not r["true"] and r["marginal"] >= threshold:
             rows.append({"kind": "direction" if r["reverse_true"] else "false", **r, "confidence": r["marginal"]})
@@ -128,7 +140,7 @@ def errors(analysis, source="posterior", threshold=DEFAULT_THRESHOLD):
         del r["true"]
         r["parent_true_infection_time"] = true_time.get(r["parent"])
         r["child_true_infection_time"] = true_time.get(r["child"])
-    rows.sort(key=lambda r: (-r["confidence"], r["parent"], r["child"]))
+    rows.sort(key=lambda r: (r["kind"] == "missed" and not r["candidate"], -r["confidence"], r["parent"], r["child"]))
     return {"source": source, "label": edge_set.label, "directed": edge_set.directed, "threshold": threshold,
             "truth": match(analysis), "sources": available_sources(analysis), "rows": rows}
 

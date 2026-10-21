@@ -109,23 +109,75 @@ def co_inclusion(analysis, a, b):
 def latent_modes(analysis, infection):
     """{locus: (posterior mode bitstring, agreement)} of an Infection's Latent genotype pooled over Chains: the
     bitstring most Draws of all Chains had (ties to the smaller bitstring) and the fraction of Draws that had it."""
+    return latent_modes_of(analysis, [infection]).get(infection, {})
+
+
+def latent_modes_of(analysis, infections):
+    """{infection: latent_modes(analysis, infection)} for every one of `infections` with a `genotype_mode` row, read
+    with one query per Chain."""
+    ids = sorted(set(infections))
     counts = {}
     for store in analysis.runs.values():
-        for locus, alleles, draws in derived(store, "genotype_mode").filter(
-                f"infection = {literal(infection)}").project("locus, alleles, draws").fetchall():
-            by_alleles = counts.setdefault(locus, {})
+        with Scope(store.connection) as s:
+            rows = s.rows(f"""SELECT infection, locus, alleles, draws FROM {s.name(derived(store, "genotype_mode"))}
+                              WHERE list_contains($ids, infection)""", {"ids": ids})
+        for infection, locus, alleles, draws in rows:
+            by_alleles = counts.setdefault(infection, {}).setdefault(locus, {})
             by_alleles[alleles] = by_alleles.get(alleles, 0) + draws
     out = {}
-    for locus, by_alleles in counts.items():
-        mode = min(by_alleles, key=lambda alleles: (-by_alleles[alleles], alleles))
-        out[locus] = (mode, by_alleles[mode] / sum(by_alleles.values()))
+    for infection, loci in counts.items():
+        modes = out[infection] = {}
+        for locus, by_alleles in loci.items():
+            mode = min(by_alleles, key=lambda alleles: (-by_alleles[alleles], alleles))
+            modes[locus] = (mode, by_alleles[mode] / sum(by_alleles.values()))
     return out
+
+
+MAX_GROUP = 12
+
+
+def group_genotypes(analysis, infections):
+    """The selected Infections lined up by Locus, in the order given: each Locus has its Allele count and, per
+    Infection, the Observed genotype (None where unobserved) and the Latent posterior mode with the fraction of Draws
+    that have it. `differs` is whether those modes are not all the same. At most `MAX_GROUP` Infections."""
+    ids = list(dict.fromkeys(i for i in infections if i))
+    if len(ids) > MAX_GROUP:
+        raise PairError(f"a genotype group holds at most {MAX_GROUP} Infections, not {len(ids)}")
+    known = infection_ids(analysis)
+    for infection in ids:
+        if infection not in known:
+            raise UnknownInfection(f"no Infection {infection} in the Analysis")
+    if not ids:
+        return {"infections": [], "loci": [], "differing": 0}
+    modes = latent_modes_of(analysis, ids)
+    node = inputs.nodes(analysis.input)
+    observed = {i: inputs.genotypes(node.get(i, {}).get("observed_genotype")) for i in ids}
+    counts = dict(next(iter(analysis.runs.values())).structure("loci").aggregate("locus, max(allele) + 1").fetchall())
+    order = inputs.loci(analysis.input)
+    names = order + sorted(set().union(*(set(modes.get(i, {})) for i in ids)) - set(order))
+    loci = []
+    for locus in names:
+        members = []
+        for infection in ids:
+            mode, agreement = modes.get(infection, {}).get(locus, (None, None))
+            members.append({"id": infection, "observed": observed[infection].get(locus), "mode": mode, "agreement": agreement})
+        differs = len({m["mode"] for m in members}) > 1
+        width = max([counts.get(locus, 0), *(len(m["mode"] or "") for m in members), *(len(m["observed"] or "") for m in members)])
+        loci.append({"locus": locus, "alleles": width, "differs": differs, "members": members})
+    return {"infections": ids, "loci": loci, "differing": sum(l["differs"] for l in loci)}
+
+
+def differing_loci(modes_a, modes_b):
+    """The number of Loci at which two Infections' Latent modes (`latent_modes`) differ, a Locus without a mode
+    counting as None, as `genotype_rows` counts them."""
+    return sum(modes_a.get(locus, (None,))[0] != modes_b.get(locus, (None,))[0] for locus in modes_a.keys() | modes_b)
 
 
 def genotype_rows(analysis, a, b):
     """One row per Locus, in the input's order: Observed A (None where unobserved), Latent A's pooled mode and
     agreement, Latent B's, Observed B, whether the two modes differ, and with truth the true Latent genotypes.
-    Also the number of differing Loci and whether truth is shown."""
+    Also the number of differing Loci and whether truth is shown: only when the truth file gives a Latent genotype
+    (`flat_latent_genotype`) of A or B."""
     node = inputs.nodes(analysis.input)
     modes = {i: latent_modes(analysis, i) for i in (a, b)}
     observed = {i: inputs.genotypes(node.get(i, {}).get("observed_genotype")) for i in (a, b)}
@@ -133,6 +185,8 @@ def genotype_rows(analysis, a, b):
     if analysis.truth is not None:
         true_nodes = inputs.nodes(analysis.truth)
         truth = {i: inputs.genotypes(true_nodes.get(i, {}).get("flat_latent_genotype")) for i in (a, b)}
+        if not any(truth.values()):
+            truth = None  # a truth without Latent genotypes (made for real data) has none to show
     order = inputs.loci(analysis.input)
     names = order + sorted((set(modes[a]) | set(modes[b])) - set(order))
     rows = []

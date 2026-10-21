@@ -31,7 +31,7 @@ import pyarrow as pa
 
 from pt_analysis.derive import derived, table
 from pt_analysis.epi import EpiError, load_epi
-from pt_analysis.inputs import nodes
+from pt_analysis.inputs import candidate_parents
 from pt_analysis.quantiles import Interval, interval
 from pt_analysis.sql import Scope
 from pt_analysis.strata import strata
@@ -150,9 +150,7 @@ def lags(analysis):
 
 def candidate_pairs(analysis):
     """[(parent, child)] from the input's `allowed_parents`, both ends Infections of the input."""
-    found = nodes(analysis.input)
-    return [(str(p), child) for child, node in found.items() for p in node.get("allowed_parents", [])
-            if str(p) in found]
+    return [(p, child) for child, parents in candidate_parents(analysis.input).items() for p in parents]
 
 
 def _stratum_of(found):

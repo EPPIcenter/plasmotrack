@@ -1,0 +1,29 @@
+{
+ "directed": true,
+ "label": "golden",
+ "rows": [
+  {
+   "candidate": true,
+   "child": "2",
+   "child_true_infection_time": 0.0,
+   "confidence": 0.9970891916,
+   "kind": "missed",
+   "lag": 72.15599999999998,
+   "marginal": 0.0029108084,
+   "parent": "1",
+   "parent_true_infection_time": 0.0,
+   "reverse_marginal": 0.0,
+   "reverse_true": false
+  }
+ ],
+ "source": "posterior",
+ "sources": [
+  "posterior"
+ ],
+ "threshold": 0.5,
+ "truth": {
+  "n_true_edges": 2,
+  "unmatched_infections": [],
+  "unobserved_truth_infections": []
+ }
+}

@@ -1,0 +1,764 @@
+{
+ "children": [],
+ "coi": {
+  "chains": [
+   {
+    "chain": "chain1",
+    "coi": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "iteration": [
+     25,
+     30,
+     35,
+     40,
+     45,
+     50,
+     55,
+     60,
+     65,
+     70
+    ]
+   },
+   {
+    "chain": "chain2",
+    "coi": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "iteration": [
+     25,
+     30,
+     35,
+     40,
+     45,
+     50,
+     55,
+     60,
+     65,
+     70
+    ]
+   }
+  ],
+  "distribution": [
+   {
+    "coi": 1,
+    "draws": 20,
+    "fraction": 1.0
+   }
+  ]
+ },
+ "genotype": {
+  "loci": [
+   {
+    "alleles": 8,
+    "locus": "AS1",
+    "mode": "00001000",
+    "mode_fraction": 1.0,
+    "observed": "00001000",
+    "presence": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     1.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "alleles": 12,
+    "locus": "AS11",
+    "mode": "000000010000",
+    "mode_fraction": 0.9,
+    "observed": null,
+    "presence": [
+     0.0,
+     0.0,
+     0.0,
+     0.1,
+     0.0,
+     0.0,
+     0.0,
+     0.9,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   }
+  ]
+ },
+ "infection": "3",
+ "observation_time": 350.5,
+ "parent_sets": {
+  "chains": [
+   {
+    "chain": "chain1",
+    "sets": [
+     {
+      "class": "observed_1",
+      "credible": true,
+      "cumulative_mass": 0.8847704596398124,
+      "members": [
+       "1"
+      ],
+      "n_observed": 1,
+      "rank": 1,
+      "set_id": 4,
+      "weight": 0.8847704596398124
+     },
+     {
+      "class": "unobserved_only",
+      "credible": false,
+      "cumulative_mass": 0.993118477193562,
+      "members": [
+       "3_copy"
+      ],
+      "n_observed": 0,
+      "rank": 2,
+      "set_id": 0,
+      "weight": 0.10834801755374968
+     },
+     {
+      "class": "observed_1_unobserved",
+      "credible": false,
+      "cumulative_mass": 0.9969846341068009,
+      "members": [
+       "1",
+       "3_copy"
+      ],
+      "n_observed": 1,
+      "rank": 3,
+      "set_id": 1,
+      "weight": 0.0038661569132389184
+     },
+     {
+      "class": "observed_2",
+      "credible": false,
+      "cumulative_mass": 0.9997154435801592,
+      "members": [
+       "1",
+       "2"
+      ],
+      "n_observed": 2,
+      "rank": 4,
+      "set_id": 5,
+      "weight": 0.0027308094733582916
+     },
+     {
+      "class": "observed_1_unobserved",
+      "credible": false,
+      "cumulative_mass": 0.9999848961362281,
+      "members": [
+       "2",
+       "3_copy"
+      ],
+      "n_observed": 1,
+      "rank": 5,
+      "set_id": 2,
+      "weight": 0.0002694525560689253
+     },
+     {
+      "class": "observed_2_unobserved",
+      "credible": false,
+      "cumulative_mass": 1.0,
+      "members": [
+       "1",
+       "2",
+       "3_copy"
+      ],
+      "n_observed": 2,
+      "rank": 6,
+      "set_id": 3,
+      "weight": 1.5103863771930807e-05
+     }
+    ]
+   },
+   {
+    "chain": "chain2",
+    "sets": [
+     {
+      "class": "observed_1",
+      "credible": true,
+      "cumulative_mass": 0.7711089488441567,
+      "members": [
+       "1"
+      ],
+      "n_observed": 1,
+      "rank": 1,
+      "set_id": 4,
+      "weight": 0.7711089488441567
+     },
+     {
+      "class": "unobserved_only",
+      "credible": true,
+      "cumulative_mass": 0.9952260147092932,
+      "members": [
+       "3_copy"
+      ],
+      "n_observed": 0,
+      "rank": 2,
+      "set_id": 0,
+      "weight": 0.2241170658651365
+     },
+     {
+      "class": "observed_2",
+      "credible": false,
+      "cumulative_mass": 0.9979474540496489,
+      "members": [
+       "1",
+       "2"
+      ],
+      "n_observed": 2,
+      "rank": 3,
+      "set_id": 5,
+      "weight": 0.0027214393403557227
+     },
+     {
+      "class": "observed_1_unobserved",
+      "credible": false,
+      "cumulative_mass": 0.9998056575017666,
+      "members": [
+       "1",
+       "3_copy"
+      ],
+      "n_observed": 1,
+      "rank": 4,
+      "set_id": 1,
+      "weight": 0.001858203452117721
+     },
+     {
+      "class": "observed_1_unobserved",
+      "credible": false,
+      "cumulative_mass": 0.9999922516550027,
+      "members": [
+       "2",
+       "3_copy"
+      ],
+      "n_observed": 1,
+      "rank": 5,
+      "set_id": 2,
+      "weight": 0.00018659415323605335
+     },
+     {
+      "class": "observed_2_unobserved",
+      "credible": false,
+      "cumulative_mass": 0.9999999999999999,
+      "members": [
+       "1",
+       "2",
+       "3_copy"
+      ],
+      "n_observed": 2,
+      "rank": 6,
+      "set_id": 3,
+      "weight": 7.748344997203153e-06
+     }
+    ]
+   }
+  ],
+  "level": 0.8,
+  "pooled": [
+   {
+    "chains": [
+     {
+      "chain": "chain1",
+      "weight": 0.8847704596398124
+     },
+     {
+      "chain": "chain2",
+      "weight": 0.7711089488441567
+     }
+    ],
+    "class": "observed_1",
+    "credible": true,
+    "cumulative_mass": 0.8279397042419845,
+    "members": [
+     "1"
+    ],
+    "n_observed": 1,
+    "rank": 1,
+    "set_id": 4,
+    "weight": 0.8279397042419845
+   },
+   {
+    "chains": [
+     {
+      "chain": "chain1",
+      "weight": 0.10834801755374968
+     },
+     {
+      "chain": "chain2",
+      "weight": 0.2241170658651365
+     }
+    ],
+    "class": "unobserved_only",
+    "credible": false,
+    "cumulative_mass": 0.9941722459514275,
+    "members": [
+     "3_copy"
+    ],
+    "n_observed": 0,
+    "rank": 2,
+    "set_id": 0,
+    "weight": 0.16623254170944307
+   },
+   {
+    "chains": [
+     {
+      "chain": "chain1",
+      "weight": 0.0038661569132389184
+     },
+     {
+      "chain": "chain2",
+      "weight": 0.001858203452117721
+     }
+    ],
+    "class": "observed_1_unobserved",
+    "credible": false,
+    "cumulative_mass": 0.9970344261341059,
+    "members": [
+     "1",
+     "3_copy"
+    ],
+    "n_observed": 1,
+    "rank": 3,
+    "set_id": 1,
+    "weight": 0.0028621801826783197
+   },
+   {
+    "chains": [
+     {
+      "chain": "chain1",
+      "weight": 0.0027308094733582916
+     },
+     {
+      "chain": "chain2",
+      "weight": 0.0027214393403557227
+     }
+    ],
+    "class": "observed_2",
+    "credible": false,
+    "cumulative_mass": 0.9997605505409629,
+    "members": [
+     "1",
+     "2"
+    ],
+    "n_observed": 2,
+    "rank": 4,
+    "set_id": 5,
+    "weight": 0.002726124406857007
+   },
+   {
+    "chains": [
+     {
+      "chain": "chain1",
+      "weight": 0.0002694525560689253
+     },
+     {
+      "chain": "chain2",
+      "weight": 0.00018659415323605335
+     }
+    ],
+    "class": "observed_1_unobserved",
+    "credible": false,
+    "cumulative_mass": 0.9999885738956154,
+    "members": [
+     "2",
+     "3_copy"
+    ],
+    "n_observed": 1,
+    "rank": 5,
+    "set_id": 2,
+    "weight": 0.0002280233546524893
+   },
+   {
+    "chains": [
+     {
+      "chain": "chain1",
+      "weight": 1.5103863771930807e-05
+     },
+     {
+      "chain": "chain2",
+      "weight": 7.748344997203153e-06
+     }
+    ],
+    "class": "observed_2_unobserved",
+    "credible": false,
+    "cumulative_mass": 0.9999999999999999,
+    "members": [
+     "1",
+     "2",
+     "3_copy"
+    ],
+    "n_observed": 2,
+    "rank": 6,
+    "set_id": 3,
+    "weight": 1.142610438456698e-05
+   }
+  ]
+ },
+ "parents": [
+  {
+   "chains": [
+    {
+     "chain": "chain1",
+     "mean": 0.8913825298901814
+    },
+    {
+     "chain": "chain2",
+     "mean": 0.7756963399816275
+    }
+   ],
+   "child": "3",
+   "ess": 12.484076791343616,
+   "group": "edge",
+   "name": "3<-1",
+   "parent": "1",
+   "pooled": 0.8335394349359045,
+   "spread": 0.11568618990855395,
+   "unobserved": false
+  },
+  {
+   "chains": [
+    {
+     "chain": "chain1",
+     "mean": 0.11249873088682942
+    },
+    {
+     "chain": "chain2",
+     "mean": 0.22616961181548736
+    }
+   ],
+   "child": "3",
+   "ess": 12.538495925945337,
+   "group": "unobserved-source inclusion",
+   "name": "3",
+   "parent": "3_copy",
+   "pooled": 0.16933417135115839,
+   "spread": 0.11367088092865794,
+   "unobserved": true
+  },
+  {
+   "chains": [
+    {
+     "chain": "chain1",
+     "mean": 0.0030153658931991473
+    },
+    {
+     "chain": "chain2",
+     "mean": 0.0029157818385889796
+    }
+   ],
+   "child": "3",
+   "ess": 26.020599913279625,
+   "group": "edge",
+   "name": "3<-2",
+   "parent": "2",
+   "pooled": 0.002965573865894063,
+   "spread": 9.958405461016773e-05,
+   "unobserved": false
+  }
+ ],
+ "quantities": {
+  "duration": {
+   "chains": [
+    {
+     "chain": "chain1",
+     "iteration": [
+      25,
+      30,
+      35,
+      40,
+      45,
+      50,
+      55,
+      60,
+      65,
+      70
+     ],
+     "value": [
+      55.44777052692223,
+      43.23535475055834,
+      17.90727858361788,
+      10.059223003452644,
+      33.20117371343076,
+      22.269024973269552,
+      22.32969610625878,
+      32.3875015610555,
+      10.653602108538182,
+      36.18061701378947
+     ]
+    },
+    {
+     "chain": "chain2",
+     "iteration": [
+      25,
+      30,
+      35,
+      40,
+      45,
+      50,
+      55,
+      60,
+      65,
+      70
+     ],
+     "value": [
+      8.39709469227589,
+      43.97759472749361,
+      31.085809749318287,
+      2.747637606759215,
+      5.807069756654883,
+      19.33622946590185,
+      18.163271455240068,
+      41.3118378801476,
+      9.625783144729212,
+      24.924332667142153
+     ]
+    }
+   ],
+   "group": "infection duration",
+   "lower": 4.2008678779596575,
+   "median": 22.299360539764166,
+   "name": "3",
+   "upper": 49.99943702219362
+  },
+  "false_negatives": {
+   "chains": [
+    {
+     "chain": "chain1",
+     "iteration": [
+      25,
+      30,
+      35,
+      40,
+      45,
+      50,
+      55,
+      60,
+      65,
+      70
+     ],
+     "value": [
+      0.011315411597652638,
+      0.007079401983674973,
+      0.007787547635375155,
+      0.01286075462182514,
+      0.009532992682865279,
+      0.00908375867382339,
+      0.011530045003640875,
+      0.007755074415898718,
+      0.012829956328317418,
+      0.004314194721549523
+     ]
+    },
+    {
+     "chain": "chain2",
+     "iteration": [
+      25,
+      30,
+      35,
+      40,
+      45,
+      50,
+      55,
+      60,
+      65,
+      70
+     ],
+     "value": [
+      0.013072981390685474,
+      0.014928173198285544,
+      0.017554369023847265,
+      0.004494141886262413,
+      0.010233733019757172,
+      0.005422607986793979,
+      0.013759920424671926,
+      0.013759920424671926,
+      0.0071801899119591115,
+      0.007469681949813674
+     ]
+    }
+   ],
+   "group": "false negative rate",
+   "lower": 0.004399669624788146,
+   "median": 0.009883362851311226,
+   "name": "3",
+   "upper": 0.016306926006705445
+  },
+  "false_positives": {
+   "chains": [
+    {
+     "chain": "chain1",
+     "iteration": [
+      25,
+      30,
+      35,
+      40,
+      45,
+      50,
+      55,
+      60,
+      65,
+      70
+     ],
+     "value": [
+      0.010487788902090253,
+      0.010487788902090253,
+      0.010487788902090253,
+      0.008174284023823026,
+      0.013528873645404256,
+      0.013528873645404256,
+      0.011467239326581377,
+      0.013792593155220865,
+      0.008622992233068479,
+      0.008768115802791202
+     ]
+    },
+    {
+     "chain": "chain2",
+     "iteration": [
+      25,
+      30,
+      35,
+      40,
+      45,
+      50,
+      55,
+      60,
+      65,
+      70
+     ],
+     "value": [
+      0.008024870618061904,
+      0.018455565584917368,
+      0.005771715363350179,
+      0.006830612040516798,
+      0.010683020436518404,
+      0.009466081489297907,
+      0.008837927406125646,
+      0.012144513368004466,
+      0.011590007138261499,
+      0.012144513368004466
+     ]
+    }
+   ],
+   "group": "false positive rate",
+   "lower": 0.006274691285004323,
+   "median": 0.010487788902090253,
+   "name": "3",
+   "upper": 0.016240653680811522
+  },
+  "infection_time": {
+   "chains": [
+    {
+     "chain": "chain1",
+     "iteration": [
+      25,
+      30,
+      35,
+      40,
+      45,
+      50,
+      55,
+      60,
+      65,
+      70
+     ],
+     "value": [
+      295.0522294730778,
+      307.2646452494416,
+      332.5927214163821,
+      340.44077699654736,
+      317.29882628656924,
+      328.23097502673045,
+      328.1703038937412,
+      318.1124984389445,
+      339.84639789146183,
+      314.31938298621054
+     ]
+    },
+    {
+     "chain": "chain2",
+     "iteration": [
+      25,
+      30,
+      35,
+      40,
+      45,
+      50,
+      55,
+      60,
+      65,
+      70
+     ],
+     "value": [
+      342.1029053077241,
+      306.5224052725064,
+      319.4141902506817,
+      347.7523623932408,
+      344.69293024334513,
+      331.16377053409815,
+      332.3367285447599,
+      309.1881621198524,
+      340.8742168552708,
+      325.57566733285785
+     ]
+    }
+   ],
+   "group": null,
+   "lower": 300.5005629778064,
+   "median": 328.20063946023583,
+   "name": null,
+   "upper": 346.29913212204036
+  }
+ },
+ "summary": {
+  "chains": [
+   {
+    "chain": "chain1",
+    "effective_size": 1.4591889430815885,
+    "entropy": 0.3696900389573895,
+    "expected_observed_parents": 0.8943978957833805,
+    "posterior_effective_size": 1.475643748924897,
+    "posterior_entropy": 0.3890943345286532,
+    "q": 0.11249873088682942
+   },
+   {
+    "chain": "chain2",
+    "effective_size": 1.1545341499063313,
+    "entropy": 0.14117284695172794,
+    "expected_observed_parents": 0.7786121218202164,
+    "posterior_effective_size": 1.7595708673571644,
+    "posterior_entropy": 0.5650699539545758,
+    "q": 0.22616961181548736
+   }
+  ],
+  "effective_size": 1.30686154649396,
+  "entropy": 0.2554314429545587,
+  "expected_observed_parents": 0.8365050088017985,
+  "posterior_effective_size": 1.6315178294799189,
+  "posterior_entropy": 0.4895107652660693,
+  "q": 0.16933417135115839
+ }
+}

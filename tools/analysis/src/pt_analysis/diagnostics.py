@@ -1,9 +1,10 @@
 """Convergence diagnostics over Chains: multi-chain effective sample size and split R-hat.
 
 A Chain here is one Run's series of a quantity over its Draws, in Sampling-iteration order. Both statistics treat a
-series that is constant up to rounding (every value within `ROUNDING` of the others, relative to its magnitude) as
-constant and return None for it: a sum of Parent-set weights that is 1 at every Draw varies by about 1e-16, and an ESS
-of that noise means nothing.
+series that is constant up to rounding as constant and return None for it: max - min <= ROUNDING * max(1, max |v|)
+over every value of every chain, with ROUNDING = 1e-9. A sum of Parent-set weights that is 1 at every Draw varies by
+about 1e-16, and a per-Draw mean over Infections whose sum is fixed (mean q) by about 1e-11; an ESS of that noise means
+nothing. The web app's `isConstant` uses the same rule and tolerance.
 """
 
 import math
@@ -11,7 +12,7 @@ import statistics
 
 import numpy as np
 
-ROUNDING = 1e-12
+ROUNDING = 1e-9
 
 
 def constant(chains):

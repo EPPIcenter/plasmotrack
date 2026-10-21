@@ -82,3 +82,46 @@ def test_a_single_analysis_server_lists_itself(tmp_path):
     got = client.get("/api/analyses").json()
     assert [a["label"] for a in got["analyses"]] == ["single"]
     assert client.get("/api/compare/convergence").json()["timed"] == []
+
+
+# Every endpoint that reads one Analysis takes `analysis=LABEL` (the app's Analysis switcher), the primary without it.
+ONE_ANALYSIS_ENDPOINTS = ["/api/analysis", "/api/convergence", "/api/edges", "/api/network", "/api/status",
+                          "/api/overview", "/api/sampler", "/api/functionals", "/api/epi", "/api/infections"]
+
+
+@pytest.mark.parametrize("path", ONE_ANALYSIS_ENDPOINTS)
+def test_every_endpoint_names_its_unknown_analysis_in_a_404(client, path):
+    response = client.get(path, params={"analysis": "nope"})
+    assert response.status_code == 404
+    assert "nope" in response.json()["error"]
+
+
+def test_the_summary_and_convergence_read_the_named_analysis(client):
+    assert client.get("/api/analysis", params={"analysis": "replica"}).json()["label"] == "replica"
+    assert client.get("/api/analysis", params={"analysis": ""}).json()["label"] == "single"
+    rows = client.get("/api/convergence", params={"analysis": "replica"}).json()["rows"]
+    # The replica-exchange store's log posterior ESS, as the compared convergence has it.
+    assert rows[0]["ess"] == pytest.approx(7.44641539328075)
+
+
+def test_the_sampler_panel_reads_the_named_analysis(client):
+    # Only the replica-exchange store swaps between temperature slots and adapts its ladder.
+    assert client.get("/api/sampler").json()["swaps"] == []
+    replica = client.get("/api/sampler", params={"analysis": "replica"}).json()
+    assert {s["temperature_pair"] for s in replica["swaps"]} == {0, 1, 2}
+    assert len(replica["burn_in_ended"]["temperatures"]) == 4
+
+
+def test_remembered_results_are_kept_per_analysis(client):
+    single = client.get("/api/overview").json()
+    replica = client.get("/api/overview", params={"analysis": "replica"}).json()
+    assert client.get("/api/overview").json() == single
+    assert replica["headline"] != single["headline"]
+
+
+def test_the_infections_table_reads_the_named_analysis(client):
+    single = client.get("/api/infections").json()
+    replica = client.get("/api/infections", params={"analysis": "replica"}).json()
+    assert replica["columns"]["infection"] == single["columns"]["infection"]
+    assert replica["columns"]["q"] != single["columns"]["q"]
+    assert replica["columns"]["q"] == client.get("/api/infections", params={"analysis": "replica"}).json()["columns"]["q"]

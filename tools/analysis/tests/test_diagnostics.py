@@ -43,6 +43,20 @@ def test_a_series_constant_up_to_rounding_has_no_ess_or_rhat():
     assert split_rhat(chains) is None
 
 
+def test_a_per_draw_mean_constant_up_to_accumulated_rounding_has_no_ess_or_rhat():
+    """Mean q over Infections when every Infection's q sums to a constant: equal up to ~1e-11 of rounding."""
+    a, b = 0.32934131736, 0.32934131737
+    chains = [[a, b, a, a, b, a, b, b, a, a], [b, a, a, b, a, b, a, a, b, a]]
+    assert multichain_ess(chains) is None
+    assert split_rhat(chains) is None
+
+
+def test_a_series_varying_by_more_than_the_relative_tolerance_has_an_ess():
+    """A range of 1e-8 around 0.33 is real variation, not rounding."""
+    chains = [[0.33 + 1e-8 * (i % 3) for i in range(10)], [0.33 + 1e-8 * (i % 2) for i in range(10)]]
+    assert multichain_ess(chains) is not None
+
+
 def test_chains_stuck_at_different_values_have_infinite_rhat():
     assert split_rhat([[0.0] * 10, [1.0] * 10]) == math.inf
 

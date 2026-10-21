@@ -6,6 +6,7 @@ from conftest import open_golden
 from starlette.testclient import TestClient
 
 from pt_analysis.network import network
+from pt_analysis.parent_sets import collection_entries, pooled_sets
 from pt_analysis.server import create_app
 
 
@@ -30,6 +31,7 @@ def test_nodes_are_the_input_infections_with_observation_time_symptomatic_flag_a
     assert [n["id"] for n in nodes] == ["1", "2", "3"]
     assert [n["observation_time"] for n in nodes] == [234.0737, 306.2297, 350.5]
     assert [n["symptomatic"] for n in nodes] == [True, True, False]
+    assert [n["candidate_parents"] for n in nodes] == [[], ["1"], ["1", "2"]]
     for n in nodes:
         assert n["q"] == pytest.approx(mean(Q[n["id"]]), abs=1e-4)
 
@@ -86,6 +88,27 @@ def test_without_epi_data_the_payload_has_no_epi_columns_and_empty_node_values(g
     payload = network(golden_analysis)
     assert payload["epi_columns"] == []
     assert [n["epi"] for n in payload["nodes"]] == [{}, {}, {}]
+
+
+def test_a_parent_enters_the_credible_collection_at_the_mass_above_it(golden_analysis):
+    # Infection 3's sets, in rank order: the entry of a parent is the mass of the sets ranked before the first that
+    # contains it. The endpoint serves the same rows.
+    expected = []
+    for child, sets in pooled_sets(golden_analysis, 1).items():
+        seen = {}
+        for s in sets:
+            for parent in s.parents:
+                seen.setdefault(parent, s.cumulative_mass - s.weight)
+        expected.extend({"parent": parent, "child": child, "entry": entry} for parent, entry in seen.items())
+    expected.sort(key=lambda r: (r["entry"], r["child"], r["parent"]))
+    assert collection_entries(golden_analysis) == [(r["parent"], r["child"], r["entry"]) for r in expected]
+    assert {(r["parent"], r["child"]) for r in expected} >= {("1", "3")}
+    assert all(0 <= r["entry"] < 1 for r in expected)
+
+
+def test_the_collection_endpoint_serves_those_entries(client, golden_analysis):
+    got = client.get("/api/collection-edges").json()["edges"]
+    assert got == [{"parent": p, "child": c, "entry": e} for p, c, e in collection_entries(golden_analysis)]
 
 
 def test_epi_columns_and_each_nodes_values_join_the_payload(tmp_path):

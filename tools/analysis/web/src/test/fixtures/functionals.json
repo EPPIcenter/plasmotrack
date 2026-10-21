@@ -1,0 +1,69 @@
+{
+ "classes": [
+  "observed_1",
+  "observed_1_unobserved",
+  "observed_2",
+  "observed_2_unobserved",
+  "unobserved_only"
+ ],
+ "column": null,
+ "level": 0.8,
+ "strata": [
+  {
+   "classes": {
+    "observed_1": {
+     "lower": 0.0,
+     "mean": 0.27597990141399487,
+     "upper": 0.3263909034186939
+    },
+    "observed_1_unobserved": {
+     "lower": 0.00017074086416930866,
+     "mean": 0.0020003373273310243,
+     "upper": 0.004037132032609312
+    },
+    "observed_2": {
+     "lower": 0.0,
+     "mean": 0.0009087081356190024,
+     "upper": 0.002910681227232467
+    },
+    "observed_2_unobserved": {
+     "lower": 2.727692420964292e-08,
+     "mean": 3.808701461522327e-06,
+     "upper": 1.3497990395226332e-05
+    },
+    "unobserved_only": {
+     "lower": 0.6701157092388353,
+     "mean": 0.7211072444215936,
+     "upper": 0.9974918586632429
+    }
+   },
+   "mean_q": {
+    "lower": 0.6728872276411886,
+    "mean": 0.7231113904503861,
+    "upper": 1.0
+   },
+   "multi_source_augmented": {
+    "lower": 0.0002913556622068281,
+    "mean": 0.002912854164411549,
+    "upper": 0.00690550995796937
+   },
+   "multi_source_observed": {
+    "lower": 5.877011137376582e-07,
+    "mean": 0.0009125168370805247,
+    "upper": 0.002921432074740363
+   },
+   "n": 3,
+   "psi_edge": {
+    "lower": 0.002508729037870726,
+    "mean": 0.2798052724154869,
+    "upper": 0.3322350542409481
+   },
+   "psi_map": 0.3333333333333333,
+   "size_range": [
+    0.3333333333333333,
+    0.3333333333333333
+   ],
+   "value": null
+  }
+ ]
+}

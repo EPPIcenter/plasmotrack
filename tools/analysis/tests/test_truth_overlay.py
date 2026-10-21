@@ -51,40 +51,64 @@ def test_truth_ids_are_matched_to_infections_and_the_unmatched_reported(tmp_path
 # --- error table -----------------------------------------------------------------------------------------------------
 
 def test_missed_true_edges_rank_by_how_low_their_marginal_is(tmp_path, stores):  # noqa: F811
-    analysis = open_analysis(tmp_path, stores, edges=[("1", "3"), ("2", "3"), ("3", "2")])
+    analysis = open_analysis(tmp_path, stores, edges=[("1", "3"), ("2", "3"), ("1", "2")])
     rows = truth_overlay.errors(analysis, "posterior", threshold=0.5)["rows"]
-    # 1->3 is called; 3->2 (0) is missed more confidently than 2->3 (0.00296).
-    assert key(rows) == [("missed", "3", "2"), ("missed", "2", "3")]
+    # 1->3 is called; 1->2 (0.00291) is missed more confidently than 2->3 (0.00296).
+    assert key(rows) == [("missed", "1", "2"), ("missed", "2", "3")]
     assert rows[1]["marginal"] == pytest.approx(P23, abs=2e-5)
     assert rows[1]["lag"] == pytest.approx(LAG[("2", "3")])
     # The constructed truth infects every Infection at time 0.
     assert (rows[1]["parent_true_infection_time"], rows[1]["child_true_infection_time"]) == (0.0, 0.0)
-    # Both directions of 2-3 are true, so each missed edge's reverse is true.
-    assert [r["reverse_true"] for r in rows] == [True, True]
+    assert [r["reverse_true"] for r in rows] == [False, False]
+    assert [r["candidate"] for r in rows] == [True, True]
+
+
+def test_a_missed_edge_the_input_does_not_allow_is_marked_and_ranks_last(tmp_path, stores):  # noqa: F811
+    # The example input allows 1 as a parent of 2, and 1 and 2 of 3; so 3->2, at 0, is not a candidate.
+    analysis = open_analysis(tmp_path, stores, edges=[("1", "3"), ("2", "3"), ("3", "2")])
+    rows = truth_overlay.errors(analysis, "posterior", threshold=0.5)["rows"]
+    # 3->2 is wrong by 1, more than 2->3, but no fit of the input could have called it.
+    assert key(rows) == [("missed", "2", "3"), ("missed", "3", "2")]
+    assert [(r["candidate"], r["confidence"]) for r in rows] == [(True, pytest.approx(1 - P23, abs=2e-5)), (False, 1.0)]
 
 
 def test_a_false_edge_whose_reverse_is_true_is_a_direction_error(tmp_path, stores):  # noqa: F811
     analysis = open_analysis(tmp_path, stores, edges=[("3", "1"), ("2", "3")])
     got = truth_overlay.errors(analysis, "posterior", threshold=0.5)
     rows = got["rows"]
-    # Confidence of being wrong: 3->1 missed at 0 (1.0), 2->3 missed at 0.00296 (0.997), 1->3 called at 0.834.
-    assert key(rows) == [("missed", "3", "1"), ("missed", "2", "3"), ("direction", "1", "3")]
-    direction = rows[2]
+    # Confidence of being wrong: 2->3 missed at 0.00296 (0.997), 1->3 called at 0.834. The true 3->1, missed at 0,
+    # is the same error as the called 1->3, so it is one direction row, not a missed row too.
+    assert key(rows) == [("missed", "2", "3"), ("direction", "1", "3")]
+    direction = rows[1]
     assert direction["marginal"] == pytest.approx(P13, abs=1e-4)
     assert direction["reverse_true"] is True
     assert direction["reverse_marginal"] == 0.0
     assert direction["lag"] == pytest.approx(LAG[("1", "3")])
-    assert rows[0]["reverse_marginal"] == pytest.approx(P13, abs=1e-4)
     assert (got["source"], got["directed"], got["threshold"]) == ("posterior", True, 0.5)
+
+
+def test_a_missed_edge_whose_called_reverse_is_also_true_stays_missed(tmp_path, stores):  # noqa: F811
+    analysis = open_analysis(tmp_path, stores, edges=[("3", "1"), ("1", "3")])
+    rows = truth_overlay.errors(analysis, "posterior", threshold=0.5)["rows"]
+    # 1->3 is called and true, so not an error; 3->1 (0) is missed on its own.
+    assert key(rows) == [("missed", "3", "1")]
+    assert rows[0]["reverse_marginal"] == pytest.approx(P13, abs=1e-4)
+
+
+def test_a_missed_edge_whose_reverse_is_below_the_threshold_stays_missed(tmp_path, stores):  # noqa: F811
+    analysis = open_analysis(tmp_path, stores, edges=[("3", "1")])
+    rows = truth_overlay.errors(analysis, "posterior", threshold=0.9)["rows"]
+    # 1->3 (0.834) is not called at 0.9, so 3->1 is missed and there is no direction error.
+    assert key(rows) == [("missed", "3", "1")]
 
 
 def test_false_edges_rank_by_marginal_descending_and_below_the_threshold_are_not_errors(tmp_path, stores):  # noqa: F811
     analysis = open_analysis(tmp_path, stores, edges=[("2", "1")])
     rows = truth_overlay.errors(analysis, "posterior", threshold=0.0029)["rows"]
-    # 2->1 (0) missed; then the called edges by marginal: 1->3 0.834, 2->3 0.00296, and 1->2 0.00291, a direction
-    # error as 2->1 is true. 3->1 and 3->2, at 0, are not called.
-    assert key(rows) == [("missed", "2", "1"), ("false", "1", "3"), ("false", "2", "3"), ("direction", "1", "2")]
-    assert [r["reverse_true"] for r in rows] == [False, False, False, True]
+    # The called edges by marginal: 1->3 0.834, 2->3 0.00296, and 1->2 0.00291, a direction error as 2->1 is true
+    # (2->1, at 0, has no missed row of its own). 3->1 and 3->2, at 0, are not called.
+    assert key(rows) == [("false", "1", "3"), ("false", "2", "3"), ("direction", "1", "2")]
+    assert [r["reverse_true"] for r in rows] == [False, False, True]
 
 
 def test_pairwise_scores_are_undirected_so_no_direction_errors(tmp_path, with_baselines):
@@ -110,7 +134,7 @@ def test_a_baseline_the_manifest_does_not_name_is_absent(tmp_path, stores):  # n
 
 # --- overlay ---------------------------------------------------------------------------------------------------------
 
-def test_overlay_has_every_true_edge_and_the_false_edges_at_or_above_the_floor(tmp_path, with_baselines):
+def test_overlay_has_every_true_edge_and_the_false_edges_at_or_above_the_floor(tmp_path, stores, with_baselines):  # noqa: F811
     got = truth_overlay.overlay(with_baselines, floor=0.0029)
     assert [(s["source"], s["label"], s["directed"]) for s in got["sources"]] == [
         ("posterior", "golden", True), ("null", "null", True), ("ibd", "IBD", False)]
@@ -126,6 +150,11 @@ def test_overlay_has_every_true_edge_and_the_false_edges_at_or_above_the_floor(t
     # A true pair takes the truth's direction; a false pair its ids in order.
     assert ibd == {("1", "3"): (0.8, True), ("2", "3"): (0.05, True), ("1", "2"): (0.9, False)}
     assert got["truth"]["n_true_edges"] == 2
+    # Every edge the example input allows; an undirected pair is a candidate when either order is.
+    assert all(e["candidate"] for s in got["sources"] for e in s["edges"])
+    reversed_ = truth_overlay.overlay(open_analysis(tmp_path, stores, edges=[("3", "1")], name="r.json"), floor=0.5)
+    assert [(e["parent"], e["child"], e["candidate"]) for e in reversed_["sources"][0]["edges"]] == [
+        ("1", "3", True), ("3", "1", False)]
 
 
 def test_overlay_without_truth_has_the_edge_sets_unmarked(tmp_path, stores):  # noqa: F811

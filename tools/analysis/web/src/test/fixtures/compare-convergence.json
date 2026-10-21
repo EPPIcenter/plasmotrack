@@ -1,0 +1,429 @@
+{
+ "analyses": [
+  "golden"
+ ],
+ "instructions": [],
+ "rows": [
+  {
+   "analyses": {
+    "golden": {
+     "ess": 3.5838570587533853,
+     "rhat": 1.2643097719105674
+    }
+   },
+   "group": "log posterior",
+   "name": "log posterior"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9383209302124523
+    }
+   },
+   "group": "global scalars",
+   "name": "mean_coi"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 19.51374552195222,
+     "rhat": 0.9322352999134308
+    }
+   },
+   "group": "global scalars",
+   "name": "mean_strains_tx"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9155943756945276
+    }
+   },
+   "group": "global scalars",
+   "name": "parent_set_size_prob"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 21.347166456769965,
+     "rhat": 0.9992996582966247
+    }
+   },
+   "group": "false positive rate",
+   "name": "1"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9192722303710784
+    }
+   },
+   "group": "false positive rate",
+   "name": "2"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9111030783177259
+    }
+   },
+   "group": "false positive rate",
+   "name": "3"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 3.1818317536851035,
+     "rhat": 1.1052805789949292
+    }
+   },
+   "group": "false negative rate",
+   "name": "1"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9026220341134961
+    }
+   },
+   "group": "false negative rate",
+   "name": "2"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9607583510545856
+    }
+   },
+   "group": "false negative rate",
+   "name": "3"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9191221807589623
+    }
+   },
+   "group": "infection duration",
+   "name": "1"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 1.009733496737567
+    }
+   },
+   "group": "infection duration",
+   "name": "2"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 24.093449329334447,
+     "rhat": 0.9703586451252253
+    }
+   },
+   "group": "infection duration",
+   "name": "3"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 25.551637528584006,
+     "rhat": 0.9582268627374155
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[0]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 1.0029392492096654
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[10]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 1.5701719900227684,
+     "rhat": 1.572166493116
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[11]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9913842684879431
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[1]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 4.226085691116563,
+     "rhat": 1.821282388817357
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[2]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 18.977928930628323,
+     "rhat": 1.2107305628965184
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[3]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 6.945710050436495,
+     "rhat": 1.111834830389158
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[4]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 7.902738317189261,
+     "rhat": 1.4011525301325252
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[5]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 3.0639661281580435,
+     "rhat": 1.193516577365992
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[6]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 7.842238602335389,
+     "rhat": 1.4010255333412804
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[7]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 18.269091354806974,
+     "rhat": 1.5073890861712833
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[8]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9971038004808186
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS11[9]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 3.090359346132447,
+     "rhat": 1.185049923395144
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[0]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9927702520499174
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[1]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 1.8692891355923829,
+     "rhat": 1.4958511101361802
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[2]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 17.175417386181845,
+     "rhat": 1.0208460468250458
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[3]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 1.368192247804431,
+     "rhat": 1.8813184398312521
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[4]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 13.219446350424784,
+     "rhat": 1.1315652533149685
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[5]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 2.135350256355063,
+     "rhat": 2.434864164794639
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[6]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 20.18175139612452,
+     "rhat": 0.9805403180425374
+    }
+   },
+   "group": "allele frequency",
+   "name": "AS1[7]"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9192924723576699
+    }
+   },
+   "group": "edge",
+   "name": "2<-1"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 12.484076791343616,
+     "rhat": 1.1044701085052933
+    }
+   },
+   "group": "edge",
+   "name": "3<-1"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 26.020599913279625,
+     "rhat": 0.9433115634318763
+    }
+   },
+   "group": "edge",
+   "name": "3<-2"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": null,
+     "rhat": null
+    }
+   },
+   "group": "unobserved-source inclusion",
+   "name": "1"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": null,
+     "rhat": null
+    }
+   },
+   "group": "unobserved-source inclusion",
+   "name": "2"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 12.538495925945337,
+     "rhat": 1.1037676245278554
+    }
+   },
+   "group": "unobserved-source inclusion",
+   "name": "3"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 1.5738920729657135,
+     "rhat": 1.6989948251509124
+    }
+   },
+   "group": "functionals",
+   "name": "mean_entropy"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 12.53849592594533,
+     "rhat": 1.103767624527855
+    }
+   },
+   "group": "functionals",
+   "name": "mean_q"
+  },
+  {
+   "analyses": {
+    "golden": {
+     "ess": 12.46267032436752,
+     "rhat": 1.1051468186862212
+    }
+   },
+   "group": "functionals",
+   "name": "psi_edge"
+  }
+ ],
+ "timed": []
+}

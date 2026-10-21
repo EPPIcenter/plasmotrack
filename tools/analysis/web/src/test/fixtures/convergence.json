@@ -1,0 +1,886 @@
+{
+ "rows": [
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "log posterior",
+   "name": "log posterior",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 7.44641539328075,
+   "group": "log posterior",
+   "name": "log posterior",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 3.5838570587533853,
+   "group": "log posterior",
+   "name": "log posterior",
+   "rhat": 1.2643097719105674
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "global scalars",
+   "name": "mean_coi",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "global scalars",
+   "name": "mean_coi",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "global scalars",
+   "name": "mean_coi",
+   "rhat": 0.9383209302124523
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "global scalars",
+   "name": "mean_strains_tx",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "global scalars",
+   "name": "mean_strains_tx",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 19.51374552195222,
+   "group": "global scalars",
+   "name": "mean_strains_tx",
+   "rhat": 0.9322352999134308
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "global scalars",
+   "name": "parent_set_size_prob",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "global scalars",
+   "name": "parent_set_size_prob",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "global scalars",
+   "name": "parent_set_size_prob",
+   "rhat": 0.9155943756945276
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "false positive rate",
+   "name": "1",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 9.89047282940513,
+   "group": "false positive rate",
+   "name": "1",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 21.347166456769965,
+   "group": "false positive rate",
+   "name": "1",
+   "rhat": 0.9992996582966247
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "false positive rate",
+   "name": "2",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "false positive rate",
+   "name": "2",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "false positive rate",
+   "name": "2",
+   "rhat": 0.9192722303710784
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "false positive rate",
+   "name": "3",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "false positive rate",
+   "name": "3",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "false positive rate",
+   "name": "3",
+   "rhat": 0.9111030783177259
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "false negative rate",
+   "name": "1",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "false negative rate",
+   "name": "1",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 3.1818317536851035,
+   "group": "false negative rate",
+   "name": "1",
+   "rhat": 1.1052805789949292
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "false negative rate",
+   "name": "2",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "false negative rate",
+   "name": "2",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "false negative rate",
+   "name": "2",
+   "rhat": 0.9026220341134961
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "false negative rate",
+   "name": "3",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "false negative rate",
+   "name": "3",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "false negative rate",
+   "name": "3",
+   "rhat": 0.9607583510545856
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "infection duration",
+   "name": "1",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "infection duration",
+   "name": "1",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "infection duration",
+   "name": "1",
+   "rhat": 0.9191221807589623
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "infection duration",
+   "name": "2",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "infection duration",
+   "name": "2",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "infection duration",
+   "name": "2",
+   "rhat": 1.009733496737567
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "infection duration",
+   "name": "3",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "infection duration",
+   "name": "3",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 24.093449329334447,
+   "group": "infection duration",
+   "name": "3",
+   "rhat": 0.9703586451252253
+  },
+  {
+   "chain": "chain1",
+   "ess": 6.9977874513009155,
+   "group": "allele frequency",
+   "name": "AS11[0]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[0]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 25.551637528584006,
+   "group": "allele frequency",
+   "name": "AS11[0]",
+   "rhat": 0.9582268627374155
+  },
+  {
+   "chain": "chain1",
+   "ess": 6.397005918163762,
+   "group": "allele frequency",
+   "name": "AS11[10]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[10]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "allele frequency",
+   "name": "AS11[10]",
+   "rhat": 1.0029392492096654
+  },
+  {
+   "chain": "chain1",
+   "ess": 9.317029390424162,
+   "group": "allele frequency",
+   "name": "AS11[11]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[11]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 1.5701719900227684,
+   "group": "allele frequency",
+   "name": "AS11[11]",
+   "rhat": 1.572166493116
+  },
+  {
+   "chain": "chain1",
+   "ess": 6.182796941217153,
+   "group": "allele frequency",
+   "name": "AS11[1]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[1]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "allele frequency",
+   "name": "AS11[1]",
+   "rhat": 0.9913842684879431
+  },
+  {
+   "chain": "chain1",
+   "ess": 5.124737811688305,
+   "group": "allele frequency",
+   "name": "AS11[2]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 6.613473746093009,
+   "group": "allele frequency",
+   "name": "AS11[2]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 4.226085691116563,
+   "group": "allele frequency",
+   "name": "AS11[2]",
+   "rhat": 1.821282388817357
+  },
+  {
+   "chain": "chain1",
+   "ess": 9.491857004653001,
+   "group": "allele frequency",
+   "name": "AS11[3]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 9.51763969866722,
+   "group": "allele frequency",
+   "name": "AS11[3]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 18.977928930628323,
+   "group": "allele frequency",
+   "name": "AS11[3]",
+   "rhat": 1.2107305628965184
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[4]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[4]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 6.945710050436495,
+   "group": "allele frequency",
+   "name": "AS11[4]",
+   "rhat": 1.111834830389158
+  },
+  {
+   "chain": "chain1",
+   "ess": 4.895046538421393,
+   "group": "allele frequency",
+   "name": "AS11[5]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 7.998328428748788,
+   "group": "allele frequency",
+   "name": "AS11[5]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 7.902738317189261,
+   "group": "allele frequency",
+   "name": "AS11[5]",
+   "rhat": 1.4011525301325252
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[6]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[6]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 3.0639661281580435,
+   "group": "allele frequency",
+   "name": "AS11[6]",
+   "rhat": 1.193516577365992
+  },
+  {
+   "chain": "chain1",
+   "ess": 6.317624957765736,
+   "group": "allele frequency",
+   "name": "AS11[7]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[7]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 7.842238602335389,
+   "group": "allele frequency",
+   "name": "AS11[7]",
+   "rhat": 1.4010255333412804
+  },
+  {
+   "chain": "chain1",
+   "ess": 5.104700703555261,
+   "group": "allele frequency",
+   "name": "AS11[8]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[8]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 18.269091354806974,
+   "group": "allele frequency",
+   "name": "AS11[8]",
+   "rhat": 1.5073890861712833
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[9]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS11[9]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "allele frequency",
+   "name": "AS11[9]",
+   "rhat": 0.9971038004808186
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[0]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[0]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 3.090359346132447,
+   "group": "allele frequency",
+   "name": "AS1[0]",
+   "rhat": 1.185049923395144
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[1]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[1]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "allele frequency",
+   "name": "AS1[1]",
+   "rhat": 0.9927702520499174
+  },
+  {
+   "chain": "chain1",
+   "ess": 9.228544999216009,
+   "group": "allele frequency",
+   "name": "AS1[2]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[2]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 1.8692891355923829,
+   "group": "allele frequency",
+   "name": "AS1[2]",
+   "rhat": 1.4958511101361802
+  },
+  {
+   "chain": "chain1",
+   "ess": 6.493931772122144,
+   "group": "allele frequency",
+   "name": "AS1[3]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[3]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 17.175417386181845,
+   "group": "allele frequency",
+   "name": "AS1[3]",
+   "rhat": 1.0208460468250458
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[4]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[4]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 1.368192247804431,
+   "group": "allele frequency",
+   "name": "AS1[4]",
+   "rhat": 1.8813184398312521
+  },
+  {
+   "chain": "chain1",
+   "ess": 6.42076507060179,
+   "group": "allele frequency",
+   "name": "AS1[5]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 7.270321552936528,
+   "group": "allele frequency",
+   "name": "AS1[5]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 13.219446350424784,
+   "group": "allele frequency",
+   "name": "AS1[5]",
+   "rhat": 1.1315652533149685
+  },
+  {
+   "chain": "chain1",
+   "ess": 5.290325220518743,
+   "group": "allele frequency",
+   "name": "AS1[6]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 5.559862159247301,
+   "group": "allele frequency",
+   "name": "AS1[6]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 2.135350256355063,
+   "group": "allele frequency",
+   "name": "AS1[6]",
+   "rhat": 2.434864164794639
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[7]",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "allele frequency",
+   "name": "AS1[7]",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 20.18175139612452,
+   "group": "allele frequency",
+   "name": "AS1[7]",
+   "rhat": 0.9805403180425374
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "edge",
+   "name": "2<-1",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "edge",
+   "name": "2<-1",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "edge",
+   "name": "2<-1",
+   "rhat": 0.9192924723576699
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "edge",
+   "name": "3<-1",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 6.702635780124613,
+   "group": "edge",
+   "name": "3<-1",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 12.484076791343616,
+   "group": "edge",
+   "name": "3<-1",
+   "rhat": 1.1044701085052933
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "edge",
+   "name": "3<-2",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 10.0,
+   "group": "edge",
+   "name": "3<-2",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 26.020599913279625,
+   "group": "edge",
+   "name": "3<-2",
+   "rhat": 0.9433115634318763
+  },
+  {
+   "chain": "chain1",
+   "ess": null,
+   "group": "unobserved-source inclusion",
+   "name": "1",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": null,
+   "group": "unobserved-source inclusion",
+   "name": "1",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": null,
+   "group": "unobserved-source inclusion",
+   "name": "1",
+   "rhat": null
+  },
+  {
+   "chain": "chain1",
+   "ess": null,
+   "group": "unobserved-source inclusion",
+   "name": "2",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": null,
+   "group": "unobserved-source inclusion",
+   "name": "2",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": null,
+   "group": "unobserved-source inclusion",
+   "name": "2",
+   "rhat": null
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "unobserved-source inclusion",
+   "name": "3",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 6.709826923569373,
+   "group": "unobserved-source inclusion",
+   "name": "3",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 12.538495925945337,
+   "group": "unobserved-source inclusion",
+   "name": "3",
+   "rhat": 1.1037676245278554
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "functionals",
+   "name": "mean_entropy",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 8.026620021326679,
+   "group": "functionals",
+   "name": "mean_entropy",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 1.5738920729657135,
+   "group": "functionals",
+   "name": "mean_entropy",
+   "rhat": 1.6989948251509124
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "functionals",
+   "name": "mean_q",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 6.709826923569375,
+   "group": "functionals",
+   "name": "mean_q",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 12.53849592594533,
+   "group": "functionals",
+   "name": "mean_q",
+   "rhat": 1.103767624527855
+  },
+  {
+   "chain": "chain1",
+   "ess": 10.0,
+   "group": "functionals",
+   "name": "psi_edge",
+   "rhat": null
+  },
+  {
+   "chain": "chain2",
+   "ess": 6.678242868908823,
+   "group": "functionals",
+   "name": "psi_edge",
+   "rhat": null
+  },
+  {
+   "chain": null,
+   "ess": 12.46267032436752,
+   "group": "functionals",
+   "name": "psi_edge",
+   "rhat": 1.1051468186862212
+  }
+ ]
+}

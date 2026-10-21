@@ -139,7 +139,9 @@ tables are rewritten when any of those changes.
 `convergence.parquet` has columns group, name, chain, ess, rhat: for every quantity, one row per Chain (`chain` is
 the Run's label) with that Chain's ESS, then a pooled row (`chain` null) with the multi-chain ESS and split R-hat over
 the Chains with Draws. `rhat` is null on Chain rows. ESS and R-hat are null for a quantity that is constant, or
-constant up to rounding, and below 4 Draws; split R-hat also needs 2 Chains.
+constant up to rounding (max - min <= 1e-9 * max(1, max |v|) over every Chain's values, `diagnostics.ROUNDING`; the web
+app's `isConstant` is the same rule), and below 4 Draws; split R-hat also needs 2 Chains. Every ESS and R-hat the
+server reports (`/api/range`, the Overview, Compare) comes from this table or from `diagnostics`.
 
 | group | name | quantity per Draw |
 |---|---|---|
@@ -194,7 +196,7 @@ Chain's ESS, sorted by clicking the ESS or R-hat header and filtered by group an
 trace panel: one line per Chain over Sampling iterations, burn-in greyed on request, a rank-normalised histogram per
 Chain, and ESS and R-hat for the Draws in the range brushed on the trace.
 
-The edge table (`#/edges`) has one row per (child, parent) of the `edge_stats` table: pooled Edge marginal,
+The edge table (the Edges workspace, `/edges`) has one row per (child, parent) of the `edge_stats` table: pooled Edge marginal,
 between-Chain spread, summed switch count, ESS, and each Chain's mean and switch count. Every column sorts; sort by
 spread for Chains that disagree and by switch count for edges locked within each Chain. It filters by child id and
 parent id (exact) and shows or hides the unobserved source. Clicking a row opens the edge's trace panel.
@@ -208,6 +210,7 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/edges` | `{chains, rows}`: per edge, child, parent, unobserved, its trace quantity (group, name), pooled, spread, switches, ess and per Chain `{mean, switches}` |
 | `GET /api/pair?a=&b=` | the pair inspector's panels for Infections A and B (below) |
 | `GET /api/infection?id=` | the infection card's panels for one Infection (below); 404 for an unknown id |
+| `GET /api/infections` | the Infections table: one columnar row per Infection (below) |
 | `GET /api/epi` | the epi data's key, columns with types, ids matching no Infection, Infections without a row |
 | `GET /api/functionals[?column=][&level=0.8]` | the functionals overall, or per stratum of an epi column |
 | `GET /api/flows[?column=][&min_infections=1]` | attribution, enrichment and net flow per stratum (below) |
@@ -215,6 +218,9 @@ parent id (exact) and shows or hides the unobserved source. Clicking a row opens
 | `GET /api/spatial?unit=&parent=[&max_lag=]` | shares of edge mass by where the source lives relative to the recipient (below) |
 
 | `GET /api/network[?floor=F]` | the network view's nodes and edges (below) |
+| `GET /api/pairs[?min=0.1&max=0.9][&disagree=D][&edge_min=0][&limit=200]` | the pairs worth a look: pooled P(A before B) in [min, max], or Chains differing by at least `disagree`, with an Edge marginal of at least `edge_min` either way; per pair its order per Chain, switches, spread, both pooled Edge marginals and `differing_loci` (Loci where the pooled Latent genotype modes differ, as `/api/pair` counts them), larger marginal first; `total` counts them all (`pt_analysis.pairs`) |
+| `GET /api/series?q=GROUP:NAME[&q=...][&points=N]` | up to 200 quantities' sampling-Draw values per Chain, each `q` split at its first `:`, in request order, binned to `points` means when given; `chains` null for an unknown or malformed quantity: the convergence table's sparklines (`pt_analysis.endpoints.series`) |
+| `GET /api/edge-series?edges=child<-parent,...[&points=N]` | up to 500 edges' weights per Draw per Chain (0 at a Draw without the edge), binned to `points` means when given: the edge table's sparklines (`pt_analysis.edge_series`) |
 
 A quantity is a group and name of the convergence table, or a functional of one stratum: group `functionals`,
 a per-Draw functional name (below), `stratum_column=C` (empty for every Infection) and `stratum=V` (left out for the
@@ -274,7 +280,8 @@ pairwise scores. An edge set is the posterior, the null-model Analysis or the pa
 pair's score is the larger of its rows, and it is true when a true edge joins it either way). `match` reports the
 Analysis's Infections the truth file has no node for, and the simulated Infections the input does not observe. An
 edge is called when its score is at least the threshold: a true edge below it is `missed`, a false edge at or above
-it `false`, or `direction` when its reverse is the true edge. Rows rank by how confidently wrong they are (1 - score
+it `false`, or `direction` when its reverse is the true edge. A true edge missed while its false reverse is called
+is one error, the reverse's `direction` row, with no `missed` row of its own. Rows rank by how confidently wrong they are (1 - score
 for a missed edge, the score otherwise; `confidence`), with the lag, the reverse's score and whether it is true, and
 both Infections' true infection times.
 
@@ -312,7 +319,7 @@ the rest of this package:
 
 ### The pair inspector
 
-`#/pair?a=A&b=B` shows why two Infections sit in one order. `/api/pair` returns, from `pt_analysis.pair.inspect_pair`:
+The pair Inspector (`?sel=pair:A,B`) shows why two Infections sit in one order. `/api/pair` returns, from `pt_analysis.pair.inspect_pair`:
 
 - `order`: per Chain, the per-Draw indicator that A precedes B, read from the `ordering` Trace on demand, and from
   the derived `order_pairs` the Draws, P(A before B) and the switches, adjacent Draws at which the order changes (as
@@ -323,7 +330,9 @@ the rest of this package:
   per Chain and pooled.
 - `genotypes`: per Locus in the input's order, Observed A and B from the input (null where unobserved), each Latent
   posterior mode and its agreement pooled over Chains from `genotype_mode`, whether the modes differ, and with a
-  truth file in the manifest the true Latent genotypes (`flat_latent_genotype`); the count of differing Loci.
+  truth file in the manifest the true Latent genotypes (`flat_latent_genotype`; `truth` is false and the columns are
+  left out when the truth gives neither Infection one, as a truth made for real data does); the count of differing
+  Loci.
 - `times`: for each, the observation time and the posterior infection time, observation time minus the median and
   the 97.5% and 2.5% quantiles (R type 7) of `infection_duration` over all Draws (`times.infection_times`, as the
   network view and the infection card take it); the lag, B's observation time minus A's.
@@ -332,7 +341,7 @@ Pooled values weight each Chain by its Draws. The input and truth files may be g
 
 ### The infection card
 
-`#/infection?id=ID` shows what the posterior says about one Infection. `/api/infection` returns, from
+The Infection Inspector (`?sel=infection:ID`) shows what the posterior says about one Infection. `/api/infection` returns, from
 `pt_analysis.infection.card`:
 
 - `quantities`: `false_positives`, `false_negatives` and `duration` from the `infections` Trace, and
@@ -340,8 +349,9 @@ Pooled values weight each Chain by its Draws. The input and truth files may be g
   50% and 97.5% quantiles (R type 7) over every Chain's Draws, and its trace quantity (`group`, `name`; none for
   infection time).
 - `coi`: the COI per Draw per Chain from the `coi` table, and its distribution over every Chain's Draws.
-- `genotype`: per Locus in the input's order, its Allele count, the Observed genotype (null where unobserved) and the
-  posterior presence of each Allele pooled over Chains from `genotype_summary`.
+- `genotype`: per Locus in the input's order, its Allele count, the Observed genotype (null where unobserved), the
+  posterior presence of each Allele pooled over Chains from `genotype_summary`, and the Latent genotype's posterior
+  mode (`mode`, pooled over Chains from `genotype_mode`) with the fraction of Draws that have it (`mode_fraction`).
 - `parent_sets`: per Chain, the Infection's Parent sets from `set_summary` with members, composition class, pooled
   weight, rank, cumulative mass and whether the set is in the credible collection at level 0.8
   (`functionals.credible_collection`, as `pt-analysis credible` prints it); and pooled over Chains
@@ -350,7 +360,22 @@ Pooled values weight each Chain by its Draws. The input and truth files may be g
 - `parents` and `children`: the Edge marginals with the Infection as child (the unobserved source included) and as
   parent, from `edge_stats`: pooled, spread, ESS, per-Chain means and the trace quantity; largest first.
 - `summary`: q, the expected observed-parent count, entropy and effective size from `infection_draws`, per Chain
-  (means over its Draws) and pooled.
+  (means over its Draws) and pooled; and `posterior_entropy` and `posterior_effective_size`, of the mean Parent-set
+  weights (the Chain's, and the pooled sets'). The two differ when each Draw is sure of a Parent set but the Draws
+  disagree on which: the per-Draw mean is then 0 (effective size 1) while the posterior one counts the disagreement.
+
+### The Infections table
+
+`/api/infections` (`pt_analysis.infections`) returns `{chains, columns, q_chains, epi_columns}`: every list in
+`columns` has one value per Infection in input order, computed in DuckDB over every Chain's derived tables at once:
+observation time and symptomatic flag; the posterior infection time (`infection_time_lower`, `_median`, `_upper`);
+`q` pooled with its `q_ess` and `q_rhat` from the convergence table and each Chain's mean in `q_chains`;
+`expected_observed_parents`; `multi_source` and `multi_source_observed`; `posterior_entropy` and
+`posterior_effective_size` of the pooled Parent-set weights, `entropy` and `effective_size` per Draw (means); the pooled
+MAP Parent set (`top_set` members, `top_set_class`, `top_set_probability`); the observed parent with the largest
+pooled Edge marginal (`top_parent`, `top_parent_marginal`); the expected out-degree (`out_degree`); the median COI;
+the worst pooled R-hat over the Infection's false positive and negative rates, duration, q and parent edges
+(`worst_rhat`, `worst_rhat_group`, `worst_rhat_name`); and each epi column as `epi:<name>`, as text.
 
 `web/README.md` says how to develop the frontend and how to add a view.
 
@@ -389,7 +414,7 @@ weights pooled over every Draw of every Chain, matching sets across Chains by th
 
 ### Flows, lags and spatial scale
 
-`pt_analysis.flows` (view `#/flows`, endpoints in `pt_analysis.endpoints.flows`) follows the manuscript's Zanzibar
+`pt_analysis.flows` (the Flows workspace, `/flows`; endpoints in `pt_analysis.endpoints.flows`) follows the manuscript's Zanzibar
 results. Everything is a function of the pooled Edge marginals Q[i, j] (summed over every Draw of every Chain, over
 the number of Draws) and q; sums of Q are expected edge counts. Strata are those above, the no-value stratum included.
 
@@ -554,7 +579,7 @@ every Analysis must record the same `input` hash in its manifest's `input_sha256
 `DifferentInputs`, naming each Analysis and the start of its hash. The first Analysis is primary: every view and
 endpoint above reads it, unchanged. Labels repeated between Analyses get ` (2)`, ` (3)` appended.
 
-The comparison view (`#/compare`) is the convergence table with one column group per Analysis (pooled ESS and split
+The Compare workspace (`/compare`) is the convergence table with one column group per Analysis (pooled ESS and split
 R-hat, sortable by any column, filtered by group and name), and a log-log scatter of per-quantity ESS of Analysis X
 against Y (selectors for X and Y; the dashed line is equal ESS). Hovering a dot names the quantity; clicking it or a
 table row shows its trace in both Analyses, each with a link to its full trace panel.
@@ -572,8 +597,9 @@ Analysis with neither, or with a Chain missing the field, has no such column.
 | `GET /api/analyses` | `{input_sha256, analyses}`: per Analysis, primary first, label, primary, path, chains `[{chain, draws}]`, draws, sampling_seconds and instructions_retired (each null unless every Chain's timings have it) |
 | `GET /api/compare/convergence` | `{analyses, timed, instructions, rows}`: per quantity (group, name, in table order) and per Analysis `{ess, rhat}`, with `ess_per_second` for the Analyses in `timed` and `ess_per_instruction` for those in `instructions` |
 
-`/api/trace` and `/api/range` take `analysis=LABEL` to read another open Analysis than the primary (404 for a label
-not open), and echo it. The comparison logic is `pt_analysis.compare` (`open_comparison`, `compare_convergence`,
+Every other endpoint takes `analysis=LABEL` to read another open Analysis than the primary (404 for a label not
+open; `pt_analysis.endpoints.requested_analysis`); `/api/trace` and `/api/range` also echo it. The app's Analysis
+switcher sends it on every request. The comparison logic is `pt_analysis.compare` (`open_comparison`, `compare_convergence`,
 `sampling_seconds`, `instructions_retired`).
 
 ## Use from Python
