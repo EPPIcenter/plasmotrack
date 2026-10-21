@@ -73,6 +73,9 @@ of `/convergence?sel=...` opens the app there.
   - `Panel`: header with title, one-line description, actions and the export menu; `data` gives its CSV.
   - `PlotFigure`: Observable Plot wrapper; `plot({ width, height, theme })` is called again when the container
     resizes or the theme changes. Pass a stable function (`useCallback`). `plotStyle(theme)` for the shared style.
+    A `Plot.tip` mark is hidden in the SVG and its lines shown in a `FloatingTip`, so no frame or panel clips it.
+  - `FloatingTip`: a tooltip portalled to the document body at a viewport point, flipped to stay on screen
+    (`src/lib/tip.ts`); the network's tooltip uses it too.
   - `DataTable`: virtualised table with sticky header and first column, sort, column resize, numeric alignment, row
     hover and click, the active row; it scrolls both ways inside its panel. `hoverEntity(row)` shares the row's
     entity with the workspace's charts through `src/app/hover.ts`. Columns are `{ id, header, value, cell?, numeric?, width?, descFirst?, group? }`; consecutive

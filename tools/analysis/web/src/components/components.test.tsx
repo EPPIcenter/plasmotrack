@@ -7,6 +7,7 @@ import { toCsv } from "../lib/export";
 import { mockApi, renderWithProviders } from "../test/render";
 import { DataTable, type Column } from "./DataTable";
 import { EntityLink } from "./EntityLink";
+import { FloatingTip } from "./FloatingTip";
 import { KpiStrip } from "./KpiStrip";
 import { Panel } from "./Panel";
 import { PlotFigure } from "./PlotFigure";
@@ -148,6 +149,50 @@ describe("PlotFigure", () => {
     expect(plot).toHaveBeenLastCalledWith(expect.objectContaining({ width: 300, height: 100, theme: expect.objectContaining({ mode: "light" }) }));
     await userEvent.click(screen.getByText("theme"));
     expect(plot).toHaveBeenLastCalledWith(expect.objectContaining({ theme: expect.objectContaining({ mode: "dark" }) }));
+  });
+
+  it("shows Plot's tip outside its container, so no panel clips it, and drops it when Plot does", async () => {
+    const plot = () => Plot.plot({ width: 200, height: 60, marks: [Plot.dot([1, 2, 3], { x: (d) => d })] });
+    const { container } = render(
+      <ThemeProvider mode="light">
+        <div style={{ overflow: "hidden" }}>
+          <PlotFigure plot={plot} height={60} fallbackWidth={200} />
+        </div>
+      </ThemeProvider>,
+    );
+    const svg = container.querySelector("svg")!;
+    // What Plot's pointer draws on hover: g[aria-label=tip] > g[transform] > path, text > a tspan per line.
+    act(() => {
+      svg.insertAdjacentHTML(
+        "beforeend",
+        `<g aria-label="tip"><g transform="translate(40,12)"><path></path><text>` +
+          `<tspan>​<tspan font-weight="bold">Chain</tspan> chain2<tspan fill="#e8590c"> ■</tspan></tspan>` +
+          `<tspan>​<tspan font-weight="bold">x</tspan> 0.031</tspan></text></g></g>`,
+      );
+    });
+    const tip = await screen.findByRole("tooltip");
+    expect(container).not.toContainElement(tip);
+    expect(tip).toHaveTextContent("Chain chain2");
+    expect(tip).toHaveTextContent("x 0.031");
+    expect(svg.querySelector('[aria-label="tip"]')).toHaveStyle({ visibility: "hidden" });
+    act(() => svg.querySelector('[aria-label="tip"]')!.replaceChildren());
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+});
+
+describe("FloatingTip", () => {
+  it("renders into the document body, not the container that asked for it", () => {
+    const { container } = render(
+      <div style={{ overflow: "hidden" }}>
+        <FloatingTip point={{ x: 10, y: 10 }}>
+          <span>pf0155</span>
+        </FloatingTip>
+      </div>,
+    );
+    const tip = screen.getByRole("tooltip");
+    expect(tip).toHaveTextContent("pf0155");
+    expect(container).not.toContainElement(tip);
+    expect(tip).toHaveStyle({ position: "fixed" });
   });
 });
 

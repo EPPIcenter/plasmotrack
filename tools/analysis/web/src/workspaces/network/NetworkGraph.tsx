@@ -17,6 +17,7 @@ import type FA2Layout from "graphology-layout-forceatlas2/worker";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type SigmaRenderer from "sigma";
 import type { EdgeProgramType } from "sigma/rendering";
+import { FloatingTip } from "../../components/FloatingTip";
 import type { ChartTheme } from "../../lib/palette";
 import { arcControl, edgeSize, NODE_SIZE, timelineLayout, type NetworkNode, type TimelineLayout, type Tooltip } from "../../lib/network";
 
@@ -329,9 +330,14 @@ export function NetworkGraph(props: NetworkGraphProps) {
         graph.on("eachNodeAttributesUpdated", frame);
 
         const refresh = () => renderer.refresh({ skipIndexation: true });
+        // Sigma gives the pointer in the stage's coordinates; the tooltip lives in the viewport.
+        const toViewport = (event: { x: number; y: number }) => {
+          const box = stage.current!.getBoundingClientRect();
+          return { x: box.left + event.x, y: box.top + event.y };
+        };
         renderer.on("enterNode", ({ node, event }) => {
           hovered.current.node = node;
-          setTip({ content: live.current.nodeTooltip(node), x: event.x, y: event.y });
+          setTip({ content: live.current.nodeTooltip(node), ...toViewport(event) });
           refresh();
         });
         renderer.on("leaveNode", () => {
@@ -341,7 +347,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
         });
         renderer.on("enterEdge", ({ edge, event }) => {
           hovered.current.edge = edge;
-          setTip({ content: live.current.edgeTooltip(edge), x: event.x, y: event.y });
+          setTip({ content: live.current.edgeTooltip(edge), ...toViewport(event) });
           refresh();
         });
         renderer.on("leaveEdge", () => {
@@ -501,11 +507,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
         </button>
       )}
       {tip && (
-        <div
-          role="tooltip"
-          className="pointer-events-none absolute z-20 min-w-36 rounded-[3px] border border-line bg-raised px-2 py-1 text-axis shadow-sm"
-          style={{ left: tip.x + 14, top: tip.y + 14 }}
-        >
+        <FloatingTip point={tip}>
           <strong className="id block text-ink">{tip.content.title}</strong>
           {tip.content.rows.map(([label, value]) => (
             <div key={label} className="flex justify-between gap-3 tabular-nums">
@@ -513,7 +515,7 @@ export function NetworkGraph(props: NetworkGraphProps) {
               <span className="text-ink">{value}</span>
             </div>
           ))}
-        </div>
+        </FloatingTip>
       )}
     </div>
   );
