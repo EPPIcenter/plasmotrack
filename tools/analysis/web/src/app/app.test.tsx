@@ -108,7 +108,9 @@ describe("the Inspector", () => {
     const chains = await within(inspector).findByRole("list", { name: "Chains" });
     expect(within(chains).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["chain1", "chain2"]);
     await within(inspector).findByText("Pooled");
-    expect(within(inspector).getByText("Pooled").closest("tr")).toHaveTextContent(/20.*1\.264/);
+    expect(within(inspector).getByText("Pooled")).toHaveAttribute("title", "20 Draws");
+    expect(within(inspector).getByText("Pooled").closest("tr")).toHaveTextContent(/1\.264/);
+    expect(within(inspector).getByText(/ESS and R-hat over every Draw \(20 Draws\)/)).toBeInTheDocument();
     expect(within(inspector).getByRole("img", { name: "Trace of log posterior per Chain" }).querySelector("svg")).not.toBeNull();
   });
 

@@ -240,43 +240,42 @@ export function QuantityTrace({ entity, height = 220, compact = false, analysis 
         </p>
       )}
       {!compact && (
-        <table className="mt-1 w-full text-table tabular-nums">
-          <thead className="text-ink-2">
-            <tr className="border-b border-line">
-              <th className="py-0.5 text-left font-medium">Chain</th>
-              <th className="text-right font-medium">Draws</th>
-              <th className="text-right font-medium">Mean</th>
-              <th className="text-right font-medium">2.5%</th>
-              <th className="text-right font-medium">97.5%</th>
-              <th className="text-right font-medium">ESS</th>
-              <th className="text-right font-medium">R-hat</th>
-            </tr>
-          </thead>
-          <tbody>
-            {summary.chains.map((c, k) => (
-              <tr key={c.chain} className="border-b border-line/60">
-                <td className="py-0.5">{c.chain}</td>
-                <td className="num">{c.draws}</td>
-                <td className="num">{formatNumber(c.mean)}</td>
-                <td className="num">{formatNumber(c.lower)}</td>
-                <td className="num">{formatNumber(c.upper)}</td>
-                <td className="num">{constant === null ? <StatusChip kind="ess" value={diag?.chains[k]?.ess ?? null} compact /> : <NoDiagnostic of="ESS" />}</td>
-                <td />
+        <div className="mt-1 overflow-x-auto">
+          <table className="w-full text-table tabular-nums [&_td+td]:pl-1.5 [&_th+th]:pl-1.5">
+            <thead className="text-ink-2">
+              <tr className="border-b border-line">
+                <th className="py-0.5 text-left font-medium">Chain</th>
+                <th className="text-right font-medium">Mean</th>
+                <th className="text-right font-medium">2.5%</th>
+                <th className="text-right font-medium">97.5%</th>
+                <th className="text-right font-medium">ESS</th>
+                <th className="text-right font-medium">R-hat</th>
               </tr>
-            ))}
-            <tr className="font-medium">
-              <td className="py-0.5">Pooled</td>
-              <td className="num">{summary.pooled.draws}</td>
-              <td className="num">{formatNumber(summary.pooled.mean)}</td>
-              <td className="num">{formatNumber(summary.pooled.lower)}</td>
-              <td className="num">{formatNumber(summary.pooled.upper)}</td>
-              <td className="num">{constant === null ? <StatusChip kind="ess" value={diag?.ess ?? null} compact /> : <NoDiagnostic of="ESS" />}</td>
-              <td className="num">{constant === null ? <StatusChip kind="rhat" value={diag?.rhat ?? null} compact /> : <NoDiagnostic of="R-hat" />}</td>
-            </tr>
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {summary.chains.map((c, k) => (
+                <tr key={c.chain} className="border-b border-line/60">
+                  <td className="py-0.5" title={`${c.draws} Draws`}>{c.chain}</td>
+                  <td className="num">{formatNumber(c.mean)}</td>
+                  <td className="num">{formatNumber(c.lower)}</td>
+                  <td className="num">{formatNumber(c.upper)}</td>
+                  <td className="num">{constant === null ? <StatusChip kind="ess" value={diag?.chains[k]?.ess ?? null} compact /> : <NoDiagnostic of="ESS" />}</td>
+                  <td />
+                </tr>
+              ))}
+              <tr className="font-medium">
+                <td className="py-0.5" title={`${summary.pooled.draws} Draws`}>Pooled</td>
+                <td className="num">{formatNumber(summary.pooled.mean)}</td>
+                <td className="num">{formatNumber(summary.pooled.lower)}</td>
+                <td className="num">{formatNumber(summary.pooled.upper)}</td>
+                <td className="num">{constant === null ? <StatusChip kind="ess" value={diag?.ess ?? null} compact /> : <NoDiagnostic of="ESS" />}</td>
+                <td className="num">{constant === null ? <StatusChip kind="rhat" value={diag?.rhat ?? null} compact /> : <NoDiagnostic of="R-hat" />}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       )}
-      {compact || constant !== null ? null : <p className="text-axis text-muted">ESS and R-hat over {span}; R-hat {formatRhat(diag?.rhat ?? null)} is split R-hat over the Chains.</p>}
+      {compact || constant !== null ? null : <p className="text-axis text-muted">ESS and R-hat over {span} ({summary.pooled.draws.toLocaleString()} Draws); R-hat {formatRhat(diag?.rhat ?? null)} is split R-hat over the Chains.</p>}
     </div>
   );
 }
