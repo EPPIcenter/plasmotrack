@@ -12,7 +12,7 @@ import { Group, Panel as Split, Separator } from "react-resizable-panels";
 import { useEdgeSeries, useEdges } from "../../api/edges";
 import { useNetwork } from "../../api/network";
 import { useHovered } from "../../app/hover";
-import { useMultiSelection } from "../../app/selection";
+import { useMultiSelection, useSelection } from "../../app/selection";
 import { useWorkspaceSearch, type SearchValues } from "../../app/search";
 import { useTheme } from "../../app/theme";
 import { DataTable, type Column, type SortingState } from "../../components/DataTable";
@@ -104,7 +104,10 @@ export default function EdgesWorkspace() {
     [chains, times],
   );
 
-  const traced = useMemo(() => (search.e ? all.find((r) => edgeKeyOf(r) === search.e) ?? null : null), [all, search.e]);
+  // The clicked row's edge, or else the Inspector's, so the panel beside the table follows the selection.
+  const { entity } = useSelection();
+  const tracedKey = search.e ?? (entity?.kind === "edge" ? edgeKeyOf(entity) : null);
+  const traced = useMemo(() => (tracedKey ? all.find((r) => edgeKeyOf(r) === tracedKey) ?? null : null), [all, tracedKey]);
   const byKey = useMemo(() => new Map(all.map((r) => [edgeKeyOf(r), r])), [all]);
   const hoveredEntity = useHovered();
   const hovered = hoveredEntity?.kind === "edge" ? byKey.get(edgeKeyOf(hoveredEntity)) ?? null : null;
@@ -156,7 +159,7 @@ export default function EdgesWorkspace() {
                     onSortingChange={onSortingChange}
                     onRowClick={(r) => set({ e: edgeKeyOf(r) })}
                     hoverEntity={edgeEntity}
-                    activeRowId={search.e}
+                    activeRowId={tracedKey}
                     emptyText="No edge matches the filters"
                   />
                 </div>
@@ -174,7 +177,7 @@ export default function EdgesWorkspace() {
             exportName={traced ? `trace ${traced.name}` : "trace"}
             actions={traced && <EntityLink entity={edgeEntity(traced)} className="text-axis">Inspect</EntityLink>}
           >
-            {hovered && edgeKeyOf(hovered) !== search.e && <HoveredEdge row={hovered} chains={chains} />}
+            {hovered && edgeKeyOf(hovered) !== tracedKey && <HoveredEdge row={hovered} chains={chains} />}
             {traced ? (
               <QuantityTrace key={edgeKeyOf(traced)} entity={edgeQuantity(traced)} height={220} />
             ) : (

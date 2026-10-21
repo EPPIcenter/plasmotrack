@@ -69,6 +69,16 @@ describe("Edges", () => {
     await userEvent.click(within(panel).getByRole("link", { name: "Inspect" }));
     expect(search().sel).toBe("edge:1>3");
   });
+
+  it("traces the Inspector's edge beside the table until a row is clicked", async () => {
+    const { search } = renderApp("/edges?sel=edge:1%3E3");
+    expect(await screen.findByRole("region", { name: "Edge 1 → 3" })).toBeInTheDocument();
+    expect(screen.queryByText(/Click a row of the table/)).not.toBeInTheDocument();
+    const other = within(await table()).getAllByRole("row").find((r) => (r.getAttribute("data-row-id") ?? "3<-1") !== "3<-1")!;
+    await userEvent.click(other);
+    expect(search().e).toBe(other.getAttribute("data-row-id"));
+    expect(screen.queryByRole("region", { name: "Edge 1 → 3" })).not.toBeInTheDocument();
+  });
 });
 
 describe("the Explore workspaces with another Analysis active", () => {
