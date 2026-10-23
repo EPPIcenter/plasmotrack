@@ -2,8 +2,8 @@
 #
 # An imagined plasmotrackr session, written to react to, for the ticket "How should a plasmotrackr session look?"
 # (https://github.com/EPPIcenter/plasmotrack/issues/102). No function here exists. Output after `#>` is invented, with
-# Eswatini-sized numbers (457 Infections, 4 Runs of 500 Draws). Lines marked CHOICE are the decisions the ticket must
-# settle; ALT names the option the sketch didn't take.
+# Eswatini-sized numbers (457 Infections, 4 Runs of 500 Draws). Lines marked DECIDED were settled with the user
+# on 2026-10-23; CHOICE marks a proposal not reviewed, left to later tickets.
 
 library(plasmotrackr)
 library(dplyr)
