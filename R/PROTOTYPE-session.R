@@ -150,9 +150,9 @@ pt_order_pair_draws(esw) |> filter(i == "E0001")
 # ---------------------------------------------------------------------------------------------------------------------
 # 5. Summaries over Draws: eager tibbles, pooled by default
 # ---------------------------------------------------------------------------------------------------------------------
-# CHOICE: every summary takes by_run = FALSE. FALSE gives pooled values (Draw-weighted over Runs); TRUE gives one row
+# DECIDED: every summary takes by_run = FALSE. FALSE gives pooled values (Draw-weighted over Runs); TRUE gives one row
 # per Run per key with `run` first, and the same columns otherwise. Never both in one tibble.
-# ALT: always both, with run = NA for the pooled row (pt_analysis's convergence table does this with chain = null).
+# Never both in one tibble: a pooled row among Run rows is double-counted by any summarise. by = is reserved for strata.
 
 pt_edge_marginals(esw)
 #> # A tibble: 18,212 x 4
