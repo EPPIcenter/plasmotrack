@@ -128,13 +128,12 @@ TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSampler) {
     f.setGenotype(f.state->infections[c], "100");
 
     const auto& child = f.state->infections[c];
-    auto parentSet    = std::make_shared<ParentSetImpl>(f.state->infectionEventOrdering, child, f.state->allowedRelationships->allowedParents(child));
-    ASSERT_EQ(parentSet->value().size(), 1u);
+    ASSERT_EQ(f.state->infectionEventOrdering->candidateParents(child).size(), 1u);
 
     auto genotype = child->latentGenotype(f.locus);
     auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
-    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<WeightedAllelesTarget, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>
-            sampler(child, parentSet, f.state->latentParents[c], target, f.rng, 0.3, 0.3);
+    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<WeightedAllelesTarget, Engine, InfectionEvent, GeneticsImpl, OrderingImpl, MAX_PARENTS, MAX_COI>
+            sampler(child, f.state->infectionEventOrdering, f.state->latentParents[c], target, f.rng, 0.3, 0.3);
 
     constexpr int draws = 400000;
     const auto visits   = run(sampler, genotype, draws);
@@ -151,13 +150,12 @@ TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSamplerAtUnobservedLocus) {
 
     const auto& child = f.state->infections[m];
     ASSERT_FALSE(child->observedGenotype().contains(f.locus));
-    auto parentSet = std::make_shared<ParentSetImpl>(f.state->infectionEventOrdering, child, f.state->allowedRelationships->allowedParents(child));
-    ASSERT_EQ(parentSet->value().size(), 1u);
+    ASSERT_EQ(f.state->infectionEventOrdering->candidateParents(child).size(), 1u);
 
     auto genotype = child->latentGenotype(f.locus);
     auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
-    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<WeightedAllelesTarget, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>
-            sampler(child, parentSet, f.state->latentParents[m], target, f.rng, 0.3, 0.3);
+    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<WeightedAllelesTarget, Engine, InfectionEvent, GeneticsImpl, OrderingImpl, MAX_PARENTS, MAX_COI>
+            sampler(child, f.state->infectionEventOrdering, f.state->latentParents[m], target, f.rng, 0.3, 0.3);
 
     constexpr int draws = 400000;
     const auto visits   = run(sampler, genotype, draws);

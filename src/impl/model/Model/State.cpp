@@ -122,7 +122,7 @@ namespace transmission_nets::impl::Model {
         }
 
         infectionEventOrdering = std::make_shared<OrderingImpl>();
-        infectionEventOrdering->addElements(this->infections);
+        infectionEventOrdering->addElements(infections, [&](const auto& infection) { return allowedRelationships->allowedParents(infection); });
 
         for (const auto& infection : infections) {
             expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
