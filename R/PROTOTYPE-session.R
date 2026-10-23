@@ -75,13 +75,14 @@ esw_123 <- pt_runs_keep(esw, c("run1", "run2", "run3"))
 # ---------------------------------------------------------------------------------------------------------------------
 # 3. Raw tables: lazy
 # ---------------------------------------------------------------------------------------------------------------------
-# CHOICE: one accessor per Store table, named after the table. Each returns a dbplyr lazy table over the closed
-# Windows of every Run, unioned, with `run` as the first column. Raw tables keep the Store's own columns, including
-# `phase` and `window`.
-# CHOICE: arguments every table function takes: runs = NULL (all), phase = "sampling" (or "burn_in", or both).
-# ALT: one function, pt_table(esw, "parent_sets", ...), plus the named ones as thin wrappers.
+# DECIDED: one accessor for every Store table, pt_table(), taking the Store's table name unchanged (doc/store-layout.md).
+# Every named pt_ function is something the package computes; raw tables don't take names in that namespace. Its help
+# page lists the tables and links the layout doc; an unknown name errors with the list.
+# Returns a dbplyr lazy table over the closed Windows of every Run, unioned, with `run` as the first column, keeping
+# the Store's own columns, including `phase` and `window`.
+# CHOICE: arguments: runs = NULL (all), phase = "sampling" (or "burn_in", or both).
 
-ps <- pt_parent_sets(esw)
+ps <- pt_table(esw, "parent_sets")
 ps
 #> # Source:   SQL [?? x 7]
 #> # Database: DuckDB 1.4.1 [plasmotrackr: eswatini-prod]
@@ -91,18 +92,19 @@ ps
 #> 2 run1      50100 sampling     10 E0001          3 0.0871
 #> ...
 
-pt_run_scalars(esw, phase = c("burn_in", "sampling")) |>
+pt_table(esw, "run_scalars", phase = c("burn_in", "sampling")) |>
   mutate(log_posterior = prior + likelihood) |>
   select(run, iteration, phase, log_posterior) |>
   collect()
 
-pt_parent_set_members(esw)    # always both Phases: a set's members are written where it first appears
-pt_ordering(esw)
-pt_latent_genotypes(esw)
-pt_allele_frequencies(esw)
-pt_infection_traces(esw)      # the `infections` table; renamed so it doesn't clash with pt_infections()
-pt_acceptance(esw)            # Block: one row per sampler per Window, no iteration column
-pt_events(esw)
+pt_table(esw, "parent_set_members")   # always both Phases: a set's members are written where it first appears
+pt_table(esw, "infections")           # the Trace; pt_infections() is the input's Infections
+pt_table(esw, "acceptance")           # Block: one row per sampler per Window, no iteration column
+pt_table(esw, "parent_set")
+#> Error in `pt_table()`:
+#> ! No Store table "parent_set".
+#> i Tables: run_scalars, infections, ordering, allele_frequencies, latent_genotypes, parent_sets,
+#>   parent_set_members, chains, acceptance, swaps, events. See doc/store-layout.md.
 
 # ---------------------------------------------------------------------------------------------------------------------
 # 4. Per-Draw derived tables: still lazy
@@ -138,7 +140,7 @@ pt_out_degree(esw)            # run, iteration, infection, out_degree: expected 
 
 # Bitstring work: package functions, because gsub and str_count don't translate to DuckDB SQL.
 pt_coi_draws(esw)             # run, iteration, infection, coi
-pt_latent_genotypes(esw) |>
+pt_table(esw, "latent_genotypes") |>
   mutate(n_alleles = pt_sql_count_alleles(alleles)) # a dbplyr-translatable helper
 # ALT: only the named derived tables, no SQL helpers exported.
 
