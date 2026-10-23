@@ -11,10 +11,10 @@ library(dplyr)
 # ---------------------------------------------------------------------------------------------------------------------
 # 1. Engine settings
 # ---------------------------------------------------------------------------------------------------------------------
-# CHOICE: the DuckDB memory cap and spill directory are R options, read when pt_read() opens its connection, and
-# overridable per call. One connection per Analysis object, owned by it, closed when it is garbage-collected or by
-# pt_close().
-# ALT: a pt_engine(memory_limit =, temp_directory =, threads =) setter that changes a package-global connection.
+# DECIDED: the DuckDB memory cap, spill directory and threads are R options, read when pt_read() opens the
+# Analysis's connection, and overridable per call. One connection per Analysis object, owned by it, closed when it is
+# garbage-collected or by pt_close(). The cap bounds each Analysis, not the session; the docs say so. No pt_engine():
+# comparisons across Analyses join small pooled tibbles in R, so no shared connection is needed.
 
 options(
   plasmotrackr.memory_limit   = "8GB",
