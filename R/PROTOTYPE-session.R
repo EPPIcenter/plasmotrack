@@ -124,12 +124,12 @@ pt_edge_draws(esw)
 
 # CHOICE: the Latent parent never appears as a `parent`. CONTEXT.md says it is not a network edge, so the edge
 # tables hold Infection-to-Infection rows only, and its share of an Infection's Parent sets is the column
-# `latent_parent` (pt_analysis's q, "unobserved-source inclusion") in the per-Infection tables.
+# `p_latent_parent` (pt_analysis's q, "unobserved-source inclusion") in the per-Infection tables.
 # ALT: keep pt_analysis's rows, with parent = "E0001_copy" and a logical `latent` column, and filter by default.
-# Glossary term needed for this probability. Candidates: "Latent parent inclusion", "unsampled-source probability".
+# Glossary: add "Latent parent probability", the probability that an Infection's Parent set includes its Latent parent.
 
 pt_infection_draws(esw)
-#>   run   iteration infection latent_parent expected_observed_parents entropy effective_size
+#>   run   iteration infection p_latent_parent expected_observed_parents entropy effective_size
 #>   <chr>     <int> <chr>             <dbl>                     <dbl>   <dbl>          <dbl>
 #>   ... then one column per composition class: unobserved_only, observed_1, observed_1_unobserved, ...
 
@@ -166,7 +166,7 @@ pt_edge_marginals(esw, by_run = TRUE)
 #>   <chr> <chr> <chr>     <dbl>    <int>
 #> ...
 
-pt_parent_sets_pooled(esw)             # infection, members (list<chr>), n_observed, latent_parent (lgl), class,
+pt_parent_sets_pooled(esw)             # infection, members (list<chr>), n_observed, has_latent_parent, class,
                                        # weight, rank, cumulative_mass, credible
 pt_parent_sets_pooled(esw, level = 0.95)
 pt_map_graph(esw)                      # infection, members, class, weight: rank 1 of the above
@@ -205,7 +205,7 @@ pt_out_degree_range(esw, level = 0.8)  # tibble: lo, hi, level. Was psi_lo, psi_
                                        # so it always contains pt_map_out_degree() (pt_analysis changes to match)
 
 # Recipient-side functionals: means over Infections of what each Infection received.
-pt_mean_latent_parent(esw)             # lazy: run, iteration, mean_latent_parent
+pt_mean_p_latent_parent(esw)           # lazy: run, iteration, mean_p_latent_parent
 pt_composition(esw)                    # lazy, long: run, iteration, class, share
 pt_composition(esw) |> pt_interval(by = class, level = 0.9)
 pt_multi_source(esw)                   # lazy: run, iteration, augmented, observed_only
@@ -229,7 +229,7 @@ conv
 #>   <chr>            <chr>         <dbl> <dbl>   <int>         <int>
 #> 1 log_posterior    log_posterior  212.  1.01       4           480
 #> 2 edge             E0102<-E0099    88.  1.13       4           480
-#> 3 latent_parent    E0017          NA    NA         4           480   # constant: every set contains it
+#> 3 p_latent_parent  E0017          NA    NA         4           480   # constant: every set contains it
 #> ...
 
 pt_convergence(esw, groups = c("log_posterior", "functional"), by_run = TRUE)
