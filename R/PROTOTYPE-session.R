@@ -138,11 +138,14 @@ pt_infection_draws(esw)
 pt_out_degree(esw)            # run, iteration, infection, out_degree: expected children among the Infections
                               # (functionals over Infections are in section 6)
 
-# Bitstring work: package functions, because gsub and str_count don't translate to DuckDB SQL.
+# DECIDED: bitstrings become a long lazy table, built in SQL; no exported SQL helpers. Genotype questions are then
+# ordinary dplyr verbs. Defined quantities still ship as functions; the mode stays on the bitstring, since a
+# genotype's identity is the whole string.
+pt_alleles(esw)               # run, iteration, infection, locus, allele: one row per Allele present at that Draw
+pt_alleles(esw) |>
+  count(run, iteration, infection, locus) |>
+  summarise(coi = max(n), .by = c(run, iteration, infection))   # what pt_coi_draws() returns
 pt_coi_draws(esw)             # run, iteration, infection, coi
-pt_table(esw, "latent_genotypes") |>
-  mutate(n_alleles = pt_sql_count_alleles(alleles)) # a dbplyr-translatable helper
-# ALT: only the named derived tables, no SQL helpers exported.
 
 # Order pairs are O(n^2): lazy, and the user filters to the pairs they care about first.
 pt_order_pair_draws(esw) |> filter(i == "E0001")
