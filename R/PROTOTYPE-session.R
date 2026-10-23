@@ -25,10 +25,15 @@ options(
 # ---------------------------------------------------------------------------------------------------------------------
 # 2. Opening an Analysis
 # ---------------------------------------------------------------------------------------------------------------------
-# CHOICE: one entry point. A path ending in .json is an Analysis manifest (the one pt_analysis reads); anything else
-# is one or more Run directories. Bare Runs are labelled by directory name unless named.
+# DECIDED: an Analysis is its Runs. pt_read() takes Run directories (names become labels; unnamed Runs are labelled
+# by directory name) or one parent directory whose Run subdirectories it finds. No JSON manifest: the user's script
+# is the manifest, and a cohort is a loop over the rerun's directory layout.
+# Epi is a data frame keyed by Infection id, attached here because by = on every functional needs it. Truth, the
+# null-model Analysis, IBD scores and simulation factors go to the scoring and fit-summary functions that use them
+# (shape settled in the truth ticket).
 
-esw <- pt_read("~/Workspace/plasmotrack-runs/eswatini-prod/analysis.json")
+epi <- readr::read_csv("eswatini-epi.csv")
+esw <- pt_read("~/Workspace/plasmotrack-runs/eswatini-prod", epi = epi)   # finds run1..run4
 
 esw2 <- pt_read(c(
   a = "~/Workspace/plasmotrack-runs/eswatini-prod/run1",
@@ -36,11 +41,14 @@ esw2 <- pt_read(c(
 ))
 
 # Per-call engine override.
-big <- pt_read("he01/analysis.json", memory_limit = "24GB")
+big <- pt_read("he01/runs", memory_limit = "24GB")
+
+truth <- pt_read_truth("sim_3_s2.json.gz")
+pt_score(esw, truth, null = pt_read(null_dirs), ibd = ibd_df)
 
 # CHOICE: the object is an S3 "pt_analysis" list: the DuckDB connection, the Run table, the Infection and Locus
-# lookup tables, and the manifest's optional paths (truth, epi, IBD scores, null-model Analysis). Nothing is read from
-# the Traces at pt_read() time except the Window markers and the Draw count per Run.
+# lookup tables, and the epi data frame. Nothing is read from the Traces at pt_read() time except the Window markers
+# and the Draw count per Run.
 # ALT: an R6 object with methods (esw$edges()). Rejected in the sketch as un-tidyverse.
 
 esw
@@ -52,8 +60,7 @@ esw
 #>   run2    500  50,100-100,000    10 + 10                       finished
 #>   run3    500  50,100-100,000    10 + 10                       finished
 #>   run4    480  50,100- 98,000    10 + 10                       running, window 20 open
-#> Truth      none
-#> Epi        eswatini-epi.csv (district, season, travel)
+#> Epi        457 of 457 Infections matched; columns district, season, travel
 #> Engine     DuckDB, memory_limit 8GB, temp /scratch/mmurphy/duckdb
 #> ! Runs have unequal Draws (480-500). Diagnostics truncate to 480; pooled estimates use every Draw.
 
