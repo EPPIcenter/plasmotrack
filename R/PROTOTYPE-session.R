@@ -109,9 +109,11 @@ pt_table(esw, "parent_set")
 # ---------------------------------------------------------------------------------------------------------------------
 # 4. Per-Draw derived tables: still lazy
 # ---------------------------------------------------------------------------------------------------------------------
-# CHOICE: the lazy/eager line is "per Draw is lazy, over Draws is eager". A derived table with a row per Draw is
+# DECIDED: the lazy/eager line is "per Draw is lazy, over Draws is eager". A derived table with a row per Draw is
 # another lazy query the user can filter before collecting. Anything that averages or ranks over Draws is computed
-# and returned as a tibble.
+# and returned as a tibble; pt_interval() is where a lazy table turns eager. No caching in the package: a lazy table
+# is recomputed each time it is used, and the docs show dplyr::compute() for reuse within a session.
+edges <- pt_edge_draws(esw) |> compute()   # a temporary DuckDB table on the Analysis's connection, still lazy
 #
 # CHOICE: a Draw is identified by (run, iteration) in every table; there is no separate draw index column. Where
 # posterior needs a 1..n index, pt_as_draws() makes it.
