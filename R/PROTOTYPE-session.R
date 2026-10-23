@@ -46,10 +46,9 @@ big <- pt_read("he01/runs", memory_limit = "24GB")
 truth <- pt_read_truth("sim_3_s2.json.gz")
 pt_score(esw, truth, null = pt_read(null_dirs), ibd = ibd_df)
 
-# CHOICE: the object is an S3 "pt_analysis" list: the DuckDB connection, the Run table, the Infection and Locus
+# DECIDED: the object is an S3 "pt_analysis" list: the DuckDB connection, the Run table, the Infection and Locus
 # lookup tables, and the epi data frame. Nothing is read from the Traces at pt_read() time except the Window markers
 # and the Draw count per Run.
-# ALT: an R6 object with methods (esw$edges()). Rejected in the sketch as un-tidyverse.
 
 esw
 #> <pt_analysis> eswatini-prod
@@ -64,7 +63,7 @@ esw
 #> Engine     DuckDB, memory_limit 8GB, temp /scratch/mmurphy/duckdb
 #> ! Runs have unequal Draws (480-500). Diagnostics truncate to 480; pooled estimates use every Draw.
 
-# CHOICE: the Run table is a tibble, and it carries D_r, which every per-Run mean divides by.
+# DECIDED: the Run table is a tibble, and it carries D_r, which every per-Run mean divides by.
 pt_runs(esw)
 #> # A tibble: 4 x 8
 #>   run   label path                      draws first_iteration last_iteration windows status
@@ -75,9 +74,8 @@ pt_runs(esw)
 pt_infections(esw)   # the input's Infections: infection, observation_time, symptomatic, latent_parent
 pt_loci(esw)         # locus, n_alleles
 
-# Subsetting Runs gives another pt_analysis on the same connection.
-esw_123 <- pt_runs_keep(esw, c("run1", "run2", "run3"))
-# ALT: a runs = argument on every function (see section 3), instead of or as well as this.
+# DECIDED: Runs are narrowed only by runs = on each function; no subsetting function.
+pt_edge_marginals(esw, runs = c("run1", "run2", "run3"))
 
 # ---------------------------------------------------------------------------------------------------------------------
 # 3. Raw tables: lazy
@@ -87,7 +85,7 @@ esw_123 <- pt_runs_keep(esw, c("run1", "run2", "run3"))
 # page lists the tables and links the layout doc; an unknown name errors with the list.
 # Returns a dbplyr lazy table over the closed Windows of every Run, unioned, with `run` as the first column, keeping
 # the Store's own columns, including `phase` and `window`.
-# CHOICE: arguments: runs = NULL (all), phase = "sampling" (or "burn_in", or both).
+# DECIDED: arguments: runs = NULL (all), phase = "sampling" (or "burn_in", or both).
 
 ps <- pt_table(esw, "parent_sets")
 ps
@@ -122,7 +120,7 @@ pt_table(esw, "parent_set")
 # is recomputed each time it is used, and the docs show dplyr::compute() for reuse within a session.
 edges <- pt_edge_draws(esw) |> compute()   # a temporary DuckDB table on the Analysis's connection, still lazy
 #
-# CHOICE: a Draw is identified by (run, iteration) in every table; there is no separate draw index column. Where
+# DECIDED: a Draw is identified by (run, iteration) in every table; there is no separate draw index column. Where
 # posterior needs a 1..n index, pt_as_draws() makes it.
 
 # Edge marginals per Draw: observed parents only.
@@ -133,10 +131,9 @@ pt_edge_draws(esw)
 #> 1 run1      50100 E0001 E0417  0.0871
 #> ...
 
-# CHOICE: the Latent parent never appears as a `parent`. CONTEXT.md says it is not a network edge, so the edge
+# DECIDED: the Latent parent never appears as a `parent`. CONTEXT.md says it is not a network edge, so the edge
 # tables hold Infection-to-Infection rows only, and its share of an Infection's Parent sets is the column
 # `p_latent_parent` (pt_analysis's q, "unobserved-source inclusion") in the per-Infection tables.
-# ALT: keep pt_analysis's rows, with parent = "E0001_copy" and a logical `latent` column, and filter by default.
 # Glossary: add "Latent parent probability", the probability that an Infection's Parent set includes its Latent parent.
 
 pt_infection_draws(esw)
@@ -193,7 +190,7 @@ pt_infection_times(esw)                # infection, lower, median, upper
 # ---------------------------------------------------------------------------------------------------------------------
 # 6. Functionals with intervals
 # ---------------------------------------------------------------------------------------------------------------------
-# CHOICE: one function per functional, named for what it estimates, no bundle. Two shapes, and the shape says which:
+# DECIDED: one function per functional, named for what it estimates, no bundle. Two shapes, and the shape says which:
 #  - a mean over Infections of a per-Draw value is a lazy per-Draw table (run, iteration, value). Its interval is an
 #    explicit second step, pt_interval(), which works on any per-Draw table, including one the user builds;
 #  - a point summary of the pooled Parent sets is a tibble with no interval columns.
@@ -235,7 +232,7 @@ pt_mean_out_degree(esw, by = "district") |> pt_interval(by = stratum)
 # ---------------------------------------------------------------------------------------------------------------------
 # 7. Convergence
 # ---------------------------------------------------------------------------------------------------------------------
-# One row per quantity, pooled across Runs. The group names follow pt_analysis's convergence table.
+# One row per quantity, pooled across Runs. Estimators, groups and the report's shape: the tree diagnostics ticket.
 conv <- pt_convergence(esw)
 conv
 #> # A tibble: 21,604 x 6
