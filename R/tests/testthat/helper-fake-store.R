@@ -17,8 +17,9 @@
 #                or one string with ids separated by "," ("" for none). `latent` (default FALSE) is whether the set
 #                includes the Infection's Latent parent. Set ids are assigned per Infection in order of first
 #                appearance (by iteration, then row), and the members are written in the Window the set first
-#                appears in, as the engine does. Default: every Infection has its Latent parent alone, prob 1, at
-#                every written iteration. Rows are written as given: drop rows yourself to mimic the floor.
+#                appears in, as the engine does. Rows are written as given: drop rows yourself to mimic the
+#                floor. Every written iteration with no row here (iteration 0, burn-in, or all of them when
+#                `parent_sets` is NULL) gets the default: each Infection has its Latent parent alone, prob 1.
 #   symptomatic  Logical, recycled over `infections`. Default TRUE.
 #   loci         Named integer vector: Locus id -> Allele count. Default c(L1 = 2).
 #   burn_in, samples, thin, window
@@ -50,11 +51,13 @@ fake_store <- function(path = NULL, infections = NULL, parent_sets = NULL, sympt
 
   iterations <- c(0, seq_len(burn_in / thin) * thin, burn_in + seq_len(samples / thin) * thin)
   grid <- fake_window_grid(iterations, burn_in, window)
-  if (is.null(parent_sets)) {
-    parent_sets <- fake_parent_set_rows(data.frame(
-      iteration = rep(iterations, each = length(infections)), infection = rep(infections, length(iterations)),
+  # Iterations without any parent_sets row get the default: every Infection has its Latent parent alone.
+  bare <- setdiff(iterations, parent_sets$iteration)
+  if (length(bare)) {
+    parent_sets <- rbind(parent_sets, fake_parent_set_rows(data.frame(
+      iteration = rep(bare, each = length(infections)), infection = rep(infections, length(bare)),
       parents = "", latent = TRUE, prob = 1
-    ))
+    )))
   }
   stopifnot(all(parent_sets$iteration %in% iterations))
 
