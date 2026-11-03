@@ -4,6 +4,8 @@
 #   pooled_sets(a, runs, by_run, level)  eager: the ranked sets of pt_parent_sets_pooled() (plus `run` when by_run).
 #   set_totals(a, runs)   eager: run, infection, observed (members joined by "\x1f"; "" for none),
 #                         has_latent_parent, total (the set's summed weight over the Run's sampling Draws).
+#   set_members(a, runs)  lazy: run, infection, set_id, observed, has_latent_parent; canonical_observed() sorts the
+#                         collected `observed` strings.
 #   rank_sets(...)        rank, cumulative mass and the Credible collection within each (run, infection).
 
 #' Pooled Parent sets, MAP graph and Credible collections
@@ -251,7 +253,19 @@ set_totals <- function(a, runs) {
   totals <- pt_table(a, "parent_sets", runs = runs, phase = "sampling") |>
     dplyr::group_by(.data$run, .data$infection, .data$set_id) |>
     dplyr::summarise(total = sum(.data$prob, na.rm = TRUE), .groups = "drop")
-  members <- pt_table(a, "parent_set_members", runs = runs) |>
+  rows <- totals |>
+    dplyr::inner_join(set_members(a, runs), by = c("run", "infection", "set_id")) |>
+    dplyr::select("run", "infection", "observed", "has_latent_parent", "total") |>
+    dplyr::collect()
+  rows$total <- as.numeric(rows$total)
+  rows$observed <- canonical_observed(rows$observed)
+  rows
+}
+
+# Lazy: run, infection, set_id, observed (observed members joined by "\x1f", "" for none; pass through
+# canonical_observed() once collected), has_latent_parent.
+set_members <- function(a, runs) {
+  pt_table(a, "parent_set_members", runs = runs) |>
     dplyr::inner_join(structure_infections(a), by = "infection") |>
     dplyr::group_by(.data$run, .data$infection, .data$set_id) |>
     dplyr::summarise(
@@ -259,17 +273,14 @@ set_totals <- function(a, runs) {
       has_latent_parent = sum(as.integer(.data$member == .data$latent_parent), na.rm = TRUE) > 0L,
       .groups = "drop"
     )
-  rows <- totals |>
-    dplyr::inner_join(members, by = c("run", "infection", "set_id")) |>
-    dplyr::select("run", "infection", "observed", "has_latent_parent", "total") |>
-    dplyr::collect()
-  rows$total <- as.numeric(rows$total)
-  # Canonical members string: ids in string (byte) order whatever the database collation.
-  canonical <- unique(rows$observed)
+}
+
+# Canonical members string: ids in string (byte) order whatever the database collation.
+canonical_observed <- function(observed) {
+  canonical <- unique(observed)
   sorted <- vapply(strsplit(canonical, "\x1f", fixed = TRUE),
                    function(x) paste(sort(x, method = "radix"), collapse = "\x1f"), "")
-  rows$observed <- sorted[match(rows$observed, canonical)]
-  rows
+  sorted[match(observed, canonical)]
 }
 
 # Rank sets within (run, infection): weight descending, then the members list element by element (observed ids in
