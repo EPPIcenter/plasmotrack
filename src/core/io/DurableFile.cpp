@@ -76,4 +76,14 @@ namespace transmission_nets::core::io {
         write(temporary);
         moveDurably(temporary, path);
     }
+
+    void copyDurably(const fs::path& source, const fs::path& path) {
+        writeDurably(path, [&](const fs::path& temporary) {
+            std::error_code ec;
+            fs::copy_file(source, temporary, fs::copy_options::overwrite_existing, ec);
+            if (ec) {
+                failOutput("copy " + source.string() + " to", path, ec.message());
+            }
+        });
+    }
 }// namespace transmission_nets::core::io
