@@ -82,7 +82,7 @@ write_events <- function(path, events) {
     rows$row <- seq_len(nrow(rows))
     DBI::dbWriteTable(con, "rows", rows, overwrite = TRUE)
     DBI::dbExecute(con, sprintf(paste(
-      "COPY (SELECT iteration::BIGINT AS iteration, phase, window::BIGINT AS window, wall_time, type, payload",
+      "COPY (SELECT iteration::BIGINT AS iteration, phase, \"window\"::BIGINT AS \"window\", wall_time, type, payload",
       "FROM rows ORDER BY row) TO %s (FORMAT parquet)"
     ), DBI::dbQuoteString(con, file.path(path, "events", sprintf("window-%06d.parquet", as.integer(w))))))
   }

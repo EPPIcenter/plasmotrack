@@ -53,6 +53,7 @@ pt_read <- function(paths, epi = NULL, memory_limit = NULL, temp_directory = NUL
   runs <- count_draws(con, runs)
   runs <- summarise_events(con, runs)
   ok <- TRUE
+  warn_runs(runs)
 
   structure(
     list(engine = engine, runs = runs, infections = structure$infections, loci = structure$loci, epi = epi),
@@ -257,6 +258,34 @@ summarise_events <- function(con, runs) {
   runs$iterations_per_second <- summaries$iterations_per_second
   runs$non_finite <- as.integer(summaries$non_finite)
   runs
+}
+
+# pt_read()'s warnings: Runs that are not finished, Draw counts that differ, and non-finite values.
+warn_runs <- function(runs, call = rlang::caller_env()) {
+  unfinished <- runs$status != "finished"
+  if (any(unfinished)) {
+    lines <- sprintf("%s: %s", runs$run[unfinished], runs$status[unfinished])
+    cli::cli_warn(c(
+      "{sum(unfinished)} Run{?s} {?is/are} not finished; {?it is/they are} read up to the last closed Window.",
+      rlang::set_names(cli_escape(lines), "*")
+    ), call = call)
+  }
+  if (length(unique(runs$draws)) > 1) {
+    lines <- sprintf("%s: %s", runs$run, format_count(runs$draws))
+    cli::cli_warn(c(
+      "Draw counts differ between Runs; pooled values weigh each Run by its Draws.",
+      rlang::set_names(cli_escape(lines), "*")
+    ), call = call)
+  }
+  bad <- runs$non_finite > 0
+  if (any(bad)) {
+    lines <- sprintf("%s: %d non_finite_value event%s", runs$run[bad], runs$non_finite[bad],
+                     ifelse(runs$non_finite[bad] == 1, "", "s"))
+    cli::cli_warn(c(
+      "{sum(bad)} Run{?s} hit a non-finite prior or likelihood; see {.code pt_table(a, \"events\")}.",
+      rlang::set_names(cli_escape(lines), "*")
+    ), call = call)
+  }
 }
 
 #' The Runs of an Analysis

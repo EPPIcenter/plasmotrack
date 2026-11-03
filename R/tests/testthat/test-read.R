@@ -181,3 +181,46 @@ test_that("an Analysis is closed when garbage-collected", {
   gc()
   expect_false(DBI::dbIsValid(con))
 })
+
+test_that("a Run killed before its last Window is incomplete, and pt_read() warns about it and its Draws", {
+  killed <- drop_windows(local_golden_copy(), 2)
+  expect_warning(
+    expect_warning(a <- pt_read(c(one = golden_store(), killed = killed)), "not finished"),
+    "Draw counts differ"
+  )
+  on.exit(pt_close(a))
+  runs <- pt_runs(a)
+  expect_equal(runs$status, c("finished", "incomplete"))
+  # Window 1 alone: iterations 25-45 thinned by 5, and its window_closed event.
+  expect_equal(runs$draws, c(10L, 5L))
+  expect_equal(runs$sampling_seconds[[2]], 0.034737, tolerance = 1e-12)
+  expect_equal(runs$iterations_per_second[[2]], 25 / 0.034737, tolerance = 1e-12)
+})
+
+test_that("a Run that ended on an interrupt is interrupted, and pt_read() warns", {
+  store <- local_golden_copy()
+  events <- read_events(store)
+  ended <- events$type == "run_ended"
+  events$payload[ended] <- '{"reason":"interrupted","seconds":0.085819}'
+  events <- rbind(events[seq_len(which(ended) - 1), ],
+                  event(2, "interrupted", list(signal = "SIGINT", second = FALSE), iteration = 70),
+                  events[which(ended):nrow(events), ])
+  write_events(store, events)
+  expect_warning(a <- pt_read(store), "not finished")
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$status, "interrupted")
+})
+
+test_that("a Run whose events stop at its start, or end with an unknown reason, is incomplete", {
+  started <- local_golden_copy()
+  write_events(started, event(0, "run_started", list(burn_in = 20, samples = 50), phase = "burn_in"))
+  odd <- local_golden_copy("replica-exchange")
+  events <- read_events(odd)
+  events$payload[events$type == "run_ended"] <- '{"reason":"crashed","seconds":1}'
+  write_events(odd, events)
+  expect_warning(a <- pt_read(c(started = started, odd = odd)), "2 Runs are not finished")
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$status, c("incomplete", "incomplete"))
+  expect_equal(pt_runs(a)$sampling_seconds[[1]], 0)
+  expect_equal(pt_runs(a)$iterations_per_second[[1]], NA_real_)
+})
