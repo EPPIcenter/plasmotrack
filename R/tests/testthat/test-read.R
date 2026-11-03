@@ -279,3 +279,28 @@ test_that("started_from carries the source run_id of a --start-from Run", {
   on.exit(pt_close(a))
   expect_equal(pt_runs(a)$started_from, c(NA, "0123456789abcdef0123456789abcdef"))
 })
+
+test_that("a Run with 0 sampling Draws stays in the Run table with draws = 0", {
+  burn_in_only <- drop_windows(local_golden_copy(), c(1, 2))
+  expect_warning(expect_warning(a <- pt_read(c(one = golden_store(), early = burn_in_only)), "not finished"),
+                 "Draw counts differ")
+  on.exit(pt_close(a))
+  runs <- pt_runs(a)
+  expect_equal(runs$run, c("one", "early"))
+  expect_equal(runs$draws, c(10L, 0L))
+  expect_equal(runs$windows, c(3L, 1L))
+  expect_equal(runs$first_iteration[[2]], NA_real_)
+  expect_equal(runs$sampling_seconds[[2]], 0)
+  expect_equal(runs$iterations_per_second[[2]], NA_real_)
+})
+
+# runs_with_draws() is internal: the helper pooled summaries and diagnostics call to skip Runs with no Draws.
+test_that("runs_with_draws() skips Runs with 0 sampling Draws, with a message", {
+  burn_in_only <- drop_windows(local_golden_copy(), c(1, 2))
+  suppressWarnings(a <- pt_read(c(one = golden_store(), early = burn_in_only)))
+  on.exit(pt_close(a))
+  expect_message(expect_equal(runs_with_draws(a), "one"), "Skipping Run .*early.* no sampling Draws")
+  expect_no_message(expect_equal(runs_with_draws(a, runs = "one"), "one"))
+  expect_error(suppressMessages(runs_with_draws(a, runs = "early")), "No sampling Draws")
+  expect_error(runs_with_draws(a, runs = "nope"), "Unknown Run")
+})
