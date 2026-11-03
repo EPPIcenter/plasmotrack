@@ -224,3 +224,58 @@ test_that("a Run whose events stop at its start, or end with an unknown reason, 
   expect_equal(pt_runs(a)$sampling_seconds[[1]], 0)
   expect_equal(pt_runs(a)$iterations_per_second[[1]], NA_real_)
 })
+
+test_that("non_finite counts non_finite_value events, and pt_read() warns", {
+  store <- local_golden_copy()
+  events <- read_events(store)
+  bad <- function(term) event(1, "non_finite_value", list(temperature_slot = 0, term = term, value = "nan"),
+                              iteration = 30)
+  events <- rbind(events[events$window == 0, ], bad("prior"), bad("likelihood"), events[events$window > 0, ])
+  write_events(store, events)
+  expect_warning(a <- pt_read(c(one = golden_store(), bad = store)), "non-finite")
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$non_finite, c(0L, 2L))
+  expect_equal(pt_runs(a)$status, c("finished", "finished"))
+})
+
+test_that("resumes counts run_resumed events and a resumed Run that completed is finished", {
+  store <- local_golden_copy()
+  events <- read_events(store)
+  # Interrupted in Window 0, resumed; interrupted in Window 1, resumed; completed in Window 2.
+  stop <- function(window, iteration) {
+    rbind(event(window, "run_ended", list(reason = "interrupted", seconds = 1), iteration = iteration),
+          event(window + 1, "run_resumed", list(iteration = iteration, window = window, checkpoint = "c",
+                                                samples = 50), iteration = iteration))
+  }
+  events <- rbind(events[events$window == 0, ], stop(0, 20), events[events$window == 1, ], stop(1, 45),
+                  events[events$window == 2, ])
+  write_events(store, events)
+  expect_no_warning(a <- pt_read(store))
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$resumes, 2L)
+  expect_equal(pt_runs(a)$status, "finished")
+})
+
+test_that("a resumed Run killed after the resume is incomplete", {
+  store <- local_golden_copy()
+  events <- read_events(store)
+  events <- rbind(events[events$window <= 1, ],
+                  event(1, "run_ended", list(reason = "interrupted", seconds = 1), iteration = 45),
+                  event(2, "run_resumed", list(iteration = 45, window = 1, checkpoint = "c", samples = 50),
+                        iteration = 45),
+                  events[events$window == 2 & events$type == "window_closed", ])
+  write_events(store, events)
+  expect_warning(a <- pt_read(store), "not finished")
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$resumes, 1L)
+  expect_equal(pt_runs(a)$status, "incomplete")
+})
+
+test_that("started_from carries the source run_id of a --start-from Run", {
+  store <- local_golden_copy("replica-exchange")
+  edit_manifest(store, started_from = list(run_id = "0123456789abcdef0123456789abcdef", engine_version = "1.0.0",
+                                           temperatures = list(1, 0.8, 0.7, 0.6)))
+  a <- pt_read(c(one = golden_store(), from = store))
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$started_from, c(NA, "0123456789abcdef0123456789abcdef"))
+})
