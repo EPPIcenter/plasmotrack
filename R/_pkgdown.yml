@@ -121,6 +121,12 @@ reference:
 - title: Plots
   desc: >
     ggplot2 plots of per-Draw tables, intervals, and convergence.
+  contents:
+  - pt_plot_trace
+  - pt_plot_rank
+  - pt_plot_interval
+  - pt_plot_run_pairs
+  - autoplot.pt_convergence
 
 - title: Export
   desc: >
