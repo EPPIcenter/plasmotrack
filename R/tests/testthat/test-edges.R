@@ -34,7 +34,7 @@ test_that("pt_edge_draws() gives observed parents only, run and iteration first"
 golden_paths <- function() c(one = golden_store(), four = golden_store("replica-exchange"))
 
 test_that("per-Draw tables match the oracle on both golden Stores", {
-  a <- pt_read(golden_paths())
+  a <- read_golden(golden_paths())
   on.exit(pt_close(a))
   o <- oracle_read(golden_paths())
   expect_oracle_equal(pt_edge_draws(a), oracle_edge_draws(o), c("run", "iteration", "child", "parent"))
@@ -44,7 +44,7 @@ test_that("per-Draw tables match the oracle on both golden Stores", {
 })
 
 test_that("per-Draw tables take runs and phase", {
-  a <- pt_read(golden_paths())
+  a <- read_golden(golden_paths())
   on.exit(pt_close(a))
   o <- oracle_read(golden_paths())
   both <- c("burn_in", "sampling")
@@ -141,14 +141,16 @@ test_that("pt_edge_marginals() matches the oracle on fake and golden Stores", {
   expect_oracle_equal(pt_class_draws(a), oracle_class_draws(o), c("run", "iteration", "infection", "class"))
   expect_oracle_equal(pt_out_degree_draws(a), oracle_out_degree_draws(o), c("run", "iteration", "infection"))
 
-  g <- pt_read(golden_paths())
+  g <- read_golden(golden_paths())
   on.exit(pt_close(g), add = TRUE)
   og <- oracle_read(golden_paths())
-  expect_oracle_equal(pt_edge_marginals(g), oracle_edge_marginals(og), c("child", "parent"))
-  expect_oracle_equal(pt_edge_marginals(g, by_run = TRUE), oracle_edge_marginals(og, by_run = TRUE),
-                      c("run", "child", "parent"))
-  expect_oracle_equal(pt_edge_marginals(g, runs = "four"), oracle_edge_marginals(og, runs = "four"),
-                      c("child", "parent"))
+  times <- golden_observation_times()
+  expect_oracle_equal(pt_edge_marginals(g), oracle_edge_marginals(og, observation_time = times), c("child", "parent"))
+  expect_oracle_equal(pt_edge_marginals(g, by_run = TRUE),
+                      oracle_edge_marginals(og, by_run = TRUE, observation_time = times), c("run", "child", "parent"))
+  expect_oracle_equal(pt_edge_marginals(g, runs = "four"),
+                      oracle_edge_marginals(og, runs = "four", observation_time = times), c("child", "parent"))
+  expect_false(anyNA(dplyr::collect(pt_edge_marginals(g))$lag))
 })
 
 test_that("pt_edge_marginals() skips a Run with no sampling Draws", {
@@ -164,7 +166,7 @@ test_that("pt_edge_marginals() skips a Run with no sampling Draws", {
 
 test_that("the Latent parent never appears in any output", {
   for (paths in list(local_three_runs(), golden_paths())) {
-    a <- suppressWarnings(pt_read(paths))
+    a <- suppressWarnings(suppressMessages(pt_read(paths)))
     ids <- pt_infections(a)$infection
     outputs <- list(
       dplyr::collect(pt_edge_draws(a, phase = c("burn_in", "sampling"))), pt_edge_marginals(a, by_run = TRUE),

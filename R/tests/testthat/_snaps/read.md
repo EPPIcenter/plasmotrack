@@ -8,6 +8,7 @@
         one   finished     10  25-70             3     5
         four  finished     10  25-70             3     5
       Epi: 2 of 3 Infections matched; columns district, travel
+      Input: <golden input>
       Engine: DuckDB, memory_limit 1.0 GiB, threads 1, temp_directory <temp>
 
 ---
@@ -19,6 +20,7 @@
         run           status    draws  iterations  windows  thin
         single-chain  finished     10  25-70             3     5
       Epi: none
+      Input: <golden input>
       Engine: closed
 
 # print() shows each Run's status
@@ -31,5 +33,6 @@
         one     finished       10  25-70             3     5
         killed  incomplete      5  25-45             2     5
       Epi: none
+      Input: <golden input>
       Engine: closed
 
