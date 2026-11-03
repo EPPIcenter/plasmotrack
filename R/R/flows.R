@@ -179,3 +179,78 @@ check_flow_by <- function(a, by, call = rlang::caller_env()) {
   if (is.null(by)) cli::cli_abort("{.arg by} must name an epi column: flows are between strata.", call = call)
   check_by(a, by, call = call)
 }
+
+#' Mean out-degree and Latent parent probability without long-lag edges
+#'
+#' How much of the transmission network rests on edges with long lags: the manuscript's mean out-degree (ψ_edge)
+#' and mean Latent parent probability (mean q) at each Draw after every edge with a lag above `max_lag` is moved to
+#' the Latent parent.
+#'
+#' An edge's lag is the child's observation time minus the parent's, from the input JSON (see [pt_read()]). An
+#' edge with a missing lag (either time NA) is never moved. At each Draw, a moved edge's weight leaves the parent's
+#' out-degree and joins the child's Latent parent probability, which is then clamped at 1: a Parent set holding both
+#' a moved parent and the Latent parent would otherwise count its weight twice. So the mean Latent parent probability
+#' rises by at most the moved weight over the number of Infections, and the mean out-degree falls by exactly that.
+#' With `max_lag = Inf` nothing moves and the values are those of [pt_mean_out_degree()] and
+#' [pt_mean_p_latent_parent()].
+#'
+#' With `by`, each value is a mean over one stratum's Infections, with a `stratum` column after `iteration`. Out-degree
+#' counts the stratum's Infections as sources, the Latent parent probability counts them as recipients; Infections
+#' with an NA value, or missing from epi, form the NA stratum, which is kept.
+#'
+#' @inheritParams pt_mean_out_degree
+#' @param max_lag The longest lag kept, in the units of the input's observation times. One number; `Inf` moves
+#'   nothing.
+#' @return A lazy table (`tbl_lazy`) with `run`, `iteration`, then `stratum` with `by`, then `mean_out_degree` and
+#'   `mean_p_latent_parent`.
+#' @seealso [pt_edge_marginals()] for each edge's lag; [pt_interval()].
+#' @export
+#' @examples
+#' store <- system.file("extdata", "golden", "single-chain", package = "plasmotrackr")
+#' a <- pt_read(store, threads = 1)
+#' pt_reassign_long_lags(a, max_lag = 30) |> pt_interval()
+#' pt_close(a)
+pt_reassign_long_lags <- function(a, max_lag, by = NULL, runs = NULL, phase = "sampling") {
+  phase <- check_phase(phase)
+  select_runs(a, runs)
+  if (!is.numeric(max_lag) || length(max_lag) != 1 || is.na(max_lag)) {
+    cli::cli_abort("{.arg max_lag} must be one number (or {.code Inf}).")
+  }
+  check_by(a, by)
+  if (all(is.na(a$infections$observation_time))) {
+    cli::cli_warn(c("No Infection has an observation time, so no edge has a lag and nothing moves.",
+                    i = "Give the input JSON with {.code pt_read(..., input = )}."))
+  }
+  times <- tibble::tibble(infection = a$infections$infection, time = as.numeric(a$infections$observation_time))
+  con <- analysis_con(a)
+  edges <- observed_edges(a, runs, phase) |>
+    dplyr::inner_join(dbplyr::copy_inline(con, stats::setNames(times, c("child", "child_time"))), by = "child") |>
+    dplyr::inner_join(dbplyr::copy_inline(con, stats::setNames(times, c("parent", "parent_time"))), by = "parent")
+  edges <- if (max_lag == Inf) {
+    dplyr::mutate(edges, moved = FALSE)
+  } else if (max_lag == -Inf) {
+    dplyr::mutate(edges, moved = !is.na(.data$child_time) & !is.na(.data$parent_time))
+  } else {
+    dplyr::mutate(edges, moved = dplyr::coalesce(.data$child_time - .data$parent_time > !!max_lag, FALSE))
+  }
+  kept_out <- edges |>
+    dplyr::group_by(.data$run, .data$iteration, infection = .data$parent) |>
+    dplyr::summarise(out_degree = sum(dplyr::if_else(.data$moved, 0, .data$prob), na.rm = TRUE), .groups = "drop")
+  moved_in <- edges |>
+    dplyr::group_by(.data$run, .data$iteration, infection = .data$child) |>
+    dplyr::summarise(moved = sum(dplyr::if_else(.data$moved, .data$prob, 0), na.rm = TRUE), .groups = "drop")
+  latent <- pt_infection_draws(a, runs, phase) |>
+    dplyr::select("run", "iteration", "infection", "p_latent_parent")
+  infection_grid(a, runs, phase) |>
+    dplyr::left_join(kept_out, by = c("run", "iteration", "infection")) |>
+    dplyr::left_join(moved_in, by = c("run", "iteration", "infection")) |>
+    dplyr::left_join(latent, by = c("run", "iteration", "infection")) |>
+    dplyr::mutate(
+      mean_out_degree = dplyr::coalesce(.data$out_degree, 0),
+      q = dplyr::coalesce(.data$p_latent_parent, 0) + dplyr::coalesce(.data$moved, 0),
+      mean_p_latent_parent = dplyr::if_else(.data$q > 1, 1, .data$q)
+    ) |>
+    dplyr::select("run", "iteration", "infection", "mean_out_degree", "mean_p_latent_parent") |>
+    with_strata(a, by) |>
+    per_draw_mean(c("mean_out_degree", "mean_p_latent_parent"), keys = strata_keys(by))
+}

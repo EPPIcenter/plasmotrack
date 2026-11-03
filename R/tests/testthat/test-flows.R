@@ -88,3 +88,42 @@ test_that("pt_net_flow counts expected out-edges minus in-edges between differen
   expect_equal(x$stratum, rep(c("x", "y", NA), 2))
   expect_equal(x$net_flow, c(1, 0, -1, 1, -1, 0), tolerance = 1e-12)
 })
+
+test_that("pt_reassign_long_lags moves edges beyond the lag to the Latent parent, clamping at 1", {
+  a <- read_flow_store()
+  on.exit(pt_close(a))
+  x <- pt_reassign_long_lags(a, max_lag = 5)
+  expect_s3_class(x, "tbl_lazy")
+  x <- sorted(x, c("run", "iteration"))
+  expect_equal(names(x), c("run", "iteration", "mean_out_degree", "mean_p_latent_parent"))
+  # Lags 3<-1 (10) and 3<-2 (8) move; 2<-1 (2) stays; 4<-3 (NA) never moves.
+  # Draw 1 out-degrees (1, 2, 3, 4): 0.6, 0, 1, 0. Latent parent: 1, 0.4, min(0.7 + 1, 1) (set {1, L} holds a
+  # moved parent and the Latent parent), 0. Draw 2: out 1, 0, 0, 0; Latent parent 1, 0, min(0.5 + 1, 1), 1.
+  expect_equal(x$mean_out_degree, c(1.6 / 4, 0.25), tolerance = 1e-12)
+  expect_equal(x$mean_p_latent_parent, c(2.4 / 4, 0.75), tolerance = 1e-12)
+
+  # Per stratum: out-degree over the stratum's sources, Latent parent over its recipients.
+  y <- sorted(pt_reassign_long_lags(a, max_lag = 5, by = "district"), c("run", "iteration", "stratum"))
+  expect_equal(names(y), c("run", "iteration", "stratum", "mean_out_degree", "mean_p_latent_parent"))
+  expect_equal(y$stratum, rep(c("x", "y", NA), 2))
+  expect_equal(y$mean_out_degree, c(0.3, 1, 0, 0.5, 0, 0), tolerance = 1e-12)
+  expect_equal(y$mean_p_latent_parent, c(0.7, 1, 0, 0.5, 1, 1), tolerance = 1e-12)
+})
+
+test_that("pt_reassign_long_lags never moves an edge with a missing lag", {
+  a <- read_flow_store()
+  on.exit(pt_close(a))
+  # Every edge with a lag moves; 4<-3 (no time for 4) stays. Draw 1 out: 3 has 1. Latent parent: 1, 0.4 + 0.6,
+  # clamped 1, 0.
+  x <- sorted(pt_reassign_long_lags(a, max_lag = -100), c("run", "iteration"))
+  expect_equal(x$mean_out_degree[[1]], 0.25, tolerance = 1e-12)
+  expect_equal(x$mean_p_latent_parent[[1]], 0.75, tolerance = 1e-12)
+  # Nothing beyond Inf: the plain functionals.
+  y <- sorted(pt_reassign_long_lags(a, max_lag = Inf), c("run", "iteration"))
+  expect_equal(y$mean_out_degree, sorted(pt_mean_out_degree(a), c("run", "iteration"))$mean_out_degree,
+               tolerance = 1e-12)
+  expect_equal(y$mean_p_latent_parent,
+               sorted(pt_mean_p_latent_parent(a), c("run", "iteration"))$mean_p_latent_parent, tolerance = 1e-12)
+  expect_error(pt_reassign_long_lags(a, max_lag = NA), "max_lag")
+  expect_error(pt_reassign_long_lags(a, max_lag = c(1, 2)), "max_lag")
+})
