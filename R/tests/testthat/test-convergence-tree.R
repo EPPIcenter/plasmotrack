@@ -46,3 +46,53 @@ test_that("each disagreement class is the first rule that matches", {
   # a: 2 infects 1; b: 3 infects 1.
   expect_identical(class_of(list("1" = c("2" = 1)), list("1" = c("3" = 1))), "different_parent")
 })
+
+test_that("top-parent ties go to the smaller id, and an observed parent beats the Latent parent", {
+  ids <- c("1", "10", "2", "3")
+  x <- pt_read(local_tree_runs(
+    a = list("1" = c("2" = 0.5, "10" = 0.5), "3" = c("2" = 0.5, L = 0.5)),
+    b = list("1" = c("2" = 1), "3" = c(L = 1)), infections = ids
+  ))
+  on.exit(pt_close(x))
+  conv <- pt_convergence(x)
+  # Ids compare as strings: "10" < "2".
+  expect_identical(tree_row(conv, "1")$top_parent[[1]], c(a = "10", b = "2"))
+  expect_identical(tree_row(conv, "3")$top_parent[[1]], c(a = "2", b = "latent"))
+})
+
+test_that("Infection spread uses zero-filled Edge marginals with the Latent parent as a key", {
+  paths <- local_tree_runs(
+    # 1: edge 1<-2 has mean 1 in both Runs; only the Latent parent differs (0.25 in a, 1 in b).
+    # 2: 2<-3 only in a (0.6), 2<-4 only in b (0.7): the other Run counts 0.
+    a = list("1" = c("2" = 0.75, "2,L" = 0.25), "2" = c("3" = 0.6, L = 0.4)),
+    b = list("1" = c("2,L" = 1), "2" = c("4" = 0.7, L = 0.3))
+  )
+  x <- pt_read(paths)
+  on.exit(pt_close(x))
+  conv <- pt_convergence(x)
+  inf <- conv$infections
+  expect_identical(inf$infection, c("1", "2", "3", "4"))
+  expect_equal(inf$spread, c(0.75, 0.7, 0, 0), tolerance = 1e-12)
+  expect_identical(inf$flagged, c(TRUE, TRUE, FALSE, FALSE))
+  expect_identical(inf$class, c("same_top", "different_parent", NA, NA))
+  expect_identical(pt_convergence(x, spread = 0.72)$infections$flagged, c(TRUE, FALSE, FALSE, FALSE))
+  o <- oracle_read(paths)
+  draws <- oracle_convergence_draws(o)
+  q <- oracle_convergence_quantities(oracle_convergence_matrices(o, draws))
+  expect_oracle_equal(inf, oracle_convergence_infections(o, draws, q), keys = "infection")
+})
+
+test_that("infections and pairs equal the oracle's (golden Runs)", {
+  paths <- golden_store(c("single-chain", "replica-exchange"))
+  a <- read_golden(paths)
+  on.exit(pt_close(a))
+  o <- oracle_read(paths)
+  draws <- oracle_convergence_draws(o)
+  m <- oracle_convergence_matrices(o, draws)
+  q <- oracle_convergence_quantities(m)
+  for (t in c(0.2, 0.05)) {
+    conv <- pt_convergence(a, spread = t)
+    expect_oracle_equal(conv$infections, oracle_convergence_infections(o, draws, q, t), keys = "infection")
+    expect_oracle_equal(conv$pairs, oracle_convergence_pairs(m, t), keys = c("i", "j"))
+  }
+})

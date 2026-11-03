@@ -435,7 +435,7 @@ tree_infections <- function(a, ds, latent_means, quantities, spread) {
   spreads <- vapply(rows, `[[`, numeric(1), "spread")
   tibble::tibble(
     infection = ids, spread = spreads, class = vapply(rows, `[[`, character(1), "class"),
-    top_parent = lapply(rows, `[[`, "top"), worst_rhat = unname(worst), flagged = spreads > spread
+    top_parent = lapply(rows, `[[`, "top"), worst_rhat = unname(worst), flagged = spreads > !!spread
   )
 }
 
@@ -483,7 +483,7 @@ tree_pairs <- function(means, spread) {
   tibble::tibble(
     i = vapply(ends, `[[`, character(1), 1), j = vapply(ends, `[[`, character(1), 2),
     p_before = lapply(seq_along(names), function(k) stats::setNames(means[, k], rownames(means))),
-    spread = unname(spreads), flagged = unname(spreads) > spread
+    spread = unname(spreads), flagged = unname(spreads) > !!spread
   )
 }
 
