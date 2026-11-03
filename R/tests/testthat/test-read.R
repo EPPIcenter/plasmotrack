@@ -37,8 +37,27 @@ test_that("pt_runs() counts Draws, Windows and iterations from the closed Window
   expect_equal(runs$windows, 3L)
   expect_equal(runs$thin, 5L)
   expect_equal(runs$burn_in, 20L)
-  expect_named(runs, c("run", "label", "path", "draws", "first_iteration", "last_iteration", "windows", "thin",
-                       "burn_in"))
+  expect_named(runs, c("run", "label", "path", "draws", "first_iteration", "last_iteration", "windows", "status",
+                       "resumes", "started_from", "thin", "burn_in", "sampling_seconds", "iterations_per_second",
+                       "non_finite"))
+})
+
+test_that("pt_runs() reports status, lineage, timing and health from the golden Runs' events", {
+  a <- pt_read(c(one = golden_store("single-chain"), four = golden_store("replica-exchange")))
+  on.exit(pt_close(a))
+  runs <- pt_runs(a)
+  expect_equal(runs$status, c("finished", "finished"))
+  expect_equal(runs$resumes, c(0L, 0L))
+  expect_equal(runs$started_from, c(NA_character_, NA_character_))
+  expect_equal(runs$non_finite, c(0L, 0L))
+  # window_closed seconds of sampling Windows 1 and 2: 0.034737 + 0.024007, and 0.15717 + 0.103418; 25 + 25 iterations.
+  expect_equal(runs$sampling_seconds, c(0.058744, 0.260588), tolerance = 1e-12)
+  expect_equal(runs$iterations_per_second, c(50 / 0.058744, 50 / 0.260588), tolerance = 1e-12)
+})
+
+test_that("pt_read() opens the golden Stores without a warning", {
+  expect_no_warning(a <- pt_read(c(one = golden_store("single-chain"), four = golden_store("replica-exchange"))))
+  pt_close(a)
 })
 
 test_that("pt_infections() and pt_loci() come from structure/", {
