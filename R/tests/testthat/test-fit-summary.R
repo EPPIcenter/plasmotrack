@@ -99,3 +99,75 @@ test_that("pt_fit_summary() checks fit_type and scores", {
   expect_error(pt_fit_summary(a, truth, fit_type = "dcifer"), "scores")
   expect_error(pt_fit_summary(a, truth, scores = data.frame(a = "1", b = "2", score = 1)), "dcifer")
 })
+
+# A made-up path in the thesis rerun layout: <model>/<scenario>/<network>/<simulation>/<Run>.
+thesis_path <- function(model = "null", simple = "simple_") {
+  file.path("/data/thesis-reruns", model,
+            "total_nodes_200_founder_prop_0.2_super_infected_prop_0.1_r0_1.5_mean_moi_3_asymptomatic_prop_0.5",
+            paste0(simple, "tx_network_med_div"), "sim_0_s7", "chain2")
+}
+
+thesis_factors_script <- function() {
+  path <- test_path("..", "..", "..", "tools", "plasmotrackr", "thesis-factors.R")
+  skip_if_not(file.exists(path), "tools/ is not in the package")
+  env <- new.env()
+  sys.source(path, envir = env)
+  env$thesis_factors
+}
+
+test_that("the thesis factor script parses a directory path into the 14 factor columns", {
+  thesis_factors <- thesis_factors_script()
+  columns <- fit_summary_columns()[1:14, ]
+  f <- thesis_factors(thesis_path())
+  expect_s3_class(f, "data.frame")
+  expect_identical(names(f), columns$name)
+  expect_identical(unname(vapply(f, typeof, "")), columns$type)
+  expect_identical(f$run_key, "simplified__fp0.2__sp0.1__r01.5__coi3__med__sim0__s7")
+  expect_identical(f$simulation_model, "simplified")
+  expect_identical(c(f$total_nodes, f$founder_probability, f$superinfection_probability, f$secondary_case_rate,
+                     f$founder_coi_rate, f$asymptomatic_probability, f$panel_alleles_per_locus),
+                   c(200, 0.2, 0.1, 1.5, 3, 0.5, 10))
+  expect_identical(c(f$panel_name, f$missingness_condition, f$fit_type), c("med", "full", "null_prior"))
+  expect_identical(c(f$simulation_index, f$seed), c(0L, 7L))
+
+  full <- thesis_factors(dirname(thesis_path("full", "")))
+  expect_identical(c(full$simulation_model, full$missingness_condition, full$fit_type),
+                   c("biological", "full", "posterior"))
+  expect_identical(full$run_key, "biological__fp0.2__sp0.1__r01.5__coi3__med__sim0__s7")
+  expect_identical(thesis_factors(thesis_path("partial"))$missingness_condition, "missing_50")
+  # The thesis's own layout: tarballs under output_multichain, simple_ on the scenario, the panel bare.
+  old <- thesis_factors(paste0("remote/partially_obs_multichain/simple_total_nodes_200_founder_prop_0.05_",
+                               "super_infected_prop_0_r0_1_mean_moi_1_asymptomatic_prop_0.5/high/sim_0_s3/x.tar.gz"))
+  expect_identical(old$run_key, "simplified__fp0.05__sp0__r01__coi1__high__sim0__s3")
+  expect_identical(c(old$missingness_condition, old$fit_type, old$panel_name), c("missing_50", "posterior", "high"))
+  expect_identical(nrow(thesis_factors(c(thesis_path(), thesis_path("full")))), 2L)
+  expect_error(thesis_factors("runs/sim_0_s7"), "thesis")
+  expect_error(thesis_factors(sub("null", "elsewhere", thesis_path())), "elsewhere")
+})
+
+test_that("factors are bound in front; their fit_type and missingness stand in for missing arguments", {
+  thesis_factors <- thesis_factors_script()
+  a <- read_golden(golden_fit_paths())
+  on.exit(pt_close(a))
+  truth <- golden_fit_truth()
+  factors <- thesis_factors(thesis_path())
+  row <- pt_fit_summary(a, truth, factors = factors)
+  expect_fit_summary_layout(row)
+  expect_identical(as.data.frame(row[1:14]), factors)
+  # Explicit arguments win: the dcifer row of a fit labelled by its path.
+  dcifer <- pt_fit_summary(a, truth, fit_type = "dcifer", missingness = "missing_50", factors = factors,
+                           scores = data.frame(a = "1", b = "3", score = 1))
+  expect_identical(c(dcifer$fit_type, dcifer$missingness_condition), c("dcifer", "missing_50"))
+  expect_identical(dcifer$run_key, factors$run_key)
+})
+
+test_that("factors of another shape are bound in front as given", {
+  a <- read_golden(golden_fit_paths())
+  on.exit(pt_close(a))
+  truth <- golden_fit_truth()
+  row <- pt_fit_summary(a, truth, factors = data.frame(scenario = "a", replicate = 2L))
+  expect_identical(names(row)[1:4], c("scenario", "replicate", "missingness_condition", "fit_type"))
+  expect_identical(ncol(row), 60L)
+  expect_error(pt_fit_summary(a, truth, factors = data.frame(scenario = c("a", "b"))), "one-row")
+  expect_error(pt_fit_summary(a, truth, factors = data.frame(n_true_cases = 1)), "n_true_cases")
+})

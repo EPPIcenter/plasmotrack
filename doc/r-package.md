@@ -417,13 +417,16 @@ Latent parent. Comparison uses observed members plus `has_latent_parent`.
   - Each unordered pair keeps its largest score, and ids outside `infections` are ignored.
   - It returns the directed ranking columns (each pair scores the same both ways) and the undirected ones.
 
-**Fit summary.** `pt_fit_summary(a, truth, fit_type = "posterior", missingness = "full", factors = NULL)` returns one
-row with the 70 columns of `simulation_fit_summary.rds`, names unchanged, so the existing table and figure scripts read
-it as is.
-- `factors` is a one-row data frame bound in front of the other columns.
-- Parsing the thesis directory layout into factors is a script under `tools/`, not part of the package.
+**Fit summary.** `pt_fit_summary(a, truth, fit_type = "posterior", missingness = "full", factors = NULL, scores =
+NULL)` returns one row with the 70 columns of `simulation_fit_summary.rds`, names unchanged, so the existing table and
+figure scripts read it as is. The committed `fit-summary-columns.csv` holds the layout.
+- `factors` is a one-row data frame bound in front of the other columns. With `NULL`, the 12 thesis factor columns are
+  `NA`. Its `missingness_condition` and `fit_type` columns stand in for those arguments when they are not given.
+- Parsing the thesis directory layout into the 14 factor columns is `tools/plasmotrackr/thesis-factors.R`, not part of
+  the package.
 - The null model is its own row: `pt_fit_summary()` on the null Analysis with `fit_type = "null_prior"`.
-- With `fit_type = "dcifer"`, the `pt_score_pairs()` columns fill the layout with NA functionals.
+- With `fit_type = "dcifer"`, the `pt_score_pairs()` columns of `scores` over the Analysis's Infections fill the layout
+  with NA functionals.
 - The functional columns are built from the functions above. The observed-only and mixed composition columns are
   rollups of `pt_composition`, and `mean_no_parent_probability` is always 0.
 - There is no cohort function: users `bind_rows` the per-fit rows.
