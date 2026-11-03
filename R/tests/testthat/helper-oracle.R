@@ -345,6 +345,38 @@ oracle_out_degree_range <- function(o, level = 0.8, by_run = FALSE, runs = NULL)
   out
 }
 
+# Co-inclusion: per child, the pooled weight of its sets holding both parents of each pair (a < b in string order).
+# With by_run, a pair seen in any Run has a row in every Run (0 where it is absent).
+oracle_co_inclusion <- function(o, infections = NULL, by_run = FALSE, runs = NULL) {
+  sets <- oracle_parent_sets_pooled(o, by_run = by_run, runs = runs)
+  if (!by_run) sets$run <- "pooled"  # not "": a list element named "" is never matched
+  total <- list()
+  for (i in seq_len(nrow(sets))) {
+    m <- sets$members[[i]]
+    if (length(m) < 2 || (!is.null(infections) && !sets$infection[[i]] %in% infections)) next
+    for (x in seq_along(m)) for (y in seq_along(m)) {
+      if (x >= y) next
+      k <- paste(sets$infection[[i]], m[[x]], m[[y]], sep = "\r")
+      if (is.null(total[[k]])) total[[k]] <- list()
+      total[[k]][[sets$run[[i]]]] <- (if (is.null(total[[k]][[sets$run[[i]]]])) 0 else total[[k]][[sets$run[[i]]]]) +
+        sets$weight[[i]]
+    }
+  }
+  out <- list()
+  for (k in names(total)) {
+    parts <- strsplit(k, "\r", fixed = TRUE)[[1]]
+    for (run in unique(sets$run)) {
+      p <- if (is.null(total[[k]][[run]])) 0 else total[[k]][[run]]
+      out[[length(out) + 1]] <- data.frame(run = run, child = parts[[1]], parent_a = parts[[2]], parent_b = parts[[3]],
+                                           probability = p)
+    }
+  }
+  out <- oracle_bind(out, data.frame(run = character(), child = character(), parent_a = character(),
+                                     parent_b = character(), probability = numeric()))
+  if (!by_run) out$run <- NULL
+  out
+}
+
 oracle_bind <- function(parts, empty) {
   parts <- Filter(Negate(is.null), parts)
   if (length(parts) == 0) return(empty)

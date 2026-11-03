@@ -122,6 +122,72 @@ per_run <- function(rows, by_run, f) {
   tibble::tibble(run = rep(runs, vapply(parts, nrow, 1L)), dplyr::bind_rows(parts))
 }
 
+#' Co-inclusion of parents
+#'
+#' For each child, the posterior probability that two observed parents infected it together: the pooled weight of
+#' the child's Parent sets that hold both. Only sets with at least two observed parents count, so the Latent parent
+#' never appears. Weights are pooled as in [pt_parent_sets_pooled()].
+#'
+#' @inheritParams pt_parent_sets_pooled
+#' @param infections Children to report, as Infection ids; `NULL` for every Infection.
+#' @param by_run `FALSE` for probabilities pooled over Runs; `TRUE` for one row per Run per pair, where a pair seen in
+#'   any Run has a row (0 if need be) in every Run.
+#' @return A tibble of `child`, `parent_a`, `parent_b` (`parent_a < parent_b` in string order) and `probability`,
+#'   after `run` when `by_run = TRUE`, sorted by `run` (in [pt_runs()] order), then `child`, `parent_a` and
+#'   `parent_b` as strings. Pairs that never share a set have no row.
+#' @export
+#' @examples
+#' golden <- system.file("extdata", "golden", package = "plasmotrackr")
+#' a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange")), threads = 1)
+#' pt_co_inclusion(a)
+#' pt_co_inclusion(a, infections = "3", by_run = TRUE)
+#' pt_close(a)
+pt_co_inclusion <- function(a, infections = NULL, by_run = FALSE, runs = NULL) {
+  check_flag(by_run)
+  if (!is.null(infections)) {
+    unknown <- setdiff(infections, a$infections$infection)
+    if (!is.character(infections) || length(unknown)) {
+      cli::cli_abort("Unknown Infection{?s}: {.val {unknown}}.")
+    }
+  }
+  runs <- runs_with_draws(a, runs)
+  sets <- pooled_sets(a, runs, TRUE, 0.8)
+  keep <- sets$n_observed >= 2 & (is.null(infections) | sets$infection %in% infections)
+  sets <- sets[keep, ]
+  pairs <- lapply(sets$members, function(m) utils::combn(m, 2))
+  n <- vapply(pairs, ncol, 1L)
+  rows <- tibble::tibble(
+    run = rep(sets$run, n), child = rep(sets$infection, n),
+    parent_a = as.character(unlist(lapply(pairs, function(p) p[1, ]))),
+    parent_b = as.character(unlist(lapply(pairs, function(p) p[2, ]))),
+    # A by-Run weight times the Run's Draws is the set's summed weight; sums are divided by the Draws of the Run, or
+    # of every Run.
+    total = rep(sets$weight * unname(draws_of(a, sets$run)), n)
+  )
+  if (!by_run) rows$run <- ""
+  pair <- paste(rows$child, rows$parent_a, rows$parent_b, sep = "\r")
+  keys <- unique(rows[c("child", "parent_a", "parent_b")])
+  keys <- keys[order(keys$child, keys$parent_a, keys$parent_b, method = "radix"), ]
+  key <- paste(keys$child, keys$parent_a, keys$parent_b, sep = "\r")
+  columns <- if (by_run) runs else ""
+  total <- matrix(0, nrow(keys), length(columns))
+  for (j in seq_along(columns)) {
+    mine <- rows$run == columns[[j]]
+    total[, j] <- as.vector(rowsum(c(rows$total[mine], numeric(nrow(keys))),
+                                   factor(c(pair[mine], key), levels = key), reorder = FALSE))
+  }
+  if (!by_run) {
+    return(tibble::tibble(keys, probability = total[, 1] / sum(draws_of(a, runs))))
+  }
+  tibble::tibble(
+    run = rep(runs, each = nrow(keys)), child = rep(keys$child, length(runs)),
+    parent_a = rep(keys$parent_a, length(runs)), parent_b = rep(keys$parent_b, length(runs)),
+    probability = as.vector(sweep(total, 2, draws_of(a, runs), "/"))
+  )
+}
+
+draws_of <- function(a, runs) stats::setNames(as.numeric(a$runs$draws), a$runs$run)[runs]
+
 check_credible_level <- function(level, call = rlang::caller_env()) {
   if (!is.numeric(level) || length(level) != 1 || is.na(level) || level <= 0 || level > 1) {
     cli::cli_abort("{.arg level} must be a number in (0, 1].", call = call)

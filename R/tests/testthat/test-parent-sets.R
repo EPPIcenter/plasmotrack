@@ -189,3 +189,49 @@ test_that("ψ_MAP and the size range match the oracle, and ψ_lo <= ψ_MAP <= ψ
     pt_close(a)
   }
 })
+
+test_that("pt_co_inclusion() sums the weight of the child's sets holding both parents", {
+  path <- fake_store(infections = c("1", "10", "2", "3"), parent_sets = rbind(
+    pset(rep(1:2, each = 3), "1", c("3,10,2", "2,3", ""), c(FALSE, FALSE, TRUE), c(0.5, 0.3, 0.2)),
+    pset(rep(1:2, each = 2), "2", c("10,3", "10"), c(TRUE, FALSE), c(0.25, 0.75)),
+    pset(rep(1:2, 2), rep(c("10", "3"), each = 2), "", TRUE, 1)
+  ))
+  a <- pt_read(c(r = path))
+  on.exit(pt_close(a))
+  co <- pt_co_inclusion(a)
+  expect_s3_class(co, "tbl_df")
+  expect_equal(as.data.frame(co), data.frame(
+    child = c("1", "1", "1", "2"), parent_a = c("10", "10", "2", "10"), parent_b = c("2", "3", "3", "3"),
+    probability = c(0.5, 0.5, 0.8, 0.25)
+  ))
+  expect_equal(pt_co_inclusion(a, infections = "2")$probability, 0.25)
+  empty <- pt_co_inclusion(a, infections = "3")
+  expect_equal(names(empty), c("child", "parent_a", "parent_b", "probability"))
+  expect_equal(nrow(empty), 0)
+  expect_error(pt_co_inclusion(a, infections = "99"), "99")
+})
+
+test_that("pt_co_inclusion(by_run = TRUE) has a 0 row in each Run lacking a pair", {
+  paths <- local_two_runs()
+  a <- read_two_runs(paths)
+  on.exit(pt_close(a))
+  expect_equal(as.data.frame(pt_co_inclusion(a)),
+               data.frame(child = "2", parent_a = "10", parent_b = "3", probability = 0.1 / 3))
+  expect_equal(as.data.frame(pt_co_inclusion(a, by_run = TRUE)),
+               data.frame(run = c("a", "b"), child = "2", parent_a = "10", parent_b = "3", probability = c(0.05, 0)))
+  o <- oracle_read(paths)
+  expect_oracle_equal(pt_co_inclusion(a, by_run = TRUE), oracle_co_inclusion(o, by_run = TRUE),
+                      c("run", "child", "parent_a", "parent_b"))
+})
+
+test_that("pt_co_inclusion() matches the oracle on golden Stores", {
+  a <- pt_read(golden_paths())
+  on.exit(pt_close(a))
+  o <- oracle_read(golden_paths())
+  keys <- c("child", "parent_a", "parent_b")
+  expect_gt(nrow(pt_co_inclusion(a)), 0)
+  expect_oracle_equal(pt_co_inclusion(a), oracle_co_inclusion(o), keys)
+  expect_oracle_equal(pt_co_inclusion(a, by_run = TRUE), oracle_co_inclusion(o, by_run = TRUE), c("run", keys))
+  expect_oracle_equal(pt_co_inclusion(a, infections = "3", runs = "one"),
+                      oracle_co_inclusion(o, infections = "3", runs = "one"), keys)
+})
