@@ -41,3 +41,21 @@ test_that("level = \"sampler\" gives one row per sampler id, after its type", {
   coi <- acc[acc$sampler == "ConstrainedContinuousRandomWalk/mean_coi", ]
   expect_equal(c(coi$accepted, coi$proposed, coi$rate), c(24, 50, 24 / 50))
 })
+
+test_that("counts are summed over Runs, or kept per Run with by_run, Runs in Analysis order", {
+  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")))
+  on.exit(pt_close(a))
+  # Hand sums of SALTSampler sampling rows: one 242 / 340, four 52 + 43 + 81 + 68 = 244 / 340.
+  pooled <- pt_acceptance(a)
+  salt <- pooled[pooled$type == "SALTSampler", ]
+  expect_equal(c(salt$accepted, salt$proposed, salt$rate), c(486, 680, 486 / 680))
+
+  per_run <- pt_acceptance(a, level = "sampler", by_run = TRUE)
+  expect_equal(names(per_run), c("run", "type", "sampler", "accepted", "proposed", "rate"))
+  expect_equal(unique(per_run$run), c("one", "four"))
+  coi <- per_run[per_run$sampler == "ConstrainedContinuousRandomWalk/mean_coi", ]
+  expect_equal(coi$run, c("one", "four"))
+  expect_equal(coi$accepted, c(12 + 12, 13 + 7))
+  expect_equal(coi$proposed, c(50, 50))
+  expect_equal(coi$rate, c(24 / 50, 20 / 50))
+})
