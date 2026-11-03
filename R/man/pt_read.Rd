@@ -40,11 +40,11 @@ a \code{pt_analysis} that every other \code{pt_} function takes.
 Traces. Tables are read later, lazily, from the Windows that are closed, so a Run that is still running, or was
 killed, reads up to its last closed Window.
 
-The Store does not hold the Infections' observation times or their candidate parents; only the input JSON does.
-\code{pt_read()} looks for it in this order:
+The Infections' observation times and candidate parents come from the input JSON. New Stores embed a copy of it
+(\code{input.json} or \code{input.json.gz}) and of the IDPs; old Stores don't. \code{pt_read()} looks for the input in this order:
 \enumerate{
 \item \code{input}. Its SHA-256 must be the \code{input_sha256} of every Run's manifest; a different file errors.
-\item The first Run's own copy, \code{input.json} or \code{input.json.gz} in the Store root (Stores written by newer engines).
+\item The first Run's own copy, \code{input.json} or \code{input.json.gz} in the Store root (new Stores).
 \item The input path in the first Run's \code{cli_arguments}. A relative path is taken from the directory the engine was
 started in, when the Run directory shows it, then from R's working directory.
 }

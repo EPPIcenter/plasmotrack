@@ -7,11 +7,11 @@
 #' Traces. Tables are read later, lazily, from the Windows that are closed, so a Run that is still running, or was
 #' killed, reads up to its last closed Window.
 #'
-#' The Store does not hold the Infections' observation times or their candidate parents; only the input JSON does.
-#' `pt_read()` looks for it in this order:
+#' The Infections' observation times and candidate parents come from the input JSON. New Stores embed a copy of it
+#' (`input.json` or `input.json.gz`) and of the IDPs; old Stores don't. `pt_read()` looks for the input in this order:
 #'
 #' 1. `input`. Its SHA-256 must be the `input_sha256` of every Run's manifest; a different file errors.
-#' 2. The first Run's own copy, `input.json` or `input.json.gz` in the Store root (Stores written by newer engines).
+#' 2. The first Run's own copy, `input.json` or `input.json.gz` in the Store root (new Stores).
 #' 3. The input path in the first Run's `cli_arguments`. A relative path is taken from the directory the engine was
 #'    started in, when the Run directory shows it, then from R's working directory.
 #'

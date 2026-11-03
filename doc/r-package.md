@@ -7,8 +7,9 @@ the ticket that holds the reasoning.
 `plasmotrackr` is an R package that reads plasmotrack Run stores (`doc/store-layout.md`), checks convergence across
 Runs, and hands users tidy data to analyze however they like. It is native R: it reads the Parquet Stores itself
 through DuckDB and computes every quantity from the raw tables. The Infections' observation times and candidate
-parents come from the input JSON, which the Store doesn't hold (newer Stores keep a copy of it). It needs no Python, never reads `derived/`, and
-writes nothing into a Store.
+parents come from the input JSON. New Stores embed it (`input.json` or `input.json.gz`) and the IDPs
+(`doc/store-layout.md`, "Run inputs"); old Stores don't. It needs no Python, never reads `derived/`, and writes
+nothing into a Store.
 
 ## Destination
 
@@ -273,7 +274,7 @@ Flow functions, all lazy and per Draw:
   - Enrichment is the cell's share of edge mass over its share of candidate pairs, and NA where the cell has no
     candidate pair.
   - `candidates` is a `parent, child` data frame. It defaults to `pt_candidates(a)`, the input's `allowed_parents`,
-    which the Store doesn't hold.
+    from the Store's embedded copy of the input or, for old Stores, the input file.
 - **`pt_net_flow(a, by)`**: stratum, net_flow: expected out-edges minus in-edges, counting only edges between different
   strata.
 - **`pt_reassign_long_lags(a, max_lag, by = NULL)`**: mean_out_degree and mean_p_latent_parent after every edge with

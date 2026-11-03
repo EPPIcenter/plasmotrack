@@ -1,4 +1,4 @@
-# The input JSON: the Infections' observation times and allowed parents, which the Store does not hold.
+# The input JSON: the Infections' observation times and allowed parents. New Stores embed a copy; old Stores don't.
 
 # Parse an input JSON file, gzipped or not, into its Infections' observation times and candidate pairs.
 read_input <- function(path) {
@@ -16,8 +16,8 @@ read_input <- function(path) {
 
 #' Candidate pairs of an Analysis
 #'
-#' The (parent, child) pairs the model may join: each Infection's `allowed_parents` in the input JSON. The Store does
-#' not hold them, so they come from the input [pt_read()] found. The Latent parent is never a candidate here. Pass
+#' The (parent, child) pairs the model may join: each Infection's `allowed_parents` in the input JSON. They come from
+#' the input [pt_read()] found: the Store's embedded copy in new Stores, or the input file for old ones. The Latent parent is never a candidate here. Pass
 #' them to `pt_enrichment()`, which uses them by default.
 #'
 #' @inheritParams pt_runs
