@@ -18,7 +18,19 @@ A tibble with one row per Run:
 \item \code{draws}: \eqn{D_r}, the number of sampling Draws in closed Windows. Every per-Run mean divides by it.
 \item \code{first_iteration}, \code{last_iteration}: the first and last sampling Draw's iteration, \code{NA} with no Draws.
 \item \code{windows}: closed Windows, both Phases.
+\item \code{status}: from the Run's events. \code{"finished"} when the last start, resume or end of the Run is a \code{run_ended}
+that \code{completed}; \code{"interrupted"} when it is a \code{run_ended} after an interrupt (the Run can be resumed);
+otherwise \code{"incomplete"}: the Run is still running, or was killed, and is read up to its last closed Window.
+\item \code{resumes}: how many times the Run was resumed (\code{--resume}), the count of \code{run_resumed} events. A resumed Run
+is one Run with continuous Draws.
+\item \code{started_from}: for a Run started with \code{--start-from}, the \code{run_id} of the Run whose checkpoint it started
+from; otherwise \code{NA}. The two Runs stay separate: \code{pt_read()} never follows this link.
 \item \code{thin}, \code{burn_in}: the Run's \code{-t} and \code{-b}.
+\item \code{sampling_seconds}: wall time spent on sampling Windows, summed from their \code{window_closed} events.
+\item \code{iterations_per_second}: sampling iterations (thinned or not) per second over those Windows; \code{NA} when no
+sampling time was recorded.
+\item \code{non_finite}: the count of \code{non_finite_value} events, raised when a chain's prior or likelihood became NaN
+or infinite. Anything above 0 deserves a look.
 }
 }
 \description{

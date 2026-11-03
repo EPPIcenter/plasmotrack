@@ -36,6 +36,10 @@ a \code{pt_analysis} that every other \code{pt_} function takes.
 Traces. Tables are read later, lazily, from the Windows that are closed, so a Run that is still running, or was
 killed, reads up to its last closed Window.
 
+\code{pt_read()} warns when a Run is not finished (see \code{status} in \code{\link[=pt_runs]{pt_runs()}}), when Runs have different numbers of
+sampling Draws, and when a Run recorded non-finite values. A Run with no sampling Draws yet stays in the Analysis;
+pooled summaries and diagnostics skip it with a message.
+
 Each Analysis has its own DuckDB connection, closed by \code{\link[=pt_close]{pt_close()}} or when the Analysis is garbage-collected. The
 memory cap bounds each Analysis, not the R session: two open Analyses may use twice the cap. Set the engine once
 with R options, and override them for one Analysis with the arguments:

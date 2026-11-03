@@ -7,6 +7,10 @@
 #' Traces. Tables are read later, lazily, from the Windows that are closed, so a Run that is still running, or was
 #' killed, reads up to its last closed Window.
 #'
+#' `pt_read()` warns when a Run is not finished (see `status` in [pt_runs()]), when Runs have different numbers of
+#' sampling Draws, and when a Run recorded non-finite values. A Run with no sampling Draws yet stays in the Analysis;
+#' pooled summaries and diagnostics skip it with a message.
+#'
 #' Each Analysis has its own DuckDB connection, closed by [pt_close()] or when the Analysis is garbage-collected. The
 #' memory cap bounds each Analysis, not the R session: two open Analyses may use twice the cap. Set the engine once
 #' with R options, and override them for one Analysis with the arguments:
@@ -365,12 +369,12 @@ print.pt_analysis <- function(x, ...) {
   iterations <- ifelse(is.na(runs$first_iteration), "-",
                        paste0(format_count(runs$first_iteration), "-", format_count(runs$last_iteration)))
   table <- data.frame(
-    run = runs$run, draws = format_count(runs$draws), iterations = iterations,
+    run = runs$run, status = runs$status, draws = format_count(runs$draws), iterations = iterations,
     windows = format(runs$windows), thin = format(runs$thin)
   )
   lines <- vapply(names(table), function(column) {
     values <- c(column, table[[column]])
-    if (column %in% c("run", "iterations")) formatC(values, width = -max(nchar(values)))
+    if (column %in% c("run", "status", "iterations")) formatC(values, width = -max(nchar(values)))
     else formatC(values, width = max(nchar(values)))
   }, character(nrow(table) + 1))
   cat(paste0("  ", apply(matrix(lines, ncol = ncol(table)), 1, paste, collapse = "  "), "\n"), sep = "")

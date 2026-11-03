@@ -304,3 +304,10 @@ test_that("runs_with_draws() skips Runs with 0 sampling Draws, with a message", 
   expect_error(suppressMessages(runs_with_draws(a, runs = "early")), "No sampling Draws")
   expect_error(runs_with_draws(a, runs = "nope"), "Unknown Run")
 })
+
+test_that("print() shows each Run's status", {
+  killed <- drop_windows(local_golden_copy(), 2)
+  a <- suppressWarnings(pt_read(c(one = golden_store(), killed = killed), threads = 1))
+  pt_close(a)
+  expect_snapshot(print(a))
+})
