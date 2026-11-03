@@ -239,6 +239,63 @@ oracle_edge_marginals <- function(o, floor = 0, by_run = FALSE, runs = NULL, obs
   oracle_bind(out, NULL)
 }
 
+# pt_score_edges() with direct truth: `true_edges` is a data frame of parent, child among the Analysis's Infections,
+# written by hand (the oracle does not read truth files). Scores from oracle_edge_marginals(); every metric by loops.
+oracle_score_edges <- function(o, true_edges) {
+  ids <- oracle_infection_ids(o)
+  marginals <- oracle_edge_marginals(o)
+  marginal <- function(parent, child) {
+    hit <- marginals$parent == parent & marginals$child == child
+    if (any(hit)) marginals$marginal[hit] else 0
+  }
+  is_true <- function(parent, child) any(true_edges$parent == parent & true_edges$child == child)
+  normalise <- function(s) round(min(1, max(0, s)), 10)
+  pairs <- list(directed = list(), undirected = list())
+  for (i in ids) {
+    for (j in ids) {
+      if (i == j) next
+      pairs$directed[[length(pairs$directed) + 1]] <- c(score = normalise(marginal(i, j)), true = is_true(i, j))
+      if (i < j) {
+        pairs$undirected[[length(pairs$undirected) + 1]] <- c(
+          score = normalise(marginal(i, j) + marginal(j, i)), true = is_true(i, j) || is_true(j, i)
+        )
+      }
+    }
+  }
+  rows <- lapply(names(pairs), function(direction) {
+    score <- vapply(pairs[[direction]], function(p) p[["score"]], numeric(1))
+    true <- vapply(pairs[[direction]], function(p) p[["true"]] == 1, logical(1))
+    thresholds <- sort(unique(score), decreasing = TRUE)
+    n_true <- sum(true)
+    ap <- 0
+    auc <- 0
+    last_recall <- 0
+    last_precision <- 1
+    for (t in thresholds) {
+      tp <- 0
+      reached <- 0
+      for (k in seq_along(score)) {
+        if (score[[k]] >= t) {
+          reached <- reached + 1
+          if (true[[k]]) tp <- tp + 1
+        }
+      }
+      recall <- tp / n_true
+      precision <- tp / reached
+      ap <- ap + (recall - last_recall) * precision
+      auc <- auc + (recall - last_recall) * (precision + last_precision) / 2
+      last_recall <- recall
+      last_precision <- precision
+    }
+    kth <- sort(score, decreasing = TRUE)[[min(n_true, length(score))]]
+    top <- sum(true & score >= kth) / sum(score >= kth)
+    if (n_true == 0) ap <- auc <- top <- NA_real_
+    data.frame(direction = direction, n_edge_universe = length(score), n_true_edges = n_true,
+               n_distinct_scores = length(thresholds), average_precision = ap, pr_auc = auc, top_k_precision = top)
+  })
+  do.call(rbind, rows)
+}
+
 oracle_bind <- function(parts, empty) {
   parts <- Filter(Negate(is.null), parts)
   if (length(parts) == 0) return(empty)
