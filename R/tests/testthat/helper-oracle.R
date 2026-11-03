@@ -830,3 +830,90 @@ oracle_infection_times <- function(o, observation_time, level = 0.95, by_run = F
   }
   oracle_bind(out, NULL)
 }
+
+# ---- Fit summary (#131) ----
+# pt_fit_summary() for a posterior fit, every column from the oracles above. Truth is written by hand:
+# `true_edges` (parent, child among the Infections), `true_sets` (a named list per Infection of list(members,
+# latent)), `n_true_cases`. Factor columns are left out: compare from n_true_cases on.
+oracle_fit_summary <- function(o, true_edges, true_sets, n_true_cases) {
+  ids <- oracle_infection_ids(o)
+  row <- list(n_true_cases = n_true_cases, n_observed_cases = length(ids),
+              true_average_outdegree = nrow(true_edges) / length(ids))
+  latent <- 0
+  for (id in ids) if (true_sets[[id]]$latent) latent <- latent + 1
+  row$true_unobserved_source_proportion <- latent / length(ids)
+
+  interval <- function(x, value) oracle_interval(x, value = value)
+  put <- function(names, x) {
+    row[[names[[1]]]] <<- x$estimate
+    row[[names[[2]]]] <<- x$lower
+    row[[names[[3]]]] <<- x$upper
+  }
+  put(c("estimated_average_outdegree", "average_outdegree_lower", "average_outdegree_upper"),
+      interval(oracle_mean_out_degree(o), "mean_out_degree"))
+  put(c("estimated_unobserved_source_proportion", "unobserved_source_lower", "unobserved_source_upper"),
+      interval(oracle_mean_p_latent_parent(o), "mean_p_latent_parent"))
+  shares <- oracle_composition(o)
+  draws <- unique(shares[c("run", "iteration")])
+  for (kind in c("observed_only", "mixed", "unobserved_only")) {
+    draws[[kind]] <- 0
+  }
+  for (k in seq_len(nrow(shares))) {
+    class <- shares$class[[k]]
+    kind <- if (class == "latent_only") "unobserved_only"
+            else if (grepl("^observed_[0-9]+_latent$", class)) "mixed"
+            else if (grepl("^observed_[0-9]+$", class)) "observed_only"
+            else stop("unexpected class ", class)
+    at <- which(draws$run == shares$run[[k]] & draws$iteration == shares$iteration[[k]])
+    draws[[kind]][at] <- draws[[kind]][at] + shares$share[[k]]
+  }
+  stem <- function(s) paste0(s, c("", "_lower", "_upper"))
+  put(stem("mean_observed_only_probability"), interval(draws, "observed_only"))
+  put(stem("mean_mixed_observed_unobserved_probability"), interval(draws, "mixed"))
+  put(stem("mean_unobserved_only_probability"), interval(draws, "unobserved_only"))
+  put(stem("mean_no_parent_probability"), list(estimate = 0, lower = 0, upper = 0))
+  multi <- oracle_multi_source(o)
+  put(stem("mean_multi_source_probability_augmented"), interval(multi, "augmented"))
+  put(stem("mean_multi_source_probability_observed_only"), interval(multi, "observed_only"))
+  entropy <- oracle_entropy(o)
+  put(stem("mean_parent_set_entropy"), interval(entropy, "mean_entropy"))
+  put(stem("mean_effective_parent_sets"), interval(entropy, "mean_effective_size"))
+
+  edges <- oracle_score_edges(o, true_edges)
+  for (direction in c("directed", "undirected")) {
+    for (column in setdiff(names(edges), "direction")) {
+      row[[paste0(direction, "_", column)]] <- edges[[column]][edges$direction == direction]
+    }
+  }
+
+  sets <- oracle_parent_sets_pooled(o, level = 0.8)
+  size <- covered <- top <- numeric()
+  for (id in ids) {
+    mine <- sets[sets$infection == id, ]
+    credible <- mine[mine$credible, ]
+    size[[id]] <- nrow(credible)
+    hit <- FALSE
+    for (r in seq_len(nrow(credible))) {
+      if (identical(sort(credible$members[[r]]), sort(true_sets[[id]]$members)) &&
+          credible$has_latent_parent[[r]] == true_sets[[id]]$latent) hit <- TRUE
+    }
+    covered[[id]] <- hit
+    top[[id]] <- if (nrow(mine)) mine$weight[mine$rank == 1] else 0
+  }
+  sorted <- sort(size)
+  n <- length(sorted)
+  row$mean_credible_parent_set_size_80 <- sum(size) / n
+  row$median_credible_parent_set_size_80 <- if (n %% 2) sorted[[(n + 1) / 2]] else (sorted[[n / 2]] + sorted[[n / 2 + 1]]) / 2
+  row$credible_parent_set_coverage_80 <- sum(covered) / n
+  row$mean_top_parent_set_probability <- sum(top) / n
+
+  for (pair in list(c("average_outdegree", "estimated_average_outdegree", "true_average_outdegree"),
+                    c("unobserved_source", "estimated_unobserved_source_proportion",
+                      "true_unobserved_source_proportion"))) {
+    error <- row[[pair[[2]]]] - row[[pair[[3]]]]
+    row[[paste0(pair[[1]], "_error")]] <- error
+    row[[paste0(pair[[1]], "_abs_error")]] <- abs(error)
+    row[[paste0(pair[[1]], "_sq_error")]] <- error * error
+  }
+  as.data.frame(row)
+}

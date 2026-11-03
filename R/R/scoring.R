@@ -42,8 +42,13 @@
 pt_score_edges <- function(a, truth, edges = c("direct", "transitive"), curve = FALSE) {
   edges <- rlang::arg_match(edges)
   check_flag(curve)
-  ids <- truth_infection_ids(a, truth)
-  marginals <- pt_edge_marginals(a)
+  score_edges(a, truth, edges, curve, runs_with_draws(a))
+}
+
+# pt_score_edges() over `runs` (already from runs_with_draws()).
+score_edges <- function(a, truth, edges, curve, runs, call = rlang::caller_env()) {
+  ids <- truth_infection_ids(a, truth, call)
+  marginals <- pt_edge_marginals(a, runs = runs)
   n <- length(ids)
   score <- matrix(0, n, n, dimnames = list(ids, ids))
   score[cbind(match(marginals$parent, ids), match(marginals$child, ids))] <- marginals$marginal
@@ -301,8 +306,13 @@ pt_score_coi <- function(a, truth) {
 #' }
 pt_score_parent_sets <- function(a, truth, level = 0.8) {
   check_credible_level(level)
-  true <- true_parent_sets(a, truth)
-  sets <- pooled_sets(a, runs_with_draws(a), FALSE, level)
+  score_parent_sets(a, truth, level, runs_with_draws(a))
+}
+
+# pt_score_parent_sets() over `runs` (already from runs_with_draws()).
+score_parent_sets <- function(a, truth, level, runs, call = rlang::caller_env()) {
+  true <- true_parent_sets(a, truth, call)
+  sets <- pooled_sets(a, runs, FALSE, level)
   credible <- sets[sets$credible, ]
   hit <- set_key(credible$infection, credible$members, credible$has_latent_parent) %in%
     set_key(true$infection, true$parents, true$has_latent_parent)
