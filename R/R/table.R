@@ -25,7 +25,8 @@
 #'   key of every Trace.
 #' @export
 #' @examples
-#' a <- pt_read(system.file("extdata", "golden", "single-chain", package = "plasmotrackr"), threads = 1)
+#' store <- system.file("extdata", "golden", "single-chain", package = "plasmotrackr")
+#' a <- pt_read(store, threads = 1)
 #' pt_table(a, "run_scalars") |>
 #'   dplyr::mutate(log_posterior = prior + likelihood) |>
 #'   dplyr::select(run, iteration, log_posterior) |>

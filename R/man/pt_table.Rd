@@ -40,7 +40,8 @@ Only closed Windows are read (the Store's reader rule): rows of a Window being w
 never finished, are never returned. A Run that lacks a table (a one-chain Run has no \code{swaps}) adds no rows.
 }
 \examples{
-a <- pt_read(system.file("extdata", "golden", "single-chain", package = "plasmotrackr"), threads = 1)
+store <- system.file("extdata", "golden", "single-chain", package = "plasmotrackr")
+a <- pt_read(store, threads = 1)
 pt_table(a, "run_scalars") |>
   dplyr::mutate(log_posterior = prior + likelihood) |>
   dplyr::select(run, iteration, log_posterior) |>
