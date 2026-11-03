@@ -145,3 +145,12 @@ test_that("print() says where the input came from, or that it was not found", {
     gsub(normalizePath(golden_input(), winslash = "/"), "<golden input>", x, fixed = TRUE)
   })
 })
+
+test_that("fake_store() Stores carry their own input, with the observation times and candidates given", {
+  path <- fake_store(infections = c("10", "2", "3"), observation_time = c("2" = 5, "10" = 1.5),
+                     allowed_parents = list("2" = c("3", "10"), "3" = "10"))
+  expect_no_message(a <- pt_read(c(r = path)))
+  on.exit(pt_close(a))
+  expect_identical(pt_infections(a)$observation_time, c(1.5, 5, NA))
+  expect_identical(pt_candidates(a), tibble::tibble(parent = c("10", "3", "10"), child = c("2", "2", "3")))
+})
