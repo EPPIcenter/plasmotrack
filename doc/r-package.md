@@ -6,7 +6,8 @@ the ticket that holds the reasoning.
 
 `plasmotrackr` is an R package that reads plasmotrack Run stores (`doc/store-layout.md`), checks convergence across
 Runs, and hands users tidy data to analyze however they like. It is native R: it reads the Parquet Stores itself
-through DuckDB and computes every quantity from the raw tables. It needs no Python, never reads `derived/`, and
+through DuckDB and computes every quantity from the raw tables. The Infections' observation times and candidate
+parents come from the input JSON, which the Store doesn't hold (newer Stores keep a copy of it). It needs no Python, never reads `derived/`, and
 writes nothing into a Store.
 
 ## Destination
@@ -62,11 +63,12 @@ directory layout.
 ```r
 esw <- pt_read("~/runs/eswatini-prod", epi = epi)        # finds the Run subdirectories
 esw <- pt_read(c(a = "run1", b = "run2"), epi = epi)     # names become Run labels
+esw <- pt_read("~/runs/eswatini-prod", input = "eswatini.json.gz")  # the input JSON, when pt_read() can't find it
 pt_close(esw)
 ```
 
-- **`pt_read(paths, epi = NULL, memory_limit =, temp_directory =, threads =)`** takes Run directories, or one parent
-  directory whose Run subdirectories it finds. `epi` is a data frame keyed by Infection id.
+- **`pt_read(paths, epi = NULL, input = NULL, memory_limit =, temp_directory =, threads =)`** takes Run directories,
+  or one parent directory whose Run subdirectories it finds. `epi` is a data frame keyed by Infection id.
   - It reads only the Window markers, the manifests, `structure/`, events and the Draw count per Run. It reads no
     Traces.
   - It checks that the tables and columns the package needs are present, and errors naming what is missing. There is
@@ -74,9 +76,22 @@ pt_close(esw)
   - It errors when Runs differ in `input_sha256` or `null_model`. Differences in `thin`, `burn_in`, `samples`, `chains`
     or engine version are allowed.
   - It warns when Draw counts differ, when a Run is not finished, and when a Run has `non_finite` > 0.
-  - It prints one line per Run, plus the epi match count and the engine settings.
-- **The object** is an S3 `pt_analysis` list. It holds the DuckDB connection, the Run table, the Infections, the Loci
-  and epi.
+  - **The input JSON** holds what the Store doesn't: observation times and each Infection's `allowed_parents`
+    ([#139](https://github.com/EPPIcenter/plasmotrack/issues/139)). `pt_read()` looks for it in this order, gzipped
+    or not:
+    1. `input =`. Its SHA-256 must equal every Run manifest's `input_sha256.input`; a mismatch errors.
+    2. The first Run's own copy, `input.json` or `input.json.gz` in the Store root, which newer engines write
+       ([#140](https://github.com/EPPIcenter/plasmotrack/issues/140)).
+    3. The input path in the first Run's manifest `cli_arguments` (`-i`, `--input` or the first positional). A
+       relative path is resolved from the directory the engine was started in, when the Run directory's path ends
+       with the recorded output directory, then from R's working directory.
+
+    Steps 2 and 3 use a file only if it exists and its hash matches. When none is found, observation times are NA,
+    `pt_candidates()` errors, and `pt_read()` gives one message listing what it tried and how to supply the input.
+  - It prints one line per Run, plus the epi match count, the input's path (or that it wasn't found) and the engine
+    settings.
+- **The object** is an S3 `pt_analysis` list. It holds the DuckDB connection, the Run table, the Infections, the Loci,
+  epi, and the input's path and candidate pairs.
 - **Engine.** One DuckDB connection per Analysis, opened with `duckdb(shared_home = FALSE)` and closed by `pt_close()`
   or garbage collection.
   - Memory cap, spill directory and threads are R options (`plasmotrackr.memory_limit`,
@@ -98,8 +113,10 @@ pt_close(esw)
   - thin, burn_in
   - sampling_seconds and iterations_per_second, from sampling-Window `window_closed` events
   - non_finite: the count of `non_finite_value` events
-- **`pt_infections(a)`** returns infection, observation_time, symptomatic and latent_parent. **`pt_loci(a)`** returns
-  locus and n_alleles.
+- **`pt_infections(a)`** returns infection, observation_time, symptomatic and latent_parent. observation_time is a
+  double from the input JSON, NA when the input wasn't found. **`pt_loci(a)`** returns locus and n_alleles.
+- **`pt_candidates(a)`** returns the candidate pairs, parent and child, from the input's `allowed_parents`, sorted by
+  child then parent. It errors when `pt_read()` found no input.
 
 **Runs that aren't one uninterrupted chain** (resolved in the edge-cases ticket above):
 - **Replica exchange:** Draws are Hot-chain rows only. Tempered chains are reachable only through
@@ -252,11 +269,11 @@ Flow functions, all lazy and per Draw:
   - Per recipient stratum, its Infections' attributed parent mass (expected observed parents plus Latent parent
     probability) is split by source stratum and normalised within the recipient at each Draw.
   - The Latent parent row has `latent = TRUE` and `source = NA`.
-- **`pt_enrichment(a, by, candidates)`**: source, recipient, enrichment.
+- **`pt_enrichment(a, by, candidates = pt_candidates(a))`**: source, recipient, enrichment.
   - Enrichment is the cell's share of edge mass over its share of candidate pairs, and NA where the cell has no
     candidate pair.
-  - `candidates` is a `parent, child` data frame. **`pt_read_candidates(input_json)`** reads the input's
-    `allowed_parents`, which the Store doesn't hold.
+  - `candidates` is a `parent, child` data frame. It defaults to `pt_candidates(a)`, the input's `allowed_parents`,
+    which the Store doesn't hold.
 - **`pt_net_flow(a, by)`**: stratum, net_flow: expected out-edges minus in-edges, counting only edges between different
   strata.
 - **`pt_reassign_long_lags(a, max_lag, by = NULL)`**: mean_out_degree and mean_p_latent_parent after every edge with

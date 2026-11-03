@@ -7,12 +7,14 @@ on:
     paths:
       - "R/**"
       - "test/data/golden/**"
+      - "examples/example_input.json"
       - "tools/plasmotrackr/**"
       - ".github/workflows/plasmotrackr.yml"
   pull_request:
     paths:
       - "R/**"
       - "test/data/golden/**"
+      - "examples/example_input.json"
       - "tools/plasmotrackr/**"
       - ".github/workflows/plasmotrackr.yml"
   workflow_dispatch:

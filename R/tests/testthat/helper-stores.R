@@ -109,3 +109,19 @@ drop_windows <- function(path, windows) {
   }
   invisible(path)
 }
+
+# Path of the installed input JSON the golden Stores were run on (examples/example_input.json).
+golden_input <- function() {
+  system.file("extdata", "example_input.json", package = "plasmotrackr", mustWork = TRUE)
+}
+
+# pt_read() with the golden input. The golden manifests record "<input>" in cli_arguments, so pt_read() alone finds
+# no input and says so; tests that are not about the input use this instead.
+read_golden <- function(...) pt_read(..., input = golden_input())
+
+# The golden input's observation times as a named vector (id -> time), read straight from the JSON for the oracle.
+golden_observation_times <- function() {
+  nodes <- jsonlite::read_json(golden_input())$nodes
+  stats::setNames(vapply(nodes, function(n) as.numeric(n$observation_time), numeric(1)),
+                  vapply(nodes, function(n) n$id, character(1)))
+}
