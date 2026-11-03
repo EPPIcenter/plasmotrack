@@ -133,7 +133,7 @@ test_that("pt_parent_sets_pooled() and pt_map_graph() match the oracle on fake a
   on.exit(pt_close(t), add = TRUE)
   expect_oracle_equal(pt_parent_sets_pooled(t), oracle_parent_sets_pooled(oracle_read(c(r = ties))), keys)
 
-  g <- pt_read(golden_paths())
+  g <- read_golden(golden_paths())
   on.exit(pt_close(g), add = TRUE)
   og <- oracle_read(golden_paths())
   pooled <- oracle_parent_sets_pooled(og)
@@ -174,7 +174,7 @@ test_that("ψ_MAP and the size range match the oracle, and ψ_lo <= ψ_MAP <= ψ
   two <- local_two_runs()
   stores <- list(two = two, ties = c(r = local_ties()), golden = golden_paths())
   for (name in names(stores)) {
-    a <- suppressWarnings(pt_read(stores[[name]]))
+    a <- suppressWarnings(if (name == "golden") read_golden(stores[[name]]) else pt_read(stores[[name]]))
     o <- oracle_read(stores[[name]])
     for (by_run in c(FALSE, TRUE)) {
       keys <- if (by_run) "run" else character()
@@ -225,7 +225,7 @@ test_that("pt_co_inclusion(by_run = TRUE) has a 0 row in each Run lacking a pair
 })
 
 test_that("pt_co_inclusion() matches the oracle on golden Stores", {
-  a <- pt_read(golden_paths())
+  a <- read_golden(golden_paths())
   on.exit(pt_close(a))
   o <- oracle_read(golden_paths())
   keys <- c("child", "parent_a", "parent_b")
