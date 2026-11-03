@@ -1,0 +1,2 @@
+# The golden Stores hold Parquet files; never convert line endings.
+inst/extdata/golden/** -text
