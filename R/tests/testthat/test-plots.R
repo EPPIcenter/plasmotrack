@@ -63,3 +63,32 @@ test_that("a plot without ggplot2 asks to install it", {
   expect_error(pt_plot_trace(trace_rows(), value = value), class = "rlib_error_package_not_found")
   expect_error(pt_plot_trace(trace_rows(), value = value), "ggplot2notinstalled.*to draw plots")
 })
+
+test_that("pt_plot_rank() bins the pooled ranks per Run, zero bins kept", {
+  rows <- tibble::tibble(run = rep(c("a", "b"), each = 3), iteration = rep(1:3, 2), v = c(3, 1, 2, 6, 4, 5))
+  p <- pt_plot_rank(rows, value = v, bins = 2)
+  expect_s3_class(p, "ggplot")
+  expect_identical(geoms(p), "GeomCol")
+  expect_identical(p$data$run, c("a", "a", "b", "b"))
+  expect_identical(p$data$bin, c(1L, 2L, 1L, 2L))
+  expect_identical(p$data$count, c(3L, 0L, 0L, 3L))
+  d <- ggplot2::layer_data(p, 1)
+  expect_identical(length(unique(d$fill)), 2L)
+  expect_identical(length(unique(d$PANEL)), 2L)
+})
+
+test_that("pt_plot_rank() averages tied ranks and ranks within each `by` key", {
+  rows <- tibble::tibble(
+    run = rep(c("a", "a", "b", "b"), 2), iteration = rep(1:2, 4), key = rep(c("x", "y"), each = 4),
+    v = c(1, 1, 1, 2, 9, 8, 7, 6)
+  )
+  # Key x: three 1s share rank 2 (bin 1 of 2), the 2 has rank 4 (bin 2).
+  # Key y: a has ranks 4, 3 (bin 2), b has 2, 1 (bin 1).
+  p <- pt_plot_rank(rows, value = v, by = key, bins = 2)
+  expect_identical(p$data$key, rep(c("x", "y"), each = 4))
+  expect_identical(p$data$run, rep(c("a", "a", "b", "b"), 2))
+  expect_identical(p$data$count, c(2L, 0L, 1L, 1L, 0L, 2L, 2L, 0L))
+  expect_s3_class(p$facet, "FacetGrid")
+  expect_error(pt_plot_rank(rows, value = v, by = key, max_series = 1), "2 series")
+  expect_error(pt_plot_rank(rows, value = v, bins = 0), "bins")
+})

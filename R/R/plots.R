@@ -107,3 +107,57 @@ pt_plot_trace <- function(x, value, by = NULL, max_series = 25) {
   if (length(by)) p <- p + ggplot2::facet_wrap(ggplot2::vars(!!!rlang::syms(by)), scales = "free_y")
   p
 }
+
+#' Rank histograms of a per-Draw table
+#'
+#' For one value column, pools the values of every Run (within each `by` key), ranks them (ties get their average
+#' rank), splits the ranks 1 to *N* into `bins` equal bins, and draws each Run's histogram of bins. When the Runs mix
+#' well, every Run's histogram is flat; a Run stuck high or low piles up at one end. See Vehtari et al. (2021).
+#'
+#' Takes the same tables as [pt_plot_trace()], and collects only the columns it needs.
+#'
+#' @inheritParams pt_plot_trace
+#' @param by Key columns (tidy-select); one row of facets per key, ranked separately. `x` must have one row per Draw
+#'   per key.
+#' @param bins Number of rank bins.
+#' @return A ggplot object of columns, one facet per Run (and key), fill mapped to `run`. Its data has the `by`
+#'   columns, `run`, `bin` (1 to `bins`) and `count` (empty bins included).
+#' @references Vehtari, A., Gelman, A., Simpson, D., Carpenter, B. and Bürkner, P.-C. (2021). Rank-normalization,
+#'   folding, and localization: an improved R-hat for assessing convergence of MCMC. *Bayesian Analysis* 16(2).
+#' @seealso [pt_plot_trace()].
+#' @export
+#' @examplesIf rlang::is_installed("ggplot2")
+#' golden <- system.file("extdata", "golden", package = "plasmotrackr")
+#' a <- pt_read(file.path(golden, c("single-chain", "replica-exchange")), threads = 1)
+#' pt_plot_rank(pt_mean_p_latent_parent(a), value = mean_p_latent_parent, bins = 5)
+#' pt_close(a)
+pt_plot_rank <- function(x, value, by = NULL, bins = 20, max_series = 25) {
+  check_ggplot2()
+  check_draw_table(x)
+  if (!is.numeric(bins) || length(bins) != 1 || is.na(bins) || bins < 1 || bins != round(bins)) {
+    cli::cli_abort("{.arg bins} must be a whole number of at least 1.")
+  }
+  bins <- as.integer(bins)
+  value <- plot_column(x, rlang::enquo(value))
+  by <- plot_keys(x, rlang::enquo(by), max_series)
+  rows <- plot_rows(x, c("run", "iteration", by, value))
+  check_one_per_draw(rows, by)
+  if (anyNA(rows[[value]])) cli::cli_abort("Column {.field {value}} has missing values; filter them first.")
+
+  runs <- unique(rows$run)
+  counts <- dplyr::group_by(rows, dplyr::across(dplyr::all_of(by))) |>
+    dplyr::group_modify(function(group, key) {
+      ranks <- rank(group[[value]], ties.method = "average")
+      bin <- pmin(pmax(as.integer(ceiling(ranks * bins / length(ranks))), 1L), bins)
+      grid <- expand.grid(bin = seq_len(bins), run = runs, stringsAsFactors = FALSE)
+      tally <- table(factor(group$run, runs), factor(bin, seq_len(bins)))
+      tibble::tibble(run = grid$run, bin = grid$bin, count = as.integer(tally[cbind(match(grid$run, runs), grid$bin)]))
+    }) |>
+    dplyr::ungroup()
+
+  facets <- if (length(by)) ggplot2::vars(!!!rlang::syms(by)) else NULL
+  ggplot2::ggplot(counts, ggplot2::aes(.data$bin, .data$count, fill = .data$run)) +
+    ggplot2::geom_col() +
+    ggplot2::facet_grid(rows = facets, cols = ggplot2::vars(.data$run)) +
+    ggplot2::labs(x = paste0("rank bin of ", value), y = "Draws", fill = "run")
+}
