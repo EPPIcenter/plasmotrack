@@ -68,7 +68,8 @@ with R options, and override them for one Analysis with the arguments:
 \examples{
 golden <- system.file("extdata", "golden", package = "plasmotrackr")
 input <- system.file("extdata", "example_input.json", package = "plasmotrackr")
-a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange")), input = input, threads = 1)
+runs <- file.path(golden, c(one = "single-chain", four = "replica-exchange"))
+a <- pt_read(runs, input = input, threads = 1)
 a
 pt_runs(a)
 pt_close(a)
