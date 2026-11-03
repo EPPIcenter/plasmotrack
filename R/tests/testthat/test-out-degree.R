@@ -48,3 +48,76 @@ test_that("pt_out_degree_dist() mixes each Infection's Poisson-binomial out-degr
   expect_equal(pt_out_degree_dist(a, infections = "1", level = 0.5)[c("lower", "upper")],
                tibble::tibble(lower = 1, upper = 1))
 })
+
+golden_paths <- function() c(one = golden_store(), four = golden_store("replica-exchange"))
+
+test_that("pt_out_degree_dist() matches the oracle's enumeration of every Parent-set combination", {
+  paths <- local_out_degree_runs()
+  a <- read_out_degree_runs(paths)
+  on.exit(pt_close(a))
+  o <- oracle_read(paths)
+  expect_oracle_equal(pt_out_degree_dist(a), oracle_out_degree_dist(o), "infection")
+  expect_oracle_equal(pt_out_degree_dist(a, level = 0.5), oracle_out_degree_dist(o, level = 0.5), "infection")
+  expect_pmf_equal(pt_out_degree_dist(a, pmf = TRUE), oracle_out_degree_dist(o, pmf = TRUE))
+
+  g <- read_golden(golden_paths())
+  on.exit(pt_close(g), add = TRUE)
+  og <- oracle_read(golden_paths())
+  expect_oracle_equal(pt_out_degree_dist(g), oracle_out_degree_dist(og), "infection")
+  expect_oracle_equal(pt_out_degree_dist(g, level = 0.8), oracle_out_degree_dist(og, level = 0.8), "infection")
+  expect_pmf_equal(pt_out_degree_dist(g, pmf = TRUE), oracle_out_degree_dist(og, pmf = TRUE))
+})
+
+test_that("pt_realized_out_degree() matches the oracle, with and without strata", {
+  paths <- local_out_degree_runs()
+  epi <- data.frame(infection = c("1", "2", "3"), district = c("x", "y", "x"))
+  a <- read_out_degree_runs(paths, epi = epi)
+  on.exit(pt_close(a))
+  o <- oracle_read(paths)
+  expect_oracle_equal(pt_realized_out_degree(a), oracle_realized_out_degree(o), "n")
+  expect_oracle_equal(pt_realized_out_degree(a, by = "district", level = 0.5),
+                      oracle_realized_out_degree(o, oracle_strata(o, epi, "district"), level = 0.5), "stratum")
+
+  # Golden Infection 3 is missing from epi: the NA stratum.
+  golden_epi <- data.frame(infection = c("1", "2"), district = c("north", "south"))
+  g <- read_golden(golden_paths(), epi = golden_epi)
+  on.exit(pt_close(g), add = TRUE)
+  og <- oracle_read(golden_paths())
+  expect_oracle_equal(pt_realized_out_degree(g), oracle_realized_out_degree(og), "n")
+  expect_oracle_equal(pt_realized_out_degree(g, by = "district"),
+                      oracle_realized_out_degree(og, oracle_strata(og, golden_epi, "district")), "stratum")
+})
+
+test_that("estimate and var_between are the pooled mean and variance over Draws of the per-Draw functionals", {
+  for (paths in list(local_out_degree_runs(), golden_paths())) {
+    a <- suppressWarnings(pt_read(paths))
+    population <- dplyr::collect(pt_mean_out_degree(a))$mean_out_degree
+    realized <- pt_realized_out_degree(a)
+    expect_equal(realized$estimate, mean(population), tolerance = 1e-12)
+    expect_equal(realized$var_between, mean((population - mean(population))^2), tolerance = 1e-12)
+    expect_equal(realized$n, nrow(pt_infections(a)))
+
+    draws <- dplyr::collect(pt_out_degree_draws(a))
+    dist <- pt_out_degree_dist(a)
+    for (i in dist$infection) {
+      x <- draws$out_degree[draws$infection == i]
+      row <- dist[dist$infection == i, ]
+      expect_equal(row$estimate, mean(x), tolerance = 1e-12)
+      expect_equal(row$var_between, mean((x - mean(x))^2), tolerance = 1e-12)
+      expect_equal(row$draws, length(x))
+    }
+    pt_close(a)
+  }
+})
+
+test_that("a single-Infection stratum equals that Infection's pt_out_degree_dist()", {
+  epi <- data.frame(infection = c("1", "2", "3", "4"), who = c("one", "rest", "rest", "four"))
+  a <- read_out_degree_runs(epi = epi)
+  on.exit(pt_close(a))
+  realized <- pt_realized_out_degree(a, by = "who", level = 0.8)
+  dist <- pt_out_degree_dist(a, infections = c("1", "4"), level = 0.8)
+  columns <- c("estimate", "lower", "upper", "level", "var_within", "var_between", "draws")
+  expect_equal(realized$stratum, c("four", "one", "rest"))
+  expect_equal(realized$n, c(1, 1, 2))
+  expect_equal(as.data.frame(realized[1:2, columns]), as.data.frame(dist[c(2, 1), columns]), tolerance = 1e-12)
+})
