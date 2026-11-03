@@ -551,3 +551,130 @@ oracle_interval <- function(x, by = character(), value, level = 0.95) {
   }
   oracle_bind(out, NULL)
 }
+
+# ---- Convergence (#124) ----
+# The Draw set: each Run's sampling Draws within `iterations` (inclusive), sorted, truncated to the shortest Run's
+# count. Runs with no Draws there are dropped. Returns a named list of iteration vectors.
+oracle_convergence_draws <- function(o, runs = NULL, iterations = NULL) {
+  out <- list()
+  for (run in oracle_runs(o, runs)) {
+    its <- oracle_draws(o, run)
+    if (!is.null(iterations)) its <- its[its >= iterations[[1]] & its <= iterations[[2]]]
+    if (length(its)) out[[run]] <- its
+  }
+  n <- min(vapply(out, length, numeric(1)))
+  lapply(out, function(its) its[seq_len(n)])
+}
+
+# Every convergence quantity as an n x Runs matrix, named as the package names its variables, in group order then
+# name order. `draws` from oracle_convergence_draws(). Edges are zero-filled and kept when some Run's mean over its
+# truncated Draws is >= edge_floor.
+oracle_convergence_matrices <- function(o, draws, edge_floor = 0.01) {
+  runs <- names(draws)
+  n <- length(draws[[1]])
+  out <- list()
+  # Fill out[[name]][d, r] from rows with run, iteration and a value column; `fill` for Draws with no row.
+  put <- function(name, run, iteration, value, fill = NA_real_) {
+    if (is.null(out[[name]])) out[[name]] <<- matrix(fill, n, length(runs), dimnames = list(NULL, runs))
+    d <- match(iteration, draws[[run]])
+    if (!is.na(d)) out[[name]][d, run] <<- value
+  }
+  by_key <- function(names) names[order(names, method = "radix")]
+
+  scalars <- c("mean_coi", "mean_strains_tx", "parent_set_size_prob")
+  for (run in runs) {
+    s <- oracle_table(o, run, "run_scalars")
+    for (i in seq_len(nrow(s))) {
+      put("log_posterior", run, s$iteration[[i]], s$prior[[i]] + s$likelihood[[i]])
+      for (v in scalars) put(v, run, s$iteration[[i]], s[[v]][[i]])
+    }
+  }
+  groups <- list(log_posterior = "log_posterior", global = by_key(scalars))
+
+  ids <- by_key(oracle_infection_ids(o))
+  for (column in c("expected_false_positives", "expected_false_negatives", "infection_duration")) {
+    for (run in runs) {
+      rows <- oracle_table(o, run, "infections")
+      for (i in seq_len(nrow(rows))) {
+        put(sprintf("%s[%s]", column, rows$infection[[i]]), run, rows$iteration[[i]], rows[[column]][[i]])
+      }
+    }
+    groups[[column]] <- sprintf("%s[%s]", column, ids)
+  }
+
+  alleles <- NULL
+  for (run in runs) {
+    rows <- oracle_table(o, run, "allele_frequencies")
+    for (i in seq_len(nrow(rows))) {
+      put(sprintf("allele_frequency[%s,%d]", rows$locus[[i]], rows$allele[[i]]), run, rows$iteration[[i]],
+          rows$frequency[[i]])
+    }
+    alleles <- unique(rbind(alleles, rows[c("locus", "allele")]))
+  }
+  alleles <- alleles[order(alleles$locus, alleles$allele, method = "radix"), ]
+  groups$allele_frequency <- sprintf("allele_frequency[%s,%d]", alleles$locus, alleles$allele)
+
+  edges <- oracle_edge_draws(o, runs)
+  keys <- unique(edges[c("child", "parent")])
+  keys <- keys[order(keys$child, keys$parent, method = "radix"), , drop = FALSE]
+  kept <- character()
+  for (k in seq_len(nrow(keys))) {
+    name <- sprintf("edge[%s,%s]", keys$child[[k]], keys$parent[[k]])
+    mine <- edges[edges$child == keys$child[[k]] & edges$parent == keys$parent[[k]], ]
+    for (i in seq_len(nrow(mine))) put(name, mine$run[[i]], mine$iteration[[i]], mine$prob[[i]], fill = 0)
+    if (is.null(out[[name]])) next
+    if (max(colMeans(out[[name]])) >= edge_floor) kept <- c(kept, name) else out[[name]] <- NULL
+  }
+  groups$edge <- kept
+
+  q <- oracle_infection_draws(o, runs)
+  for (run in runs) for (inf in ids) for (it in draws[[run]]) put(sprintf("p_latent_parent[%s]", inf), run, it, 0)
+  for (i in seq_len(nrow(q))) {
+    put(sprintf("p_latent_parent[%s]", q$infection[[i]]), q$run[[i]], q$iteration[[i]], q$p_latent_parent[[i]])
+  }
+  groups$p_latent_parent <- sprintf("p_latent_parent[%s]", ids)
+
+  functional <- character()
+  add <- function(rows, columns) {
+    for (name in names(columns)) {
+      for (i in seq_len(nrow(rows))) put(name, rows$run[[i]], rows$iteration[[i]], rows[[columns[[name]]]][[i]])
+      functional <<- c(functional, name)
+    }
+  }
+  add(oracle_mean_out_degree(o, runs), c(mean_out_degree = "mean_out_degree"))
+  add(oracle_mean_p_latent_parent(o, runs), c(mean_p_latent_parent = "mean_p_latent_parent"))
+  add(oracle_multi_source(o, runs), c(multi_source_augmented = "augmented", multi_source_observed = "observed_only"))
+  add(oracle_entropy(o, runs), c(mean_entropy = "mean_entropy", mean_effective_size = "mean_effective_size"))
+  composition <- oracle_composition(o, runs)
+  for (class in unique(composition$class)) {
+    mine <- composition[composition$class == class, ]
+    add(mine, stats::setNames("share", sprintf("composition[%s]", class)))
+  }
+  groups$functional <- by_key(unique(functional))
+
+  list(matrices = out, groups = groups)
+}
+
+# The quantities table from the matrices: status classified by hand, then posterior on the matrix.
+oracle_convergence_quantities <- function(m, rhat = 1.01, ess = NULL) {
+  rows <- list()
+  for (group in names(m$groups)) {
+    for (name in m$groups[[group]]) {
+      x <- m$matrices[[name]]
+      if (is.null(ess)) ess <- 100 * ncol(x)
+      constant <- all(x == x[[1]])
+      each_constant <- all(apply(x, 2, function(col) all(col == col[[1]])))
+      status <- if (constant) "constant" else if (each_constant) "stuck" else "mixing"
+      r <- switch(status, constant = NA_real_, stuck = Inf, mixing = {
+        v <- posterior::rhat(x)
+        if (is.na(v)) posterior::rhat_basic(x) else v
+      })
+      eb <- if (status == "constant") NA_real_ else posterior::ess_bulk(x)
+      et <- if (status == "constant") NA_real_ else posterior::ess_tail(x)
+      flagged <- status == "stuck" || (status == "mixing" && ((!is.na(r) && r > rhat) || (!is.na(eb) && eb < ess)))
+      rows[[length(rows) + 1]] <- data.frame(group = group, name = name, status = status, rhat = r, ess_bulk = eb,
+                                             ess_tail = et, flagged = flagged)
+    }
+  }
+  oracle_bind(rows, NULL)
+}
