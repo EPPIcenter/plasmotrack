@@ -349,7 +349,7 @@ oracle_bitstring_counts <- function(o, group) {
     for (i in seq_len(NROW(rows))) {
       k <- paste(rows$infection[[i]], rows$locus[[i]], sep = "\r")
       tally <- counts[[k]]
-      if (is.null(tally)) tally <- c()
+      if (is.null(tally)) tally <- numeric()
       b <- rows$alleles[[i]]
       tally[b] <- (if (is.na(tally[b])) 0 else tally[b]) + 1
       counts[[k]] <- tally

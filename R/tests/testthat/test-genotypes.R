@@ -141,3 +141,77 @@ test_that("pt_coi() matches the oracle on golden and fake Stores", {
     if (!is.null(paths)) pt_close(a)
   }
 })
+
+test_that("pt_genotype_presence() is the fraction of Draws with each Allele, 0 when never present", {
+  a <- local_genotype_store()
+  p <- pt_genotype_presence(a)
+  expect_s3_class(p, "tbl_df")
+  expect_equal(as.data.frame(p), data.frame(
+    infection = rep(c("10", "2", "3"), c(9, 7, 5)),
+    locus = rep(c("L1", "L2", "L3", "L1", "L2", "L1", "L3"), c(3, 4, 2, 3, 4, 3, 2)),
+    allele = c(0:2, 0:3, 0:1, 0:2, 0:3, 0:2, 0:1),
+    presence = c(1, 1, 0, 0, 0.5, 0.5, 0, 0, 1, 1, 0, 0, 0.5, 0, 1, 1, 0, 0.5, 1, 1, 0.5)
+  ))
+})
+
+test_that("pt_genotype_mode() takes the bitstring with most Draws, ties to the smaller", {
+  a <- local_genotype_store()
+  m <- pt_genotype_mode(a)
+  expect_s3_class(m, "tbl_df")
+  expect_equal(as.data.frame(m), data.frame(
+    infection = c("10", "10", "10", "2", "2", "3", "3"),
+    locus = c("L1", "L2", "L3", "L1", "L2", "L1", "L3"),
+    alleles = c("110", "0010", "01", "100", "0011", "001", "10"),
+    fraction = c(1, 0.5, 1, 1, 0.5, 0.5, 0.5),
+    agreement = c(1, 0.5, 1, 1, 0.5, 0.5, 0.5)
+  ))
+})
+
+test_that("genotype summaries pool Runs by their Draws, or give one row per Run", {
+  a <- local_two_genotype_runs()
+  p <- pt_genotype_presence(a)
+  at <- function(x, inf, loc) x[x$infection == inf & x$locus == loc, , drop = FALSE]
+  expect_equal(at(p, "10", "L2")$presence, c(0, 2, 1, 0) / 3)
+  expect_equal(at(p, "2", "L2")$presence, c(2, 1, 3, 3) / 3)
+  p_run <- pt_genotype_presence(a, by_run = TRUE)
+  expect_equal(names(p_run), c("run", "infection", "locus", "allele", "presence"))
+  expect_equal(at(p_run[p_run$run == "s", ], "2", "L2")$presence, c(1, 1, 1, 1))
+
+  m <- pt_genotype_mode(a)
+  expect_equal(as.data.frame(at(m, "10", "L2")[c("alleles", "fraction", "agreement")]),
+               data.frame(alleles = "0100", fraction = 2 / 3, agreement = 2 / 3))
+  m_run <- pt_genotype_mode(a, by_run = TRUE)
+  expect_equal(names(m_run), c("run", "infection", "locus", "alleles", "fraction", "agreement"))
+  expect_equal(m_run$run, rep(c("r", "s"), each = 7))
+  expect_equal(at(m_run, "2", "L2")$alleles, c("0011", "1111"))
+  expect_equal(pt_genotype_mode(a, runs = "s")$fraction, rep(1, 7))
+  expect_error(pt_genotype_presence(a, by_run = "yes"), "by_run")
+})
+
+test_that("fraction counts every Draw, agreement only Draws with a Latent genotype at the Locus", {
+  rows <- genotype_rows()
+  rows <- rows[!(rows$iteration == 2 & rows$infection == "10" & rows$locus == "L2"), ]
+  path <- fake_store(infections = c("10", "2", "3"), loci = c(L1 = 3L, L2 = 4L, L3 = 2L), samples = 2,
+                     tables = list(latent_genotypes = rows))
+  a <- pt_read(c(r = path))
+  on.exit(pt_close(a))
+  m <- pt_genotype_mode(a)
+  expect_equal(unlist(m[m$infection == "10" & m$locus == "L2", c("fraction", "agreement")]),
+               c(fraction = 0.5, agreement = 1))
+  p <- pt_genotype_presence(a)
+  expect_equal(p$presence[p$infection == "10" & p$locus == "L2"], c(0, 0.5, 0, 0))
+})
+
+test_that("genotype summaries match the oracle on golden and fake Stores", {
+  for (paths in list(golden_genotype_paths(), NULL)) {
+    a <- if (is.null(paths)) local_two_genotype_runs() else pt_read(paths)
+    o <- oracle_read(if (is.null(paths)) stats::setNames(a$runs$path, a$runs$run) else paths)
+    for (by_run in c(FALSE, TRUE)) {
+      keys <- c(if (by_run) "run", "infection", "locus")
+      expect_oracle_equal(pt_genotype_presence(a, by_run = by_run), oracle_genotype_presence(o, by_run = by_run),
+                          c(keys, "allele"))
+      expect_oracle_equal(pt_genotype_mode(a, by_run = by_run), oracle_genotype_mode(o, by_run = by_run), keys)
+    }
+    if (!is.null(paths)) pt_close(a)
+  }
+})
