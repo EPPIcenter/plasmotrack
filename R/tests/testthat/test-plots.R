@@ -154,3 +154,39 @@ test_that("pt_plot_interval() takes the out-degree posteriors and pt_interval() 
   p <- pt_plot_interval(one, truth = 1)
   expect_identical(nrow(ggplot2::layer_data(p, 1)), 1L)
 })
+
+test_that("pt_plot_run_pairs() scatters each pair of Runs' values on the y = x line", {
+  rows <- tibble::tibble(run = c("a", "a", "b", "b", "c"), infection = c("1", "2", "1", "2", "1"),
+                         note = "n", v = c(1, 2, 3, 4, 5), other = 0)
+  p <- pt_plot_run_pairs(rows, value = v)
+  expect_s3_class(p, "ggplot")
+  expect_identical(geoms(p), c("GeomAbline", "GeomPoint"))
+  expect_identical(unique(ggplot2::layer_data(p, 1)$slope), 1)
+  expect_identical(unique(ggplot2::layer_data(p, 1)$intercept), 0)
+  # Rows match on the key columns before `value`; a key missing in one Run of a pair is dropped.
+  expect_identical(as.character(p$data$pair), c("a vs b", "a vs b", "a vs c", "b vs c"))
+  expect_identical(p$data$x, c(1, 2, 1, 3))
+  expect_identical(p$data$y, c(3, 4, 5, 5))
+  expect_s3_class(p$facet, "FacetWrap")
+  expect_identical(length(unique(ggplot2::layer_data(p, 2)$PANEL)), 3L)
+})
+
+test_that("pt_plot_run_pairs() takes explicit keys and needs two Runs", {
+  rows <- tibble::tibble(run = rep(c("a", "b"), each = 2), locus = "L", allele = c(0, 1, 0, 1), v = 1:4)
+  expect_error(pt_plot_run_pairs(rows, value = v), "more than one row per Run")
+  p <- pt_plot_run_pairs(rows, value = v, by = c(locus, allele))
+  expect_identical(p$data$x, c(1L, 2L))
+  expect_identical(p$data$y, c(3L, 4L))
+  expect_error(pt_plot_run_pairs(rows[rows$run == "a", ], value = v, by = allele), "two Runs")
+})
+
+test_that("pt_plot_run_pairs() takes a by_run summary", {
+  a <- read_golden(c(golden_store("single-chain"), golden_store("replica-exchange")))
+  on.exit(pt_close(a))
+  marginals <- pt_edge_marginals(a, by_run = TRUE)
+  p <- pt_plot_run_pairs(marginals, value = marginal)
+  wide <- merge(marginals[marginals$run == "single-chain", ], marginals[marginals$run == "replica-exchange", ],
+                by = c("child", "parent"))
+  expect_identical(nrow(p$data), nrow(wide))
+  expect_identical(sort(p$data$x), sort(wide$marginal.x))
+})

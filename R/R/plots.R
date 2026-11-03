@@ -229,3 +229,66 @@ pt_plot_interval <- function(x, truth = NULL) {
   if (length(facet)) p <- p + ggplot2::facet_wrap(ggplot2::vars(.data$value), scales = "free")
   p
 }
+
+#' Run-agreement scatter
+#'
+#' For a summary with one row per Run per key (any `by_run = TRUE` summary, such as [pt_edge_marginals()] or
+#' [pt_infection_summary()]), one panel per pair of Runs: each key's value in the first Run against its value in the
+#' second, with the y = x line. Points off the line are where the Runs disagree.
+#'
+#' Rows are matched across Runs by the key columns `by`. By default these are the character, factor and logical
+#' columns before `value` (other than `run`), such as `child` and `parent` for Edge marginals. Give `by` when a key is
+#' numeric, such as `allele`. A key missing from one Run of a pair is left out of that pair's panel; zero-fill first
+#' if a missing row means 0.
+#'
+#' @param x A data frame (or lazy table) with a `run` column, key columns and a numeric value column.
+#' @param value The numeric column to compare (tidy-select).
+#' @param by Key columns (tidy-select). `NULL` takes the default above.
+#' @return A ggplot object, one facet per pair of Runs ("a vs b": `a` on x, `b` on y), Runs paired in order of first
+#'   appearance. Its data has `pair`, the keys, `x` and `y`.
+#' @seealso [pt_convergence()] for R-hat and Spread on the same quantities.
+#' @export
+#' @examplesIf rlang::is_installed("ggplot2")
+#' golden <- system.file("extdata", "golden", package = "plasmotrackr")
+#' a <- pt_read(file.path(golden, c("single-chain", "replica-exchange")), threads = 1)
+#' pt_plot_run_pairs(pt_edge_marginals(a, by_run = TRUE), value = marginal)
+#' pt_close(a)
+pt_plot_run_pairs <- function(x, value, by = NULL) {
+  check_ggplot2()
+  if (!"run" %in% colnames(x)) cli::cli_abort("{.arg x} must have a {.field run} column: use {.code by_run = TRUE}.")
+  value <- plot_column(x, rlang::enquo(value))
+  by_quo <- rlang::enquo(by)
+  if (rlang::quo_is_null(by_quo)) {
+    before <- utils::head(colnames(x), match(value, colnames(x)) - 1)
+    types <- dplyr::collect(utils::head(dplyr::select(x, dplyr::all_of(before)), 0))
+    keys <- before[vapply(types, function(t) is.character(t) || is.factor(t) || is.logical(t), logical(1))]
+    keys <- setdiff(keys, "run")
+  } else {
+    keys <- setdiff(colnames(dplyr::select(x, !!by_quo)), "run")
+  }
+  rows <- plot_rows(x, c("run", keys, value))
+  if (anyDuplicated(rows[c("run", keys)])) {
+    cli::cli_abort(c("{.arg x} has more than one row per Run per key ({.field {keys}}).",
+                     i = "Give every key column in {.arg by}."))
+  }
+  runs <- unique(rows$run)
+  if (length(runs) < 2) cli::cli_abort("{.arg x} must have at least two Runs to compare.")
+
+  pairs <- utils::combn(runs, 2, simplify = FALSE)
+  labels <- vapply(pairs, paste, character(1), collapse = " vs ")
+  data <- dplyr::bind_rows(lapply(seq_along(pairs), function(k) {
+    side <- function(run, name) {
+      out <- rows[rows$run == run, c(keys, value)]
+      names(out)[names(out) == value] <- name
+      out
+    }
+    joined <- dplyr::inner_join(side(pairs[[k]][[1]], "x"), side(pairs[[k]][[2]], "y"), by = keys)
+    tibble::tibble(pair = factor(labels[[k]], labels), joined)
+  }))
+
+  ggplot2::ggplot(data, ggplot2::aes(.data$x, .data$y)) +
+    ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey50") +
+    ggplot2::geom_point() +
+    ggplot2::facet_wrap(ggplot2::vars(.data$pair)) +
+    ggplot2::labs(x = paste(value, "in the first Run"), y = paste(value, "in the second Run"))
+}
