@@ -79,6 +79,11 @@ reference:
   desc: >
     Transmission between epi strata: attribution, enrichment, net flow, and long-lag
     reassignment. The Functionals and out-degree summaries take `by =` for strata too.
+  contents:
+  - pt_attribution
+  - pt_enrichment
+  - pt_net_flow
+  - pt_reassign_long_lags
 
 - title: Convergence
   desc: >
