@@ -103,6 +103,8 @@ reference:
 - subtitle: Fit summary
   desc: >
     One row per fit with every score and Functional, ready to bind across simulations.
+  contents:
+  - pt_fit_summary
 
 - title: Plots
   desc: >
