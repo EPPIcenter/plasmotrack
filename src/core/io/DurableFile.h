@@ -19,6 +19,9 @@ namespace transmission_nets::core::io {
     // never makes a file visible before its contents are on disk. `temporary` must be in the directory of `path`.
     void moveDurably(const std::filesystem::path& temporary, const std::filesystem::path& path);
 
+    // Copies the file at `source` to `path`, byte for byte, as writeDurably writes a file.
+    void copyDurably(const std::filesystem::path& source, const std::filesystem::path& path);
+
     // Writes `bytes` to `path`, replacing any file there. Not durable on its own: use it inside writeDurably.
     void writeFile(const std::filesystem::path& path, std::string_view bytes);
 

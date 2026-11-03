@@ -1,6 +1,6 @@
 //
-// The CLI's store end to end under real signals: a first interrupt ends the Run cleanly and a second ends it at once.
-// Each test runs the CLI binary on the example input and reads the store back with the Arrow C++ reader. How the Run
+// The CLI's store end to end: the Run inputs it copies, and real signals: a first interrupt ends the Run cleanly and a
+// second ends it at once. Each test runs the CLI binary on the example input and reads the store back with the Arrow C++ reader. How the Run
 // driver ends a Run for a stop request or a forced end is tested in-process in RunDriverTest.
 //
 
@@ -8,11 +8,14 @@
 
 #include "CliRunning.h"
 
+#include "core/utils/Sha256.h"
 #include "impl/model/Model/Checkpoint.h"
 
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cstdlib>
+#include <map>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -20,7 +23,12 @@
 using namespace transmission_nets::test;
 namespace checkpoint = transmission_nets::impl::Model::checkpoint;
 
+using transmission_nets::core::utils::sha256HexOfFile;
+
 namespace {
+    // A short Run: three Windows.
+    const std::vector<std::string> SHORT_RUN{"--seed", "3", "-b", "10", "-s", "20", "-t", "5", "--window", "10"};
+
     // A long Run: it ends only by a signal within any test's time.
     const std::vector<std::string> LONG_RUN{"--seed", "7", "-b", "0", "-s", "100000000", "-t", "1", "--window", "10"};
 }// namespace
@@ -92,4 +100,45 @@ TEST(CliStore, SecondInterruptClosesTheInFlightWindowAndExitsWithTheSignal) {
         return;
     }
     FAIL() << "every Run ended after the first interrupt, before the second came";
+}
+
+namespace {
+    // Each Run input's copy in `store` holds the bytes of its source, and its SHA-256 is the manifest's.
+    void expectRunInputCopies(const fs::path& store, const std::map<std::string, std::pair<std::string, fs::path>>& copies) {
+        const auto hashes = readJson(store / "manifest.json").at("input_sha256");
+        for (const auto& [name, copy] : copies) {
+            const auto& [file, source] = copy;
+            ASSERT_TRUE(fs::exists(store / file)) << file;
+            EXPECT_EQ(readText(store / file), readText(source)) << file << " is not a copy of " << source;
+            EXPECT_EQ(sha256HexOfFile(store / file), hashes.at(name).get<std::string>()) << file;
+        }
+    }
+}// namespace
+
+// A Run's store holds its input and IDP files, byte for byte, written before the first Window, and the manifest's
+// input_sha256 hashes them.
+TEST(CliStore, ARunsStoreHoldsCopiesOfItsInputs) {
+    const auto work = makeWork("run-inputs");
+    ASSERT_EQ(runCli(work, SHORT_RUN), 0) << consoleOutput(work);
+
+    const fs::path golden = GOLDEN_DATA_DIR;
+    expectRunInputCopies(work / "out", {{"input", {"input.json", EXAMPLE_INPUT_PATH}},
+                                        {"symptomatic_idp", {"symptomatic_idp.txt", golden / "symptomatic_idp.txt"}},
+                                        {"asymptomatic_idp", {"asymptomatic_idp.txt", golden / "asymptomatic_idp.txt"}}});
+    EXPECT_FALSE(fs::exists(work / "out" / "input.json.gz"));
+
+    if (!HasFailure()) fs::remove_all(work);
+}
+
+// A gzipped input is stored as it was given, still gzipped, as input.json.gz.
+TEST(CliStore, AGzippedInputIsStoredGzipped) {
+    const auto work  = makeWork("run-inputs-gz");
+    const auto input = work / "input.json.gz";
+    ASSERT_EQ(std::system(("gzip -c \"" + std::string(EXAMPLE_INPUT_PATH) + "\" > \"" + input.string() + '"').c_str()), 0);
+    ASSERT_EQ(waitFor(spawnCli(work, cliArguments(work / "out", SHORT_RUN, input))), 0) << consoleOutput(work);
+
+    expectRunInputCopies(work / "out", {{"input", {"input.json.gz", input}}});
+    EXPECT_FALSE(fs::exists(work / "out" / "input.json"));
+
+    if (!HasFailure()) fs::remove_all(work);
 }
