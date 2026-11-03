@@ -121,3 +121,34 @@ test_that("pt_infection_times() pools Draws over Runs, or keeps each Run with by
   expect_equal(by_run$median, c(18, 25, NA, 10, 20, NA))
   expect_equal(pt_infection_times(a, runs = "s")$median, c(10, 20, NA))
 })
+
+test_that("Ordering and Infection times match the oracle on golden and fake Stores", {
+  paths <- c(one = golden_store(), four = golden_store("replica-exchange"))
+  g <- read_golden(paths)
+  on.exit(pt_close(g))
+  og <- oracle_read(paths)
+  times <- golden_observation_times()
+  expect_oracle_equal(pt_order_pair_draws(g), oracle_order_pair_draws(og), c("run", "iteration", "i", "j"))
+  expect_oracle_equal(pt_order_pair_draws(g, phase = c("burn_in", "sampling")),
+                      oracle_order_pair_draws(og, phase = c("burn_in", "sampling")), c("run", "iteration", "i", "j"))
+  expect_oracle_equal(pt_order_pairs(g), oracle_order_pairs(og), c("i", "j"))
+  expect_oracle_equal(pt_order_pairs(g, by_run = TRUE), oracle_order_pairs(og, by_run = TRUE), c("run", "i", "j"))
+  expect_oracle_equal(pt_order_pairs(g, infections = "2", runs = "four"),
+                      oracle_order_pairs(og, infections = "2", runs = "four"), c("i", "j"))
+  # Quantiles must match exactly.
+  expect_oracle_equal(pt_infection_times(g), oracle_infection_times(og, times), "infection", tolerance = 0)
+  expect_oracle_equal(pt_infection_times(g, level = 0.8, by_run = TRUE),
+                      oracle_infection_times(og, times, level = 0.8, by_run = TRUE), c("run", "infection"),
+                      tolerance = 0)
+  expect_false(anyNA(pt_infection_times(g)$median))
+
+  f <- local_two_ordering_runs()
+  of <- oracle_read(f$runs$path |> stats::setNames(f$runs$run))
+  ftimes <- c("10" = 20, "2" = 30)
+  expect_oracle_equal(pt_order_pair_draws(f), oracle_order_pair_draws(of), c("run", "iteration", "i", "j"))
+  expect_oracle_equal(pt_order_pairs(f, by_run = TRUE), oracle_order_pairs(of, by_run = TRUE), c("run", "i", "j"))
+  expect_oracle_equal(pt_order_pairs(f, infections = "3"), oracle_order_pairs(of, infections = "3"), c("i", "j"))
+  expect_oracle_equal(pt_infection_times(f), oracle_infection_times(of, ftimes), "infection", tolerance = 0)
+  expect_oracle_equal(pt_infection_times(f, by_run = TRUE), oracle_infection_times(of, ftimes, by_run = TRUE),
+                      c("run", "infection"), tolerance = 0)
+})

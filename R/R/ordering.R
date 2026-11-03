@@ -130,7 +130,8 @@ check_infection_subset <- function(a, infections, arg = rlang::caller_arg(infect
 #' @examples
 #' golden <- system.file("extdata", "golden", package = "plasmotrackr")
 #' input <- system.file("extdata", "example_input.json", package = "plasmotrackr")
-#' a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange")), input = input, threads = 1)
+#' paths <- file.path(golden, c(one = "single-chain", four = "replica-exchange"))
+#' a <- pt_read(paths, input = input, threads = 1)
 #' pt_infection_times(a)
 #' pt_infection_times(a, level = 0.5, by_run = TRUE)
 #' pt_close(a)
