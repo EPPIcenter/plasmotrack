@@ -88,19 +88,21 @@ pt_convergence <- function(a, runs = NULL, iterations = NULL, edge_floor = 0.01,
   ds <- convergence_draw_set(a, runs, iterations)
   if (is.null(ess)) ess <- 100 * length(ds$runs)
 
-  log_posterior <- group_array(a, ds, "log_posterior")
-  quantities <- lapply(convergence_groups, function(group) {
-    x <- if (group == "log_posterior") log_posterior else group_array(a, ds, group, edge_floor)
-    diagnose_array(x, group, rhat, ess)
-  })
+  arrays <- lapply(stats::setNames(convergence_groups, convergence_groups), group_array, a = a, ds = ds,
+                   edge_floor = edge_floor)
+  quantities <- dplyr::bind_rows(lapply(convergence_groups, function(group) {
+    diagnose_array(arrays[[group]], group, rhat, ess)
+  }))
 
-  means <- colMeans(matrix(log_posterior, ds$n, length(ds$runs)))
+  means <- colMeans(matrix(arrays$log_posterior, ds$n, length(ds$runs)))
   out <- list(
     runs = tibble::tibble(
       run = ds$runs, draws = ds$n, first_iteration = ds$used$first_iteration,
       last_iteration = ds$used$last_iteration, log_posterior = means, gap = max(means) - means
     ),
-    quantities = dplyr::bind_rows(quantities)
+    quantities = quantities,
+    infections = tree_infections(a, ds, run_means(arrays$p_latent_parent), quantities, spread),
+    pairs = tree_pairs(run_means(arrays$order_pair), spread)
   )
   structure(out, class = "pt_convergence", settings = list(
     iterations = iterations, edge_floor = edge_floor, rhat = rhat, ess = ess, spread = spread,
@@ -382,6 +384,107 @@ diagnose_quantity <- function(m, rhat, ess) {
   bulk <- posterior::ess_bulk(m)
   flagged <- status == "stuck" || isTRUE(r > rhat) || isTRUE(bulk < ess)
   list(status = status, rhat = r, ess_bulk = bulk, ess_tail = posterior::ess_tail(m), flagged = flagged)
+}
+
+# ---- Tree diagnostics ----
+
+# The key of the Latent parent among an Infection's parent keys (top_parent values).
+latent_key <- "latent"
+
+# Run means of an n x Runs x variables array: a Runs x variables matrix.
+run_means <- function(x) {
+  matrix(colMeans(x), dim(x)[[2]], dim(x)[[3]], dimnames = dimnames(x)[2:3])
+}
+
+# One row per Infection (string order): spread over its parent keys (zero-filled Edge marginals over the Draw set
+# plus the Latent parent), each Run's top parent, the disagreement class of flagged Infections, the worst R-hat of
+# the quantities it owns. `latent_means`: Runs x p_latent_parent[id] matrix.
+tree_infections <- function(a, ds, latent_means, quantities, spread) {
+  runs <- ds$runs
+  ids <- a$infections$infection[order(a$infections$infection, method = "radix")]
+  edges <- edge_run_means(a, ds)
+  edge_mean <- stats::setNames(edges$mean, paste(edges$run, edges$child, edges$parent, sep = "\r"))
+  edge <- function(run, child, parent) {
+    if (length(child) == 0 || length(parent) == 0) return(numeric())
+    v <- edge_mean[paste(run, child, parent, sep = "\r")]
+    ifelse(is.na(v), 0, unname(v))
+  }
+  by_child <- split(edges, edges$child)
+  rows <- lapply(ids, function(id) {
+    mine <- by_child[[id]]
+    parents <- if (is.null(mine)) character() else unique(mine$parent)
+    parents <- parents[order(parents, method = "radix")]
+    # keys x Runs: observed parents in id order, then the Latent parent.
+    m <- rbind(
+      matrix(vapply(runs, function(r) edge(r, id, parents), numeric(length(parents))), length(parents),
+             length(runs)),
+      unname(latent_means[, sprintf("p_latent_parent[%s]", id)])
+    )
+    keys <- c(parents, latent_key)
+    s <- max(apply(m, 1, function(v) max(v) - min(v)))
+    # Ties (to rounding) go to the first key: the smaller id, observed before the Latent parent.
+    tops <- vapply(seq_along(runs), function(k) keys[[which(m[, k] >= max(m[, k]) - 1e-9)[[1]]]], character(1))
+    list(spread = s, top = stats::setNames(tops, runs),
+         class = if (s > spread) disagreement_class(id, tops, runs, edge, spread) else NA_character_)
+  })
+  owner <- quantity_owner(quantities)
+  worst <- vapply(ids, function(id) {
+    r <- quantities$rhat[owner %in% id & !is.na(quantities$rhat)]
+    if (length(r)) max(r) else NA_real_
+  }, numeric(1))
+  spreads <- vapply(rows, `[[`, numeric(1), "spread")
+  tibble::tibble(
+    infection = ids, spread = spreads, class = vapply(rows, `[[`, character(1), "class"),
+    top_parent = lapply(rows, `[[`, "top"), worst_rhat = unname(worst), flagged = spreads > spread
+  )
+}
+
+# The first rule that matches (classify_stuck.py of the thesis convergence work). `edge(run, child, parent)` is a
+# Run mean; `tops` each Run's top parent, in `runs` order.
+disagreement_class <- function(child, tops, runs, edge, t) {
+  if (length(unique(tops)) == 1) return("same_top")
+  observed <- setdiff(unique(tops), latent_key)
+  if (latent_key %in% tops && length(observed)) {
+    for (k in which(tops == latent_key)) {
+      if (any(edge(runs[[k]], observed, child) > t)) return("root_flip")
+    }
+    return("latent_vs_observed")
+  }
+  for (k in seq_along(runs)) {
+    others <- setdiff(observed, tops[[k]])
+    if (any(edge(runs[[k]], others, child) > t)) return("direction_flip")
+  }
+  pairs <- expand.grid(x = observed, y = observed, stringsAsFactors = FALSE)
+  pairs <- pairs[pairs$x != pairs$y, ]
+  for (run in runs) {
+    if (any(edge(run, pairs$x, pairs$y) > t)) return("linked_parents")
+  }
+  "different_parent"
+}
+
+# The Infection that owns each quantity (NA for none): the id of a per-Infection quantity, the child of an edge.
+quantity_owner <- function(quantities) {
+  name <- quantities$name
+  owner <- rep(NA_character_, length(name))
+  single <- quantities$group %in% c("expected_false_positives", "expected_false_negatives", "infection_duration",
+                                    "p_latent_parent")
+  owner[single] <- sub("^[^[]*\\[(.*)\\]$", "\\1", name[single])
+  edge <- quantities$group == "edge"
+  owner[edge] <- sub("^edge\\[(.*),[^,]*\\]$", "\\1", name[edge])
+  owner
+}
+
+# One row per diagnosed order pair: each Run's P(i before j), its spread, flagged. `means`: Runs x order_pair[i,j].
+tree_pairs <- function(means, spread) {
+  names <- colnames(means)
+  if (is.null(names)) names <- character()
+  ends <- strsplit(sub("^order_pair\\[(.*)\\]$", "\\1", names), ",", fixed = TRUE)
+  spreads <- if (length(names)) apply(means, 2, function(v) max(v) - min(v)) else numeric()
+  tibble::tibble(
+    i = vapply(ends, `[[`, character(1), 1), j = vapply(ends, `[[`, character(1), 2),
+    p_before = lapply(seq_along(names), function(k) stats::setNames(means[, k], rownames(means))),
+    spread = unname(spreads), flagged = unname(spreads) > spread
+  )
 }
 
 # ---- Argument checks ----
