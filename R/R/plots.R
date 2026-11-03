@@ -292,3 +292,79 @@ pt_plot_run_pairs <- function(x, value, by = NULL) {
     ggplot2::facet_wrap(ggplot2::vars(.data$pair)) +
     ggplot2::labs(x = paste(value, "in the first Run"), y = paste(value, "in the second Run"))
 }
+
+#' Plots of a convergence report
+#'
+#' [ggplot2::autoplot()] draws one view of a [pt_convergence()] report; `plot()` draws `"runs"`. Both return the
+#' ggplot object.
+#'
+#' * `"runs"`: each Run's mean log posterior over the Draws used, with a segment up to the best Run's and its gap (in
+#'   log units) as a label. A Run well below the others sits in a worse mode.
+#' * `"rhat"`: the R-hat of every diagnosed quantity, one row per quantity group, with the `rhat` threshold line.
+#'   Constant quantities (R-hat `NA`) are left out; stuck ones (`Inf`) sit at the right edge.
+#' * `"spread"`: a histogram of the Infections' Spread, with the `spread` threshold line.
+#' * `"classes"`: the number of flagged (disputed) Infections in each disagreement class, every class shown.
+#'
+#' @param object,x A `pt_convergence` from [pt_convergence()].
+#' @param type The view, above.
+#' @param ... Unused.
+#' @return A ggplot object.
+#' @seealso [pt_plot_trace()], [pt_plot_rank()] and [pt_plot_run_pairs()] to look at single quantities.
+#' @exportS3Method ggplot2::autoplot
+#' @examplesIf rlang::is_installed("ggplot2")
+#' golden <- system.file("extdata", "golden", package = "plasmotrackr")
+#' input <- system.file("extdata", "example_input.json", package = "plasmotrackr")
+#' a <- pt_read(file.path(golden, c("single-chain", "replica-exchange")), input = input, threads = 1)
+#' conv <- pt_convergence(a)
+#' plot(conv)
+#' ggplot2::autoplot(conv, type = "rhat")
+#' ggplot2::autoplot(conv, type = "spread")
+#' pt_close(a)
+autoplot.pt_convergence <- function(object, type = c("runs", "rhat", "spread", "classes"), ...) {
+  check_ggplot2()
+  type <- rlang::arg_match(type)
+  settings <- attr(object, "settings")
+  switch(type,
+    runs = {
+      runs <- object$runs
+      runs$run <- factor(runs$run, runs$run)
+      runs$best <- max(runs$log_posterior)
+      runs$label <- format(signif(runs$gap, 3))
+      ggplot2::ggplot(runs, ggplot2::aes(.data$run, .data$log_posterior, colour = .data$run)) +
+        ggplot2::geom_segment(ggplot2::aes(xend = .data$run, yend = .data$best)) +
+        ggplot2::geom_point() +
+        ggplot2::geom_text(ggplot2::aes(label = .data$label), hjust = -0.3, show.legend = FALSE) +
+        ggplot2::labs(x = "run", y = "mean log posterior", colour = "run")
+    },
+    rhat = {
+      rows <- object$quantities[!is.na(object$quantities$rhat), c("group", "name", "rhat", "flagged")]
+      rows$group <- factor(rows$group, rev(convergence_groups))
+      ggplot2::ggplot(rows, ggplot2::aes(.data$rhat, .data$group, colour = .data$flagged)) +
+        ggplot2::geom_point(position = ggplot2::position_jitter(width = 0, height = 0.2, seed = 1)) +
+        ggplot2::geom_vline(xintercept = settings$rhat, linetype = "dashed") +
+        ggplot2::labs(x = "R-hat", y = NULL, colour = "flagged")
+    },
+    spread = {
+      ggplot2::ggplot(object$infections, ggplot2::aes(.data$spread)) +
+        ggplot2::geom_histogram(binwidth = 0.05, boundary = 0) +
+        ggplot2::geom_vline(xintercept = settings$spread, linetype = "dashed") +
+        ggplot2::labs(x = "Spread (max minus min Run mean)", y = "Infections")
+    },
+    classes = {
+      flagged <- object$infections$class[object$infections$flagged]
+      counts <- tibble::tibble(
+        class = factor(disagreement_classes, disagreement_classes),
+        infections = as.integer(table(factor(flagged, disagreement_classes)))
+      )
+      ggplot2::ggplot(counts, ggplot2::aes(.data$class, .data$infections)) +
+        ggplot2::geom_col() +
+        ggplot2::labs(x = "disagreement class", y = "disputed Infections")
+    }
+  )
+}
+
+#' @rdname autoplot.pt_convergence
+#' @export
+plot.pt_convergence <- function(x, ...) {
+  autoplot.pt_convergence(x, type = "runs")
+}

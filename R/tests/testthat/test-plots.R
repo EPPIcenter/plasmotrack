@@ -190,3 +190,55 @@ test_that("pt_plot_run_pairs() takes a by_run summary", {
   expect_identical(nrow(p$data), nrow(wide))
   expect_identical(sort(p$data$x), sort(wide$marginal.x))
 })
+
+golden_convergence <- function() {
+  a <- read_golden(c(golden_store("single-chain"), golden_store("replica-exchange")))
+  on.exit(pt_close(a))
+  pt_convergence(a, spread = 0.05)
+}
+
+test_that("autoplot() of a pt_convergence draws each type; plot() draws \"runs\"", {
+  conv <- golden_convergence()
+
+  p <- ggplot2::autoplot(conv)
+  expect_s3_class(p, "ggplot")
+  expect_identical(geoms(p), c("GeomSegment", "GeomPoint", "GeomText"))
+  points <- ggplot2::layer_data(p, 2)
+  expect_identical(points$y, conv$runs$log_posterior)
+  expect_identical(length(unique(points$colour)), 2L)
+  segments <- ggplot2::layer_data(p, 1)
+  expect_identical(segments$yend, rep(max(conv$runs$log_posterior), 2))
+  expect_identical(p$data$gap, conv$runs$gap)
+  expect_identical(plot(conv)$data, p$data)
+
+  p <- ggplot2::autoplot(conv, type = "rhat")
+  expect_identical(geoms(p), c("GeomPoint", "GeomVline"))
+  diagnosed <- conv$quantities[!is.na(conv$quantities$rhat), ]
+  expect_identical(sort(ggplot2::layer_data(p, 1)$x), sort(diagnosed$rhat))
+  expect_identical(ggplot2::layer_data(p, 2)$xintercept, 1.01)
+
+  p <- ggplot2::autoplot(conv, type = "spread")
+  expect_identical(geoms(p), c("GeomBar", "GeomVline"))
+  expect_identical(sum(ggplot2::layer_data(p, 1)$count), 3)
+  expect_identical(ggplot2::layer_data(p, 2)$xintercept, 0.05)
+
+  p <- ggplot2::autoplot(conv, type = "classes")
+  expect_identical(geoms(p), "GeomCol")
+  expect_identical(as.character(p$data$class), c("same_top", "root_flip", "latent_vs_observed", "direction_flip",
+                                                 "linked_parents", "different_parent"))
+  expect_identical(p$data$infections, c(1L, 0L, 0L, 0L, 0L, 0L))
+
+  expect_error(ggplot2::autoplot(conv, type = "trace"), "type")
+})
+
+test_that("every plot without ggplot2 asks to install it", {
+  conv <- golden_convergence()
+  rows <- trace_rows()
+  local_mocked_bindings(plot_package = function() "ggplot2notinstalled")
+  missing <- "rlib_error_package_not_found"
+  expect_error(pt_plot_rank(rows, value = value), class = missing)
+  expect_error(pt_plot_interval(interval_rows()), class = missing)
+  expect_error(pt_plot_run_pairs(rows, value = value), class = missing)
+  expect_error(plot(conv), class = missing)
+  expect_error(ggplot2::autoplot(conv, type = "spread"), class = missing)
+})
