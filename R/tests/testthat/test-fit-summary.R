@@ -65,3 +65,37 @@ test_that("pt_fit_summary() matches the oracle on both golden Stores", {
     expect_oracle_equal(row[names(expected)], expected, character())
   }
 })
+
+test_that("fit_type = \"dcifer\" scores pairwise scores and leaves the functionals NA", {
+  a <- read_golden(golden_fit_paths())
+  on.exit(pt_close(a))
+  truth <- golden_fit_truth()
+  ibd <- data.frame(a = c("1", "2", "3", "1"), b = c("3", "3", "4", "2"), score = c(0.9, 0.4, 1, 0.1))
+  row <- pt_fit_summary(a, truth, fit_type = "dcifer", missingness = "missing_50", scores = ibd)
+  expect_fit_summary_layout(row)
+  expect_identical(row$fit_type, "dcifer")
+  pairs <- pt_score_pairs(ibd, truth, c("1", "2", "3"))
+  for (direction in c("directed", "undirected")) {
+    for (column in setdiff(names(pairs), "direction")) {
+      expect_identical(row[[paste0(direction, "_", column)]], pairs[[column]][pairs$direction == direction])
+    }
+  }
+  # Pairs {1, 3} and {2, 3} are the true ones and score highest: perfect recovery.
+  expect_identical(row$undirected_average_precision, 1)
+  expect_identical(row$n_observed_cases, 3L)
+  expect_equal(row$true_average_outdegree, 2 / 3)
+  na_columns <- names(row)[match("estimated_average_outdegree", names(row)):match("mean_effective_parent_sets_upper",
+                                                                                   names(row))]
+  na_columns <- c(na_columns, names(row)[61:70])
+  expect_true(all(is.na(unlist(row[na_columns]))))
+  expect_false(anyNA(unlist(row[c(15:18, 49:60)])))
+})
+
+test_that("pt_fit_summary() checks fit_type and scores", {
+  a <- read_golden(golden_fit_paths())
+  on.exit(pt_close(a))
+  truth <- golden_fit_truth()
+  expect_error(pt_fit_summary(a, truth, fit_type = "dcfier"), "fit_type")
+  expect_error(pt_fit_summary(a, truth, fit_type = "dcifer"), "scores")
+  expect_error(pt_fit_summary(a, truth, scores = data.frame(a = "1", b = "2", score = 1)), "dcifer")
+})
