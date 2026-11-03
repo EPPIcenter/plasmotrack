@@ -96,3 +96,18 @@ test_that("infections and pairs equal the oracle's (golden Runs)", {
     expect_oracle_equal(conv$pairs, oracle_convergence_pairs(m, t), keys = c("i", "j"))
   }
 })
+
+test_that("print() shows flagged Infections by class, the 10 worst Infections and the order pairs", {
+  ids <- as.character(1:12)
+  # 2-11: 1 infects them with weight 0.1 ... 1 in a, never in b. 12: 2 infects it in a, 3 in b.
+  a <- lapply(stats::setNames(2:11, 2:11), function(i) {
+    p <- (i - 1) / 10
+    if (p == 1) c("1" = 1) else c("1" = p, L = 1 - p)
+  })
+  a[["12"]] <- c("2" = 1)
+  x <- pt_read(local_tree_runs(a = a, b = list("12" = c("3" = 1)), infections = ids))
+  on.exit(pt_close(x))
+  conv <- pt_convergence(x)
+  expect_identical(sum(conv$infections$flagged), 9L)
+  expect_snapshot(print(conv))
+})
