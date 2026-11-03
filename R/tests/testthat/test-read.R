@@ -37,8 +37,27 @@ test_that("pt_runs() counts Draws, Windows and iterations from the closed Window
   expect_equal(runs$windows, 3L)
   expect_equal(runs$thin, 5L)
   expect_equal(runs$burn_in, 20L)
-  expect_named(runs, c("run", "label", "path", "draws", "first_iteration", "last_iteration", "windows", "thin",
-                       "burn_in"))
+  expect_named(runs, c("run", "label", "path", "draws", "first_iteration", "last_iteration", "windows", "status",
+                       "resumes", "started_from", "thin", "burn_in", "sampling_seconds", "iterations_per_second",
+                       "non_finite"))
+})
+
+test_that("pt_runs() reports status, lineage, timing and health from the golden Runs' events", {
+  a <- pt_read(c(one = golden_store("single-chain"), four = golden_store("replica-exchange")))
+  on.exit(pt_close(a))
+  runs <- pt_runs(a)
+  expect_equal(runs$status, c("finished", "finished"))
+  expect_equal(runs$resumes, c(0L, 0L))
+  expect_equal(runs$started_from, c(NA_character_, NA_character_))
+  expect_equal(runs$non_finite, c(0L, 0L))
+  # window_closed seconds of sampling Windows 1 and 2: 0.034737 + 0.024007, and 0.15717 + 0.103418; 25 + 25 iterations.
+  expect_equal(runs$sampling_seconds, c(0.058744, 0.260588), tolerance = 1e-12)
+  expect_equal(runs$iterations_per_second, c(50 / 0.058744, 50 / 0.260588), tolerance = 1e-12)
+})
+
+test_that("pt_read() opens the golden Stores without a warning", {
+  expect_no_warning(a <- pt_read(c(one = golden_store("single-chain"), four = golden_store("replica-exchange"))))
+  pt_close(a)
 })
 
 test_that("pt_infections() and pt_loci() come from structure/", {
@@ -161,4 +180,134 @@ test_that("an Analysis is closed when garbage-collected", {
   rm(a)
   gc()
   expect_false(DBI::dbIsValid(con))
+})
+
+test_that("a Run killed before its last Window is incomplete, and pt_read() warns about it and its Draws", {
+  killed <- drop_windows(local_golden_copy(), 2)
+  expect_warning(
+    expect_warning(a <- pt_read(c(one = golden_store(), killed = killed)), "not finished"),
+    "Draw counts differ"
+  )
+  on.exit(pt_close(a))
+  runs <- pt_runs(a)
+  expect_equal(runs$status, c("finished", "incomplete"))
+  # Window 1 alone: iterations 25-45 thinned by 5, and its window_closed event.
+  expect_equal(runs$draws, c(10L, 5L))
+  expect_equal(runs$sampling_seconds[[2]], 0.034737, tolerance = 1e-12)
+  expect_equal(runs$iterations_per_second[[2]], 25 / 0.034737, tolerance = 1e-12)
+})
+
+test_that("a Run that ended on an interrupt is interrupted, and pt_read() warns", {
+  store <- local_golden_copy()
+  events <- read_events(store)
+  ended <- events$type == "run_ended"
+  events$payload[ended] <- '{"reason":"interrupted","seconds":0.085819}'
+  events <- rbind(events[seq_len(which(ended) - 1), ],
+                  event(2, "interrupted", list(signal = "SIGINT", second = FALSE), iteration = 70),
+                  events[which(ended):nrow(events), ])
+  write_events(store, events)
+  expect_warning(a <- pt_read(store), "not finished")
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$status, "interrupted")
+})
+
+test_that("a Run whose events stop at its start, or end with an unknown reason, is incomplete", {
+  started <- local_golden_copy()
+  write_events(started, event(0, "run_started", list(burn_in = 20, samples = 50), phase = "burn_in"))
+  odd <- local_golden_copy("replica-exchange")
+  events <- read_events(odd)
+  events$payload[events$type == "run_ended"] <- '{"reason":"crashed","seconds":1}'
+  write_events(odd, events)
+  expect_warning(a <- pt_read(c(started = started, odd = odd)), "2 Runs are not finished")
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$status, c("incomplete", "incomplete"))
+  expect_equal(pt_runs(a)$sampling_seconds[[1]], 0)
+  expect_equal(pt_runs(a)$iterations_per_second[[1]], NA_real_)
+})
+
+test_that("non_finite counts non_finite_value events, and pt_read() warns", {
+  store <- local_golden_copy()
+  events <- read_events(store)
+  bad <- function(term) event(1, "non_finite_value", list(temperature_slot = 0, term = term, value = "nan"),
+                              iteration = 30)
+  events <- rbind(events[events$window == 0, ], bad("prior"), bad("likelihood"), events[events$window > 0, ])
+  write_events(store, events)
+  expect_warning(a <- pt_read(c(one = golden_store(), bad = store)), "non-finite")
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$non_finite, c(0L, 2L))
+  expect_equal(pt_runs(a)$status, c("finished", "finished"))
+})
+
+test_that("resumes counts run_resumed events and a resumed Run that completed is finished", {
+  store <- local_golden_copy()
+  events <- read_events(store)
+  # Interrupted in Window 0, resumed; interrupted in Window 1, resumed; completed in Window 2.
+  stop <- function(window, iteration) {
+    rbind(event(window, "run_ended", list(reason = "interrupted", seconds = 1), iteration = iteration),
+          event(window + 1, "run_resumed", list(iteration = iteration, window = window, checkpoint = "c",
+                                                samples = 50), iteration = iteration))
+  }
+  events <- rbind(events[events$window == 0, ], stop(0, 20), events[events$window == 1, ], stop(1, 45),
+                  events[events$window == 2, ])
+  write_events(store, events)
+  expect_no_warning(a <- pt_read(store))
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$resumes, 2L)
+  expect_equal(pt_runs(a)$status, "finished")
+})
+
+test_that("a resumed Run killed after the resume is incomplete", {
+  store <- local_golden_copy()
+  events <- read_events(store)
+  events <- rbind(events[events$window <= 1, ],
+                  event(1, "run_ended", list(reason = "interrupted", seconds = 1), iteration = 45),
+                  event(2, "run_resumed", list(iteration = 45, window = 1, checkpoint = "c", samples = 50),
+                        iteration = 45),
+                  events[events$window == 2 & events$type == "window_closed", ])
+  write_events(store, events)
+  expect_warning(a <- pt_read(store), "not finished")
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$resumes, 1L)
+  expect_equal(pt_runs(a)$status, "incomplete")
+})
+
+test_that("started_from carries the source run_id of a --start-from Run", {
+  store <- local_golden_copy("replica-exchange")
+  edit_manifest(store, started_from = list(run_id = "0123456789abcdef0123456789abcdef", engine_version = "1.0.0",
+                                           temperatures = list(1, 0.8, 0.7, 0.6)))
+  a <- pt_read(c(one = golden_store(), from = store))
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$started_from, c(NA, "0123456789abcdef0123456789abcdef"))
+})
+
+test_that("a Run with 0 sampling Draws stays in the Run table with draws = 0", {
+  burn_in_only <- drop_windows(local_golden_copy(), c(1, 2))
+  expect_warning(expect_warning(a <- pt_read(c(one = golden_store(), early = burn_in_only)), "not finished"),
+                 "Draw counts differ")
+  on.exit(pt_close(a))
+  runs <- pt_runs(a)
+  expect_equal(runs$run, c("one", "early"))
+  expect_equal(runs$draws, c(10L, 0L))
+  expect_equal(runs$windows, c(3L, 1L))
+  expect_equal(runs$first_iteration[[2]], NA_real_)
+  expect_equal(runs$sampling_seconds[[2]], 0)
+  expect_equal(runs$iterations_per_second[[2]], NA_real_)
+})
+
+# runs_with_draws() is internal: the helper pooled summaries and diagnostics call to skip Runs with no Draws.
+test_that("runs_with_draws() skips Runs with 0 sampling Draws, with a message", {
+  burn_in_only <- drop_windows(local_golden_copy(), c(1, 2))
+  suppressWarnings(a <- pt_read(c(one = golden_store(), early = burn_in_only)))
+  on.exit(pt_close(a))
+  expect_message(expect_equal(runs_with_draws(a), "one"), "Skipping Run .*early.* no sampling Draws")
+  expect_no_message(expect_equal(runs_with_draws(a, runs = "one"), "one"))
+  expect_error(suppressMessages(runs_with_draws(a, runs = "early")), "No sampling Draws")
+  expect_error(runs_with_draws(a, runs = "nope"), "Unknown Run")
+})
+
+test_that("print() shows each Run's status", {
+  killed <- drop_windows(local_golden_copy(), 2)
+  a <- suppressWarnings(pt_read(c(one = golden_store(), killed = killed), threads = 1))
+  pt_close(a)
+  expect_snapshot(print(a))
 })

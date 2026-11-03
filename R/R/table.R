@@ -85,3 +85,18 @@ select_runs <- function(a, runs, call = rlang::caller_env()) {
   }
   a$runs$run %in% runs
 }
+
+# The Runs a pooled summary or diagnostic uses: those `runs` names (every Run when NULL) that have sampling Draws.
+# Runs with 0 sampling Draws stay in the Run table but are skipped here, with a message; none left is an error.
+# Returns Run labels in Run-table order.
+runs_with_draws <- function(a, runs = NULL, call = rlang::caller_env()) {
+  selected <- select_runs(a, runs, call = call)
+  empty <- selected & a$runs$draws == 0
+  if (any(empty)) {
+    cli::cli_inform("Skipping Run{?s} {.val {a$runs$run[empty]}}: no sampling Draws.")
+  }
+  if (!any(selected & !empty)) {
+    cli::cli_abort("No sampling Draws in the selected Runs.", call = call)
+  }
+  a$runs$run[selected & !empty]
+}

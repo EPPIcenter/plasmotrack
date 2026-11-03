@@ -57,3 +57,55 @@ add_unclosed_window <- function(path) {
   }
   invisible(path)
 }
+
+# A Store's Run events, every events file in window order, as a tibble with the Store's columns.
+read_events <- function(path) {
+  con <- DBI::dbConnect(duckdb::duckdb(shared_home = FALSE))
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  files <- sort(list.files(file.path(path, "events"), pattern = "^window-\\d+\\.parquet$", full.names = TRUE))
+  tibble::as_tibble(DBI::dbGetQuery(con, sprintf(
+    "SELECT * FROM read_parquet([%s], file_row_number = true) ORDER BY \"window\", file_row_number",
+    paste(DBI::dbQuoteString(con, files), collapse = ", ")
+  ))[c("iteration", "phase", "window", "wall_time", "type", "payload")])
+}
+
+# Replace a Store's Run events with `events` (columns as read_events() returns), one file per window in row order.
+# Windows with no rows in `events` lose their events file.
+write_events <- function(path, events) {
+  con <- DBI::dbConnect(duckdb::duckdb(shared_home = FALSE))
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  unlink(list.files(file.path(path, "events"), full.names = TRUE))
+  events$iteration <- as.numeric(events$iteration)
+  events$window <- as.numeric(events$window)
+  for (w in unique(events$window)) {
+    rows <- as.data.frame(events[events$window == w, ])
+    rows$row <- seq_len(nrow(rows))
+    DBI::dbWriteTable(con, "rows", rows, overwrite = TRUE)
+    DBI::dbExecute(con, sprintf(paste(
+      "COPY (SELECT iteration::BIGINT AS iteration, phase, \"window\"::BIGINT AS \"window\", wall_time, type, payload",
+      "FROM rows ORDER BY row) TO %s (FORMAT parquet)"
+    ), DBI::dbQuoteString(con, file.path(path, "events", sprintf("window-%06d.parquet", as.integer(w))))))
+  }
+  invisible(path)
+}
+
+
+# One Run event row for write_events(): `payload` is a list written as a JSON object.
+event <- function(window, type, payload = list(), iteration = 0, phase = "sampling",
+                  wall_time = "2026-10-13T14:44:14.000Z") {
+  tibble::tibble(
+    iteration = iteration, phase = phase, window = window, wall_time = wall_time, type = type,
+    payload = as.character(jsonlite::toJSON(payload, auto_unbox = TRUE, digits = NA))
+  )
+}
+
+# Make a Store look like a Run hard-killed before `windows` committed: their markers and every table file of theirs
+# are removed.
+drop_windows <- function(path, windows) {
+  names <- sprintf("window-%06d", as.integer(windows))
+  unlink(file.path(path, "_closed", names))
+  for (table in setdiff(list.dirs(path, full.names = FALSE, recursive = FALSE), c("_closed", "structure"))) {
+    unlink(file.path(path, table, paste0(names, ".parquet")))
+  }
+  invisible(path)
+}
