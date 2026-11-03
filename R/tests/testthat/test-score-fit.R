@@ -111,3 +111,68 @@ test_that("pt_score_coi() compares the posterior COI median with the identifiabl
     error = c(0, -0.5, 1)
   ))
 })
+
+# --- Parent sets and the MAP graph ---------------------------------------------------------------------------------
+#
+# Truth: 1 -> 2, 1 -> 3, 2 -> 3, 9 -> 4, 2 -> 5, 9 -> 5; case 9 is not in the Analysis. True Parent sets: 1 {Latent}
+# (root), 2 {1}, 3 {1, 2}, 4 {Latent}, 5 {2, Latent}.
+score_set_truth <- function(.local_envir = parent.frame()) {
+  path <- write_truth(edges = list(c(1, 2), c(1, 3), c(2, 3), c(9, 4), c(2, 5), c(9, 5)),
+                      nodes = lapply(c(1:5, 9), truth_node), .local_envir = .local_envir)
+  pt_read_truth(path)
+}
+
+# Two Runs of 2 Draws, every Draw with the same weights, so pooled weights equal them.
+local_score_set_runs <- function(.local_envir = parent.frame()) {
+  parent <- withr::local_tempdir(.local_envir = .local_envir)
+  sets <- function(iterations) do.call(rbind, lapply(iterations, draw_sets))
+  draw_sets <- function(iteration) {
+    data.frame(
+      iteration = iteration,
+      infection = c("1", "2", "2", "2", "3", "3", "4", "4", "4", "5", "5"),
+      parents = c("", "3", "1", "", "1", "1,2", "2", "3", "", "2", "2"),
+      latent = c(TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE),
+      prob = c(1, 0.5, 0.3, 0.2, 0.7, 0.3, 0.6, 0.2, 0.2, 0.9, 0.1)
+    )
+  }
+  ids <- as.character(1:5)
+  fake_store(file.path(parent, "a"), infections = ids, parent_sets = sets(1:2))
+  fake_store(file.path(parent, "b"), infections = ids, parent_sets = sets(1:2))
+  a <- pt_read(parent)
+  withr::defer(pt_close(a), envir = .local_envir)
+  a
+}
+
+test_that("pt_score_parent_sets() gives credible size, coverage and top probability per Infection", {
+  a <- local_score_set_runs()
+  truth <- score_set_truth()
+  scores <- pt_score_parent_sets(a, truth)
+  expect_s3_class(scores, "tbl_df")
+  # 4's Credible collection at 0.8 reaches the level at {3} (0.6 + 0.2); {Latent}, tied with it at 0.2, is admitted,
+  # and is the true set. 5's {2} is not its true {2, Latent}.
+  expect_equal(as.data.frame(scores), data.frame(
+    infection = as.character(1:5),
+    credible_size = c(1L, 2L, 2L, 3L, 1L),
+    covered = c(TRUE, TRUE, TRUE, TRUE, TRUE),
+    top_probability = c(1, 0.5, 0.7, 0.6, 0.9)
+  ), tolerance = 1e-12)
+  half <- pt_score_parent_sets(a, truth, level = 0.5)
+  expect_equal(half$credible_size, c(1L, 1L, 1L, 1L, 1L))
+  expect_equal(half$covered, c(TRUE, FALSE, FALSE, FALSE, TRUE))
+  expect_error(pt_score_parent_sets(a, truth, level = 0), "level")
+})
+
+test_that("pt_score_map() says whether each MAP Parent set is the true one", {
+  a <- local_score_set_runs()
+  scores <- pt_score_map(a, score_set_truth())
+  expect_s3_class(scores, "tbl_df")
+  expect_equal(colnames(scores), c("infection", "members", "has_latent_parent", "weight", "true_members",
+                                   "true_has_latent_parent", "correct"))
+  expect_equal(scores$infection, as.character(1:5))
+  expect_equal(scores$members, list(character(), "3", "1", "2", "2"))
+  expect_equal(scores$has_latent_parent, c(TRUE, FALSE, FALSE, FALSE, TRUE))
+  expect_equal(scores$weight, c(1, 0.5, 0.7, 0.6, 0.9), tolerance = 1e-12)
+  expect_equal(scores$true_members, list(character(), "1", c("1", "2"), character(), "2"))
+  expect_equal(scores$true_has_latent_parent, c(TRUE, FALSE, FALSE, TRUE, TRUE))
+  expect_equal(scores$correct, c(TRUE, FALSE, FALSE, FALSE, TRUE))
+})
