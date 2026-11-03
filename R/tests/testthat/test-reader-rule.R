@@ -9,9 +9,9 @@ test_that("an unmarked Window and .in-flight.parquet files are never read", {
   expect_true(file.exists(file.path(killed, "parent_sets", "window-000003.parquet")))
   expect_true(file.exists(file.path(killed, "parent_set_members", ".in-flight.parquet")))
 
-  a <- pt_read(c(r = killed))
+  a <- read_golden(c(r = killed))
   on.exit(pt_close(a), add = TRUE)
-  golden <- pt_read(c(r = golden_store("replica-exchange")))
+  golden <- read_golden(c(r = golden_store("replica-exchange")))
   on.exit(pt_close(golden), add = TRUE)
 
   for (table in c("run_scalars", "infections", "ordering", "allele_frequencies", "latent_genotypes", "parent_sets",

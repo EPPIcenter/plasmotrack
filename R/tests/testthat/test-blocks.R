@@ -1,5 +1,5 @@
 test_that("pt_acceptance() sums each sampler type's sampling counts over Windows", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   acc <- pt_acceptance(a)
   expect_s3_class(acc, "tbl_df")
@@ -17,7 +17,7 @@ test_that("pt_acceptance() sums each sampler type's sampling counts over Windows
 })
 
 test_that("rate is NA when nothing was proposed", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   acc <- pt_acceptance(a, level = "sampler")
   # The golden Run's CloneOrderSwapSampler never proposes: one Infection order, no clone pairs.
@@ -29,7 +29,7 @@ test_that("rate is NA when nothing was proposed", {
 })
 
 test_that("level = \"sampler\" gives one row per sampler id, after its type", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   acc <- pt_acceptance(a, level = "sampler")
   expect_equal(names(acc), c("type", "sampler", "accepted", "proposed", "rate"))
@@ -43,7 +43,7 @@ test_that("level = \"sampler\" gives one row per sampler id, after its type", {
 })
 
 test_that("counts are summed over Runs, or kept per Run with by_run, Runs in Analysis order", {
-  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")))
+  a <- read_golden(c(one = golden_store(), four = golden_store("replica-exchange")))
   on.exit(pt_close(a))
   # Hand sums of SALTSampler sampling rows: one 242 / 340, four 52 + 43 + 81 + 68 = 244 / 340.
   pooled <- pt_acceptance(a)
@@ -61,7 +61,7 @@ test_that("counts are summed over Runs, or kept per Run with by_run, Runs in Ana
 })
 
 test_that("phase picks the Windows summed, and per_window keeps one row per Window", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   # Burn-in Window 0 of the golden Store: SALTSampler AS1 36 / 48, AS11 50 / 72.
   burn_in <- pt_acceptance(a, phase = "burn_in")
@@ -79,7 +79,7 @@ test_that("phase picks the Windows summed, and per_window keeps one row per Wind
 })
 
 test_that("per_window with by_run keeps run first, then the Window", {
-  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")))
+  a <- read_golden(c(one = golden_store(), four = golden_store("replica-exchange")))
   on.exit(pt_close(a))
   windows <- pt_acceptance(a, level = "sampler", by_run = TRUE, per_window = TRUE)
   expect_equal(names(windows), c("run", "window", "phase", "type", "sampler", "accepted", "proposed", "rate"))
@@ -95,7 +95,7 @@ test_that("per_window with by_run keeps run first, then the Window", {
 })
 
 test_that("pt_swaps() sums each temperature pair's sampling swaps per Run", {
-  a <- pt_read(c(four = golden_store("replica-exchange")))
+  a <- read_golden(c(four = golden_store("replica-exchange")))
   on.exit(pt_close(a))
   swaps <- pt_swaps(a)
   expect_s3_class(swaps, "tbl_df")
@@ -109,7 +109,7 @@ test_that("pt_swaps() sums each temperature pair's sampling swaps per Run", {
 })
 
 test_that("pt_swaps() is empty for one-chain Runs", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   swaps <- pt_swaps(a)
   expect_equal(nrow(swaps), 0)
@@ -119,7 +119,7 @@ test_that("pt_swaps() is empty for one-chain Runs", {
 })
 
 test_that("pt_swaps() pools over Runs, skipping one-chain Runs, and keeps Windows with per_window", {
-  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")))
+  a <- read_golden(c(one = golden_store(), four = golden_store("replica-exchange")))
   on.exit(pt_close(a))
   expect_equal(unique(pt_swaps(a)$run), "four")
   pooled <- pt_swaps(a, by_run = FALSE)
@@ -136,7 +136,7 @@ test_that("pt_swaps() pools over Runs, skipping one-chain Runs, and keeps Window
 })
 
 test_that("by_run, per_window and level are checked", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   expect_error(pt_acceptance(a, by_run = NA), "by_run")
   expect_error(pt_swaps(a, per_window = "yes"), "per_window")

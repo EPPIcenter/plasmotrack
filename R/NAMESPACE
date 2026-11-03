@@ -2,6 +2,7 @@
 
 S3method(print,pt_analysis)
 export(pt_acceptance)
+export(pt_candidates)
 export(pt_close)
 export(pt_infections)
 export(pt_loci)

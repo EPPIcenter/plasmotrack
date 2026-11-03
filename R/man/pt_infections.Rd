@@ -22,5 +22,6 @@ The input's Infections and Loci, from the Store's \verb{structure/} tables. They
 Analysis.
 }
 \details{
-The Store does not record observation times, so \code{observation_time} is \code{NA} for now.
+Observation times come from the input JSON (see \code{input} in \code{\link[=pt_read]{pt_read()}}); they are \code{NA} when \code{\link[=pt_read]{pt_read()}} did not
+find the input.
 }

@@ -7,6 +7,7 @@
 pt_read(
   paths,
   epi = NULL,
+  input = NULL,
   memory_limit = NULL,
   temp_directory = NULL,
   threads = NULL
@@ -20,12 +21,15 @@ directory name.}
 \item{epi}{Optional data frame of epidemiological data with an \code{infection} column of Infection ids, one row per
 Infection.}
 
+\item{input}{Optional path of the input JSON the Runs were given, gzipped or not. \code{NULL} looks for the Store's
+copy, then the path in the first Run's manifest.}
+
 \item{memory_limit, temp_directory, threads}{DuckDB settings for this Analysis. \code{NULL} uses the R option, then the
 default.}
 }
 \value{
-A \code{pt_analysis}: an S3 list holding the DuckDB connection, the Run table, the Infections, the Loci and
-\code{epi}.
+A \code{pt_analysis}: an S3 list holding the DuckDB connection, the Run table, the Infections, the Loci,
+\code{epi}, and the input's path and candidate pairs (\code{NULL} without the input).
 }
 \description{
 An Analysis is the Runs of one input. \code{pt_read()} opens their Stores, checks that they can be pooled, and returns
@@ -35,6 +39,18 @@ a \code{pt_analysis} that every other \code{pt_} function takes.
 \code{pt_read()} reads only the Window markers, the manifests, \verb{structure/} and the Draw count of each Run; it reads no
 Traces. Tables are read later, lazily, from the Windows that are closed, so a Run that is still running, or was
 killed, reads up to its last closed Window.
+
+The Store does not hold the Infections' observation times or their candidate parents; only the input JSON does.
+\code{pt_read()} looks for it in this order:
+\enumerate{
+\item \code{input}. Its SHA-256 must be the \code{input_sha256} of every Run's manifest; a different file errors.
+\item The first Run's own copy, \code{input.json} or \code{input.json.gz} in the Store root (Stores written by newer engines).
+\item The input path in the first Run's \code{cli_arguments}. A relative path is taken from the directory the engine was
+started in, when the Run directory shows it, then from R's working directory.
+}
+
+Steps 2 and 3 use a file only if its hash matches every Run's. When neither does, observation times are \code{NA},
+\code{\link[=pt_candidates]{pt_candidates()}} errors, and \code{pt_read()} says what it tried in one message.
 
 \code{pt_read()} warns when a Run is not finished (see \code{status} in \code{\link[=pt_runs]{pt_runs()}}), when Runs have different numbers of
 sampling Draws, and when a Run recorded non-finite values. A Run with no sampling Draws yet stays in the Analysis;
@@ -51,7 +67,8 @@ with R options, and override them for one Analysis with the arguments:
 }
 \examples{
 golden <- system.file("extdata", "golden", package = "plasmotrackr")
-a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange")), threads = 1)
+input <- system.file("extdata", "example_input.json", package = "plasmotrackr")
+a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange")), input = input, threads = 1)
 a
 pt_runs(a)
 pt_close(a)
