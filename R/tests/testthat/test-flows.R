@@ -76,3 +76,15 @@ test_that("pt_enrichment divides each cell's edge share by its candidate share, 
                tolerance = 1e-12)
   expect_error(pt_enrichment(a, by = "district", candidates = data.frame(from = "1")), "parent")
 })
+
+test_that("pt_net_flow counts expected out-edges minus in-edges between different strata", {
+  a <- read_flow_store()
+  on.exit(pt_close(a))
+  x <- pt_net_flow(a, by = "district")
+  expect_s3_class(x, "tbl_lazy")
+  x <- sorted(x, c("run", "iteration", "stratum"))
+  expect_equal(names(x), c("run", "iteration", "stratum", "net_flow"))
+  # Draw 1: x -> y 0.7 + 0.3, y -> NA 1 (2<-1 stays within x). Draw 2: x -> y 1.
+  expect_equal(x$stratum, rep(c("x", "y", NA), 2))
+  expect_equal(x$net_flow, c(1, 0, -1, 1, -1, 0), tolerance = 1e-12)
+})

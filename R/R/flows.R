@@ -2,17 +2,17 @@
 # stratum_levels() order, the NA stratum included), so the NA stratum joins and compares like any other; the values
 # are joined back at the end.
 #
-#   flow_strata(a, by)            list(map = lazy infection, sid; levels = eager sid, stratum; k).
-#   flow_edges(a, by, runs, phase)  lazy: pt_edge_draws() rows with the parent's (`psid`) and child's (`csid`) sid.
+#   flow_strata(a, by)            list(map = infection, sid; levels = sid, stratum; k), eager.
+#   flow_map(a, strata, id, sid)  lazy inline map with columns named `id`, `sid`.
+#   flow_edges(a, strata, runs, phase)  lazy: pt_edge_draws() rows with the parent's (`psid`) and child's (`csid`) sid.
 #   flow_grid(a, runs, phase, ...)  lazy: every Draw crossed with inline tables of keys.
-#   flow_values(x, levels, column, sid)  lazy: `x` with the stratum of `sid` added as `column` (NA where no match).
+#   flow_values(x, a, strata, column, sid)  lazy: `x` with the stratum of `sid` added as `column` (NA where no match).
 
 flow_strata <- function(a, by) {
   strata <- infection_strata(a, by)
   levels <- stratum_levels(strata$stratum)
-  map <- tibble::tibble(infection = strata$infection, sid = match(strata$stratum, levels))
   list(
-    map = dbplyr::copy_inline(analysis_con(a), map),
+    map = tibble::tibble(infection = strata$infection, sid = match(strata$stratum, levels)),
     levels = tibble::tibble(sid = seq_along(levels), stratum = levels),
     k = length(levels)
   )
@@ -20,8 +20,14 @@ flow_strata <- function(a, by) {
 
 flow_edges <- function(a, strata, runs, phase) {
   observed_edges(a, runs, phase) |>
-    dplyr::inner_join(dplyr::rename(strata$map, child = "infection", csid = "sid"), by = "child") |>
-    dplyr::inner_join(dplyr::rename(strata$map, parent = "infection", psid = "sid"), by = "parent")
+    dplyr::inner_join(flow_map(a, strata, "child", "csid"), by = "child") |>
+    dplyr::inner_join(flow_map(a, strata, "parent", "psid"), by = "parent")
+}
+
+# The inline table of Infection -> stratum id, its columns named `id` and `sid`. Inline tables are built with their
+# final names: dbplyr flattens a rename of one into later joins and can then resolve the wrong `sid`.
+flow_map <- function(a, strata, id = "infection", sid = "sid") {
+  dbplyr::copy_inline(analysis_con(a), stats::setNames(strata$map, c(id, sid)))
 }
 
 flow_grid <- function(a, runs, phase, ...) {
@@ -31,8 +37,8 @@ flow_grid <- function(a, runs, phase, ...) {
 }
 
 flow_values <- function(x, a, strata, column, sid) {
-  levels <- dbplyr::copy_inline(analysis_con(a), strata$levels)
-  dplyr::left_join(x, dplyr::rename(levels, !!sid := "sid", !!column := "stratum"), by = sid)
+  levels <- dbplyr::copy_inline(analysis_con(a), stats::setNames(strata$levels, c(sid, column)))
+  dplyr::left_join(x, levels, by = sid)
 }
 
 #' Flows between strata
@@ -85,7 +91,7 @@ pt_attribution <- function(a, by, runs = NULL, phase = "sampling") {
     dplyr::summarise(mass = sum(.data$prob, na.rm = TRUE), .groups = "drop")
   # The Latent parent is source id 0.
   latent <- pt_infection_draws(a, runs, phase) |>
-    dplyr::inner_join(strata$map, by = "infection") |>
+    dplyr::inner_join(flow_map(a, strata), by = "infection") |>
     dplyr::group_by(.data$run, .data$iteration, rsid = .data$sid) |>
     dplyr::summarise(mass = sum(.data$p_latent_parent, na.rm = TRUE), .groups = "drop") |>
     dplyr::mutate(ssid = 0L)
@@ -124,6 +130,28 @@ pt_enrichment <- function(a, by, candidates = pt_candidates(a), runs = NULL, pha
     flow_values(a, strata, "source", "ssid") |>
     flow_values(a, strata, "recipient", "rsid") |>
     dplyr::select("run", "iteration", "source", "recipient", "enrichment")
+}
+
+#' @rdname pt_attribution
+#' @export
+pt_net_flow <- function(a, by, runs = NULL, phase = "sampling") {
+  phase <- check_phase(phase)
+  select_runs(a, runs)
+  check_flow_by(a, by)
+  strata <- flow_strata(a, by)
+  between <- dplyr::filter(flow_edges(a, strata, runs, phase), .data$psid != .data$csid)
+  out <- between |>
+    dplyr::group_by(.data$run, .data$iteration, .data$psid) |>
+    dplyr::summarise(out_edges = sum(.data$prob, na.rm = TRUE), .groups = "drop")
+  into <- between |>
+    dplyr::group_by(.data$run, .data$iteration, .data$csid) |>
+    dplyr::summarise(in_edges = sum(.data$prob, na.rm = TRUE), .groups = "drop")
+  flow_grid(a, runs, phase, tibble::tibble(sid = seq_len(strata$k))) |>
+    dplyr::left_join(out, by = c("run", "iteration", sid = "psid")) |>
+    dplyr::left_join(into, by = c("run", "iteration", sid = "csid")) |>
+    dplyr::mutate(net_flow = dplyr::coalesce(.data$out_edges, 0) - dplyr::coalesce(.data$in_edges, 0)) |>
+    flow_values(a, strata, "stratum", "sid") |>
+    dplyr::select("run", "iteration", "stratum", "net_flow")
 }
 
 # Every (source, recipient) cell of stratum ids with its share of the candidate pairs (0 without any).
