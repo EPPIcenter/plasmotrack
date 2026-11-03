@@ -1,0 +1,277 @@
+---
+title: "Check convergence across Runs"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4.5)
+has_caret <- requireNamespace("caret", quietly = TRUE)
+```
+
+A posterior summary means something only when the Runs behind it sample the same distribution. plasmotrack starts
+each Run from its own state, so several Runs of one input show whether the sampler forgot where it started. This
+article shows you how to compare Runs with `pt_convergence()`, find the Infections that the Runs disagree on, and
+decide what to do about them.
+
+The article uses the example simulation from `pt_example()`, which downloads about 20 MB the first time you call it
+and reuses the cached copy afterwards. The example holds four Runs of the full model on one simulated outbreak of 200
+Infections.
+
+## Before you begin
+
+Load plasmotrackr, dplyr, and ggplot2, then download the example:
+
+```{r setup, message = FALSE}
+library(plasmotrackr)
+library(dplyr)
+library(ggplot2)
+
+ex <- pt_example()
+```
+
+Open the four full-model Runs as one Analysis. The example ships the input JSON next to the Runs, so pass it as
+`input`:
+
+```{r read}
+a <- pt_read(ex$full, epi = ex$epi, input = ex$input)
+a
+```
+
+## Inspect the Runs
+
+Start with the Run table. Every Run should be `finished`, have the same number of Draws, and record no non-finite
+values:
+
+```{r runs}
+pt_runs(a) |>
+  select(run, status, draws, thin, burn_in, sampling_seconds, non_finite)
+```
+
+`pt_read()` warns when Runs differ in their Draw counts, are unfinished, or recorded non-finite values. A Run with no
+sampling Draws stays in the table, and pooled summaries skip it with a message.
+
+### Read Run events
+
+The `events` table records what happened during each Run: its start, every Window commit, the end of burn-in, and
+any interrupt. Its `payload` column holds a JSON object as a string. Parse it with jsonlite to read the sampling
+speed of each Window:
+
+```{r events}
+pt_table(a, "events") |>
+  filter(type == "window_closed") |>
+  select(run, window, phase, payload) |>
+  collect() |>
+  mutate(iterations_per_second = vapply(payload, function(p) {
+    speed <- jsonlite::fromJSON(p)$iterations_per_second
+    if (is.null(speed)) NA_real_ else speed
+  }, numeric(1))) |>
+  group_by(run, phase) |>
+  summarise(median_iterations_per_second = median(iterations_per_second, na.rm = TRUE), .groups = "drop")
+```
+
+For every event type and its payload fields, see
+[the Store layout](https://github.com/EPPIcenter/plasmotrack/blob/master/doc/store-layout.md).
+
+### Check sampler acceptance
+
+`pt_acceptance()` sums the accepted and proposed moves of each sampler over every Window. A sampler type with a very
+low acceptance rate barely moves the part of the state that it updates. List the types below 5%:
+
+```{r acceptance}
+pt_acceptance(a) |>
+  filter(rate < 0.05) |>
+  arrange(rate)
+```
+
+Set `level = "sampler"` for one row per sampler, and `by_run = TRUE` to compare Runs. For Runs that use replica
+exchange, `pt_swaps()` gives the swap rate between each pair of neighbouring temperatures; for the single-chain Runs
+of this example it is empty.
+
+## Compare the Runs
+
+`pt_convergence()` computes R-hat and the effective sample size (ESS) of every quantity, and the Spread of the Runs'
+Edge marginals. Printing the result gives an overview:
+
+```{r convergence}
+conv <- pt_convergence(a)
+conv
+```
+
+Every diagnostic uses the same Draws: each Run's first *n* sampling Draws, where *n* is the shortest Run's count.
+To diagnose only part of the Runs, such as the second half, pass `iterations = c(first, last)`.
+
+The result is a list of tibbles:
+
+- `runs`: the Draws used and each Run's mean log posterior, with its gap to the best Run.
+- `quantities`: one row per quantity, with its status, R-hat, ESS, and whether it is flagged.
+- `infections`: one row per Infection, with its Spread, top parent in each Run, worst R-hat, and disagreement class.
+- `pairs`: one row per pair of Infections joined by an edge, with the probability that each Run orders them one way.
+
+### Compare the log posterior
+
+The log posterior of the Runs is the first thing to compare. A Run whose mean log posterior is far below the best
+Run's is stuck in a region of lower probability:
+
+```{r runs-gap}
+conv$runs
+plot(conv)
+```
+
+Plot the trace of the log posterior, burn-in included, to see whether each Run levels off. Burn-in is shaded:
+
+```{r trace-log-posterior}
+pt_table(a, "run_scalars", phase = c("burn_in", "sampling")) |>
+  mutate(log_posterior = prior + likelihood) |>
+  pt_plot_trace(value = log_posterior)
+```
+
+### Find the flagged quantities
+
+The quantities fall into groups: the log posterior, global parameters, per-Infection error rates and durations,
+Allele frequencies, Edges, order pairs, Latent parent probabilities, and the Functionals. Count the flagged
+quantities in each group:
+
+```{r flagged-groups}
+conv$quantities |>
+  group_by(group) |>
+  summarise(quantities = n(), flagged = sum(flagged))
+```
+
+A quantity is flagged when its R-hat is above 1.01, its bulk ESS is below 100 per Run, or its status is `stuck`:
+constant within each Run but different between Runs. `ess_tail` is `NA` for most 0/1 quantities, because their tail
+quantiles are the smallest or largest value. The R-hat distribution of each group:
+
+```{r rhat-plot}
+autoplot(conv, type = "rhat")
+```
+
+The Functionals summarise the whole network. A rank histogram shows whether each Run's Draws spread evenly over the
+pooled ranks; a Run whose ranks pile up at one end samples different values from the others:
+
+```{r rank-functional}
+pt_plot_rank(pt_mean_out_degree(a), value = mean_out_degree)
+```
+
+`pt_plot_trace()` takes the same per-Draw tables:
+
+```{r trace-functional}
+pt_plot_trace(pt_mean_p_latent_parent(a), value = mean_p_latent_parent)
+```
+
+### Optional: compute R*
+
+R* trains a classifier to tell the Runs apart from their Draws. `pt_as_draws()` builds a `posterior` draws array of
+any quantity groups, which `posterior::rstar()` takes as it is. R* needs the caret package:
+
+```{r rstar, eval = has_caret}
+d <- pt_as_draws(a, groups = c("log_posterior", "functional"))
+posterior::rstar(d)
+```
+
+A value near 1 means the classifier cannot tell the Runs apart.
+
+## Find the Disputed Infections
+
+R-hat looks at one quantity at a time. A transmission tree can disagree between Runs in a structured way: one Run
+gives an Infection one parent, another Run gives it a different one. The Spread of an Infection is the largest
+difference between Runs in any of its Edge marginals, its Latent parent probability included. An Infection with a
+Spread above 0.2 is a Disputed Infection:
+
+```{r spread-plot}
+autoplot(conv, type = "spread")
+```
+
+List the Disputed Infections, worst first:
+
+```{r disputed}
+disputed <- conv$infections |>
+  filter(flagged) |>
+  arrange(desc(spread))
+disputed |>
+  select(infection, spread, class, worst_rhat)
+```
+
+Each Disputed Infection gets a disagreement class, which says how the Runs differ:
+
+- `same_top`: every Run picks the same top parent, but with different weight.
+- `root_flip`: one Run explains the Infection by its Latent parent and makes it the parent of another Run's top
+  parent.
+- `latent_vs_observed`: one Run picks the Latent parent and another an observed parent.
+- `direction_flip`: the Runs disagree on the direction of an edge.
+- `linked_parents`: the Runs pick different parents that are themselves linked.
+- `different_parent`: any other disagreement.
+
+```{r classes}
+autoplot(conv, type = "classes")
+```
+
+### Inspect one Disputed Infection
+
+The `top_parent` column holds each Run's top parent, with `"latent"` for the Latent parent:
+
+```{r top-parent, eval = nrow(disputed) > 0}
+worst <- disputed$infection[1]
+disputed$top_parent[[1]]
+```
+
+Compare the Runs' Edge marginals into that Infection:
+
+```{r worst-edges, eval = nrow(disputed) > 0}
+pt_edge_marginals(a, by_run = TRUE) |>
+  filter(child == worst, marginal > 0.01) |>
+  arrange(parent, run)
+```
+
+The Edge-marginal plot compares every edge of each pair of Runs. Points off the y = x line are edges the two Runs
+disagree on:
+
+```{r run-pairs}
+pt_edge_marginals(a, by_run = TRUE) |>
+  pt_plot_run_pairs(value = marginal)
+```
+
+### Join the diagnostics to the Infection summary
+
+`pt_infection_summary()` holds no diagnostics. To read them next to the pooled summary, join `conv$infections` on
+`infection`:
+
+```{r join-summary}
+pt_infection_summary(a) |>
+  left_join(select(conv$infections, infection, spread, worst_rhat, flagged), by = "infection") |>
+  select(infection, top_parent, top_parent_marginal, p_latent_parent, spread, worst_rhat, flagged) |>
+  arrange(desc(spread))
+```
+
+### Check the order pairs
+
+Each Run also samples the order in which Infections were acquired. `conv$pairs` gives, for each pair joined by an
+edge, the probability in each Run that `i` was acquired before `j`. A flagged pair is ordered differently by
+different Runs:
+
+```{r pairs}
+conv$pairs |>
+  filter(flagged) |>
+  arrange(desc(spread))
+```
+
+## Decide what to do when Runs disagree
+
+The diagnostics point to one of the following cases, each with its own remedy:
+
+- **The log posterior differs between Runs.** A Run with a clearly lower mean log posterior is stuck in a worse
+  region. Pooling it adds Draws from the wrong region. Run the sampler longer, or start more Runs, and compare again.
+- **The log posterior agrees, but some Infections are disputed.** The Runs found regions of similar probability that
+  differ in those Infections' parents. The pooled posterior over the Runs spreads its weight across the alternatives,
+  but the weights are unreliable. Report the Disputed Infections and their class with any result that depends on
+  them.
+- **Only global quantities or Functionals are flagged.** Check their traces. A slow trend means the Runs need more
+  iterations; a jump between levels in one Run means that Run is switching between regions.
+- **Every Run agrees.** Pool the Runs. Pooled summaries such as `pt_edge_marginals()` and `pt_interval()` use every
+  Draw of every Run.
+
+To run a Run longer, resume it: the sampler continues from the Run's last checkpoint and appends to its Store, and
+plasmotrackr reads it as one Run with continuous Draws. The example Runs were written without checkpoints, so they
+cannot be resumed.
+
+```{r close}
+pt_close(a)
+```

@@ -1,0 +1,219 @@
+---
+title: "Strata and flows"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4.5)
+```
+
+Epidemiological data, such as where an Infection was found or whether the person travelled, splits the Infections
+into strata. This article shows you how to summarise the posterior by stratum, how transmission flows between
+strata, and how to read the time and spatial scale of transmission from the Edge marginals.
+
+The article uses the example simulation from `pt_example()`. Its epi table is synthetic: the `district` and `travel`
+values are random draws, independent of the simulated outbreak. The code works the same on real data, but the
+example shows no real pattern.
+
+## Before you begin
+
+Load the packages and download the example:
+
+```{r setup, message = FALSE}
+library(plasmotrackr)
+library(dplyr)
+library(ggplot2)
+
+ex <- pt_example()
+```
+
+The epi table has one row per Infection, keyed by the `infection` column as a string:
+
+```{r epi}
+ex$epi
+count(ex$epi, district, travel)
+```
+
+Pass the epi table to `pt_read()` as `epi`:
+
+```{r read}
+a <- pt_read(ex$full, epi = ex$epi, input = ex$input)
+```
+
+## Summarise by stratum
+
+The `by` argument takes the name of one epi column and adds a `stratum` column to the result. Functionals take it,
+so `pt_interval()` gives one interval per stratum:
+
+```{r out-degree-by-district}
+pt_mean_out_degree(a, by = "district") |>
+  pt_interval(by = stratum)
+```
+
+The mean out-degree of a stratum counts its Infections as sources: how many observed Infections each of them
+infected. Recipient-side Functionals, such as the Latent parent probability, count the stratum's Infections as
+recipients:
+
+```{r latent-by-travel}
+pt_mean_p_latent_parent(a, by = "travel") |>
+  pt_interval(by = stratum)
+```
+
+The Composition classes take a stratum too:
+
+```{r composition-by-travel}
+pt_composition(a, by = "travel") |>
+  pt_interval(by = c(stratum, class)) |>
+  pt_plot_interval()
+```
+
+The following functions also take `by`:
+
+- `pt_multi_source()` and `pt_entropy()`, which are Functionals.
+- `pt_map_out_degree()` and `pt_out_degree_range()`, which summarise the MAP Parent sets and the Credible
+  collections.
+- `pt_realized_out_degree()`, whose interval includes the uncertainty within each Draw.
+
+```{r realized-out-degree}
+pt_realized_out_degree(a, by = "district")
+```
+
+### Combine two columns
+
+To stratify by two columns at once, add a combined column to the epi table and read the Runs with it:
+
+```{r cross-strata}
+epi <- ex$epi |>
+  mutate(district_travel = paste(district, if_else(travel, "travelled", "stayed")))
+a2 <- pt_read(ex$full, epi = epi, input = ex$input)
+pt_mean_out_degree(a2, by = "district_travel") |>
+  pt_interval(by = stratum)
+pt_close(a2)
+```
+
+### Infections without a value
+
+An Infection with an `NA` value, or with no row in the epi table, belongs to the `NA` stratum. Every output keeps
+that stratum, so the per-stratum values, weighted by the number of Infections in each stratum, average back to the
+overall value.
+
+## Measure flows between strata
+
+The flow functions describe transmission between strata. Each returns a lazy table with one row per Draw per cell,
+which `pt_interval()` summarises.
+
+### Attribute infections to source strata
+
+`pt_attribution()` splits each recipient stratum's parents by source stratum. At each Draw, the parent weight of a
+recipient stratum, its expected observed parents plus its Latent parent probability, is normalised to sum to 1. The
+Latent parent's share has `latent = TRUE` and no source stratum:
+
+```{r attribution}
+attribution <- pt_attribution(a, by = "district") |>
+  pt_interval(by = c(recipient, source, latent), value = share)
+attribution
+```
+
+Plot the shares as a matrix of source and recipient strata:
+
+```{r attribution-plot}
+attribution |>
+  mutate(source = if_else(latent, "Latent parent", source)) |>
+  ggplot(aes(source, recipient, fill = estimate)) +
+  geom_tile() +
+  geom_text(aes(label = round(estimate, 2))) +
+  labs(x = "Source stratum", y = "Recipient stratum", fill = "Share")
+```
+
+### Compare edges with candidate pairs
+
+Districts differ in size, so a large district is the source of many edges by chance. `pt_enrichment()` divides each
+cell's share of the edge mass by its share of the candidate pairs: the parent and child pairs that the input allows.
+An enrichment above 1 means more transmission between the two strata than their candidate pairs alone predict:
+
+```{r enrichment}
+pt_enrichment(a, by = "district") |>
+  filter(!is.na(enrichment)) |>
+  pt_interval(by = c(source, recipient), value = enrichment)
+```
+
+Enrichment is `NA` in a cell without candidate pairs, so the code drops those rows before `pt_interval()`. The
+candidate pairs come from the input JSON's `allowed_parents`. To use other pairs, pass a `parent`, `child` data frame
+as `candidates`.
+
+### Compute the net flow
+
+`pt_net_flow()` gives, for each stratum, its expected out-edges minus its expected in-edges, counting only the edges
+between different strata. A positive net flow marks a stratum that exports transmission:
+
+```{r net-flow}
+pt_net_flow(a, by = "district") |>
+  pt_interval(by = stratum, value = net_flow) |>
+  pt_plot_interval()
+```
+
+## Read the time scale of transmission
+
+The lag of an edge is the child's observation time minus the parent's, in the units of the input's observation times.
+`pt_edge_marginals()` returns the lag of every edge with its Edge marginal. A histogram weighted by the marginals is
+the posterior distribution of lags over the expected edges:
+
+```{r lag-histogram}
+edges <- pt_edge_marginals(a)
+ggplot(edges, aes(lag, weight = marginal)) +
+  geom_histogram(binwidth = 7) +
+  labs(x = "Lag between observations", y = "Expected edges")
+```
+
+A negative lag means that the child was observed before its parent. A long lag can mean that unobserved cases lie
+between the two Infections.
+
+### Reassign long lags
+
+`pt_reassign_long_lags()` tests how much the results depend on long-lag edges. It moves every edge with a lag above
+`max_lag` to the Latent parent of its child, then recomputes the mean out-degree and the mean Latent parent
+probability:
+
+```{r reassign}
+pt_reassign_long_lags(a, max_lag = 60) |>
+  pt_interval()
+```
+
+Compare the result with the Functionals without reassignment:
+
+```{r reassign-compare}
+pt_mean_out_degree(a) |> pt_interval()
+pt_mean_p_latent_parent(a) |> pt_interval()
+```
+
+`pt_reassign_long_lags()` takes `by` too. Edges with a missing lag are never moved.
+
+## Read the spatial scale of transmission
+
+Join the Edge marginals with the epi table to read the spatial scale: the share of the expected edges that stay
+within a district:
+
+```{r spatial-scale}
+district <- select(ex$epi, infection, district)
+within <- edges |>
+  left_join(rename(district, parent = infection, parent_district = district), by = "parent") |>
+  left_join(rename(district, child = infection, child_district = district), by = "child") |>
+  summarise(within_district = sum(marginal[parent_district == child_district], na.rm = TRUE) / sum(marginal))
+within
+```
+
+Compare it with the share of candidate pairs that stay within a district, which is what the edges would show if
+transmission ignored districts:
+
+```{r spatial-baseline}
+pt_candidates(a) |>
+  left_join(rename(district, parent = infection, parent_district = district), by = "parent") |>
+  left_join(rename(district, child = infection, child_district = district), by = "child") |>
+  summarise(within_district = mean(parent_district == child_district, na.rm = TRUE))
+```
+
+With coordinates in the epi table, the same join gives a distance for every edge, and a histogram of distances
+weighted by `marginal` shows the spatial scale as the lag histogram shows the time scale.
+
+```{r close, include = FALSE}
+pt_close(a)
+```
