@@ -50,3 +50,42 @@ test_that("pt_infections() and pt_loci() come from structure/", {
   ))
   expect_equal(pt_loci(a), tibble::tibble(locus = c("AS1", "AS11"), n_alleles = c(8L, 12L)))
 })
+
+test_that("pt_read() errors when Runs come from different inputs", {
+  other <- local_golden_copy("replica-exchange")
+  manifest <- jsonlite::read_json(file.path(other, "manifest.json"))
+  edit_manifest(other, input_sha256 = utils::modifyList(manifest$input_sha256, list(input = strrep("0", 64))))
+  expect_error(pt_read(c(a = golden_store(), b = other)), "input_sha256")
+})
+
+test_that("pt_read() errors when Runs mix the null and full models", {
+  other <- local_golden_copy("replica-exchange")
+  edit_manifest(other, null_model = TRUE)
+  expect_error(pt_read(c(a = golden_store(), b = other)), "null_model")
+})
+
+test_that("pt_read() errors on a missing required table, naming it", {
+  store <- local_golden_copy()
+  unlink(file.path(store, "parent_sets"), recursive = TRUE)
+  expect_error(pt_read(store), "table parent_sets")
+})
+
+test_that("pt_read() errors on a missing required column, naming it", {
+  store <- local_golden_copy()
+  con <- DBI::dbConnect(duckdb::duckdb(shared_home = FALSE))
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  for (f in list.files(file.path(store, "ordering"), full.names = TRUE)) {
+    DBI::dbExecute(con, sprintf("COPY (SELECT * EXCLUDE (rank) FROM read_parquet('%s')) TO '%s.tmp' (FORMAT parquet)",
+                                f, f))
+    file.rename(paste0(f, ".tmp"), f)
+  }
+  expect_error(pt_read(store), "ordering column rank")
+})
+
+test_that("pt_read() accepts Runs that differ only in chains, thin or engine version", {
+  other <- local_golden_copy("replica-exchange")
+  edit_manifest(other, thin = 10L, engine_version = "9.9.9")
+  a <- pt_read(c(a = golden_store(), b = other))
+  on.exit(pt_close(a))
+  expect_equal(pt_runs(a)$thin, c(5L, 10L))
+})

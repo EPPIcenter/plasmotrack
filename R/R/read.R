@@ -79,7 +79,7 @@ resolve_runs <- function(paths, call = rlang::caller_env()) {
   if (!all(is_run)) {
     cli::cli_abort(c(
       "Not a Run directory (no {.file manifest.json}):",
-      rlang::set_names(paths[!is_run], "x")
+      rlang::set_names(cli_escape(paths[!is_run]), "x")
     ), call = call)
   }
   paths <- normalizePath(paths, winslash = "/")
@@ -96,18 +96,22 @@ resolve_runs <- function(paths, call = rlang::caller_env()) {
 
 # Runs of one Analysis must share their input and model.
 check_comparable <- function(runs, call = rlang::caller_env()) {
-  differs <- function(field, value) {
+  differs <- function(field, value, describe) {
     values <- vapply(runs$manifest, function(m) jsonlite::toJSON(value(m), auto_unbox = TRUE), character(1))
     if (length(unique(values)) > 1) {
       groups <- split(runs$run, factor(values, levels = unique(values)))
+      first <- match(unique(values), values)
+      lines <- paste0(describe(runs$manifest[first]), ": ", vapply(groups, paste, character(1), collapse = ", "))
       cli::cli_abort(c(
         "Runs differ in {.field {field}}; they cannot be pooled in one Analysis.",
-        rlang::set_names(vapply(groups, function(g) paste(g, collapse = ", "), character(1)), "*")
+        rlang::set_names(cli_escape(lines), "*")
       ), call = call)
     }
   }
-  differs("input_sha256", function(m) m$input_sha256[sort(names(m$input_sha256))])
-  differs("null_model", function(m) isTRUE(m$null_model))
+  differs("input_sha256", function(m) m$input_sha256[sort(names(m$input_sha256))],
+          function(ms) vapply(ms, function(m) paste0("input ", substr(m$input_sha256$input, 1, 12)), character(1)))
+  differs("null_model", function(m) isTRUE(m$null_model),
+          function(ms) vapply(ms, function(m) paste0("null_model ", tolower(isTRUE(m$null_model))), character(1)))
 }
 
 check_epi <- function(epi, call = rlang::caller_env()) {
@@ -158,8 +162,10 @@ check_store_tables <- function(con, runs, call = rlang::caller_env()) {
     }
   }
   if (length(missing)) {
-    cli::cli_abort(c("Stores are missing tables or columns plasmotrackr needs:", rlang::set_names(missing, "x")),
-                   call = call)
+    cli::cli_abort(c(
+      "Stores are missing tables or columns plasmotrackr needs:",
+      rlang::set_names(cli_escape(missing), "x")
+    ), call = call)
   }
 }
 

@@ -43,3 +43,6 @@ sql_list <- function(con, x) paste0("[", paste(sql_string(con, x), collapse = ",
 
 # Rows of a query as a tibble, for small reads made eagerly (markers, structure, Draw counts).
 query <- function(con, sql) tibble::as_tibble(DBI::dbGetQuery(con, sql))
+
+# Text shown verbatim in a cli message: braces doubled so cli does not interpolate them.
+cli_escape <- function(x) gsub("}", "}}", gsub("{", "{{", x, fixed = TRUE), fixed = TRUE)
