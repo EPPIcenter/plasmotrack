@@ -1,0 +1,266 @@
+---
+title: "Get started with plasmotrackr"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Get started with plasmotrackr}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+has_igraph <- requireNamespace("igraph", quietly = TRUE)
+has_tidygraph <- has_igraph && requireNamespace("tidygraph", quietly = TRUE)
+```
+
+plasmotrackr reads the output of plasmotrack, an MCMC sampler that infers who infected whom among observed
+*Plasmodium* Infections. Each time you run the sampler on an input, it writes one Run to its own directory, the
+Store. This guide shows you how to open Runs, read their tables, and summarise the posterior. Every example runs
+offline on two small Stores that ship with the package.
+
+## Terms used in this guide
+
+plasmotrackr uses the following terms from the plasmotrack glossary:
+
+- **Infection**: one observed infection in one host at one time.
+- **Run**: one independent execution of the sampler from its own starting state. Several Runs of one input let you
+  check convergence. A Run is never called a chain here; chains are the replicas of replica exchange inside one Run.
+- **Analysis**: the Runs of one input, taken together. Pooled summaries pool over its Runs.
+- **Draw**: one posterior sample, written by one Run at one sampling iteration. A Draw is the pair (`run`,
+  `iteration`).
+- **Phase**: the part of a Run that an iteration belongs to: `burn_in` or `sampling`. Only sampling Draws are
+  posterior samples.
+- **Window**: the range of iterations that the Store writes to disk at once. plasmotrackr reads only closed Windows,
+  so you can read a Run while it is still running.
+- **Parent set**: the Infections hypothesised to have infected an Infection together.
+- **Latent parent**: an unobserved source that stands in for an infector that was never sampled. Every Infection has
+  one. It is never an edge of the network: the package reports it as the Latent parent probability,
+  `p_latent_parent`, and on a Parent set as `has_latent_parent`.
+- **Edge marginal**: the posterior probability that one Infection infected another.
+- **Functional**: one number computed from the whole network at each Draw, such as the mean out-degree. It has a
+  posterior of its own.
+
+## Install the package
+
+Install plasmotrackr from GitHub with pak:
+
+```r
+pak::pak("EPPIcenter/plasmotrack/R")
+```
+
+To install with remotes instead, run the following:
+
+```r
+remotes::install_github("EPPIcenter/plasmotrack", subdir = "R")
+```
+
+The examples in this guide also use dplyr, and the network export at the end needs igraph and tidygraph. Load
+plasmotrackr and dplyr:
+
+```{r setup}
+library(plasmotrackr)
+library(dplyr)
+```
+
+## Open an Analysis
+
+The package ships two Stores from one small input of three Infections and two Loci. One Run used a single chain; the
+other used replica exchange. Both Runs ran 20 burn-in iterations and then wrote a sampling Draw every fifth
+iteration.
+
+`pt_read()` takes Run directories, or one parent directory whose subdirectories are Runs:
+
+```{r read}
+golden <- system.file("extdata", "golden", package = "plasmotrackr")
+list.files(golden)
+
+a <- pt_read(golden, threads = 1)
+a
+```
+
+`pt_read()` checks that every Run comes from the same input and warns when Runs differ in their number of Draws, are
+unfinished, or recorded non-finite values. It reads no Traces: tables are read later, when you ask for them.
+
+Each Analysis has its own DuckDB connection. Its memory cap, spill directory, and threads come from the
+`plasmotrackr.memory_limit`, `plasmotrackr.temp_directory`, and `plasmotrackr.threads` options, or from the
+arguments of `pt_read()`. This guide uses one thread.
+
+To name the Runs yourself, pass a named vector of Run directories:
+
+```{r read-named, eval = FALSE}
+a <- pt_read(file.path(golden, c(single = "single-chain", tempered = "replica-exchange")))
+```
+
+To add epidemiological data, such as district or travel history, pass a data frame with an `infection` column as
+`epi`.
+
+### Inspect the Runs
+
+`pt_runs()` returns the Run table, one row per Run:
+
+```{r runs}
+pt_runs(a) |>
+  select(run, status, draws, first_iteration, last_iteration, thin, burn_in)
+```
+
+A Run's `status` is `finished`, `interrupted`, or `incomplete`. Pooled summaries skip a Run with no sampling Draws and
+tell you so.
+
+`pt_infections()`, `pt_loci()`, and `pt_candidates()` list the Infections, the Loci, and the pairs that the input
+allows as parent and child:
+
+```{r infections}
+pt_infections(a)
+pt_loci(a)
+pt_candidates(a)
+```
+
+Observation times and candidate pairs come from the input JSON. Stores keep a copy of it. For a Store that has none,
+pass the file as `pt_read(input = )`.
+
+## Read raw tables
+
+`pt_table()` reads any Store table by name. The result is a lazy table: DuckDB runs the query only when you print
+or collect it. Every table has `run` first, then the Store's own columns:
+
+```{r table}
+scalars <- pt_table(a, "run_scalars")
+scalars
+```
+
+The `phase` argument selects Draws by Phase. Burn-in includes the starting state at iteration 0:
+
+```{r table-phase}
+pt_table(a, "run_scalars", phase = c("burn_in", "sampling")) |>
+  count(run, phase)
+```
+
+The `runs` argument narrows any function to some of the Runs:
+
+```{r table-runs}
+pt_table(a, "allele_frequencies", runs = "single-chain") |>
+  filter(locus == "AS1", allele == 4) |>
+  collect()
+```
+
+For replica-exchange Runs, every table holds the Hot chain only, except `chains`, which holds every chain:
+
+```{r chains}
+pt_table(a, "chains") |>
+  count(run)
+```
+
+The Store format, with every table and column, is described in
+[the Store layout](https://github.com/EPPIcenter/plasmotrack/blob/master/doc/store-layout.md).
+
+## Work with lazy and eager results
+
+plasmotrackr returns results in one of two forms:
+
+- A table with one row per Draw is lazy. Its function name ends in `_draws`, or it is a Functional. Filter it before
+  you collect it.
+- A result averaged or ranked over Draws is eager: a tibble, computed when you call the function.
+
+For example, `pt_edge_draws()` gives each Infection's Edge weight at each Draw. Filter it to one child before you
+collect it:
+
+```{r edge-draws}
+pt_edge_draws(a) |>
+  filter(child == "3", parent == "1") |>
+  collect()
+```
+
+`pt_edge_marginals()` averages the same rows over every Draw of every Run and returns a tibble. `lag` is the child's
+observation time minus the parent's:
+
+```{r edge-marginals}
+pt_edge_marginals(a)
+```
+
+Set `by_run = TRUE` for one row per Run, which shows whether the Runs agree:
+
+```{r edge-marginals-by-run}
+pt_edge_marginals(a, by_run = TRUE)
+```
+
+Nothing is cached. To reuse a lazy table in several queries, store it once with `dplyr::compute()`:
+
+```{r compute}
+per_draw <- pt_infection_draws(a) |> compute()
+per_draw |>
+  group_by(infection) |>
+  summarise(p_latent_parent = mean(p_latent_parent))
+```
+
+## Summarise Functionals with intervals
+
+A Functional is a lazy table with one value per Draw. `pt_interval()` turns any per-Draw table into the posterior
+mean over every Draw of every Run, with an equal-tailed interval:
+
+```{r functionals}
+pt_mean_out_degree(a)
+
+pt_mean_out_degree(a) |>
+  pt_interval()
+```
+
+Use `by` for one interval per key, and `level` for the interval's probability. The Composition classes of the
+Parent sets give one share per class:
+
+```{r composition}
+pt_composition(a) |>
+  pt_interval(by = class, level = 0.9)
+```
+
+`pt_interval()` works on any table with `run`, `iteration`, and numeric columns, including raw tables. Allele
+frequencies need no function of their own:
+
+```{r allele-frequencies}
+pt_table(a, "allele_frequencies") |>
+  filter(locus == "AS1") |>
+  pt_interval(by = c(locus, allele))
+```
+
+The other Functionals are `pt_mean_p_latent_parent()`, `pt_multi_source()`, and `pt_entropy()`.
+
+## Summarise each Infection
+
+`pt_infection_summary()` returns one row per Infection: its Latent parent probability, the share of each Composition
+class, its MAP Parent set, its most likely observed parent, its expected out-degree, and its median COI:
+
+```{r infection-summary}
+pt_infection_summary(a) |>
+  select(infection, p_latent_parent, map_class, map_weight, top_parent, top_parent_marginal)
+```
+
+`pt_parent_sets_pooled()` lists each Infection's Parent sets ranked by posterior weight, and `pt_map_graph()` keeps
+the most probable one for each Infection:
+
+```{r map-graph}
+pt_map_graph(a) |>
+  select(infection, members, has_latent_parent, class, weight)
+```
+
+## Export the network
+
+`pt_as_igraph()` and `pt_as_tbl_graph()` build a directed graph from parent to child. Every Infection is a vertex,
+with the columns of `pt_infection_summary()` as attributes. With `graph = "marginal"`, the edges are the Edge
+marginals at or above `floor`; with `graph = "map"`, they are the edges of the MAP graph. The Latent parent is never an
+edge.
+
+```{r igraph, eval = has_igraph}
+g <- pt_as_igraph(a, floor = 0.05)
+igraph::as_data_frame(g, what = "edges")
+```
+
+```{r tidygraph, eval = has_tidygraph}
+pt_as_tbl_graph(a, graph = "map")
+```
+
+## Close the Analysis
+
+`pt_close()` closes the DuckDB connection. R also closes it when it garbage-collects the Analysis.
+
+```{r close}
+pt_close(a)
+```
