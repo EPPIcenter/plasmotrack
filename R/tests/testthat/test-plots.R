@@ -92,3 +92,65 @@ test_that("pt_plot_rank() averages tied ranks and ranks within each `by` key", {
   expect_error(pt_plot_rank(rows, value = v, by = key, max_series = 1), "2 series")
   expect_error(pt_plot_rank(rows, value = v, bins = 0), "bins")
 })
+
+interval_rows <- function() {
+  tibble::tibble(class = c("latent_only", "observed_1"), estimate = c(0.25, 0.75), lower = c(0.1, 0.5),
+                 upper = c(0.4, 0.9), level = 0.95, draws = 10L)
+}
+
+test_that("pt_plot_interval() draws one pointrange per key", {
+  p <- pt_plot_interval(interval_rows())
+  expect_s3_class(p, "ggplot")
+  expect_identical(geoms(p), "GeomPointrange")
+  d <- ggplot2::layer_data(p, 1)
+  expect_identical(d$x, c(0.25, 0.75))
+  expect_identical(d$xmin, c(0.1, 0.5))
+  expect_identical(d$xmax, c(0.4, 0.9))
+  expect_identical(as.character(p$data$label), c("latent_only", "observed_1"))
+  # The first row is at the top.
+  expect_true(d$y[[1]] > d$y[[2]])
+})
+
+test_that("pt_plot_interval() adds a truth line or truth points", {
+  p <- pt_plot_interval(interval_rows(), truth = 0.5)
+  expect_identical(geoms(p), c("GeomPointrange", "GeomVline"))
+  expect_identical(ggplot2::layer_data(p, 2)$xintercept, 0.5)
+
+  truth <- tibble::tibble(class = c("observed_1", "latent_only"), truth = c(0.8, 0.2))
+  p <- pt_plot_interval(interval_rows(), truth = truth)
+  expect_identical(geoms(p), c("GeomPointrange", "GeomPoint"))
+  d <- ggplot2::layer_data(p, 2)
+  ranges <- ggplot2::layer_data(p, 1)
+  expect_identical(d$x[order(-d$y)], c(0.2, 0.8))
+  expect_identical(sort(d$y), sort(ranges$y))
+
+  expect_error(pt_plot_interval(interval_rows(), truth = tibble::tibble(cls = "x", truth = 1)), "cls")
+  expect_error(pt_plot_interval(interval_rows(), truth = "a"), "truth")
+  expect_error(pt_plot_interval(interval_rows()[c("class", "estimate")]), "lower")
+})
+
+test_that("pt_plot_interval() colours by run and facets several value columns", {
+  rows <- tibble::tibble(run = c("a", "a", "b", "b"), value = c("u", "v", "u", "v"), estimate = 1:4,
+                         lower = 0:3, upper = 2:5, level = 0.9, draws = 3L)
+  p <- pt_plot_interval(rows)
+  expect_s3_class(p$facet, "FacetWrap")
+  d <- ggplot2::layer_data(p, 1)
+  expect_identical(length(unique(d$colour)), 2L)
+  expect_identical(length(unique(d$PANEL)), 2L)
+  expect_identical(sort(d$x), c(1, 2, 3, 4))
+  # Runs at the same key are dodged apart.
+  expect_identical(length(unique(d$y[d$PANEL == 1])), 2L)
+})
+
+test_that("pt_plot_interval() takes the out-degree posteriors and pt_interval() output", {
+  a <- read_golden(golden_store())
+  on.exit(pt_close(a))
+  dist <- pt_out_degree_dist(a)
+  p <- pt_plot_interval(dist)
+  expect_identical(as.character(p$data$label), dist$infection)
+  expect_identical(ggplot2::layer_data(p, 1)$x, dist$estimate)
+
+  one <- pt_interval(pt_mean_out_degree(a))
+  p <- pt_plot_interval(one, truth = 1)
+  expect_identical(nrow(ggplot2::layer_data(p, 1)), 1L)
+})

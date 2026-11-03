@@ -161,3 +161,71 @@ pt_plot_rank <- function(x, value, by = NULL, bins = 20, max_series = 25) {
     ggplot2::facet_grid(rows = facets, cols = ggplot2::vars(.data$run)) +
     ggplot2::labs(x = paste0("rank bin of ", value), y = "Draws", fill = "run")
 }
+
+# Columns of an interval table that are statistics, not keys.
+interval_statistics <- c("estimate", "lower", "upper", "level", "draws", "n", "var_within", "var_between", "p_zero")
+
+#' Interval plot
+#'
+#' Pointranges from any table with `estimate`, `lower` and `upper` columns: the output of [pt_interval()], of
+#' [pt_out_degree_dist()] and [pt_realized_out_degree()], or a table the user builds. One row per key, the first row
+#' at the top.
+#'
+#' Every column other than the statistics (`estimate`, `lower`, `upper`, `level`, `draws`, `n`, `var_within`,
+#' `var_between`, `p_zero`) is a key. A `run` key (from `pt_interval(by = run)`) is mapped to colour; a `value` key
+#' (from `pt_interval()` on several value columns) gives one facet per value column, with free scales; the other keys
+#' label the rows.
+#'
+#' @param x A data frame with `estimate`, `lower` and `upper`.
+#' @param truth A reference: `NULL` for none, a number for one vertical line, or a data frame with a `truth` column and
+#'   key columns of `x` to match rows on (such as `class` and `truth`), for one point per matched row.
+#' @return A ggplot object.
+#' @seealso [pt_interval()].
+#' @export
+#' @examplesIf rlang::is_installed("ggplot2")
+#' store <- system.file("extdata", "golden", "single-chain", package = "plasmotrackr")
+#' a <- pt_read(store, threads = 1)
+#' pt_composition(a) |> pt_interval(by = class) |> pt_plot_interval()
+#' pt_mean_out_degree(a) |> pt_interval(by = run) |> pt_plot_interval(truth = 1)
+#' pt_plot_interval(pt_out_degree_dist(a))
+#' pt_close(a)
+pt_plot_interval <- function(x, truth = NULL) {
+  check_ggplot2()
+  x <- dplyr::collect(x)
+  missing <- setdiff(c("estimate", "lower", "upper"), names(x))
+  if (length(missing)) cli::cli_abort("{.arg x} has no {.field {missing}} column{?s}.")
+  keys <- setdiff(names(x), interval_statistics)
+  facet <- intersect("value", keys)
+  colour <- intersect("run", keys)
+  labels <- setdiff(keys, c(facet, colour))
+
+  label <- if (length(labels)) do.call(paste, c(lapply(x[labels], as.character), sep = ", ")) else rep("all", nrow(x))
+  rows <- x[c(keys, "estimate", "lower", "upper")]
+  rows$label <- factor(label, levels = rev(unique(label)))
+
+  aesthetics <- ggplot2::aes(x = .data$estimate, xmin = .data$lower, xmax = .data$upper, y = .data$label)
+  if (length(colour)) aesthetics$colour <- rlang::quo(.data$run)
+  dodge <- if (length(colour)) ggplot2::position_dodge(width = 0.5) else "identity"
+  p <- ggplot2::ggplot(rows, aesthetics) +
+    ggplot2::geom_pointrange(position = dodge) +
+    ggplot2::labs(x = "estimate", y = NULL)
+
+  if (is.numeric(truth) && length(truth) == 1 && !is.na(truth)) {
+    p <- p + ggplot2::geom_vline(xintercept = truth, linetype = "dashed")
+  } else if (is.data.frame(truth)) {
+    on <- setdiff(names(truth), "truth")
+    unknown <- setdiff(on, keys)
+    if (!"truth" %in% names(truth) || length(unknown)) {
+      cli::cli_abort(c("{.arg truth} must have a {.field truth} column and key columns of {.arg x}.",
+                       x = if (length(unknown)) "Not keys of {.arg x}: {.field {unknown}}.",
+                       i = "Keys of {.arg x}: {.field {keys}}."))
+    }
+    points <- dplyr::inner_join(rows[unique(c(on, facet, "label"))], truth, by = on)
+    p <- p + ggplot2::geom_point(ggplot2::aes(x = .data$truth, y = .data$label), data = points,
+                                 inherit.aes = FALSE, shape = 4, size = 3)
+  } else if (!is.null(truth)) {
+    cli::cli_abort("{.arg truth} must be {.code NULL}, a number, or a data frame with a {.field truth} column.")
+  }
+  if (length(facet)) p <- p + ggplot2::facet_wrap(ggplot2::vars(.data$value), scales = "free")
+  p
+}
