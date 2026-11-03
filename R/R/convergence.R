@@ -8,6 +8,7 @@
 #   convergence_groups           quantity groups, in report order.
 #   group_array(a, ds, group, edge_floor)  n x Runs x variables array of one group, variables in name order.
 #   diagnose_array(x, group, rhat, ess)    the quantities rows of one group.
+#   tree_infections(), tree_pairs()        the infections and pairs tables (Spread, top parents, classes).
 
 convergence_groups <- c("log_posterior", "global", "expected_false_positives", "expected_false_negatives",
                         "infection_duration", "allele_frequency", "edge", "order_pair", "p_latent_parent", "functional")
