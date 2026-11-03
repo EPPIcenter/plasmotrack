@@ -121,3 +121,55 @@ test_that("a single-Infection stratum equals that Infection's pt_out_degree_dist
   expect_equal(realized$n, c(1, 1, 2))
   expect_equal(as.data.frame(realized[1:2, columns]), as.data.frame(dist[c(2, 1), columns]), tolerance = 1e-12)
 })
+
+test_that("pt_sample_networks() draws one Parent set per child at a uniformly chosen Draw", {
+  a <- read_out_degree_runs()
+  on.exit(pt_close(a))
+  set.seed(1)
+  x <- pt_sample_networks(a, 50)
+  expect_s3_class(x, "tbl_df")
+  expect_named(x, c("sample", "run", "iteration", "infection", "members", "has_latent_parent"))
+  expect_type(x$members, "list")
+  # Every Infection has sets at every Draw: one row per sample per Infection, sorted.
+  expect_equal(nrow(x), 50 * 4)
+  expect_equal(x$sample, rep(1:50, each = 4))
+  expect_equal(x$infection, rep(c("1", "2", "3", "4"), 50))
+  expect_true(all(paste(x$run, x$iteration) %in% c("a 1", "a 2", "b 1")))
+  expect_equal(length(unique(paste(x$sample, x$run, x$iteration))), 50)
+  # Sets that exist at the Draw: at b1, Infection 3 has {1} or {Latent}; Infection 2 always {Latent}.
+  b <- x[x$run == "b", ]
+  expect_true(all(lengths(b$members[b$infection == "2"]) == 0 & b$has_latent_parent[b$infection == "2"]))
+  three <- b[b$infection == "3", ]
+  expect_true(all(ifelse(three$has_latent_parent, lengths(three$members) == 0,
+                         vapply(three$members, identical, TRUE, "1"))))
+  expect_false(any(grepl("_copy", unlist(x$members), fixed = TRUE)))
+
+  set.seed(1)
+  expect_identical(pt_sample_networks(a, 50), x)
+  set.seed(2)
+  expect_false(identical(pt_sample_networks(a, 50), x))
+
+  empty <- pt_sample_networks(a, 0)
+  expect_equal(nrow(empty), 0)
+  expect_named(empty, names(x))
+  expect_error(pt_sample_networks(a, -1), "n")
+  expect_error(pt_sample_networks(a, 1.5), "n")
+})
+
+test_that("pt_sample_networks() edge frequencies estimate the Edge marginals", {
+  for (paths in list(local_out_degree_runs(), golden_paths())) {
+    a <- suppressWarnings(pt_read(paths))
+    set.seed(128)
+    n <- 4000
+    x <- pt_sample_networks(a, n)
+    edges <- data.frame(child = rep(x$infection, lengths(x$members)), parent = unlist(x$members))
+    frequency <- table(paste(edges$child, edges$parent))
+    m <- pt_edge_marginals(a)
+    observed <- as.numeric(frequency[paste(m$child, m$parent)]) / n
+    observed[is.na(observed)] <- 0
+    # Binomial sd is at most 0.008 at n = 4000.
+    expect_true(all(abs(observed - m$marginal) < 0.04))
+    expect_true(all(names(frequency) %in% paste(m$child, m$parent)))
+    pt_close(a)
+  }
+})

@@ -232,3 +232,86 @@ count_quantiles <- function(pmf, level) {
   }
   c(at(tail), at(1 - tail))
 }
+
+#' Sample transmission networks
+#'
+#' Draws whole transmission networks from the posterior, for functionals that are not sums over children (such as
+#' an offspring distribution fitted per network). Each network picks one Draw uniformly from every sampling Draw of
+#' every Run, then one Parent set per child from the child's weights at that Draw. The stored weights are
+#' normalised to draw from them: the Store drops sets below `parent_set_floor`, so they can sum to slightly less
+#' than 1. Runs with no sampling Draws are skipped with a message.
+#'
+#' It uses R's random number generator, so [set.seed()] reproduces it. Over many networks, the share holding an
+#' edge estimates its Edge marginal ([pt_edge_marginals()]).
+#'
+#' @inheritParams pt_out_degree_dist
+#' @param n Number of networks, a whole number.
+#' @return A tibble with one row per network per child with a Parent set at the Draw: `sample` (1 to `n`), `run` and
+#'   `iteration` (the Draw), `infection` (the child), `members` (a list of its observed parent ids, in string order)
+#'   and `has_latent_parent`, as in [pt_parent_sets_pooled()]. Rows are sorted by `sample`, then `infection` (string
+#'   order). The Latent parent's `<id>_copy` id never appears.
+#' @seealso [pt_out_degree_dist()] for exact out-degree distributions.
+#' @export
+#' @examples
+#' store <- system.file("extdata", "golden", "single-chain", package = "plasmotrackr")
+#' a <- pt_read(store, threads = 1)
+#' set.seed(1)
+#' networks <- pt_sample_networks(a, 100)
+#' # Out-degree of each Infection in each network.
+#' table(unlist(networks$members))
+#' pt_close(a)
+pt_sample_networks <- function(a, n) {
+  if (!is.numeric(n) || length(n) != 1 || is.na(n) || n < 0 || n != round(n)) {
+    cli::cli_abort("{.arg n} must be a whole number of networks, 0 or more.")
+  }
+  runs <- runs_with_draws(a)
+  index <- draw_index(a, runs)
+  picked <- index[sample.int(nrow(index), n, replace = TRUE), ]
+  sets <- picked_sets(a, picked)
+
+  draw_key <- paste(sets$run, sets$iteration, sep = "\r")
+  child_key <- paste(draw_key, sets$infection, sep = "\r")
+  by_child <- split(seq_len(nrow(sets)), factor(child_key, levels = unique(child_key)))
+  children_of <- split(names(by_child), factor(sub("\r[^\r]*$", "", names(by_child)), levels = unique(draw_key)))
+
+  # One uniform per (network, child), networks in order, children in string order.
+  rows <- lapply(seq_len(n), function(s) {
+    children <- children_of[[paste(picked$run[[s]], picked$iteration[[s]], sep = "\r")]]
+    u <- stats::runif(length(children))
+    vapply(seq_along(children), function(k) {
+      i <- by_child[[children[[k]]]]
+      cumulative <- cumsum(sets$prob[i])
+      chosen <- which(cumulative > u[[k]] * cumulative[[length(i)]])
+      i[[if (length(chosen)) chosen[[1]] else length(i)]]
+    }, 0L)
+  })
+  chosen <- unlist(rows)
+  observed <- sets$observed[chosen]
+  tibble::tibble(
+    sample = rep(seq_len(n), lengths(rows)), run = sets$run[chosen], iteration = sets$iteration[chosen],
+    infection = sets$infection[chosen],
+    members = lapply(observed, function(x) if (x == "") character() else strsplit(x, "\x1f", fixed = TRUE)[[1]]),
+    has_latent_parent = sets$has_latent_parent[chosen]
+  )
+}
+
+# The Parent sets with weight at the picked Draws: run, iteration, infection, set_id, prob, observed (canonical),
+# has_latent_parent, sorted by run, iteration, infection (string order) and set_id.
+picked_sets <- function(a, picked) {
+  con <- analysis_con(a)
+  draws <- unique(picked[c("run", "iteration")])
+  if (nrow(draws) == 0) {
+    return(tibble::tibble(run = character(), iteration = numeric(), infection = character(), set_id = numeric(),
+                          prob = numeric(), observed = character(), has_latent_parent = logical()))
+  }
+  runs <- unique(draws$run)
+  rows <- pt_table(a, "parent_sets", runs = runs, phase = "sampling") |>
+    dplyr::select("run", "iteration", "infection", "set_id", "prob") |>
+    dplyr::inner_join(dbplyr::copy_inline(con, draws), by = c("run", "iteration")) |>
+    dplyr::inner_join(set_members(a, runs), by = c("run", "infection", "set_id")) |>
+    dplyr::collect()
+  rows <- rows[order(match(rows$run, runs), rows$iteration, rows$infection, rows$set_id, method = "radix"), ]
+  rows$prob <- as.numeric(rows$prob)
+  rows$observed <- canonical_observed(rows$observed)
+  rows
+}
