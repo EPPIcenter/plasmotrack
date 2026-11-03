@@ -151,3 +151,196 @@ rank_scores <- function(score, true) {
   metrics$top_k_precision <- sum(true[score >= kth]) / sum(score >= kth)
   list(metrics = metrics, curve = tibble::tibble(threshold = thresholds, recall = recall, precision = precision))
 }
+
+#' Score Latent genotypes against the truth
+#'
+#' Compares each Infection's true Alleles at each Locus it was genotyped at with its posterior genotype, called
+#' Allele by Allele: an Allele is called present when its pooled presence (see [pt_genotype_presence()]) is at least
+#' 0.5.
+#'
+#' **Allele numbering.** The simulator numbers a Locus's Alleles over the whole simulated population; an input built
+#' from a subset of cases may keep only the Alleles its cases show and renumber them. Scoring maps the truth into the
+#' input's numbering by this rule, the convention of the thesis inputs:
+#' * A Locus whose Allele count in the input equals the simulator's keeps the simulator's numbering.
+#' * Otherwise the input's Alleles at the Locus are the simulator's Alleles shown in the observed genotype (the
+#'   truth's `observed`) of any of the Analysis's Infections, in simulator order: the smallest is Allele 0.
+#' * When that count differs from the input's Allele count, the simulator has fewer Alleles than the input, or the
+#'   truth lacks the Locus, scoring errors and names the Locus.
+#'
+#' A true Allele that no Infection of the Analysis shows has no number in the input: the model cannot represent it.
+#' It is counted in `unrepresentable` and left out of every other column.
+#'
+#' @inheritParams pt_score_edges
+#' @return A tibble with one row per (infection, locus) that has a Latent genotype, sorted by `infection` and
+#'   `locus` as strings: `true_alleles` and `called_alleles` (list columns of integer Allele numbers in the input's
+#'   numbering, 0-based as in [pt_alleles()]), `true_positives`, `false_positives`, `false_negatives`,
+#'   `unrepresentable` (the true Alleles left out) and `exact` (whether the called Alleles are the true ones).
+#' @seealso [pt_score_coi()]; [pt_read_truth()].
+#' @export
+#' @examples
+#' \dontrun{
+#' a <- pt_read("runs/sim_0_s7")
+#' truth <- pt_read_truth("sim_0_s7.json.gz")
+#' scores <- pt_score_genotypes(a, truth)
+#' mean(scores$exact)
+#' }
+pt_score_genotypes <- function(a, truth) {
+  ids <- truth_infection_ids(a, truth)
+  map <- truth_allele_map(a, truth, ids)
+  presence <- pt_genotype_presence(a)
+  keys <- unique(presence[c("infection", "locus")])
+  key <- paste(keys$infection, keys$locus, sep = "\r")
+
+  called <- presence[presence$presence >= 0.5, ]
+  called <- split(as.integer(called$allele), factor(paste(called$infection, called$locus, sep = "\r"), levels = key))
+
+  true <- unique(truth$genotypes[truth$genotypes$infection %in% ids, c("infection", "locus", "allele")])
+  true$key <- paste(true$infection, true$locus, sep = "\r")
+  true <- true[true$key %in% key, ]
+  true$mapped <- map$allele[match(paste(true$locus, true$allele, sep = "\r"), paste(map$locus, map$simulator, sep = "\r"))]
+  unrepresentable <- as.vector(table(factor(true$key[is.na(true$mapped)], levels = key)))
+  true <- true[!is.na(true$mapped), ]
+  true <- split(true$mapped, factor(true$key, levels = key))
+  true <- lapply(true, function(x) sort(as.integer(x)))
+
+  hits <- mapply(function(t, c) sum(c %in% t), true, called)
+  tibble::tibble(
+    infection = keys$infection, locus = keys$locus,
+    true_alleles = unname(true), called_alleles = unname(called),
+    true_positives = as.integer(hits),
+    false_positives = as.integer(lengths(called) - hits),
+    false_negatives = as.integer(lengths(true) - hits),
+    unrepresentable = as.integer(unrepresentable),
+    exact = unname(mapply(identical, true, called))
+  )
+}
+
+#' Score COI against the truth
+#'
+#' Compares each Infection's posterior COI median (from [pt_coi()]) with its identifiable true COI: the most distinct
+#' true strain genotypes at any Locus the Infection was genotyped at. Strains that differ only at Loci the Infection
+#' was not genotyped at cannot be told apart, so the identifiable COI can be below the number of strains. Strain
+#' genotypes are compared in the simulator's numbering, so no Allele mapping is needed.
+#'
+#' @inheritParams pt_score_edges
+#' @return A tibble with one row per Infection genotyped at some Locus, sorted by `infection` as strings: `median`
+#'   (the posterior COI median, possibly halfway between two values), `true_coi` (identifiable), `strains` (the
+#'   number of true strains) and `error` (`median - true_coi`).
+#' @seealso [pt_score_genotypes()]; [pt_read_truth()].
+#' @export
+#' @examples
+#' \dontrun{
+#' a <- pt_read("runs/sim_0_s7")
+#' truth <- pt_read_truth("sim_0_s7.json.gz")
+#' scores <- pt_score_coi(a, truth)
+#' mean(scores$error == 0)
+#' }
+pt_score_coi <- function(a, truth) {
+  ids <- truth_infection_ids(a, truth)
+  coi <- pt_coi(a)
+  genotyped <- pt_table(a, "latent_genotypes", phase = "sampling") |>
+    dplyr::distinct(.data$infection, .data$locus) |>
+    dplyr::collect()
+  g <- truth$genotypes[truth$genotypes$infection %in% ids, ]
+  g <- g[order(g$infection, g$strain, g$locus, g$allele, method = "radix"), ]
+  # One genotype string per (infection, strain, locus), then distinct strings per (infection, locus).
+  strain_key <- paste(g$infection, g$strain, g$locus, sep = "\r")
+  first <- !duplicated(strain_key)
+  per_strain <- tibble::tibble(
+    infection = g$infection[first], locus = g$locus[first],
+    genotype = vapply(split(g$allele, factor(strain_key, levels = unique(strain_key))), paste, "", collapse = ",")
+  )
+  per_strain <- per_strain[paste(per_strain$infection, per_strain$locus, sep = "\r") %in%
+                             paste(genotyped$infection, genotyped$locus, sep = "\r"), ]
+  distinct <- unique(per_strain)
+  at_locus <- tapply(distinct$genotype, paste(distinct$infection, distinct$locus, sep = "\r"), length)
+  infection_of <- sub("\r.*$", "", names(at_locus))
+  true_coi <- tapply(as.vector(at_locus), infection_of, max)[coi$infection]
+  strains <- tapply(g$strain, g$infection, function(s) length(unique(s)))[coi$infection]
+  out <- tibble::tibble(
+    infection = coi$infection, median = coi$median,
+    true_coi = as.integer(ifelse(is.na(true_coi), 0L, true_coi)),
+    strains = as.integer(ifelse(is.na(strains), 0L, strains))
+  )
+  out$error <- out$median - out$true_coi
+  out
+}
+
+#' Score Parent sets and the MAP graph against the truth
+#'
+#' Compares each Infection's pooled Parent sets (see [pt_parent_sets_pooled()]) with its true Parent set: its true
+#' parents among the Analysis's Infections, plus the Latent parent when it is a root of the simulated outbreak or
+#' when any of its true parents is outside the Analysis (an unsampled or dropped case counts as the Latent parent).
+#' Two sets are equal when they hold the same observed Infections and both hold, or both lack, the Latent parent.
+#'
+#' * `pt_score_parent_sets()`: the Credible collection at `level`, which admits every set tied in weight with the
+#'   last set needed to reach the level, so its size and coverage never depend on how ties are broken.
+#'   `credible_size` counts its sets; `covered` is whether it holds the true set; `top_probability` is the weight of
+#'   the MAP Parent set.
+#' * `pt_score_map()`: whether the MAP Parent set (rank 1, ties broken by the members list as in
+#'   [pt_parent_sets_pooled()]) is the true set. The share of Infections whose MAP Parent set is right is
+#'   `mean(correct)`.
+#'
+#' Sets are pooled over the sampling Draws of every Run; Runs with no sampling Draws are skipped with a message.
+#'
+#' @inheritParams pt_score_edges
+#' @param level Level of the Credible collection, in (0, 1].
+#' @return A tibble with one row per Infection, sorted by `infection` as strings. `pt_score_parent_sets()`:
+#'   `credible_size`, `covered`, `top_probability`. `pt_score_map()`: the MAP Parent set's `members` (a list of
+#'   observed parent ids in string order), `has_latent_parent` and `weight`; the true set's `true_members` and
+#'   `true_has_latent_parent`; and `correct`.
+#' @seealso [pt_parent_sets_pooled()], [pt_map_graph()]; [pt_read_truth()].
+#' @export
+#' @examples
+#' \dontrun{
+#' a <- pt_read("runs/sim_0_s7")
+#' truth <- pt_read_truth("sim_0_s7.json.gz")
+#' sets <- pt_score_parent_sets(a, truth)
+#' mean(sets$covered)
+#' mean(pt_score_map(a, truth)$correct)
+#' }
+pt_score_parent_sets <- function(a, truth, level = 0.8) {
+  check_credible_level(level)
+  true <- true_parent_sets(a, truth)
+  sets <- pooled_sets(a, runs_with_draws(a), FALSE, level)
+  credible <- sets[sets$credible, ]
+  hit <- set_key(credible$infection, credible$members, credible$has_latent_parent) %in%
+    set_key(true$infection, true$parents, true$has_latent_parent)
+  ids <- sort(true$infection, method = "radix")
+  map <- sets[sets$rank == 1L, ]
+  top <- map$weight[match(ids, map$infection)]
+  tibble::tibble(
+    infection = ids,
+    credible_size = as.integer(table(factor(credible$infection, levels = ids))),
+    covered = ids %in% credible$infection[hit],
+    top_probability = ifelse(is.na(top), 0, top)
+  )
+}
+
+#' @rdname pt_score_parent_sets
+#' @export
+pt_score_map <- function(a, truth) {
+  true <- true_parent_sets(a, truth)
+  sets <- pooled_sets(a, runs_with_draws(a), FALSE, 0.8)
+  map <- sets[sets$rank == 1L, ]
+  ids <- sort(true$infection, method = "radix")
+  at <- match(ids, map$infection)
+  truth_at <- match(ids, true$infection)
+  out <- tibble::tibble(
+    infection = ids,
+    members = map$members[at],
+    has_latent_parent = map$has_latent_parent[at],
+    weight = map$weight[at],
+    true_members = true$parents[truth_at],
+    true_has_latent_parent = true$has_latent_parent[truth_at]
+  )
+  out$correct <- !is.na(at) &
+    set_key(out$infection, out$members, out$has_latent_parent) ==
+      set_key(out$infection, out$true_members, out$true_has_latent_parent)
+  out
+}
+
+# One string per Parent set: infection, observed members (in the order given), Latent parent flag.
+set_key <- function(infection, members, has_latent_parent) {
+  paste(infection, vapply(members, paste, "", collapse = "\x1f"), has_latent_parent, sep = "\r")
+}

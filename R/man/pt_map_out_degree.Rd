@@ -5,12 +5,14 @@
 \alias{pt_out_degree_range}
 \title{MAP out-degree and out-degree size range}
 \usage{
-pt_map_out_degree(a, by_run = FALSE, runs = NULL)
+pt_map_out_degree(a, by = NULL, by_run = FALSE, runs = NULL)
 
-pt_out_degree_range(a, level = 0.8, by_run = FALSE, runs = NULL)
+pt_out_degree_range(a, level = 0.8, by = NULL, by_run = FALSE, runs = NULL)
 }
 \arguments{
 \item{a}{A \code{pt_analysis} from \code{\link[=pt_read]{pt_read()}}.}
+
+\item{by}{\code{NULL}, or the name of one epi column (a string; see \code{\link[=pt_read]{pt_read()}}) to stratify the sources by.}
 
 \item{by_run}{\code{FALSE} for one row pooled over Runs; \code{TRUE} for one row per Run, from that Run's own sets.}
 
@@ -19,8 +21,9 @@ pt_out_degree_range(a, level = 0.8, by_run = FALSE, runs = NULL)
 \item{level}{Level of the Credible collection, in (0, 1].}
 }
 \value{
-A tibble with \code{run} first when \code{by_run = TRUE}. \code{pt_map_out_degree()}: \code{map_out_degree} and
-\code{infections} (the number of Infections averaged over). \code{pt_out_degree_range()}: \code{lo}, \code{hi} and \code{level}.
+A tibble with \code{run} first when \code{by_run = TRUE}, then \code{stratum} with \code{by} (one row per stratum, sorted, NA
+last). \code{pt_map_out_degree()}: \code{map_out_degree} and \code{infections} (the number of Infections averaged over, n_S).
+\code{pt_out_degree_range()}: \code{lo}, \code{hi} and \code{level}.
 }
 \description{
 Summaries of how many children an Infection infected, read off the pooled Parent sets of
@@ -41,6 +44,14 @@ divided by the number of Infections. In the manuscript's notation, ψ_lo(S) = n_
 
 Sets are pooled over the sampling Draws of every Run (or of each Run with \code{by_run = TRUE}); Runs with no sampling
 Draws are skipped with a message.
+
+\strong{Strata.} With \code{by}, S is one stratum's Infections, counted as sources: ψ_MAP(S) is the number of MAP-set
+parents (of every recipient) that lie in S, over n_S, the number of Infections in S; ψ_lo(S) and ψ_hi(S) take, for
+every recipient j, the min and max over its Credible collection of the observed parents in S, summed and divided by
+n_S. A stratum is a value of the epi column \code{by}; Infections with an NA value, or missing from epi, form the NA
+stratum, which is kept. ψ_MAP(S) weighted by n_S averages back to ψ_MAP, and \verb{lo <= map_out_degree <= hi} in every
+stratum. The size range does not average back: a sum of per-stratum minima is at most the overall minimum (and of
+maxima at least the overall maximum).
 }
 \examples{
 golden <- system.file("extdata", "golden", package = "plasmotrackr")
@@ -48,5 +59,11 @@ a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange"
 pt_map_out_degree(a)
 pt_out_degree_range(a)
 pt_out_degree_range(a, level = 0.95, by_run = TRUE)
+pt_close(a)
+
+epi <- data.frame(infection = c("1", "2"), district = c("north", "south"))
+a <- pt_read(file.path(golden, "single-chain"), epi = epi, threads = 1)
+pt_map_out_degree(a, by = "district")
+pt_out_degree_range(a, by = "district")
 pt_close(a)
 }

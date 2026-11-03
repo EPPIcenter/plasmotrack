@@ -78,10 +78,20 @@ pt_map_graph <- function(a, by_run = FALSE, runs = NULL) {
 #' Sets are pooled over the sampling Draws of every Run (or of each Run with `by_run = TRUE`); Runs with no sampling
 #' Draws are skipped with a message.
 #'
+#' **Strata.** With `by`, S is one stratum's Infections, counted as sources: ψ_MAP(S) is the number of MAP-set
+#' parents (of every recipient) that lie in S, over n_S, the number of Infections in S; ψ_lo(S) and ψ_hi(S) take, for
+#' every recipient j, the min and max over its Credible collection of the observed parents in S, summed and divided by
+#' n_S. A stratum is a value of the epi column `by`; Infections with an NA value, or missing from epi, form the NA
+#' stratum, which is kept. ψ_MAP(S) weighted by n_S averages back to ψ_MAP, and `lo <= map_out_degree <= hi` in every
+#' stratum. The size range does not average back: a sum of per-stratum minima is at most the overall minimum (and of
+#' maxima at least the overall maximum).
+#'
 #' @inheritParams pt_parent_sets_pooled
+#' @param by `NULL`, or the name of one epi column (a string; see [pt_read()]) to stratify the sources by.
 #' @param by_run `FALSE` for one row pooled over Runs; `TRUE` for one row per Run, from that Run's own sets.
-#' @return A tibble with `run` first when `by_run = TRUE`. `pt_map_out_degree()`: `map_out_degree` and
-#'   `infections` (the number of Infections averaged over). `pt_out_degree_range()`: `lo`, `hi` and `level`.
+#' @return A tibble with `run` first when `by_run = TRUE`, then `stratum` with `by` (one row per stratum, sorted, NA
+#'   last). `pt_map_out_degree()`: `map_out_degree` and `infections` (the number of Infections averaged over, n_S).
+#'   `pt_out_degree_range()`: `lo`, `hi` and `level`.
 #' @export
 #' @examples
 #' golden <- system.file("extdata", "golden", package = "plasmotrackr")
@@ -90,27 +100,40 @@ pt_map_graph <- function(a, by_run = FALSE, runs = NULL) {
 #' pt_out_degree_range(a)
 #' pt_out_degree_range(a, level = 0.95, by_run = TRUE)
 #' pt_close(a)
-pt_map_out_degree <- function(a, by_run = FALSE, runs = NULL) {
+#'
+#' epi <- data.frame(infection = c("1", "2"), district = c("north", "south"))
+#' a <- pt_read(file.path(golden, "single-chain"), epi = epi, threads = 1)
+#' pt_map_out_degree(a, by = "district")
+#' pt_out_degree_range(a, by = "district")
+#' pt_close(a)
+pt_map_out_degree <- function(a, by = NULL, by_run = FALSE, runs = NULL) {
+  check_by(a, by)
   check_flag(by_run)
   sets <- pooled_sets(a, runs_with_draws(a, runs), by_run, 0.8)
   map <- sets[sets$rank == 1L, ]
+  strata <- source_strata(a, by)
   per_run(map, by_run, function(rows) {
-    tibble::tibble(map_out_degree = sum(rows$n_observed) / nrow(a$infections), infections = nrow(a$infections))
+    counts <- colSums(stratum_counts(rows$members, strata))
+    stratum_rows(strata, by, map_out_degree = counts / strata$n, infections = strata$n)
   })
 }
 
 #' @rdname pt_map_out_degree
 #' @export
-pt_out_degree_range <- function(a, level = 0.8, by_run = FALSE, runs = NULL) {
+pt_out_degree_range <- function(a, level = 0.8, by = NULL, by_run = FALSE, runs = NULL) {
   check_credible_level(level)
+  check_by(a, by)
   check_flag(by_run)
   sets <- pooled_sets(a, runs_with_draws(a, runs), by_run, level)
   credible <- sets[sets$credible, ]
+  strata <- source_strata(a, by)
   per_run(credible, by_run, function(rows) {
-    lo <- tapply(rows$n_observed, rows$infection, min)
-    hi <- tapply(rows$n_observed, rows$infection, max)
-    n <- nrow(a$infections)
-    tibble::tibble(lo = sum(lo) / n, hi = sum(hi) / n, level = level)
+    # Per credible set, its observed parents in each stratum; min and max within each recipient.
+    counts <- stratum_counts(rows$members, strata)
+    child <- factor(rows$infection)
+    lo <- vapply(seq_along(strata$n), function(k) sum(tapply(counts[, k], child, min)), 0)
+    hi <- vapply(seq_along(strata$n), function(k) sum(tapply(counts[, k], child, max)), 0)
+    stratum_rows(strata, by, lo = lo / strata$n, hi = hi / strata$n, level = level)
   })
 }
 
