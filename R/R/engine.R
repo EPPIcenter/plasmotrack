@@ -5,8 +5,10 @@ engine_option <- function(value, option, default = NULL) {
   getOption(option, default)
 }
 
+# DuckDB 1.5.6's common_subplan optimizer returns wrong rows when one query left-joins two aggregations of the same
+# joined subquery grouped by different keys (pt_net_flow()'s out- and in-edges): it is disabled.
 open_engine <- function(memory_limit = NULL, temp_directory = NULL, threads = NULL) {
-  config <- list(temp_directory = as.character(temp_directory))
+  config <- list(temp_directory = as.character(temp_directory), disabled_optimizers = "common_subplan")
   if (!is.null(memory_limit)) config$memory_limit <- as.character(memory_limit)
   if (!is.null(threads)) config$threads <- as.character(threads)
   drv <- duckdb::duckdb(shared_home = FALSE, config = config)
