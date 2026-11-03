@@ -49,10 +49,12 @@ infection_grid <- function(a, runs = NULL, phase = "sampling") {
 #' pt_composition(a) |> pt_interval(by = class, level = 0.9)
 #' pt_entropy(a) |> pt_interval()
 #' pt_close(a)
-pt_mean_out_degree <- function(a, runs = NULL, phase = "sampling") {
+pt_mean_out_degree <- function(a, by = NULL, runs = NULL, phase = "sampling") {
+  check_by(a, by)
   pt_out_degree_draws(a, runs, phase) |>
     dplyr::rename(mean_out_degree = "out_degree") |>
-    per_draw_mean("mean_out_degree")
+    with_strata(a, by) |>
+    per_draw_mean("mean_out_degree", keys = strata_keys(by))
 }
 
 # pt_infection_draws() over the full Infection grid: an Infection with no row at a Draw counts 0, entropy 0 (so
@@ -71,35 +73,43 @@ infection_values <- function(a, runs, phase) {
 
 #' @rdname pt_mean_out_degree
 #' @export
-pt_mean_p_latent_parent <- function(a, runs = NULL, phase = "sampling") {
+pt_mean_p_latent_parent <- function(a, by = NULL, runs = NULL, phase = "sampling") {
+  check_by(a, by)
   infection_values(a, runs, phase) |>
     dplyr::select("run", "iteration", "infection", mean_p_latent_parent = "p_latent_parent") |>
-    per_draw_mean("mean_p_latent_parent")
+    with_strata(a, by) |>
+    per_draw_mean("mean_p_latent_parent", keys = strata_keys(by))
 }
 
 #' @rdname pt_mean_out_degree
 #' @export
-pt_composition <- function(a, runs = NULL, phase = "sampling") {
+pt_composition <- function(a, by = NULL, runs = NULL, phase = "sampling") {
+  check_by(a, by)
   pt_class_draws(a, runs, phase) |>
-    per_draw_mean("share", keys = "class")
+    with_strata(a, by) |>
+    per_draw_mean("share", keys = c(strata_keys(by), "class"))
 }
 
 #' @rdname pt_mean_out_degree
 #' @export
-pt_multi_source <- function(a, runs = NULL, phase = "sampling") {
+pt_multi_source <- function(a, by = NULL, runs = NULL, phase = "sampling") {
+  check_by(a, by)
   infection_values(a, runs, phase) |>
     dplyr::select("run", "iteration", "infection", augmented = "multi_source_augmented",
                   observed_only = "multi_source_observed") |>
-    per_draw_mean(c("augmented", "observed_only"))
+    with_strata(a, by) |>
+    per_draw_mean(c("augmented", "observed_only"), keys = strata_keys(by))
 }
 
 #' @rdname pt_mean_out_degree
 #' @export
-pt_entropy <- function(a, runs = NULL, phase = "sampling") {
+pt_entropy <- function(a, by = NULL, runs = NULL, phase = "sampling") {
+  check_by(a, by)
   infection_values(a, runs, phase) |>
     dplyr::select("run", "iteration", "infection", mean_entropy = "entropy",
                   mean_effective_size = "effective_size") |>
-    per_draw_mean(c("mean_entropy", "mean_effective_size"))
+    with_strata(a, by) |>
+    per_draw_mean(c("mean_entropy", "mean_effective_size"), keys = strata_keys(by))
 }
 
 #' Posterior mean and interval of a per-Draw table
