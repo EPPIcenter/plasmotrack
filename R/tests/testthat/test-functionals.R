@@ -21,6 +21,11 @@ local_functional_runs <- function(.local_envir = parent.frame()) {
   file.path(parent, c("a", "b"))
 }
 
+# pt_read() for the fake Runs, read_golden() for the golden Stores.
+read_fake_or_golden <- function(paths) {
+  if (identical(paths, golden_functional_paths())) read_golden(paths) else pt_read(paths)
+}
+
 read_functional_runs <- function(paths) {
   expect_warning(a <- pt_read(paths), "Draw counts differ")
   a
@@ -98,7 +103,7 @@ test_that("composition shares sum to each Draw's mean total weight", {
   # Run a Draw 1: Infection 10 holds no weight; Draw 2: the floor dropped 1e-10.
   expect_equal(as.vector(total[c("a 1", "a 2", "b 1")]), c(2 / 3, 1 - 1e-10 / 3, 1), tolerance = 1e-12)
 
-  g <- pt_read(golden_functional_paths())
+  g <- read_golden(golden_functional_paths())
   on.exit(pt_close(g), add = TRUE)
   shares <- dplyr::collect(pt_composition(g))
   weights <- dplyr::collect(pt_table(g, "parent_sets"))
@@ -112,7 +117,7 @@ test_that("composition shares sum to each Draw's mean total weight", {
 
 test_that("mean out-degree equals the mean over Infections of pt_out_degree_draws() at every Draw", {
   for (paths in list(local_functional_runs(), golden_functional_paths())) {
-    a <- suppressWarnings(pt_read(paths))
+    a <- suppressWarnings(read_fake_or_golden(paths))
     degrees <- dplyr::collect(pt_out_degree_draws(a))
     means <- by_draw(pt_mean_out_degree(a))
     pt_close(a)
@@ -124,7 +129,7 @@ test_that("mean out-degree equals the mean over Infections of pt_out_degree_draw
 
 test_that("functionals match the oracle per Draw on fake and golden Stores", {
   for (paths in list(local_functional_runs(), golden_functional_paths())) {
-    a <- suppressWarnings(pt_read(paths))
+    a <- suppressWarnings(read_fake_or_golden(paths))
     o <- oracle_read(paths)
     draw <- c("run", "iteration")
     expect_oracle_equal(pt_mean_out_degree(a), oracle_mean_out_degree(o), draw)
@@ -137,7 +142,7 @@ test_that("functionals match the oracle per Draw on fake and golden Stores", {
 })
 
 test_that("functionals take runs and phase", {
-  a <- pt_read(golden_functional_paths())
+  a <- read_golden(golden_functional_paths())
   on.exit(pt_close(a))
   o <- oracle_read(golden_functional_paths())
   both <- c("burn_in", "sampling")

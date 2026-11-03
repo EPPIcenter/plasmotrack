@@ -43,7 +43,7 @@ test_that("pt_interval() pools every Draw of every Run: mean and type-7 interval
 
 test_that("pt_interval() matches the oracle on functionals, with and without by", {
   paths <- c(one = golden_store(), four = golden_store("replica-exchange"))
-  a <- pt_read(paths)
+  a <- read_golden(paths)
   on.exit(pt_close(a))
   degree <- dplyr::collect(pt_mean_out_degree(a))
   expect_same_quantiles(pt_interval(pt_mean_out_degree(a)), oracle_interval(degree, value = "mean_out_degree"),
@@ -71,7 +71,7 @@ test_that("several value columns give a value column naming each", {
 
 test_that("pt_interval() takes a per-Draw table the user builds, lazy or not", {
   paths <- c(one = golden_store(), four = golden_store("replica-exchange"))
-  a <- pt_read(paths)
+  a <- read_golden(paths)
   on.exit(pt_close(a))
   # A raw Trace: window is bookkeeping, not a value.
   freqs <- pt_table(a, "allele_frequencies")

@@ -56,7 +56,7 @@ test_that("pt_coi_draws() is the most Alleles present at any genotyped Locus", {
 golden_genotype_paths <- function() c(one = golden_store(), four = golden_store("replica-exchange"))
 
 test_that("per-Draw genotype tables match the oracle on golden and fake Stores", {
-  a <- pt_read(golden_genotype_paths())
+  a <- read_golden(golden_genotype_paths())
   on.exit(pt_close(a))
   o <- oracle_read(golden_genotype_paths())
   both <- c("burn_in", "sampling")
@@ -129,7 +129,7 @@ coi_distribution_long <- function(coi) {
 
 test_that("pt_coi() matches the oracle on golden and fake Stores", {
   for (paths in list(golden_genotype_paths(), NULL)) {
-    a <- if (is.null(paths)) local_two_genotype_runs() else pt_read(paths)
+    a <- if (is.null(paths)) local_two_genotype_runs() else read_golden(paths)
     o <- oracle_read(if (is.null(paths)) stats::setNames(a$runs$path, a$runs$run) else paths)
     for (by_run in c(FALSE, TRUE)) {
       keys <- c(if (by_run) "run", "infection")
@@ -204,7 +204,7 @@ test_that("fraction counts every Draw, agreement only Draws with a Latent genoty
 
 test_that("genotype summaries match the oracle on golden and fake Stores", {
   for (paths in list(golden_genotype_paths(), NULL)) {
-    a <- if (is.null(paths)) local_two_genotype_runs() else pt_read(paths)
+    a <- if (is.null(paths)) local_two_genotype_runs() else read_golden(paths)
     o <- oracle_read(if (is.null(paths)) stats::setNames(a$runs$path, a$runs$run) else paths)
     for (by_run in c(FALSE, TRUE)) {
       keys <- c(if (by_run) "run", "infection", "locus")
