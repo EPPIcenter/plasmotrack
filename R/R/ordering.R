@@ -107,3 +107,54 @@ check_infection_subset <- function(a, infections, arg = rlang::caller_arg(infect
   }
   unique(infections)
 }
+
+#' Infection times
+#'
+#' When each Infection was acquired: its observation time minus the infection duration (the Store's
+#' `infection_duration`, the time from infection to observation in the time unit of the IDP files), summarised over
+#' the sampling Draws. `median` is the observation time minus the median duration, and `lower` and `upper` bound the
+#' equal-tailed interval: the observation time minus the type-7 quantiles (R's default, see [stats::quantile()]) of
+#' the pooled durations at \eqn{(1 + level) / 2} and \eqn{(1 - level) / 2}.
+#'
+#' Observation times come from the input JSON (see [pt_infections()]); an Infection without one, or every Infection
+#' when [pt_read()] found no input, gets `NA` times. Draws pool as everywhere in the package: the quantiles are over
+#' every Draw of every Run, so each Run weighs by its Draws. Runs with no sampling Draws are skipped with a message.
+#'
+#' @inheritParams pt_coi
+#' @param level Interval probability, strictly between 0 and 1.
+#' @return A tibble of `infection`, `lower`, `median` and `upper`, after `run` when `by_run = TRUE`, sorted by `run`
+#'   (in [pt_runs()] order), then `infection` as strings.
+#' @seealso [pt_order_pairs()] for the probability that one Infection was acquired before another;
+#'   `pt_table(a, "infections") |> pt_interval(by = infection, value = infection_duration)` for the durations.
+#' @export
+#' @examples
+#' golden <- system.file("extdata", "golden", package = "plasmotrackr")
+#' input <- system.file("extdata", "example_input.json", package = "plasmotrackr")
+#' a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange")), input = input, threads = 1)
+#' pt_infection_times(a)
+#' pt_infection_times(a, level = 0.5, by_run = TRUE)
+#' pt_close(a)
+pt_infection_times <- function(a, level = 0.95, by_run = FALSE, runs = NULL) {
+  if (!is.numeric(level) || length(level) != 1 || is.na(level) || level <= 0 || level >= 1) {
+    cli::cli_abort("{.arg level} must be a number strictly between 0 and 1.")
+  }
+  check_flag(by_run)
+  runs <- runs_with_draws(a, runs)
+  durations <- pt_table(a, "infections", runs = runs) |>
+    dplyr::select("run", "iteration", "infection", duration = "infection_duration")
+  # Distinct durations and their Draw counts: a duration often stays put between Draws.
+  counts <- tally_draws(a, durations, c("infection", "duration"), by_run, runs)
+  keys <- c(if (by_run) "run", "infection")
+  group <- do.call(paste, c(unname(as.list(counts[keys])), sep = "\r"))
+  rows <- split(seq_len(nrow(counts)), factor(group, levels = unique(group)))
+  probs <- c((1 + level) / 2, 0.5, (1 - level) / 2)
+  quantiles <- vapply(rows, function(i) {
+    stats::quantile(rep(counts$duration[i], counts$n[i]), probs, names = FALSE, type = 7)
+  }, numeric(3), USE.NAMES = FALSE)
+  out <- counts[!duplicated(group), keys]
+  time <- a$infections$observation_time[match(out$infection, a$infections$infection)]
+  out$lower <- time - quantiles[1, ]
+  out$median <- time - quantiles[2, ]
+  out$upper <- time - quantiles[3, ]
+  tibble::as_tibble(out)
+}

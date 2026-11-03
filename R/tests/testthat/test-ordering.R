@@ -93,3 +93,31 @@ test_that("pt_order_pairs(infections =) keeps only pairs touching those Infectio
   expect_equal(pt_order_pairs(a, infections = "2")[c("i", "j")], tibble::tibble(i = c("10", "2"), j = c("2", "3")))
   expect_error(pt_order_pairs(a, infections = c("2", "99")), "99")
 })
+
+test_that("pt_infection_times() is the observation time minus type-7 quantiles of the duration", {
+  a <- local_ordering_analysis()
+  # 10: durations 1, 4, 2 -> quantiles 1.05 (2.5%), 2 (50%), 3.9 (97.5%); 2: always 5; 3 has no observation time.
+  got <- pt_infection_times(a)
+  expect_s3_class(got, "tbl_df")
+  expect_equal(as.data.frame(got), data.frame(
+    infection = c("10", "2", "3"), lower = c(20 - 3.9, 25, NA), median = c(18, 25, NA), upper = c(20 - 1.05, 25, NA)
+  ))
+  # 25% and 75% quantiles of 1, 2, 4: 1.5 and 3.
+  expect_equal(pt_infection_times(a, level = 0.5)$lower[1], 17)
+  expect_equal(pt_infection_times(a, level = 0.5)$upper[1], 18.5)
+  expect_error(pt_infection_times(a, level = 1), "level")
+})
+
+test_that("pt_infection_times() pools Draws over Runs, or keeps each Run with by_run", {
+  a <- local_two_ordering_runs()
+  # Run s has duration 10 at every Draw: Infection 10 pools 1, 2, 4, 10, 10, 10.
+  pooled <- pt_infection_times(a)
+  expect_equal(pooled$median[1], 20 - 7)
+  expect_equal(pooled$lower[1], 20 - 10)
+  expect_equal(pooled$upper[1], 20 - 1.125)
+  by_run <- pt_infection_times(a, by_run = TRUE)
+  expect_equal(colnames(by_run), c("run", "infection", "lower", "median", "upper"))
+  expect_equal(by_run$run, rep(c("r", "s"), each = 3))
+  expect_equal(by_run$median, c(18, 25, NA, 10, 20, NA))
+  expect_equal(pt_infection_times(a, runs = "s")$median, c(10, 20, NA))
+})
