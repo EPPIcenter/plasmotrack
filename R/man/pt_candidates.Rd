@@ -14,8 +14,8 @@ A tibble of \code{parent} and \code{child} Infection ids, one row per candidate 
 strings. Errors when \code{\link[=pt_read]{pt_read()}} did not find the input.
 }
 \description{
-The (parent, child) pairs the model may join: each Infection's \code{allowed_parents} in the input JSON. The Store does
-not hold them, so they come from the input \code{\link[=pt_read]{pt_read()}} found. The Latent parent is never a candidate here. Pass
+The (parent, child) pairs the model may join: each Infection's \code{allowed_parents} in the input JSON. They come from
+the input \code{\link[=pt_read]{pt_read()}} found: the Store's embedded copy in new Stores, or the input file for old ones. The Latent parent is never a candidate here. Pass
 them to \code{pt_enrichment()}, which uses them by default.
 }
 \examples{

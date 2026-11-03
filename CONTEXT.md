@@ -165,7 +165,7 @@ The identity and recipe of a Run — seeds, CLI, versions, input identity — st
 _Avoid_: Metadata, config dump, sidecar
 
 **Store**:
-The single directory a Run writes its output to: Parquet tables committed per Window, lookup tables describing the Run's layout, the Run manifest and the checkpoints. A reader trusts only Windows that have a Window marker.
+The single directory a Run writes its output to: Parquet tables committed per Window, lookup tables describing the Run's layout, the Run manifest, byte-for-byte copies of the Run's input and IDP files, and the checkpoints. A reader trusts only Windows that have a Window marker.
 _Avoid_: Output folder, results, database
 
 **Window marker**:

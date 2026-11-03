@@ -4,6 +4,7 @@
 
 #include "RunRecorder.h"
 
+#include "core/io/DurableFile.h"
 #include "core/utils/timers.h"
 
 #include <fmt/core.h>
@@ -91,6 +92,19 @@ namespace transmission_nets::impl::Model {
             return j;
         }
     }// namespace
+
+    std::string storedInputName(const std::string& inputName, const std::filesystem::path& source) {
+        if (inputName == input_names::INPUT) {
+            return source.extension() == ".gz" ? "input.json.gz" : "input.json";
+        }
+        return inputName + ".txt";
+    }
+
+    void copyRunInputs(const std::filesystem::path& store, const std::map<std::string, std::filesystem::path>& inputs) {
+        for (const auto& [name, source] : inputs) {
+            core::io::copyDurably(source, store / storedInputName(name, source));
+        }
+    }
 
     StoredRun storedRunFromJson(const nlohmann::json& j) {
         RunManifest m{.runId         = j.at("run_id").get<std::string>(),

@@ -15,6 +15,14 @@ local_golden_copy <- function(name = "single-chain", .local_envir = parent.frame
   file.path(parent, name)
 }
 
+# A golden copy without the Store's own copy of its input (as a Store written before engine #140), for tests of the
+# other ways pt_read() finds the input.
+local_golden_copy_without_input <- function(name = "single-chain", .local_envir = parent.frame()) {
+  path <- local_golden_copy(name, .local_envir = .local_envir)
+  unlink(file.path(path, c("input.json", "input.json.gz")))
+  path
+}
+
 # Overwrite fields of a Store's manifest.json, such as edit_manifest(path, null_model = TRUE).
 edit_manifest <- function(path, ...) {
   file <- file.path(path, "manifest.json")
@@ -115,8 +123,8 @@ golden_input <- function() {
   system.file("extdata", "example_input.json", package = "plasmotrackr", mustWork = TRUE)
 }
 
-# pt_read() with the golden input. The golden manifests record "<input>" in cli_arguments, so pt_read() alone finds
-# no input and says so; tests that are not about the input use this instead.
+# pt_read() with the golden input given. The golden Stores hold their own copy, so pt_read() alone finds it too; tests
+# that are not about the input give it anyway.
 read_golden <- function(...) pt_read(..., input = golden_input())
 
 # The golden input's observation times as a named vector (id -> time), read straight from the JSON for the oracle.

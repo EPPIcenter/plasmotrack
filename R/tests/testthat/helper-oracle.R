@@ -296,6 +296,144 @@ oracle_score_edges <- function(o, true_edges) {
   do.call(rbind, rows)
 }
 
+# Pooled Parent sets (pt_parent_sets_pooled): sets keyed by sorted observed members and has_latent_parent, weight =
+# summed stored weight / Draws, ranked by a pairwise comparison (weight, then the members list with the Latent parent
+# after every id and a prefix first), Credible collection by a forward scan.
+oracle_parent_sets_pooled <- function(o, level = 0.8, by_run = FALSE, runs = NULL) {
+  runs <- oracle_runs(o, runs)
+  draws <- vapply(runs, function(r) length(oracle_draws(o, r)), numeric(1))
+  runs <- runs[draws > 0]
+  draws <- draws[draws > 0]
+  sets <- list()
+  for (j in seq_along(runs)) {
+    rows <- oracle_parent_sets(o, runs[[j]])
+    group <- if (by_run) runs[[j]] else ""
+    for (i in seq_len(NROW(rows))) {
+      observed <- sort(rows$observed[[i]], method = "radix")
+      k <- paste(group, rows$infection[[i]], paste(observed, collapse = ","), rows$has_latent_parent[[i]], sep = "|")
+      if (is.null(sets[[k]])) {
+        sets[[k]] <- list(run = group, infection = rows$infection[[i]], members = observed,
+                          has_latent_parent = rows$has_latent_parent[[i]], total = 0,
+                          draws = if (by_run) draws[[j]] else sum(draws))
+      }
+      sets[[k]]$total <- sets[[k]]$total + rows$prob[[i]]
+    }
+  }
+  list_before <- function(x, y) {
+    x <- c(x$members, if (x$has_latent_parent) NA)
+    y <- c(y$members, if (y$has_latent_parent) NA)
+    for (k in seq_len(min(length(x), length(y)))) {
+      if (is.na(x[k]) && is.na(y[k])) next
+      if (is.na(x[k])) return(FALSE)
+      if (is.na(y[k])) return(TRUE)
+      if (x[k] != y[k]) return(sort(c(x[k], y[k]), method = "radix")[1] == x[k])
+    }
+    length(x) < length(y)
+  }
+  for (k in names(sets)) sets[[k]]$weight <- sets[[k]]$total / sets[[k]]$draws
+  out <- list()
+  for (g in unique(vapply(sets, function(s) paste(s$run, s$infection, sep = "|"), ""))) {
+    mine <- Filter(function(s) paste(s$run, s$infection, sep = "|") == g, sets)
+    rank <- vapply(mine, function(s) {
+      1 + sum(vapply(mine, function(t) t$weight > s$weight || (t$weight == s$weight && list_before(t, s)), TRUE))
+    }, 1)
+    mine <- mine[order(rank)]
+    cumulative <- 0
+    reached <- NA
+    rows <- list()
+    for (r in seq_along(mine)) {
+      cumulative <- cumulative + mine[[r]]$weight
+      if (is.na(reached) && cumulative >= level - 1e-12) reached <- r
+      rows[[r]] <- data.frame(run = mine[[r]]$run, infection = mine[[r]]$infection, members = I(list(mine[[r]]$members)),
+                              n_observed = length(mine[[r]]$members), has_latent_parent = mine[[r]]$has_latent_parent,
+                              class = oracle_class_name(length(mine[[r]]$members), mine[[r]]$has_latent_parent),
+                              weight = mine[[r]]$weight, rank = r, cumulative_mass = cumulative)
+    }
+    rows <- do.call(rbind, rows)
+    rows$credible <- if (is.na(reached)) TRUE else rows$rank <= reached | rows$weight == rows$weight[reached]
+    out[[g]] <- rows
+  }
+  out <- oracle_bind(out, NULL)
+  out$members <- unclass(out$members)
+  if (!by_run) out$run <- NULL
+  out
+}
+
+# ψ_MAP: observed members of every Infection's MAP set, over the number of Infections.
+oracle_map_out_degree <- function(o, by_run = FALSE, runs = NULL) {
+  sets <- oracle_parent_sets_pooled(o, by_run = by_run, runs = runs)
+  if (!by_run) sets$run <- ""
+  n <- length(oracle_infection_ids(o))
+  out <- list()
+  for (run in unique(sets$run)) {
+    count <- 0
+    for (i in which(sets$run == run & sets$rank == 1)) count <- count + length(sets$members[[i]])
+    out[[run]] <- data.frame(run = run, map_out_degree = count / n, infections = n)
+  }
+  out <- oracle_bind(out, NULL)
+  if (!by_run) out$run <- NULL
+  out
+}
+
+# ψ_lo and ψ_hi: per Infection the fewest and most observed members over its Credible collection, summed over
+# Infections (0 for one with no set), over the number of Infections.
+oracle_out_degree_range <- function(o, level = 0.8, by_run = FALSE, runs = NULL) {
+  sets <- oracle_parent_sets_pooled(o, level = level, by_run = by_run, runs = runs)
+  if (!by_run) sets$run <- ""
+  n <- length(oracle_infection_ids(o))
+  out <- list()
+  for (run in unique(sets$run)) {
+    lo <- 0
+    hi <- 0
+    for (child in oracle_infection_ids(o)) {
+      sizes <- numeric()
+      for (i in which(sets$run == run & sets$infection == child & sets$credible)) {
+        sizes <- c(sizes, length(sets$members[[i]]))
+      }
+      if (length(sizes)) {
+        lo <- lo + min(sizes)
+        hi <- hi + max(sizes)
+      }
+    }
+    out[[run]] <- data.frame(run = run, lo = lo / n, hi = hi / n, level = level)
+  }
+  out <- oracle_bind(out, NULL)
+  if (!by_run) out$run <- NULL
+  out
+}
+
+# Co-inclusion: per child, the pooled weight of its sets holding both parents of each pair (a < b in string order).
+# With by_run, a pair seen in any Run has a row in every Run (0 where it is absent).
+oracle_co_inclusion <- function(o, infections = NULL, by_run = FALSE, runs = NULL) {
+  sets <- oracle_parent_sets_pooled(o, by_run = by_run, runs = runs)
+  if (!by_run) sets$run <- "pooled"  # not "": a list element named "" is never matched
+  total <- list()
+  for (i in seq_len(nrow(sets))) {
+    m <- sets$members[[i]]
+    if (length(m) < 2 || (!is.null(infections) && !sets$infection[[i]] %in% infections)) next
+    for (x in seq_along(m)) for (y in seq_along(m)) {
+      if (x >= y) next
+      k <- paste(sets$infection[[i]], m[[x]], m[[y]], sep = "\r")
+      if (is.null(total[[k]])) total[[k]] <- list()
+      total[[k]][[sets$run[[i]]]] <- (if (is.null(total[[k]][[sets$run[[i]]]])) 0 else total[[k]][[sets$run[[i]]]]) +
+        sets$weight[[i]]
+    }
+  }
+  out <- list()
+  for (k in names(total)) {
+    parts <- strsplit(k, "\r", fixed = TRUE)[[1]]
+    for (run in unique(sets$run)) {
+      p <- if (is.null(total[[k]][[run]])) 0 else total[[k]][[run]]
+      out[[length(out) + 1]] <- data.frame(run = run, child = parts[[1]], parent_a = parts[[2]], parent_b = parts[[3]],
+                                           probability = p)
+    }
+  }
+  out <- oracle_bind(out, data.frame(run = character(), child = character(), parent_a = character(),
+                                     parent_b = character(), probability = numeric()))
+  if (!by_run) out$run <- NULL
+  out
+}
+
 oracle_bind <- function(parts, empty) {
   parts <- Filter(Negate(is.null), parts)
   if (length(parts) == 0) return(empty)

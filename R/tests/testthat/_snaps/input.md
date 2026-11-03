@@ -11,7 +11,7 @@
 # a missing or mismatched input in cli_arguments gives NA times and one message
 
     Code
-      a <- pt_read(golden_store())
+      a <- pt_read(local_golden_copy_without_input())
     Message
       No input JSON found; observation times are NA and `pt_candidates()` errors.
       x Run single-chain holds no copy of its input

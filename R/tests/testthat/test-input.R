@@ -1,4 +1,5 @@
-# Observation times and candidate pairs come from the input JSON, which the Store does not hold.
+# Observation times and candidate pairs come from the input JSON: the Store's own copy (engine #140 on), the input given,
+# or the one named in cli_arguments.
 # Expected values are the literals in examples/example_input.json.
 
 test_that("pt_read(input =) gives the input's observation times", {
@@ -40,8 +41,14 @@ set_cli_input <- function(run, input, args = c("<cli>", input, "<out>", "-s", "5
   edit_manifest(run, cli_arguments = as.list(args))
 }
 
+test_that("without input =, a golden Store gives its own copy's observation times", {
+  expect_no_message(a <- pt_read(golden_store()))
+  on.exit(pt_close(a))
+  expect_identical(pt_infections(a)$observation_time, c(234.0737, 306.2297, 350.5))
+})
+
 test_that("without input =, pt_read() uses the input named in the first Run's cli_arguments", {
-  run <- local_golden_copy()
+  run <- local_golden_copy_without_input()
   set_cli_input(run, golden_input())
   expect_no_message(a <- pt_read(run))
   on.exit(pt_close(a))
@@ -52,7 +59,7 @@ test_that("cli_arguments may name the input with -i or --input", {
   for (args in list(c("<cli>", "-i", golden_input(), "-o", "<out>"),
                     c("<cli>", "--seed", "1", paste0("--input=", golden_input())),
                     c("<cli>", "-s", "50", "--input", golden_input(), "<out>"))) {
-    run <- local_golden_copy()
+    run <- local_golden_copy_without_input()
     edit_manifest(run, cli_arguments = as.list(args))
     a <- pt_read(run)
     expect_identical(pt_infections(a)$observation_time, c(234.0737, 306.2297, 350.5), info = args[[3]])
@@ -61,12 +68,12 @@ test_that("cli_arguments may name the input with -i or --input", {
 })
 
 test_that("a missing or mismatched input in cli_arguments gives NA times and one message", {
-  # The golden manifests record "<input>", a path that does not exist, and the golden Stores hold no copy.
-  expect_snapshot(a <- pt_read(golden_store()))
+  # The golden manifests record "<input>", a path that does not exist; the copy is removed.
+  expect_snapshot(a <- pt_read(local_golden_copy_without_input()))
   expect_identical(pt_infections(a)$observation_time, rep(NA_real_, 3))
   pt_close(a)
 
-  run <- local_golden_copy()
+  run <- local_golden_copy_without_input()
   wrong <- file.path(dirname(run), "input.json")
   writeLines(c(readLines(golden_input()), ""), wrong)
   set_cli_input(run, wrong)
@@ -82,6 +89,7 @@ test_that("a relative input in cli_arguments is found from the directory the eng
   file.copy(golden_store(), file.path(launch, "runs"), recursive = TRUE)
   file.copy(golden_input(), file.path(launch, "data", "input.json"))
   run <- file.path(launch, "runs", "single-chain")
+  unlink(file.path(run, "input.json"))
   set_cli_input(run, NULL, c("<cli>", "data/input.json", "./runs/single-chain/", "-b", "20"))
   expect_no_message(a <- pt_read(run))
   on.exit(pt_close(a))
@@ -95,14 +103,13 @@ test_that("pt_candidates() returns the input's allowed parents as parent, child 
 })
 
 test_that("pt_candidates() errors when pt_read() found no input", {
-  a <- suppressMessages(pt_read(golden_store()))
+  a <- suppressMessages(pt_read(local_golden_copy_without_input()))
   on.exit(pt_close(a))
   expect_snapshot(pt_candidates(a), error = TRUE)
 })
 
 test_that("without input =, pt_read() uses the Store's own copy of the input before cli_arguments", {
   run <- local_golden_copy()
-  file.copy(golden_input(), file.path(run, "input.json"))
   # cli_arguments name a different file: the Store's copy comes first.
   wrong <- file.path(dirname(run), "other.json")
   writeLines(c(readLines(golden_input()), ""), wrong)
@@ -113,7 +120,7 @@ test_that("without input =, pt_read() uses the Store's own copy of the input bef
 })
 
 test_that("the Store's copy may be gzipped, and a copy with the wrong hash gives NA times and one message", {
-  run <- local_golden_copy()
+  run <- local_golden_copy_without_input()
   con <- gzfile(file.path(run, "input.json.gz"), "wb")
   writeBin(readBin(golden_input(), "raw", file.size(golden_input())), con)
   close(con)
@@ -135,7 +142,7 @@ test_that("the Store's copy may be gzipped, and a copy with the wrong hash gives
 test_that("print() says where the input came from, or that it was not found", {
   a <- pt_read(c(one = golden_store()), input = golden_input(), memory_limit = "1GiB")
   on.exit(pt_close(a))
-  b <- suppressMessages(pt_read(c(one = golden_store()), memory_limit = "1GiB"))
+  b <- suppressMessages(pt_read(c(one = local_golden_copy_without_input()), memory_limit = "1GiB"))
   on.exit(pt_close(b), add = TRUE)
   expect_snapshot({
     print(a)
