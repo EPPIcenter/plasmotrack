@@ -8,25 +8,28 @@
 \alias{pt_entropy}
 \title{Functionals}
 \usage{
-pt_mean_out_degree(a, runs = NULL, phase = "sampling")
+pt_mean_out_degree(a, by = NULL, runs = NULL, phase = "sampling")
 
-pt_mean_p_latent_parent(a, runs = NULL, phase = "sampling")
+pt_mean_p_latent_parent(a, by = NULL, runs = NULL, phase = "sampling")
 
-pt_composition(a, runs = NULL, phase = "sampling")
+pt_composition(a, by = NULL, runs = NULL, phase = "sampling")
 
-pt_multi_source(a, runs = NULL, phase = "sampling")
+pt_multi_source(a, by = NULL, runs = NULL, phase = "sampling")
 
-pt_entropy(a, runs = NULL, phase = "sampling")
+pt_entropy(a, by = NULL, runs = NULL, phase = "sampling")
 }
 \arguments{
 \item{a}{A \code{pt_analysis} from \code{\link[=pt_read]{pt_read()}}.}
+
+\item{by}{\code{NULL}, or the name of one epi column (a string; see \code{\link[=pt_read]{pt_read()}}) to stratify by.}
 
 \item{runs}{Run labels to read (see \code{\link[=pt_runs]{pt_runs()}}). \code{NULL} reads every Run.}
 
 \item{phase}{\code{"sampling"}, \code{"burn_in"}, or both. Burn-in includes the starting State at iteration 0.}
 }
 \value{
-A lazy table (\code{tbl_lazy}) with \code{run} and \code{iteration} first, then the value columns above.
+A lazy table (\code{tbl_lazy}) with \code{run} and \code{iteration} first, then \code{stratum} with \code{by}, then the value
+columns above.
 }
 \description{
 A Functional is one number per Draw computed from the whole network, here a mean over Infections. Each function
@@ -50,6 +53,13 @@ of an Infection's Parent sets, 1 less what the floor dropped.
 \item \code{pt_entropy()}: \code{mean_entropy}, the mean Parent-set entropy \eqn{-\sum w \ln w}, and \code{mean_effective_size}, the
 mean of its exponential (not the exponential of the mean).
 }
+
+\strong{Strata.} With \code{by}, each value is a mean over one stratum's Infections instead of all of them, with a
+\code{stratum} column after \code{iteration} (and before \code{class}). A stratum is a value of the epi column \code{by}; Infections
+with an NA value, or missing from epi, form the NA stratum, which is kept. \code{pt_mean_out_degree()} counts a stratum's
+Infections as sources (children anywhere); the others count them as recipients. So the per-stratum values weighted
+by the stratum sizes n_S average back to the overall value at every Draw. Cross-strata come from a combined column
+added to epi.
 }
 \examples{
 store <- system.file("extdata", "golden", "single-chain", package = "plasmotrackr")
@@ -58,6 +68,12 @@ pt_mean_out_degree(a) |> dplyr::collect()
 pt_mean_out_degree(a) |> pt_interval()
 pt_composition(a) |> pt_interval(by = class, level = 0.9)
 pt_entropy(a) |> pt_interval()
+pt_close(a)
+
+epi <- data.frame(infection = c("1", "2"), district = c("north", "south"))
+a <- pt_read(store, epi = epi, threads = 1)
+pt_mean_out_degree(a, by = "district") |> pt_interval(by = stratum)
+pt_composition(a, by = "district") |> pt_interval(by = c(stratum, class))
 pt_close(a)
 }
 \seealso{

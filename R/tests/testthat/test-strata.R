@@ -182,3 +182,59 @@ test_that("per-stratum values weighted by n_S average back to the overall value,
     pt_close(a)
   }
 })
+
+test_that("pt_map_out_degree(by =) counts MAP parents in each stratum over its Infections", {
+  a <- read_strata_runs(local_strata_runs())
+  on.exit(pt_close(a))
+  # Pooled MAP sets: 10 {2, 3, Latent} (tied with {Latent}, observed first), 2 {Latent}, 3 {Latent}.
+  expect_equal(pt_map_out_degree(a, by = "district"),
+               tibble::tibble(stratum = c("x", NA), map_out_degree = c(1 / 2, 1), infections = c(2L, 1L)))
+  # Run a's MAP sets are all {Latent}; Run b's: 10 {2, 3}, 2 {3}, 3 {Latent}.
+  expect_equal(pt_map_out_degree(a, by = "district", by_run = TRUE),
+               tibble::tibble(run = c("a", "a", "b", "b"), stratum = c("x", NA, "x", NA),
+                              map_out_degree = c(0, 0, 1 / 2, 2), infections = c(2L, 1L, 2L, 1L)))
+})
+
+test_that("pt_out_degree_range(by =) takes min and max over each Credible collection of the parents in S", {
+  a <- read_strata_runs(local_strata_runs())
+  on.exit(pt_close(a))
+  # Credible at 0.8: 10 {2, 3, L}, {L} (never reaches 0.8); 2 {L}, {3}; 3 {L}, {10, 2}, {2, L}.
+  # S = {10, 2}: 10 (0, 1), 2 (0, 0), 3 (0, 2). S = NA = {3}: 10 (0, 1), 2 (0, 1), 3 (0, 0).
+  expect_equal(pt_out_degree_range(a, by = "district"),
+               tibble::tibble(stratum = c("x", NA), lo = c(0, 0), hi = c(3 / 2, 2), level = 0.8))
+  # by = NULL is unchanged: S is every Infection.
+  expect_equal(pt_out_degree_range(a), tibble::tibble(lo = 0, hi = 5 / 3, level = 0.8))
+  expect_error(pt_out_degree_range(a, by = "region"), "region")
+  expect_error(pt_map_out_degree(a, by = 1), "string")
+})
+
+test_that("stratified ψ_MAP and size range match the oracle, with ψ_lo(S) <= ψ_MAP(S) <= ψ_hi(S)", {
+  fixtures <- list(
+    list(paths = local_strata_runs(), epi = strata_epi(), by = "district"),
+    list(paths = golden_strata_paths(), epi = golden_epi(), by = "district"),
+    list(paths = golden_strata_paths(), epi = golden_epi(), by = "travel"),
+    list(paths = golden_strata_paths(), epi = golden_epi(), by = "size")
+  )
+  for (f in fixtures) {
+    a <- suppressWarnings(pt_read(f$paths, epi = f$epi))
+    o <- oracle_read(f$paths)
+    strata <- oracle_strata(o, f$epi, f$by)
+    for (by_run in c(FALSE, TRUE)) {
+      keys <- c(if (by_run) "run", "stratum")
+      map <- pt_map_out_degree(a, by = f$by, by_run = by_run)
+      expect_oracle_equal(map, oracle_stratified_map_out_degree(o, strata, by_run = by_run), keys)
+      n <- nrow(pt_infections(a))
+      overall <- pt_map_out_degree(a, by_run = by_run)
+      run <- if (by_run) map$run else rep("", nrow(map))
+      back <- tapply(map$map_out_degree * map$infections / n, run, sum)
+      expect_equal(as.vector(back), overall$map_out_degree, tolerance = 1e-12)
+      for (level in c(0.5, 0.8, 0.95)) {
+        range <- pt_out_degree_range(a, level = level, by = f$by, by_run = by_run)
+        expect_oracle_equal(range, oracle_stratified_out_degree_range(o, strata, level, by_run = by_run), keys)
+        expect_identical(range[keys], map[keys])
+        expect_true(all(range$lo <= map$map_out_degree & map$map_out_degree <= range$hi))
+      }
+    }
+    pt_close(a)
+  }
+})

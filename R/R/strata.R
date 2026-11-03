@@ -7,6 +7,9 @@
 #   with_strata(values, a, by, column)  lazy: `values` with `stratum` joined on `column` (an Infection id column);
 #                                   unchanged when `by` is NULL.
 #   stratum_levels(stratum)         sorted distinct strata, NA last.
+#   source_strata(a, by)            eager strata for Parent-set members: ids, index (into levels), levels, n (= n_S).
+#   stratum_counts(members, strata) matrix: observed members of each set (row) in each stratum (column).
+#   stratum_rows(strata, by, ...)   tibble of values with `stratum` first, or the bare values when `by` is NULL.
 
 check_by <- function(a, by, call = rlang::caller_env()) {
   if (is.null(by)) return(invisible(NULL))
@@ -44,3 +47,32 @@ with_strata <- function(values, a, by, column = "infection") {
 }
 
 stratum_levels <- function(stratum) sort(unique(stratum), na.last = TRUE, method = "radix")
+
+# Strata of the Infections as sources, for eager summaries over Parent-set members: `index` maps each Infection id
+# to its stratum's position in `levels` (one level, `n` every Infection, when `by` is NULL); `n` is n_S.
+source_strata <- function(a, by) {
+  ids <- a$infections$infection
+  if (is.null(by)) {
+    return(list(ids = ids, index = rep(1L, length(ids)), levels = NULL, n = length(ids)))
+  }
+  stratum <- infection_strata(a, by)$stratum
+  levels <- stratum_levels(stratum)
+  index <- match(stratum, levels)
+  list(ids = ids, index = index, levels = levels, n = tabulate(index, length(levels)))
+}
+
+# Matrix of observed members per stratum: one row per members vector, one column per stratum.
+stratum_counts <- function(members, strata) {
+  rows <- length(members)
+  k <- length(strata$n)
+  set <- rep(seq_len(rows), lengths(members))
+  stratum <- strata$index[match(unlist(members), strata$ids)]
+  matrix(as.numeric(tabulate((stratum - 1L) * rows + set, rows * k)), rows, k)
+}
+
+# One row per stratum (`stratum` first), or the bare values when there are no strata.
+stratum_rows <- function(strata, by, ...) {
+  values <- tibble::tibble(...)
+  if (is.null(by)) return(values)
+  tibble::tibble(stratum = strata$levels, values)
+}

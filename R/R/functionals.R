@@ -37,8 +37,17 @@ infection_grid <- function(a, runs = NULL, phase = "sampling") {
 #' * `pt_entropy()`: `mean_entropy`, the mean Parent-set entropy \eqn{-\sum w \ln w}, and `mean_effective_size`, the
 #'   mean of its exponential (not the exponential of the mean).
 #'
+#' **Strata.** With `by`, each value is a mean over one stratum's Infections instead of all of them, with a
+#' `stratum` column after `iteration` (and before `class`). A stratum is a value of the epi column `by`; Infections
+#' with an NA value, or missing from epi, form the NA stratum, which is kept. `pt_mean_out_degree()` counts a stratum's
+#' Infections as sources (children anywhere); the others count them as recipients. So the per-stratum values weighted
+#' by the stratum sizes n_S average back to the overall value at every Draw. Cross-strata come from a combined column
+#' added to epi.
+#'
 #' @inheritParams pt_table
-#' @return A lazy table (`tbl_lazy`) with `run` and `iteration` first, then the value columns above.
+#' @param by `NULL`, or the name of one epi column (a string; see [pt_read()]) to stratify by.
+#' @return A lazy table (`tbl_lazy`) with `run` and `iteration` first, then `stratum` with `by`, then the value
+#'   columns above.
 #' @seealso [pt_interval()] for the posterior mean and interval; [pt_infection_draws()] for per-Infection values.
 #' @export
 #' @examples
@@ -48,6 +57,12 @@ infection_grid <- function(a, runs = NULL, phase = "sampling") {
 #' pt_mean_out_degree(a) |> pt_interval()
 #' pt_composition(a) |> pt_interval(by = class, level = 0.9)
 #' pt_entropy(a) |> pt_interval()
+#' pt_close(a)
+#'
+#' epi <- data.frame(infection = c("1", "2"), district = c("north", "south"))
+#' a <- pt_read(store, epi = epi, threads = 1)
+#' pt_mean_out_degree(a, by = "district") |> pt_interval(by = stratum)
+#' pt_composition(a, by = "district") |> pt_interval(by = c(stratum, class))
 #' pt_close(a)
 pt_mean_out_degree <- function(a, by = NULL, runs = NULL, phase = "sampling") {
   check_by(a, by)
