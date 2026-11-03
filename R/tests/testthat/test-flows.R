@@ -4,12 +4,13 @@
 # Times 1 = 0, 2 = 2, 3 = 10, 4 = NA, so lags: 2<-1 is 2, 3<-1 is 10, 3<-2 is 8, 4<-3 is NA.
 #   Draw 1: 1 {L} 1; 2 {1} 0.6, {L} 0.4; 3 {1, L} 0.7, {2} 0.3; 4 {3} 1.
 #   Draw 2: 1 {L} 1; 2 {1} 1;            3 {L} 0.5, {1, 2} 0.5; 4 {L} 1.
-local_flow_store <- function(.local_envir = parent.frame()) {
+local_flow_store <- function(path = NULL, .local_envir = parent.frame()) {
+  if (is.null(path)) path <- file.path(withr::local_tempdir(.local_envir = .local_envir), "flow")
   sets <- function(iteration, infection, parents, latent, prob) {
     data.frame(iteration = iteration, infection = infection, parents = parents, latent = latent, prob = prob)
   }
   fake_store(
-    file.path(withr::local_tempdir(.local_envir = .local_envir), "flow"),
+    path,
     infections = c("1", "2", "3", "4"),
     parent_sets = rbind(
       sets(1, "1", "", TRUE, 1), sets(1, "2", "1", FALSE, 0.6), sets(1, "2", "", TRUE, 0.4),
@@ -126,4 +127,114 @@ test_that("pt_reassign_long_lags never moves an edge with a missing lag", {
                sorted(pt_mean_p_latent_parent(a), c("run", "iteration"))$mean_p_latent_parent, tolerance = 1e-12)
   expect_error(pt_reassign_long_lags(a, max_lag = NA), "max_lag")
   expect_error(pt_reassign_long_lags(a, max_lag = c(1, 2)), "max_lag")
+})
+
+# Two Runs a, b of 2 Draws on the flow Store's input: b's Draws differ from a's.
+local_flow_runs <- function(.local_envir = parent.frame()) {
+  parent <- withr::local_tempdir(.local_envir = .local_envir)
+  local_flow_store(file.path(parent, "a"))
+  sets <- function(iteration, infection, parents, latent, prob) {
+    data.frame(iteration = iteration, infection = infection, parents = parents, latent = latent, prob = prob)
+  }
+  fake_store(
+    file.path(parent, "b"),
+    infections = c("1", "2", "3", "4"),
+    parent_sets = rbind(
+      sets(1, "1", "4", TRUE, 0.25), sets(1, "1", "", TRUE, 0.75), sets(1, "2", "3,4", TRUE, 1),
+      sets(1, "3", "2", FALSE, 1), sets(1, "4", "1", TRUE, 0.5), sets(1, "4", "2", FALSE, 0.5),
+      sets(2, "1", "", TRUE, 1), sets(2, "2", "1", TRUE, 1), sets(2, "3", "1,2", TRUE, 0.9),
+      sets(2, "3", "", TRUE, 0.1), sets(2, "4", "2,3", FALSE, 1)
+    ),
+    observation_time = c("1" = 0, "2" = 2, "3" = 10),
+    allowed_parents = list("2" = "1", "3" = c("1", "2"), "4" = c("3", "2"))
+  )
+  file.path(parent, c("a", "b"))
+}
+
+flow_golden_epi <- function() data.frame(infection = c("1", "2", "7"), district = c("north", "south", "east"),
+                                         travel = c(TRUE, NA, FALSE), zone = factor(c("b", "b", "a")))
+
+golden_candidates <- function() {
+  nodes <- jsonlite::read_json(golden_input())$nodes
+  parents <- lapply(nodes, function(n) as.character(unlist(n$allowed_parents)))
+  data.frame(parent = unlist(parents), child = rep(vapply(nodes, function(n) n$id, ""), lengths(parents)))
+}
+
+test_that("flows match the oracle per Draw on fake and golden Stores", {
+  flow_times <- c("1" = 0, "2" = 2, "3" = 10, "4" = NA)
+  flow_candidates <- data.frame(parent = c("1", "1", "2", "3", "2"), child = c("2", "3", "3", "4", "4"))
+  fixtures <- list(
+    list(paths = local_flow_runs(), epi = flow_epi(), by = "district", times = flow_times,
+         candidates = flow_candidates, lags = c(-Inf, 5, 9, Inf)),
+    list(paths = c(one = golden_store(), four = golden_store("replica-exchange")), epi = flow_golden_epi(),
+         by = "district", times = golden_observation_times(), candidates = golden_candidates(), lags = c(50, 100)),
+    list(paths = golden_store("replica-exchange"), epi = flow_golden_epi(), by = "travel",
+         times = golden_observation_times(), candidates = golden_candidates(), lags = 100),
+    list(paths = golden_store(), epi = flow_golden_epi(), by = "zone",
+         times = golden_observation_times(), candidates = golden_candidates(), lags = 60)
+  )
+  for (f in fixtures) {
+    a <- pt_read(f$paths, epi = f$epi)
+    o <- oracle_read(f$paths)
+    strata <- oracle_strata(o, f$epi, f$by)
+    keys <- c("run", "iteration")
+    expect_oracle_equal(pt_attribution(a, f$by), oracle_attribution(o, strata),
+                        c(keys, "recipient", "latent", "source"))
+    expect_oracle_equal(pt_enrichment(a, f$by), oracle_enrichment(o, strata, f$candidates),
+                        c(keys, "source", "recipient"))
+    expect_oracle_equal(pt_net_flow(a, f$by), oracle_net_flow(o, strata), c(keys, "stratum"))
+    for (lag in f$lags) {
+      expect_oracle_equal(pt_reassign_long_lags(a, lag), oracle_reassign_long_lags(o, f$times, lag), keys)
+      expect_oracle_equal(pt_reassign_long_lags(a, lag, by = f$by),
+                          oracle_reassign_long_lags(o, f$times, lag, strata), c(keys, "stratum"))
+    }
+    pt_close(a)
+  }
+})
+
+test_that("flows take runs and phase", {
+  paths <- c(one = golden_store(), four = golden_store("replica-exchange"))
+  a <- pt_read(paths, epi = flow_golden_epi())
+  on.exit(pt_close(a))
+  o <- oracle_read(paths)
+  strata <- oracle_strata(o, flow_golden_epi(), "district")
+  both <- c("burn_in", "sampling")
+  keys <- c("run", "iteration")
+  expect_oracle_equal(pt_attribution(a, "district", runs = "four", phase = both),
+                      oracle_attribution(o, strata, runs = "four", phase = both),
+                      c(keys, "recipient", "latent", "source"))
+  expect_oracle_equal(pt_enrichment(a, "district", runs = "one", phase = "burn_in"),
+                      oracle_enrichment(o, strata, golden_candidates(), runs = "one", phase = "burn_in"),
+                      c(keys, "source", "recipient"))
+  expect_oracle_equal(pt_net_flow(a, "district", phase = both), oracle_net_flow(o, strata, phase = both),
+                      c(keys, "stratum"))
+  expect_oracle_equal(pt_reassign_long_lags(a, 100, "district", runs = "one", phase = both),
+                      oracle_reassign_long_lags(o, golden_observation_times(), 100, strata, runs = "one",
+                                                phase = both), c(keys, "stratum"))
+})
+
+test_that("net flow sums to 0 and attribution to 1 at every Draw", {
+  a <- pt_read(local_flow_runs(), epi = flow_epi())
+  on.exit(pt_close(a))
+  net <- dplyr::collect(pt_net_flow(a, "district"))
+  expect_equal(as.vector(tapply(net$net_flow, paste(net$run, net$iteration), sum)), rep(0, 4), tolerance = 1e-12)
+  share <- dplyr::collect(pt_attribution(a, "district"))
+  expect_equal(as.vector(tapply(share$share, paste(share$run, share$iteration, share$recipient), sum)),
+               rep(1, 12), tolerance = 1e-12)
+  latent <- share[share$latent, ]
+  expect_true(all(is.na(latent$source)))
+  expect_equal(nrow(latent), 12)
+})
+
+test_that("flows need one epi column; reassignment warns without observation times", {
+  a <- read_flow_store()
+  on.exit(pt_close(a))
+  expect_error(pt_attribution(a, by = NULL), "between strata")
+  expect_error(pt_net_flow(a, by = "region"), "region")
+  expect_error(pt_enrichment(a, by = c("district", "district")), "one epi column")
+  b <- suppressMessages(pt_read(local_golden_copy_without_input(), epi = flow_golden_epi()))
+  on.exit(pt_close(b), add = TRUE)
+  expect_error(pt_enrichment(b, "district"), "input JSON")
+  expect_warning(x <- pt_reassign_long_lags(b, 10), "observation time")
+  expect_equal(dplyr::collect(x)$mean_out_degree, dplyr::collect(pt_mean_out_degree(b))$mean_out_degree)
 })
