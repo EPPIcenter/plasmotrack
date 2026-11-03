@@ -80,6 +80,9 @@ reference:
   desc: >
     Compare the Runs of an Analysis: R-hat and ESS on every quantity, Spread, and Disputed
     Infections.
+  contents:
+  - pt_convergence
+  - pt_as_draws
 
 - title: Sampler Blocks
   desc: >
