@@ -378,6 +378,7 @@ unless stated here.
 - `infections`: infection, infection_time, observation_time, duration, symptomatic
 - `genotypes`: infection, strain, locus, allele, long, in simulator numbering
 - `loci`
+- `observed`: infection, locus, allele, each case's observed genotype in simulator numbering (for the Allele mapping)
 
 Ids are strings. Truth is restricted to the Analysis's Infections only when scoring, so one `pt_truth` serves both the
 full and the partial fit of a simulation.
@@ -386,6 +387,7 @@ full and the partial fit of a simulation.
 - **The rule:** an input's Alleles at a Locus are the simulator's Alleles observed in any of that input's Infections,
   in simulator order. This held for every renumbered Locus checked: 683 in full inputs and 185 in partial ones.
 - **Check:** scoring errors, naming the Locus, when the mapped count differs from the Locus's `n_alleles`.
+- A Locus whose input kept the simulator's Allele count keeps the simulator's numbering.
 - **Unrepresentable Alleles:** true Alleles that no Infection shows are counted as `unrepresentable` and excluded from
   genotype accuracy.
 
@@ -405,8 +407,8 @@ Latent parent. Comparison uses observed members plus `has_latent_parent`.
     it returns the PR curve instead: direction, threshold, recall, precision.
 - **`pt_score_parent_sets(a, truth, level = 0.8)`**: one row per Infection: infection, credible_size, covered,
   top_probability. The fit summary's credible size, coverage and top-probability columns are its means and median.
-- **`pt_score_map(a, truth)`**: per Infection, whether the MAP Parent set equals the true Parent set, plus the share
-  that do.
+- **`pt_score_map(a, truth)`**: per Infection, whether the MAP Parent set equals the true Parent set (`correct`); the
+  share that do is `mean(correct)`.
 - **`pt_score_genotypes(a, truth)`**: per (infection, locus), true Alleles against posterior presence called at 0.5,
   plus the unrepresentable count.
 - **`pt_score_coi(a, truth)`**: posterior COI median against the identifiable true COI, meaning the most distinct true
