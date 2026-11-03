@@ -275,3 +275,100 @@ expect_oracle_equal <- function(actual, expected, keys, tolerance = 1e-12) {
   }
   invisible(actual)
 }
+
+# Functionals (#119): at every Draw, the mean over every Infection of a per-Infection value from an oracle per-Draw
+# table; an Infection with no row at the Draw takes `fill`. `columns` maps output names to the table's columns.
+oracle_infection_mean <- function(o, rows, columns, fill, runs = NULL, phase = "sampling") {
+  out <- list()
+  ids <- oracle_infection_ids(o)
+  for (run in oracle_runs(o, runs)) {
+    for (it in oracle_draws(o, run, phase)) {
+      row <- data.frame(run = run, iteration = it)
+      for (name in names(columns)) {
+        total <- 0
+        for (inf in ids) {
+          hit <- which(rows$run == run & rows$iteration == it & rows$infection == inf)
+          stopifnot(length(hit) <= 1)
+          total <- total + if (length(hit)) rows[[columns[[name]]]][[hit]] else fill[[name]]
+        }
+        row[[name]] <- total / length(ids)
+      }
+      out[[length(out) + 1]] <- row
+    }
+  }
+  oracle_bind(out, NULL)
+}
+
+oracle_mean_out_degree <- function(o, runs = NULL, phase = "sampling") {
+  oracle_infection_mean(o, oracle_out_degree_draws(o, runs, phase), c(mean_out_degree = "out_degree"),
+                        c(mean_out_degree = 0), runs, phase)
+}
+
+oracle_mean_p_latent_parent <- function(o, runs = NULL, phase = "sampling") {
+  oracle_infection_mean(o, oracle_infection_draws(o, runs, phase), c(mean_p_latent_parent = "p_latent_parent"),
+                        c(mean_p_latent_parent = 0), runs, phase)
+}
+
+oracle_multi_source <- function(o, runs = NULL, phase = "sampling") {
+  oracle_infection_mean(o, oracle_infection_draws(o, runs, phase),
+                        c(augmented = "multi_source_augmented", observed_only = "multi_source_observed"),
+                        c(augmented = 0, observed_only = 0), runs, phase)
+}
+
+oracle_entropy <- function(o, runs = NULL, phase = "sampling") {
+  oracle_infection_mean(o, oracle_infection_draws(o, runs, phase),
+                        c(mean_entropy = "entropy", mean_effective_size = "effective_size"),
+                        c(mean_entropy = 0, mean_effective_size = 1), runs, phase)
+}
+
+# Long: one row per Draw per class of oracle_class_draws() (already a full zero-filled grid).
+oracle_composition <- function(o, runs = NULL, phase = "sampling") {
+  shares <- oracle_class_draws(o, runs, phase)
+  n <- length(oracle_infection_ids(o))
+  out <- list()
+  for (k in unique(paste(shares$run, shares$iteration, shares$class, sep = "\r"))) {
+    parts <- strsplit(k, "\r", fixed = TRUE)[[1]]
+    mine <- shares$run == parts[[1]] & shares$iteration == as.numeric(parts[[2]]) & shares$class == parts[[3]]
+    total <- 0
+    for (s in shares$share[mine]) total <- total + s
+    out[[length(out) + 1]] <- data.frame(run = parts[[1]], iteration = as.numeric(parts[[2]]), class = parts[[3]],
+                                         share = total / n)
+  }
+  oracle_bind(out, data.frame(run = character(), iteration = numeric(), class = character(), share = numeric()))
+}
+
+# Type-7 quantile written out: h = 1 + (n - 1) p; x[floor h] moved (h - floor h) of the way to x[ceiling h].
+oracle_quantile7 <- function(x, p) {
+  x <- sort(x)
+  h <- 1 + (length(x) - 1) * p
+  lo <- floor(h)
+  hi <- ceiling(h)
+  if (hi == lo || x[[hi]] == x[[lo]]) return(x[[lo]])
+  (1 - (h - lo)) * x[[lo]] + (h - lo) * x[[hi]]
+}
+
+# pt_interval() by hand: `x` a collected per-Draw data frame, `by` and `value` character vectors (value: one
+# column, or several with a `value` column naming each). Rows grouped by the `by` keys; pooled mean over the
+# group's rows, equal-tailed type-7 interval.
+oracle_interval <- function(x, by = character(), value, level = 0.95) {
+  x <- as.data.frame(x)
+  groups <- if (length(by)) split(seq_len(nrow(x)), lapply(x[by], as.character), drop = TRUE)
+            else list(seq_len(nrow(x)))
+  out <- list()
+  for (idx in groups) {
+    for (v in value) {
+      y <- x[[v]][idx]
+      total <- 0
+      for (yi in y) total <- total + yi
+      row <- x[idx[1], by, drop = FALSE]
+      if (length(value) > 1) row$value <- v
+      row$estimate <- total / length(y)
+      row$lower <- oracle_quantile7(y, (1 - level) / 2)
+      row$upper <- oracle_quantile7(y, (1 + level) / 2)
+      row$level <- level
+      row$draws <- length(y)
+      out[[length(out) + 1]] <- row
+    }
+  }
+  oracle_bind(out, NULL)
+}
