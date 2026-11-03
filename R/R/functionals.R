@@ -101,3 +101,91 @@ pt_entropy <- function(a, runs = NULL, phase = "sampling") {
                   mean_effective_size = "effective_size") |>
     per_draw_mean(c("mean_entropy", "mean_effective_size"))
 }
+
+#' Posterior mean and interval of a per-Draw table
+#'
+#' Turns any per-Draw table into estimates with intervals: the step from lazy per-Draw values to an eager summary.
+#' The input needs `run` and `iteration` columns (the Draw) and numeric value columns. It can be a functional such
+#' as [pt_mean_out_degree()], a per-Draw table such as [pt_infection_draws()] with `by = infection`, a raw Trace from
+#' [pt_table()], or a table the user builds, lazy or in memory.
+#'
+#' Within each `by` group, the estimate is the mean over every row, pooled over the Draws of every Run, so each Run
+#' weighs by its Draws. The interval is equal-tailed: the type-7 quantiles ([stats::quantile()]'s default) at
+#' \eqn{(1 - level) / 2} and \eqn{(1 + level) / 2} of the same pooled values. It covers the variation between Draws
+#' only (see the spec's out-degree posteriors for the variance within a Draw).
+#'
+#' Each group must have at most one row per Draw: give every key column in `by`. Value columns may not hold missing
+#' values; filter them first.
+#'
+#' @param x A per-Draw table (lazy or a data frame) with `run`, `iteration` and numeric value columns.
+#' @param by Key columns (tidy-select, such as `class` or `c(locus, allele)`); one row per key in the result.
+#'   `NULL` summarises the whole table. `by = run` gives one interval per Run.
+#' @param value Value columns (tidy-select). `NULL` takes every numeric column other than `run`, `iteration`,
+#'   `window` and the `by` columns.
+#' @param level Interval probability, between 0 and 1.
+#' @return A tibble with the `by` columns (sorted, strings in C order), then `value` (the value column's name, only
+#'   when there are several), `estimate`, `lower`, `upper`, `level` and `draws` (the number of Draws summarised).
+#' @seealso [pt_mean_out_degree()] and the other functionals.
+#' @export
+#' @examples
+#' store <- system.file("extdata", "golden", "single-chain", package = "plasmotrackr")
+#' a <- pt_read(store, threads = 1)
+#' pt_mean_out_degree(a) |> pt_interval()
+#' pt_composition(a) |> pt_interval(by = class, level = 0.9)
+#' pt_table(a, "allele_frequencies") |> pt_interval(by = c(locus, allele))
+#' pt_infection_draws(a) |> pt_interval(by = infection, value = p_latent_parent)
+#' pt_close(a)
+pt_interval <- function(x, by = NULL, value = NULL, level = 0.95) {
+  if (!is.numeric(level) || length(level) != 1 || is.na(level) || level <= 0 || level >= 1) {
+    cli::cli_abort("{.arg level} must be a number strictly between 0 and 1.")
+  }
+  missing <- setdiff(c("run", "iteration"), colnames(x))
+  if (length(missing)) {
+    cli::cli_abort("{.arg x} must be a per-Draw table: it has no {.field {missing}} column{?s}.")
+  }
+  by <- colnames(dplyr::select(x, {{ by }}))
+  types <- vapply(dplyr::collect(utils::head(x, 0)), is.numeric, logical(1))
+  value_quo <- rlang::enquo(value)
+  if (rlang::quo_is_null(value_quo)) {
+    value <- setdiff(names(types)[types], c("run", "iteration", "window", by))
+    if (length(value) == 0) {
+      cli::cli_abort("{.arg x} has no numeric value column besides {.field {c('run', 'iteration', by)}}.")
+    }
+  } else {
+    value <- colnames(dplyr::select(x, !!value_quo))
+    if (!all(types[value])) {
+      cli::cli_abort("Value column{?s} {.field {value[!types[value]]}} must be numeric.")
+    }
+  }
+
+  rows <- x |>
+    dplyr::select(dplyr::all_of(unique(c("run", "iteration", by, value)))) |>
+    dplyr::collect()
+  bad <- value[vapply(value, function(v) anyNA(rows[[v]]), logical(1))]
+  if (length(bad)) {
+    cli::cli_abort("Value column{?s} {.field {bad}} {?has/have} missing values; filter them first.")
+  }
+  if (anyDuplicated(rows[unique(c("run", "iteration", by))])) {
+    cli::cli_abort(c("{.arg x} has more than one row per Draw per {.arg by} key.",
+                     i = "Give every key column in {.arg by}."))
+  }
+
+  # Locals are injected with !!: a value or key column may share their names.
+  probs <- c((1 - level) / 2, (1 + level) / 2)
+  grouped <- dplyr::group_by(rows, dplyr::across(dplyr::all_of(by)))
+  out <- lapply(value, function(v) {
+    dplyr::summarise(
+      grouped,
+      value = !!v,
+      estimate = mean(.data[[!!v]]),
+      lower = stats::quantile(.data[[!!v]], !!probs[[1]], type = 7, names = FALSE),
+      upper = stats::quantile(.data[[!!v]], !!probs[[2]], type = 7, names = FALSE),
+      level = !!level,
+      draws = dplyr::n(),
+      .groups = "drop"
+    )
+  })
+  out <- dplyr::arrange(dplyr::bind_rows(out), dplyr::across(dplyr::all_of(by)))
+  if (length(value) == 1) out$value <- NULL
+  out
+}
