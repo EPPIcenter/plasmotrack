@@ -48,13 +48,14 @@ Install plasmotrackr from GitHub with pak:
 pak::pak("EPPIcenter/plasmotrack/R")
 ```
 
-Or with remotes:
+To install with remotes instead, run the following:
 
 ```r
 remotes::install_github("EPPIcenter/plasmotrack", subdir = "R")
 ```
 
-The examples in this guide also use dplyr. The network export at the end needs igraph and tidygraph.
+The examples in this guide also use dplyr, and the network export at the end needs igraph and tidygraph. Load
+plasmotrackr and dplyr:
 
 ```{r setup}
 library(plasmotrackr)
@@ -154,7 +155,7 @@ The Store format, with every table and column, is described in
 
 ## Work with lazy and eager results
 
-plasmotrackr follows one rule:
+plasmotrackr returns results in one of two forms:
 
 - A table with one row per Draw is lazy. Its function name ends in `_draws`, or it is a Functional. Filter it before
   you collect it.
