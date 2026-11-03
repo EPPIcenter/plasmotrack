@@ -141,18 +141,23 @@ test_that("pt_as_draws() variables match pt_convergence() names (golden Runs)", 
 
 # Infections 1, 2, 3 over two Runs of 4 Draws. Edge 2<-1: 0.5 at a's Draws 1-2, never in b (Run means 0.25, 0).
 # Edge 3<-1: 0.02 at a's Draw 1 and 0.03 at b's Draw 1 (Run means 0.005, 0.0075). Edge 3<-2: 1 at every Draw of
-# a, never in b.
+# a, never in b. Ordering: 1 before 2 at a's Draws 1-2 and b's Draws 1-3; 2 before 3 and 1 before 3 at every Draw.
 local_edge_runs <- function(.local_envir = parent.frame()) {
   parent <- withr::local_tempdir(.local_envir = .local_envir)
   sets <- function(iteration, infection, parents, prob) {
     data.frame(iteration = iteration, infection = infection, parents = parents, latent = FALSE, prob = prob)
   }
+  # Ordering ranks of Infections 1, 2, 3 at iterations 0-4.
+  ordering <- function(...) {
+    ranks <- list(...)
+    data.frame(iteration = rep(0:4, each = 3), infection = c("1", "2", "3"), rank = unlist(ranks))
+  }
   fake_store(file.path(parent, "a"), infections = c("1", "2", "3"), samples = 4, parent_sets = rbind(
     sets(1:2, "2", "1", 0.5), sets(1, "3", "1", 0.02), sets(1:4, "3", "2", 1)
-  ))
+  ), tables = list(ordering = ordering(0:2, 0:2, 0:2, c(1, 0, 2), c(1, 0, 2))))
   fake_store(file.path(parent, "b"), infections = c("1", "2", "3"), samples = 4, parent_sets = rbind(
     sets(1, "3", "1", 0.03), sets(1:4, "2", "", 0)
-  ))
+  ), tables = list(ordering = ordering(0:2, 0:2, 0:2, 0:2, c(1, 0, 2))))
   file.path(parent, c("a", "b"))
 }
 
@@ -220,4 +225,18 @@ test_that("print() on the golden Runs", {
   a <- read_golden(golden_pair())
   on.exit(pt_close(a))
   expect_snapshot(print(pt_convergence(a)))
+})
+
+test_that("order pairs are diagnosed only when joined by an edge above edge_floor", {
+  a <- pt_read(local_edge_runs())
+  on.exit(pt_close(a))
+  q <- pt_convergence(a)$quantities
+  expect_identical(q$name[q$group == "order_pair"], c("order_pair[1,2]", "order_pair[2,3]"))
+  m <- cbind(c(1, 1, 0, 0), c(1, 1, 1, 0))
+  pair <- quantity(pt_convergence(a), "order_pair[1,2]")
+  expect_identical(pair$status, "mixing")
+  expect_equal(pair$rhat, posterior::rhat(m), tolerance = 1e-12)
+  expect_identical(quantity(pt_convergence(a), "order_pair[2,3]")$status, "constant")
+  low <- pt_convergence(a, edge_floor = 0.0075)$quantities
+  expect_identical(low$name[low$group == "order_pair"], c("order_pair[1,2]", "order_pair[1,3]", "order_pair[2,3]"))
 })

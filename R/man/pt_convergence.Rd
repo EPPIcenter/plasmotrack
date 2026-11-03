@@ -58,6 +58,9 @@ constant factor, so its diagnostics are the count's.
 \item \code{allele_frequency}: one per Locus and Allele (0-based), such as \code{allele_frequency[AS1,0]}.
 \item \code{edge}: the per-Draw Edge weight, zero-filled, such as \code{edge[12,7]} for child 12 and parent 7. Only edges whose
 mean in some Run is at least \code{edge_floor} are diagnosed.
+\item \code{order_pair}: the 0/1 indicator that \code{i} was acquired before \code{j} (see \code{\link[=pt_order_pair_draws]{pt_order_pair_draws()}}), such as
+\code{order_pair[10,2]} with \code{i} the smaller id as a string. Only pairs joined by a diagnosed edge, in either
+direction, are diagnosed: the full set is quadratic in the Infections.
 \item \code{p_latent_parent}: one per Infection, the Latent parent probability (the manuscript's q).
 \item \code{functional}: \code{mean_out_degree} (ψ_edge), \code{mean_p_latent_parent}, \code{multi_source_augmented},
 \code{multi_source_observed}, \code{mean_entropy}, \code{mean_effective_size}, and one \verb{composition[<class>]} per composition

@@ -10,7 +10,7 @@
 #   diagnose_array(x, group, rhat, ess)    the quantities rows of one group.
 
 convergence_groups <- c("log_posterior", "global", "expected_false_positives", "expected_false_negatives",
-                        "infection_duration", "allele_frequency", "edge", "p_latent_parent", "functional")
+                        "infection_duration", "allele_frequency", "edge", "order_pair", "p_latent_parent", "functional")
 
 #' Convergence across Runs
 #'
@@ -29,6 +29,9 @@ convergence_groups <- c("log_posterior", "global", "expected_false_positives", "
 #' * `allele_frequency`: one per Locus and Allele (0-based), such as `allele_frequency[AS1,0]`.
 #' * `edge`: the per-Draw Edge weight, zero-filled, such as `edge[12,7]` for child 12 and parent 7. Only edges whose
 #'   mean in some Run is at least `edge_floor` are diagnosed.
+#' * `order_pair`: the 0/1 indicator that `i` was acquired before `j` (see [pt_order_pair_draws()]), such as
+#'   `order_pair[10,2]` with `i` the smaller id as a string. Only pairs joined by a diagnosed edge, in either
+#'   direction, are diagnosed: the full set is quadratic in the Infections.
 #' * `p_latent_parent`: one per Infection, the Latent parent probability (the manuscript's q).
 #' * `functional`: `mean_out_degree` (ψ_edge), `mean_p_latent_parent`, `multi_source_augmented`,
 #'   `multi_source_observed`, `mean_entropy`, `mean_effective_size`, and one `composition[<class>]` per composition
@@ -225,6 +228,14 @@ edge_run_means <- function(a, ds) {
   means
 }
 
+# The edges diagnosed: those whose Run mean over the Draw set is at least edge_floor in some Run, sorted.
+kept_edges <- function(a, ds, edge_floor) {
+  means <- edge_run_means(a, ds)
+  top <- tapply(means$mean, paste(means$child, means$parent, sep = "\r"), max)
+  kept <- unique(means[c("child", "parent")])
+  as.data.frame(kept[top[paste(kept$child, kept$parent, sep = "\r")] >= edge_floor, ])
+}
+
 # ---- Quantity arrays ----
 
 # One group's values: an n x Runs x variables array, Runs in Draw-set order, variables in name order.
@@ -286,33 +297,49 @@ group_values <- function(a, ds, group, edge_floor) {
                          value = as.numeric(x$frequency)), names)
     },
     edge = {
-      means <- edge_run_means(a, ds)
-      top <- tapply(means$mean, paste(means$child, means$parent, sep = "\r"), max)
-      kept <- unique(means[c("child", "parent")])
-      kept <- kept[top[paste(kept$child, kept$parent, sep = "\r")] >= edge_floor, ]
+      kept <- kept_edges(a, ds, edge_floor)
       names <- sprintf("edge[%s,%s]", kept$child, kept$parent)
       rows <- tibble::tibble(run = character(), iteration = numeric(), name = character(), value = numeric())
       if (nrow(kept)) {
         edges <- observed_edges(a, runs) |>
-          dplyr::semi_join(dbplyr::copy_inline(analysis_con(a), as.data.frame(kept)), by = c("child", "parent"))
+          dplyr::semi_join(dbplyr::copy_inline(analysis_con(a), kept), by = c("child", "parent"))
         x <- dplyr::collect(in_draw_set(edges, ds))
         rows <- tibble::tibble(run = x$run, iteration = x$iteration, name = sprintf("edge[%s,%s]", x$child, x$parent),
                                value = as.numeric(x$prob))
       }
       out(rows, names, fill = 0)
     },
+    order_pair = {
+      kept <- kept_edges(a, ds, edge_floor)
+      # i < j in string (byte) order, as in pt_order_pair_draws().
+      swap <- vapply(seq_len(nrow(kept)), function(k) {
+        order(c(kept$child[[k]], kept$parent[[k]]), method = "radix")[[1]] == 2L
+      }, logical(1))
+      pairs <- unique(data.frame(i = ifelse(swap, kept$parent, kept$child), j = ifelse(swap, kept$child, kept$parent)))
+      pairs <- pairs[order(pairs$i, pairs$j, method = "radix"), , drop = FALSE]
+      rows <- tibble::tibble(run = character(), iteration = numeric(), name = character(), value = numeric())
+      if (nrow(pairs)) {
+        x <- order_pairs_lazy(a, runs, "sampling", infections = unique(c(pairs$i, pairs$j))) |>
+          dplyr::semi_join(dbplyr::copy_inline(analysis_con(a), pairs), by = c("i", "j")) |>
+          in_draw_set(ds = ds) |>
+          dplyr::collect()
+        rows <- tibble::tibble(run = x$run, iteration = x$iteration, name = sprintf("order_pair[%s,%s]", x$i, x$j),
+                               value = as.numeric(x$before))
+      }
+      out(rows, sprintf("order_pair[%s,%s]", pairs$i, pairs$j))
+    },
     p_latent_parent = out(
       keyed(infection_values(a, runs, "sampling"), "p_latent_parent", "infection", "p_latent_parent"),
       sprintf("p_latent_parent[%s]", ids)
     ),
     functional = {
-      composition <- dplyr::collect(in_draw_set(pt_composition(a, runs), ds))
+      composition <- dplyr::collect(in_draw_set(pt_composition(a, runs = runs), ds))
       rows <- dplyr::bind_rows(
-        long(pt_mean_out_degree(a, runs), "mean_out_degree"),
-        long(pt_mean_p_latent_parent(a, runs), "mean_p_latent_parent"),
-        long(pt_multi_source(a, runs), c("augmented", "observed_only"),
+        long(pt_mean_out_degree(a, runs = runs), "mean_out_degree"),
+        long(pt_mean_p_latent_parent(a, runs = runs), "mean_p_latent_parent"),
+        long(pt_multi_source(a, runs = runs), c("augmented", "observed_only"),
              c("multi_source_augmented", "multi_source_observed")),
-        long(pt_entropy(a, runs), c("mean_entropy", "mean_effective_size")),
+        long(pt_entropy(a, runs = runs), c("mean_entropy", "mean_effective_size")),
         tibble::tibble(run = composition$run, iteration = composition$iteration,
                        name = sprintf("composition[%s]", composition$class), value = composition$share)
       )

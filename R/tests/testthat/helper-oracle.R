@@ -765,6 +765,21 @@ oracle_convergence_matrices <- function(o, draws, edge_floor = 0.01) {
   }
   groups$edge <- kept
 
+  # Order pairs i < j joined by a kept edge either way.
+  pairs <- character()
+  for (name in kept) {
+    ends <- strsplit(sub("^edge\\[(.*)\\]$", "\\1", name), ",", fixed = TRUE)[[1]]
+    ends <- sort(ends, method = "radix")
+    pairs <- c(pairs, sprintf("order_pair[%s,%s]", ends[[1]], ends[[2]]))
+  }
+  pairs <- by_key(unique(pairs))
+  order <- oracle_order_pair_draws(o, runs)
+  for (k in seq_len(NROW(order))) {
+    name <- sprintf("order_pair[%s,%s]", order$i[[k]], order$j[[k]])
+    if (name %in% pairs) put(name, order$run[[k]], order$iteration[[k]], as.numeric(order$before[[k]]))
+  }
+  groups$order_pair <- pairs
+
   q <- oracle_infection_draws(o, runs)
   for (run in runs) for (inf in ids) for (it in draws[[run]]) put(sprintf("p_latent_parent[%s]", inf), run, it, 0)
   for (i in seq_len(nrow(q))) {
