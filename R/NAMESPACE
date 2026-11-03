@@ -2,8 +2,10 @@
 
 S3method(print,pt_analysis)
 export(pt_acceptance)
+export(pt_alleles)
 export(pt_class_draws)
 export(pt_close)
+export(pt_coi_draws)
 export(pt_edge_draws)
 export(pt_edge_marginals)
 export(pt_infection_draws)
