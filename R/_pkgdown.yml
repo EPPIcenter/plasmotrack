@@ -70,6 +70,10 @@ reference:
   desc: >
     The posterior of an Infection's out-degree, and of the realized mean out-degree, with the
     variance within Draws included.
+  contents:
+  - pt_out_degree_dist
+  - pt_realized_out_degree
+  - pt_sample_networks
 
 - title: Strata and flows
   desc: >
