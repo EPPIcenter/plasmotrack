@@ -239,6 +239,69 @@ oracle_edge_marginals <- function(o, floor = 0, by_run = FALSE, runs = NULL, obs
   oracle_bind(out, NULL)
 }
 
+# Pooled Parent sets (pt_parent_sets_pooled): sets keyed by sorted observed members and has_latent_parent, weight =
+# summed stored weight / Draws, ranked by a pairwise comparison (weight, then the members list with the Latent parent
+# after every id and a prefix first), Credible collection by a forward scan.
+oracle_parent_sets_pooled <- function(o, level = 0.8, by_run = FALSE, runs = NULL) {
+  runs <- oracle_runs(o, runs)
+  draws <- vapply(runs, function(r) length(oracle_draws(o, r)), numeric(1))
+  runs <- runs[draws > 0]
+  draws <- draws[draws > 0]
+  sets <- list()
+  for (j in seq_along(runs)) {
+    rows <- oracle_parent_sets(o, runs[[j]])
+    group <- if (by_run) runs[[j]] else ""
+    for (i in seq_len(NROW(rows))) {
+      observed <- sort(rows$observed[[i]], method = "radix")
+      k <- paste(group, rows$infection[[i]], paste(observed, collapse = ","), rows$has_latent_parent[[i]], sep = "|")
+      if (is.null(sets[[k]])) {
+        sets[[k]] <- list(run = group, infection = rows$infection[[i]], members = observed,
+                          has_latent_parent = rows$has_latent_parent[[i]], total = 0,
+                          draws = if (by_run) draws[[j]] else sum(draws))
+      }
+      sets[[k]]$total <- sets[[k]]$total + rows$prob[[i]]
+    }
+  }
+  list_before <- function(x, y) {
+    x <- c(x$members, if (x$has_latent_parent) NA)
+    y <- c(y$members, if (y$has_latent_parent) NA)
+    for (k in seq_len(min(length(x), length(y)))) {
+      if (is.na(x[k]) && is.na(y[k])) next
+      if (is.na(x[k])) return(FALSE)
+      if (is.na(y[k])) return(TRUE)
+      if (x[k] != y[k]) return(sort(c(x[k], y[k]), method = "radix")[1] == x[k])
+    }
+    length(x) < length(y)
+  }
+  for (k in names(sets)) sets[[k]]$weight <- sets[[k]]$total / sets[[k]]$draws
+  out <- list()
+  for (g in unique(vapply(sets, function(s) paste(s$run, s$infection, sep = "|"), ""))) {
+    mine <- Filter(function(s) paste(s$run, s$infection, sep = "|") == g, sets)
+    rank <- vapply(mine, function(s) {
+      1 + sum(vapply(mine, function(t) t$weight > s$weight || (t$weight == s$weight && list_before(t, s)), TRUE))
+    }, 1)
+    mine <- mine[order(rank)]
+    cumulative <- 0
+    reached <- NA
+    rows <- list()
+    for (r in seq_along(mine)) {
+      cumulative <- cumulative + mine[[r]]$weight
+      if (is.na(reached) && cumulative >= level - 1e-12) reached <- r
+      rows[[r]] <- data.frame(run = mine[[r]]$run, infection = mine[[r]]$infection, members = I(list(mine[[r]]$members)),
+                              n_observed = length(mine[[r]]$members), has_latent_parent = mine[[r]]$has_latent_parent,
+                              class = oracle_class_name(length(mine[[r]]$members), mine[[r]]$has_latent_parent),
+                              weight = mine[[r]]$weight, rank = r, cumulative_mass = cumulative)
+    }
+    rows <- do.call(rbind, rows)
+    rows$credible <- if (is.na(reached)) TRUE else rows$rank <= reached | rows$weight == rows$weight[reached]
+    out[[g]] <- rows
+  }
+  out <- oracle_bind(out, NULL)
+  out$members <- unclass(out$members)
+  if (!by_run) out$run <- NULL
+  out
+}
+
 oracle_bind <- function(parts, empty) {
   parts <- Filter(Negate(is.null), parts)
   if (length(parts) == 0) return(empty)
