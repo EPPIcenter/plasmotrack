@@ -689,3 +689,144 @@ oracle_interval <- function(x, by = character(), value, level = 0.95) {
   }
   oracle_bind(out, NULL)
 }
+
+# ---- Infection summary (#123) ----
+# One row per Infection (per Run with by_run), each column from the oracle of the function it summarises, summed
+# over the group's Draws in loops. `observation_time`: named vector (NA by default).
+oracle_infection_summary <- function(o, by_run = FALSE, runs = NULL, observation_time = NULL) {
+  groups <- oracle_pool_groups(o, runs, by_run)
+  all_runs <- unlist(groups, use.names = FALSE)
+  ids <- sort(oracle_infection_ids(o), method = "radix")
+  shares <- oracle_class_draws(o, all_runs)
+  classes <- unique(shares[c("class", "n_observed", "has_latent_parent")])
+  classes <- classes$class[order(classes$n_observed, classes$has_latent_parent)]
+  values <- oracle_infection_draws(o, all_runs)
+  degrees <- oracle_out_degree_draws(o, all_runs)
+  sets <- oracle_parent_sets_pooled(o, by_run = by_run, runs = all_runs)
+  if (!by_run) sets$run <- "pooled"
+  edges <- oracle_edge_marginals(o, by_run = by_run, runs = all_runs)
+  if (!by_run) edges$run <- "pooled"
+  coi <- oracle_coi(o, by_run = by_run, runs = all_runs)$median
+  if (!by_run) coi$run <- "pooled"
+  out <- list()
+  for (g in names(groups)) {
+    group <- groups[[g]]
+    draws <- 0
+    for (r in group) draws <- draws + length(oracle_draws(o, r))
+    for (inf in ids) {
+      row <- if (by_run) data.frame(run = g, infection = inf) else data.frame(infection = inf)
+      row$observation_time <- if (is.null(observation_time)) NA_real_ else unname(observation_time[inf])
+      q <- 0; e <- 0; h <- 0; es <- 0
+      for (r in group) for (it in oracle_draws(o, r)) {
+        hit <- which(values$run == r & values$iteration == it & values$infection == inf)
+        if (length(hit)) {
+          q <- q + values$p_latent_parent[[hit]]
+          e <- e + values$expected_observed_parents[[hit]]
+          h <- h + values$entropy[[hit]]
+          es <- es + values$effective_size[[hit]]
+        } else {
+          es <- es + 1
+        }
+      }
+      row$p_latent_parent <- q / draws
+      row$expected_observed_parents <- e / draws
+      for (class in classes) {
+        s <- 0
+        for (i in which(shares$run %in% group & shares$infection == inf & shares$class == class)) {
+          s <- s + shares$share[[i]]
+        }
+        row[[paste0("share_", class)]] <- s / draws
+      }
+      row$mean_entropy <- h / draws
+      row$mean_effective_size <- es / draws
+      ph <- 0
+      mine <- which(sets$run == g & sets$infection == inf)
+      for (i in mine) if (sets$weight[[i]] > 0) ph <- ph - sets$weight[[i]] * log(sets$weight[[i]])
+      row$posterior_entropy <- ph
+      row$posterior_effective_size <- exp(ph)
+      map <- mine[sets$rank[mine] == 1]
+      row$map_members <- I(list(if (length(map)) sets$members[[map]] else character()))
+      row$map_class <- if (length(map)) sets$class[[map]] else NA_character_
+      row$map_weight <- if (length(map)) sets$weight[[map]] else NA_real_
+      top <- NA_character_
+      best <- 0
+      for (i in which(edges$run == g & edges$child == inf)) {
+        m <- edges$marginal[[i]]
+        p <- edges$parent[[i]]
+        if (m > best || (m == best && m > 0 && sort(c(p, top), method = "radix")[[1]] == p)) {
+          top <- p
+          best <- m
+        }
+      }
+      row$top_parent <- top
+      row$top_parent_marginal <- if (is.na(top)) NA_real_ else best
+      d <- 0
+      for (i in which(degrees$run %in% group & degrees$infection == inf)) d <- d + degrees$out_degree[[i]]
+      row$expected_out_degree <- d / draws
+      hit <- which(coi$run == g & coi$infection == inf)
+      row$coi_median <- if (length(hit)) coi$median[[hit]] else NA_real_
+      out[[length(out) + 1]] <- row
+    }
+  }
+  out <- oracle_bind(out, NULL)
+  out$map_members <- unclass(out$map_members)
+  out
+}
+
+# ---- Infection times and the Ordering (#122) ----
+
+# Every pair i < j (string order) at every Draw, from each Draw's ranks: before = rank_i < rank_j.
+oracle_order_pair_draws <- function(o, runs = NULL, phase = "sampling") {
+  out <- list()
+  for (run in oracle_runs(o, runs)) {
+    rows <- oracle_table(o, run, "ordering", phase)
+    for (it in sort(unique(rows$iteration))) {
+      at <- rows[rows$iteration == it, ]
+      rank <- setNames(at$rank, at$infection)
+      ids <- sort(at$infection, method = "radix")
+      for (x in seq_along(ids)) for (y in seq_along(ids)) {
+        if (x >= y) next
+        out[[length(out) + 1]] <- data.frame(run = run, iteration = it, i = ids[[x]], j = ids[[y]],
+                                             before = rank[[ids[[x]]]] < rank[[ids[[y]]]])
+      }
+    }
+  }
+  oracle_bind(out, NULL)
+}
+
+# Share of the group's Draws with i before j; `infections` keeps pairs touching any of them.
+oracle_order_pairs <- function(o, infections = NULL, by_run = FALSE, runs = NULL) {
+  out <- list()
+  for (group in oracle_pool_groups(o, runs, by_run)) {
+    draws <- sum(vapply(group, function(r) length(oracle_draws(o, r)), numeric(1)))
+    pairs <- oracle_order_pair_draws(o, group)
+    if (!is.null(infections)) pairs <- pairs[pairs$i %in% infections | pairs$j %in% infections, ]
+    keys <- unique(paste(pairs$i, pairs$j, sep = "\r"))
+    for (k in keys) {
+      ij <- strsplit(k, "\r", fixed = TRUE)[[1]]
+      n <- 0
+      for (r in which(pairs$i == ij[[1]] & pairs$j == ij[[2]])) n <- n + pairs$before[[r]]
+      lead <- if (by_run) data.frame(run = group) else data.frame(row.names = 1)
+      out[[length(out) + 1]] <- cbind(lead, i = ij[[1]], j = ij[[2]], p_before = n / draws, draws = draws)
+    }
+  }
+  oracle_bind(out, NULL)
+}
+
+# Observation time (named vector id -> time, NA when missing) minus oracle_quantile7() of every Draw's duration.
+oracle_infection_times <- function(o, observation_time, level = 0.95, by_run = FALSE, runs = NULL) {
+  out <- list()
+  for (group in oracle_pool_groups(o, runs, by_run)) {
+    rows <- oracle_bind(lapply(group, function(r) oracle_table(o, r, "infections")), NULL)
+    for (inf in sort(unique(rows$infection), method = "radix")) {
+      d <- rows$infection_duration[rows$infection == inf]
+      time <- if (inf %in% names(observation_time)) unname(observation_time[[inf]]) else NA_real_
+      lead <- if (by_run) data.frame(run = group) else data.frame(row.names = 1)
+      out[[length(out) + 1]] <- cbind(lead, infection = inf,
+                                      lower = time - oracle_quantile7(d, (1 + level) / 2),
+                                      median = time - oracle_quantile7(d, 0.5),
+                                      upper = time - oracle_quantile7(d, (1 - level) / 2))
+    }
+  }
+  oracle_bind(out, NULL)
+}
