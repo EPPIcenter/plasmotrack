@@ -101,7 +101,7 @@ test_that("pt_score_pairs() keeps the largest score per unordered pair and ignor
 
 test_that("pt_score_edges() matches the oracle on both golden Stores", {
   paths <- c(one = golden_store(), four = golden_store("replica-exchange"))
-  a <- pt_read(paths)
+  a <- read_golden(paths)
   on.exit(pt_close(a))
   # Golden Infections 1, 2, 3; 4 is a case outside the Analysis.
   truth <- pt_read_truth(write_truth(edges = list(c(1, 3), c(3, 2), c(4, 2)), nodes = lapply(1:4, truth_node)))
