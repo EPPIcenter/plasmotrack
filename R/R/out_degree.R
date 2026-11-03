@@ -167,11 +167,12 @@ group_count_rows <- function(a, runs, groups, index) {
 # others leave (sets without a member in the group, and weight the floor dropped).
 child_count_pmfs <- function(rows, draws, n_groups) {
   out <- rep(list(list()), n_groups)
-  keys <- split(seq_len(nrow(rows)), list(rows$grp, rows$infection), drop = TRUE)
+  # Rows are unique per (group, child, Draw, count), so each lands in its own cell.
+  keys <- split(seq_len(nrow(rows)), paste(rows$grp, rows$infection, sep = "\r"))
   for (key in keys) {
     g <- rows$grp[[key[[1]]]]
     p <- matrix(0, draws, max(rows$c[key]) + 1L)
-    for (i in key) p[rows$draw[[i]], rows$c[[i]] + 1L] <- p[rows$draw[[i]], rows$c[[i]] + 1L] + rows$weight[[i]]
+    p[cbind(rows$draw[key], rows$c[key] + 1L)] <- rows$weight[key]
     p[, -1] <- pmin(p[, -1], 1)
     p[, 1] <- pmax(1 - rowSums(p[, -1, drop = FALSE]), 0)
     out[[g]] <- c(out[[g]], list(p))
