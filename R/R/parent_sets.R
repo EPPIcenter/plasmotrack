@@ -60,6 +60,68 @@ pt_map_graph <- function(a, by_run = FALSE, runs = NULL) {
   sets[sets$rank == 1L, ]
 }
 
+#' MAP out-degree and out-degree size range
+#'
+#' Summaries of how many children an Infection infected, read off the pooled Parent sets of
+#' [pt_parent_sets_pooled()]. Both are means over every Infection as a source, so they are on the scale of
+#' `pt_mean_out_degree()` (ψ_edge).
+#'
+#' * `pt_map_out_degree()` estimates the manuscript's ψ_MAP: the mean out-degree in the MAP graph, the number of
+#'   observed parents over every Infection's MAP Parent set divided by the number of Infections. The Latent parent
+#'   is never counted.
+#' * `pt_out_degree_range()` gives the manuscript's size range (ψ_lo, ψ_hi): for each Infection j, the fewest and the
+#'   most observed parents over the sets of its Credible collection at `level`, summed over every Infection and
+#'   divided by the number of Infections. In the manuscript's notation, ψ_lo(S) = n_S⁻¹ Σ_j min over U in C_j of
+#'   |U_obs ∩ S| with S every Infection, and ψ_hi the same with max. The MAP Parent set is always credible, so
+#'   `lo <= pt_map_out_degree() <= hi`.
+#'
+#' Sets are pooled over the sampling Draws of every Run (or of each Run with `by_run = TRUE`); Runs with no sampling
+#' Draws are skipped with a message.
+#'
+#' @inheritParams pt_parent_sets_pooled
+#' @param by_run `FALSE` for one row pooled over Runs; `TRUE` for one row per Run, from that Run's own sets.
+#' @return A tibble with `run` first when `by_run = TRUE`. `pt_map_out_degree()`: `map_out_degree` and
+#'   `infections` (the number of Infections averaged over). `pt_out_degree_range()`: `lo`, `hi` and `level`.
+#' @export
+#' @examples
+#' golden <- system.file("extdata", "golden", package = "plasmotrackr")
+#' a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange")), threads = 1)
+#' pt_map_out_degree(a)
+#' pt_out_degree_range(a)
+#' pt_out_degree_range(a, level = 0.95, by_run = TRUE)
+#' pt_close(a)
+pt_map_out_degree <- function(a, by_run = FALSE, runs = NULL) {
+  check_flag(by_run)
+  sets <- pooled_sets(a, runs_with_draws(a, runs), by_run, 0.8)
+  map <- sets[sets$rank == 1L, ]
+  per_run(map, by_run, function(rows) {
+    tibble::tibble(map_out_degree = sum(rows$n_observed) / nrow(a$infections), infections = nrow(a$infections))
+  })
+}
+
+#' @rdname pt_map_out_degree
+#' @export
+pt_out_degree_range <- function(a, level = 0.8, by_run = FALSE, runs = NULL) {
+  check_credible_level(level)
+  check_flag(by_run)
+  sets <- pooled_sets(a, runs_with_draws(a, runs), by_run, level)
+  credible <- sets[sets$credible, ]
+  per_run(credible, by_run, function(rows) {
+    lo <- tapply(rows$n_observed, rows$infection, min)
+    hi <- tapply(rows$n_observed, rows$infection, max)
+    n <- nrow(a$infections)
+    tibble::tibble(lo = sum(lo) / n, hi = sum(hi) / n, level = level)
+  })
+}
+
+# Apply `f` to the rows of each Run (by_run: one result row per Run, `run` first, in row order) or to all rows.
+per_run <- function(rows, by_run, f) {
+  if (!by_run) return(f(rows))
+  runs <- unique(rows$run)
+  parts <- lapply(runs, function(r) f(rows[rows$run == r, ]))
+  tibble::tibble(run = rep(runs, vapply(parts, nrow, 1L)), dplyr::bind_rows(parts))
+}
+
 check_credible_level <- function(level, call = rlang::caller_env()) {
   if (!is.numeric(level) || length(level) != 1 || is.na(level) || level <= 0 || level > 1) {
     cli::cli_abort("{.arg level} must be a number in (0, 1].", call = call)

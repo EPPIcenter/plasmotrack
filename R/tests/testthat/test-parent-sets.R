@@ -143,3 +143,49 @@ test_that("pt_parent_sets_pooled() and pt_map_graph() match the oracle on fake a
   expect_oracle_equal(pt_parent_sets_pooled(g, runs = "four"), oracle_parent_sets_pooled(og, runs = "four"), keys)
   expect_oracle_equal(pt_map_graph(g), pooled[pooled$rank == 1, ], keys)
 })
+
+test_that("pt_map_out_degree() and pt_out_degree_range() count MAP and credible parents over every Infection", {
+  a <- pt_read(c(r = local_ties()))
+  on.exit(pt_close(a))
+  # MAP sets: 2 {10}, 4 {10}, 3 {2}, 10 {Latent}: 3 observed parents over 4 Infections.
+  expect_equal(pt_map_out_degree(a), tibble::tibble(map_out_degree = 0.75, infections = 4L))
+  # Credible sizes: 2 {1, 1, 1, 0}, 4 {1, 1}, 3 {1, 0}, 10 {0}.
+  expect_equal(pt_out_degree_range(a), tibble::tibble(lo = 0.25, hi = 0.75, level = 0.8))
+  expect_equal(pt_out_degree_range(a, level = 0.5), tibble::tibble(lo = 0.5, hi = 0.75, level = 0.5))
+  expect_error(pt_out_degree_range(a, level = 2), "level")
+})
+
+test_that("ψ_MAP and the size range take by_run and runs", {
+  paths <- local_two_runs()
+  a <- read_two_runs(paths)
+  on.exit(pt_close(a))
+  expect_equal(pt_map_out_degree(a), tibble::tibble(map_out_degree = 1 / 3, infections = 3L))
+  expect_equal(pt_map_out_degree(a, by_run = TRUE),
+               tibble::tibble(run = c("a", "b"), map_out_degree = 1 / 3, infections = 3L))
+  expect_equal(pt_out_degree_range(a), tibble::tibble(lo = 0, hi = 1 / 3, level = 0.8))
+  # At 0.99 Infection 2's collection reaches {10, 3}.
+  expect_equal(pt_out_degree_range(a, level = 0.99), tibble::tibble(lo = 0, hi = 2 / 3, level = 0.99))
+  expect_equal(pt_out_degree_range(a, level = 0.99, by_run = TRUE),
+               tibble::tibble(run = c("a", "b"), lo = 0, hi = c(2 / 3, 1 / 3), level = 0.99))
+  expect_equal(pt_out_degree_range(a, runs = "b"), tibble::tibble(lo = 0, hi = 1 / 3, level = 0.8))
+})
+
+test_that("ψ_MAP and the size range match the oracle, and ψ_lo <= ψ_MAP <= ψ_hi on every test Store", {
+  two <- local_two_runs()
+  stores <- list(two = two, ties = c(r = local_ties()), golden = golden_paths())
+  for (name in names(stores)) {
+    a <- suppressWarnings(pt_read(stores[[name]]))
+    o <- oracle_read(stores[[name]])
+    for (by_run in c(FALSE, TRUE)) {
+      keys <- if (by_run) "run" else character()
+      map <- pt_map_out_degree(a, by_run = by_run)
+      expect_oracle_equal(map, oracle_map_out_degree(o, by_run = by_run), keys)
+      for (level in c(0.5, 0.8, 0.95)) {
+        range <- pt_out_degree_range(a, level = level, by_run = by_run)
+        expect_oracle_equal(range, oracle_out_degree_range(o, level = level, by_run = by_run), keys)
+        expect_true(all(range$lo <= map$map_out_degree & map$map_out_degree <= range$hi), label = name)
+      }
+    }
+    pt_close(a)
+  }
+})

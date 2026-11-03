@@ -302,6 +302,49 @@ oracle_parent_sets_pooled <- function(o, level = 0.8, by_run = FALSE, runs = NUL
   out
 }
 
+# ψ_MAP: observed members of every Infection's MAP set, over the number of Infections.
+oracle_map_out_degree <- function(o, by_run = FALSE, runs = NULL) {
+  sets <- oracle_parent_sets_pooled(o, by_run = by_run, runs = runs)
+  if (!by_run) sets$run <- ""
+  n <- length(oracle_infection_ids(o))
+  out <- list()
+  for (run in unique(sets$run)) {
+    count <- 0
+    for (i in which(sets$run == run & sets$rank == 1)) count <- count + length(sets$members[[i]])
+    out[[run]] <- data.frame(run = run, map_out_degree = count / n, infections = n)
+  }
+  out <- oracle_bind(out, NULL)
+  if (!by_run) out$run <- NULL
+  out
+}
+
+# ψ_lo and ψ_hi: per Infection the fewest and most observed members over its Credible collection, summed over
+# Infections (0 for one with no set), over the number of Infections.
+oracle_out_degree_range <- function(o, level = 0.8, by_run = FALSE, runs = NULL) {
+  sets <- oracle_parent_sets_pooled(o, level = level, by_run = by_run, runs = runs)
+  if (!by_run) sets$run <- ""
+  n <- length(oracle_infection_ids(o))
+  out <- list()
+  for (run in unique(sets$run)) {
+    lo <- 0
+    hi <- 0
+    for (child in oracle_infection_ids(o)) {
+      sizes <- numeric()
+      for (i in which(sets$run == run & sets$infection == child & sets$credible)) {
+        sizes <- c(sizes, length(sets$members[[i]]))
+      }
+      if (length(sizes)) {
+        lo <- lo + min(sizes)
+        hi <- hi + max(sizes)
+      }
+    }
+    out[[run]] <- data.frame(run = run, lo = lo / n, hi = hi / n, level = level)
+  }
+  out <- oracle_bind(out, NULL)
+  if (!by_run) out$run <- NULL
+  out
+}
+
 oracle_bind <- function(parts, empty) {
   parts <- Filter(Negate(is.null), parts)
   if (length(parts) == 0) return(empty)
