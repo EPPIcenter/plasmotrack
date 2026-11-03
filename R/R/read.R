@@ -7,6 +7,10 @@
 #' Traces. Tables are read later, lazily, from the Windows that are closed, so a Run that is still running, or was
 #' killed, reads up to its last closed Window.
 #'
+#' `pt_read()` warns when a Run is not finished (see `status` in [pt_runs()]), when Runs have different numbers of
+#' sampling Draws, and when a Run recorded non-finite values. A Run with no sampling Draws yet stays in the Analysis;
+#' pooled summaries and diagnostics skip it with a message.
+#'
 #' Each Analysis has its own DuckDB connection, closed by [pt_close()] or when the Analysis is garbage-collected. The
 #' memory cap bounds each Analysis, not the R session: two open Analyses may use twice the cap. Set the engine once
 #' with R options, and override them for one Analysis with the arguments:
@@ -51,7 +55,9 @@ pt_read <- function(paths, epi = NULL, memory_limit = NULL, temp_directory = NUL
   check_store_tables(con, runs)
   structure <- read_structure(con, runs$path[[1]])
   runs <- count_draws(con, runs)
+  runs <- summarise_events(con, runs)
   ok <- TRUE
+  warn_runs(runs)
 
   structure(
     list(engine = engine, runs = runs, infections = structure$infections, loci = structure$loci, epi = epi),
@@ -207,6 +213,85 @@ count_draws <- function(con, runs) {
   runs
 }
 
+# Status, resumes, sampling time and non-finite values of each Run, from its events in closed Windows of both Phases.
+summarise_events <- function(con, runs) {
+  summaries <- lapply(seq_len(nrow(runs)), function(i) {
+    run <- runs[i, ]
+    files <- window_files(run, "events", c("burn_in", "sampling"))
+    events <- if (length(files)) {
+      query(con, sprintf(paste(
+        "SELECT \"window\", type, payload FROM read_parquet(%s, file_row_number = true)",
+        "ORDER BY \"window\", file_row_number"
+      ), sql_list(con, files)))
+    } else {
+      tibble::tibble(window = numeric(), type = character(), payload = character())
+    }
+    payload <- function(rows) lapply(events$payload[rows], jsonlite::parse_json)
+
+    # The last start, resume or end decides: a Run whose events stop after a start or resume was killed or is
+    # still running. window_closed rows follow run_ended in its Window, so they are not looked at.
+    lifecycle <- which(events$type %in% c("run_started", "run_resumed", "run_ended"))
+    status <- "incomplete"
+    if (length(lifecycle) && events$type[[max(lifecycle)]] == "run_ended") {
+      reason <- payload(max(lifecycle))[[1]]$reason
+      if (identical(reason, "completed")) status <- "finished"
+      if (identical(reason, "interrupted")) status <- "interrupted"
+    }
+
+    sampling <- run$windows[[1]]$window[run$windows[[1]]$phase == "sampling"]
+    closed <- payload(which(events$type == "window_closed" & events$window %in% sampling))
+    seconds <- sum(vapply(closed, function(p) as.numeric(p$seconds), numeric(1)))
+    iterations <- sum(vapply(closed, function(p) as.numeric(p$sampling_iterations), numeric(1)))
+
+    tibble::tibble(
+      status = status,
+      resumes = sum(events$type == "run_resumed"),
+      sampling_seconds = seconds,
+      iterations_per_second = if (seconds > 0) iterations / seconds else NA_real_,
+      non_finite = sum(events$type == "non_finite_value")
+    )
+  })
+  summaries <- dplyr::bind_rows(summaries)
+  runs$status <- summaries$status
+  runs$resumes <- as.integer(summaries$resumes)
+  runs$started_from <- vapply(runs$manifest, function(m) {
+    id <- m$started_from$run_id
+    if (is.null(id)) NA_character_ else as.character(id)
+  }, character(1))
+  runs$sampling_seconds <- summaries$sampling_seconds
+  runs$iterations_per_second <- summaries$iterations_per_second
+  runs$non_finite <- as.integer(summaries$non_finite)
+  runs
+}
+
+# pt_read()'s warnings: Runs that are not finished, Draw counts that differ, and non-finite values.
+warn_runs <- function(runs, call = rlang::caller_env()) {
+  unfinished <- runs$status != "finished"
+  if (any(unfinished)) {
+    lines <- sprintf("%s: %s", runs$run[unfinished], runs$status[unfinished])
+    cli::cli_warn(c(
+      "{sum(unfinished)} Run{?s} {?is/are} not finished; {?it is/they are} read up to the last closed Window.",
+      rlang::set_names(cli_escape(lines), "*")
+    ), call = call)
+  }
+  if (length(unique(runs$draws)) > 1) {
+    lines <- sprintf("%s: %s", runs$run, format_count(runs$draws))
+    cli::cli_warn(c(
+      "Draw counts differ between Runs; pooled values weigh each Run by its Draws.",
+      rlang::set_names(cli_escape(lines), "*")
+    ), call = call)
+  }
+  bad <- runs$non_finite > 0
+  if (any(bad)) {
+    lines <- sprintf("%s: %d non_finite_value event%s", runs$run[bad], runs$non_finite[bad],
+                     ifelse(runs$non_finite[bad] == 1, "", "s"))
+    cli::cli_warn(c(
+      "{sum(bad)} Run{?s} hit a non-finite prior or likelihood; see {.code pt_table(a, \"events\")}.",
+      rlang::set_names(cli_escape(lines), "*")
+    ), call = call)
+  }
+}
+
 #' The Runs of an Analysis
 #'
 #' @param a A `pt_analysis` from [pt_read()].
@@ -217,7 +302,19 @@ count_draws <- function(con, runs) {
 #'   * `draws`: \eqn{D_r}, the number of sampling Draws in closed Windows. Every per-Run mean divides by it.
 #'   * `first_iteration`, `last_iteration`: the first and last sampling Draw's iteration, `NA` with no Draws.
 #'   * `windows`: closed Windows, both Phases.
+#'   * `status`: from the Run's events. `"finished"` when the last start, resume or end of the Run is a `run_ended`
+#'     that `completed`; `"interrupted"` when it is a `run_ended` after an interrupt (the Run can be resumed);
+#'     otherwise `"incomplete"`: the Run is still running, or was killed, and is read up to its last closed Window.
+#'   * `resumes`: how many times the Run was resumed (`--resume`), the count of `run_resumed` events. A resumed Run
+#'     is one Run with continuous Draws.
+#'   * `started_from`: for a Run started with `--start-from`, the `run_id` of the Run whose checkpoint it started
+#'     from; otherwise `NA`. The two Runs stay separate: `pt_read()` never follows this link.
 #'   * `thin`, `burn_in`: the Run's `-t` and `-b`.
+#'   * `sampling_seconds`: wall time spent on sampling Windows, summed from their `window_closed` events.
+#'   * `iterations_per_second`: sampling iterations (thinned or not) per second over those Windows; `NA` when no
+#'     sampling time was recorded.
+#'   * `non_finite`: the count of `non_finite_value` events, raised when a chain's prior or likelihood became NaN
+#'     or infinite. Anything above 0 deserves a look.
 #' @export
 pt_runs <- function(a) {
   runs <- a$runs
@@ -225,8 +322,11 @@ pt_runs <- function(a) {
     run = runs$run, label = runs$label, path = runs$path, draws = runs$draws,
     first_iteration = runs$first_iteration, last_iteration = runs$last_iteration,
     windows = vapply(runs$windows, nrow, integer(1)),
+    status = runs$status, resumes = runs$resumes, started_from = runs$started_from,
     thin = vapply(runs$manifest, function(m) as.integer(m$thin), integer(1)),
-    burn_in = vapply(runs$manifest, function(m) as.integer(m$burn_in), integer(1))
+    burn_in = vapply(runs$manifest, function(m) as.integer(m$burn_in), integer(1)),
+    sampling_seconds = runs$sampling_seconds, iterations_per_second = runs$iterations_per_second,
+    non_finite = runs$non_finite
   )
 }
 
@@ -269,12 +369,12 @@ print.pt_analysis <- function(x, ...) {
   iterations <- ifelse(is.na(runs$first_iteration), "-",
                        paste0(format_count(runs$first_iteration), "-", format_count(runs$last_iteration)))
   table <- data.frame(
-    run = runs$run, draws = format_count(runs$draws), iterations = iterations,
+    run = runs$run, status = runs$status, draws = format_count(runs$draws), iterations = iterations,
     windows = format(runs$windows), thin = format(runs$thin)
   )
   lines <- vapply(names(table), function(column) {
     values <- c(column, table[[column]])
-    if (column %in% c("run", "iterations")) formatC(values, width = -max(nchar(values)))
+    if (column %in% c("run", "status", "iterations")) formatC(values, width = -max(nchar(values)))
     else formatC(values, width = max(nchar(values)))
   }, character(nrow(table) + 1))
   cat(paste0("  ", apply(matrix(lines, ncol = ncol(table)), 1, paste, collapse = "  "), "\n"), sep = "")
