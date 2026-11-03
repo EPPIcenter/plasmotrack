@@ -95,3 +95,19 @@ test_that("pt_score_genotypes() errors naming a Locus whose mapped Allele count 
   lacking$loci <- lacking$loci[lacking$loci$locus != "L3", ]
   expect_error(pt_score_genotypes(a, lacking), "L3")
 })
+
+test_that("pt_score_coi() compares the posterior COI median with the identifiable true COI", {
+  a <- local_score_genotype_store()
+  scores <- pt_score_coi(a, score_truth())
+  expect_s3_class(scores, "tbl_df")
+  expect_equal(as.data.frame(scores), data.frame(
+    infection = c("10", "2", "3"),
+    # Per-Draw COI: 10 has 2, 2; 2 has 3, 2; 3 has 2, 2.
+    median = c(2, 2.5, 2),
+    # Most distinct strain genotypes at a genotyped Locus: 10 has 2 at L1; 2 has 3 at L2 (L3 not genotyped);
+    # 3's two strains differ only at L2, where it was not genotyped.
+    true_coi = c(2L, 3L, 1L),
+    strains = c(2L, 3L, 2L),
+    error = c(0, -0.5, 1)
+  ))
+})

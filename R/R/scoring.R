@@ -214,3 +214,54 @@ pt_score_genotypes <- function(a, truth) {
     exact = unname(mapply(identical, true, called))
   )
 }
+
+#' Score COI against the truth
+#'
+#' Compares each Infection's posterior COI median (from [pt_coi()]) with its identifiable true COI: the most distinct
+#' true strain genotypes at any Locus the Infection was genotyped at. Strains that differ only at Loci the Infection
+#' was not genotyped at cannot be told apart, so the identifiable COI can be below the number of strains. Strain
+#' genotypes are compared in the simulator's numbering, so no Allele mapping is needed.
+#'
+#' @inheritParams pt_score_edges
+#' @return A tibble with one row per Infection genotyped at some Locus, sorted by `infection` as strings: `median`
+#'   (the posterior COI median, possibly halfway between two values), `true_coi` (identifiable), `strains` (the
+#'   number of true strains) and `error` (`median - true_coi`).
+#' @seealso [pt_score_genotypes()]; [pt_read_truth()].
+#' @export
+#' @examples
+#' \dontrun{
+#' a <- pt_read("runs/sim_0_s7")
+#' truth <- pt_read_truth("sim_0_s7.json.gz")
+#' scores <- pt_score_coi(a, truth)
+#' mean(scores$error == 0)
+#' }
+pt_score_coi <- function(a, truth) {
+  ids <- truth_infection_ids(a, truth)
+  coi <- pt_coi(a)
+  genotyped <- pt_table(a, "latent_genotypes", phase = "sampling") |>
+    dplyr::distinct(.data$infection, .data$locus) |>
+    dplyr::collect()
+  g <- truth$genotypes[truth$genotypes$infection %in% ids, ]
+  g <- g[order(g$infection, g$strain, g$locus, g$allele, method = "radix"), ]
+  # One genotype string per (infection, strain, locus), then distinct strings per (infection, locus).
+  strain_key <- paste(g$infection, g$strain, g$locus, sep = "\r")
+  first <- !duplicated(strain_key)
+  per_strain <- tibble::tibble(
+    infection = g$infection[first], locus = g$locus[first],
+    genotype = vapply(split(g$allele, factor(strain_key, levels = unique(strain_key))), paste, "", collapse = ",")
+  )
+  per_strain <- per_strain[paste(per_strain$infection, per_strain$locus, sep = "\r") %in%
+                             paste(genotyped$infection, genotyped$locus, sep = "\r"), ]
+  distinct <- unique(per_strain)
+  at_locus <- tapply(distinct$genotype, paste(distinct$infection, distinct$locus, sep = "\r"), length)
+  infection_of <- sub("\r.*$", "", names(at_locus))
+  true_coi <- tapply(as.vector(at_locus), infection_of, max)[coi$infection]
+  strains <- tapply(g$strain, g$infection, function(s) length(unique(s)))[coi$infection]
+  out <- tibble::tibble(
+    infection = coi$infection, median = coi$median,
+    true_coi = as.integer(ifelse(is.na(true_coi), 0L, true_coi)),
+    strains = as.integer(ifelse(is.na(strains), 0L, strains))
+  )
+  out$error <- out$median - out$true_coi
+  out
+}
