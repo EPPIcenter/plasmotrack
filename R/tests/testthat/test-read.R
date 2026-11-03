@@ -89,3 +89,76 @@ test_that("pt_read() accepts Runs that differ only in chains, thin or engine ver
   on.exit(pt_close(a))
   expect_equal(pt_runs(a)$thin, c(5L, 10L))
 })
+
+engine_settings <- function(a) {
+  con <- dbplyr::remote_con(pt_table(a, "run_scalars"))
+  DBI::dbGetQuery(con, paste(
+    "SELECT current_setting('memory_limit') AS memory_limit, current_setting('threads') AS threads,",
+    "current_setting('temp_directory') AS temp_directory"
+  ))
+}
+
+test_that("the connection uses the plasmotrackr engine options", {
+  spill <- withr::local_tempdir()
+  withr::local_options(plasmotrackr.memory_limit = "512MiB", plasmotrackr.threads = 2,
+                       plasmotrackr.temp_directory = spill)
+  a <- pt_read(golden_store())
+  on.exit(pt_close(a))
+  settings <- engine_settings(a)
+  expect_equal(settings$memory_limit, "512.0 MiB")
+  expect_equal(settings$threads, 2)
+  expect_equal(normalizePath(settings$temp_directory), normalizePath(spill))
+})
+
+test_that("pt_read() arguments override the engine options for one Analysis", {
+  spill <- withr::local_tempdir()
+  withr::local_options(plasmotrackr.memory_limit = "512MiB", plasmotrackr.threads = 2)
+  a <- pt_read(golden_store(), memory_limit = "256MiB", threads = 1, temp_directory = spill)
+  on.exit(pt_close(a))
+  settings <- engine_settings(a)
+  expect_equal(settings$memory_limit, "256.0 MiB")
+  expect_equal(settings$threads, 1)
+  expect_equal(normalizePath(settings$temp_directory), normalizePath(spill))
+})
+
+test_that("temp_directory defaults to tempdir()", {
+  withr::local_options(plasmotrackr.temp_directory = NULL)
+  a <- pt_read(golden_store())
+  on.exit(pt_close(a))
+  expect_equal(normalizePath(engine_settings(a)$temp_directory), normalizePath(tempdir()))
+})
+
+test_that("pt_close() closes the connection", {
+  a <- pt_read(golden_store())
+  con <- dbplyr::remote_con(pt_table(a, "run_scalars"))
+  pt_close(a)
+  expect_false(DBI::dbIsValid(con))
+  expect_error(pt_table(a, "run_scalars"), "closed")
+})
+
+test_that("pt_read() checks epi", {
+  expect_error(pt_read(golden_store(), epi = data.frame(id = "1")), "infection")
+  expect_error(pt_read(golden_store(), epi = data.frame(infection = c("1", "1"))), "one row per Infection")
+})
+
+scrub_temp <- function(x) sub("temp_directory .*$", "temp_directory <temp>", x)
+
+test_that("print() shows one line per Run, the epi match and the engine", {
+  spill <- withr::local_tempdir()
+  epi <- data.frame(infection = c(1, 2, 7), district = c("a", "b", "c"), travel = c(TRUE, FALSE, NA))
+  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")), epi = epi, memory_limit = "1GiB",
+               threads = 1, temp_directory = spill)
+  on.exit(pt_close(a))
+  expect_snapshot(print(a), transform = scrub_temp)
+  b <- pt_read(golden_store(), memory_limit = "1GiB", threads = 1, temp_directory = spill)
+  pt_close(b)
+  expect_snapshot(print(b), transform = scrub_temp)
+})
+
+test_that("an Analysis is closed when garbage-collected", {
+  a <- pt_read(golden_store())
+  con <- dbplyr::remote_con(pt_table(a, "run_scalars"))
+  rm(a)
+  gc()
+  expect_false(DBI::dbIsValid(con))
+})
