@@ -59,3 +59,37 @@ test_that("counts are summed over Runs, or kept per Run with by_run, Runs in Ana
   expect_equal(coi$proposed, c(50, 50))
   expect_equal(coi$rate, c(24 / 50, 20 / 50))
 })
+
+test_that("phase picks the Windows summed, and per_window keeps one row per Window", {
+  a <- pt_read(c(one = golden_store()))
+  on.exit(pt_close(a))
+  # Burn-in Window 0 of the golden Store: SALTSampler AS1 36 / 48, AS11 50 / 72.
+  burn_in <- pt_acceptance(a, phase = "burn_in")
+  salt <- burn_in[burn_in$type == "SALTSampler", ]
+  expect_equal(c(salt$accepted, salt$proposed), c(86, 120))
+
+  windows <- pt_acceptance(a, phase = c("burn_in", "sampling"), per_window = TRUE)
+  expect_equal(names(windows), c("window", "phase", "type", "accepted", "proposed", "rate"))
+  salt <- windows[windows$type == "SALTSampler", ]
+  expect_equal(salt$window, c(0, 1, 2))
+  expect_equal(salt$phase, c("burn_in", "sampling", "sampling"))
+  expect_equal(salt$accepted, c(36 + 50, 50 + 75, 44 + 73))
+  expect_equal(salt$proposed, c(48 + 72, 72 + 108, 64 + 96))
+  expect_equal(salt$rate, c(86 / 120, 125 / 180, 117 / 160))
+})
+
+test_that("per_window with by_run keeps run first, then the Window", {
+  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")))
+  on.exit(pt_close(a))
+  windows <- pt_acceptance(a, level = "sampler", by_run = TRUE, per_window = TRUE)
+  expect_equal(names(windows), c("run", "window", "phase", "type", "sampler", "accepted", "proposed", "rate"))
+  coi <- windows[windows$sampler == "ConstrainedContinuousRandomWalk/mean_coi", ]
+  expect_equal(coi$run, c("one", "one", "four", "four"))
+  expect_equal(coi$window, c(1, 2, 1, 2))
+  expect_equal(coi$accepted, c(12, 12, 13, 7))
+  expect_equal(coi$rate, c(12, 12, 13, 7) / 25)
+  # Pooled over Runs, Windows with the same number are summed.
+  pooled <- pt_acceptance(a, level = "sampler", per_window = TRUE)
+  coi <- pooled[pooled$sampler == "ConstrainedContinuousRandomWalk/mean_coi", ]
+  expect_equal(c(coi$accepted, coi$proposed), c(25, 19, 50, 50))
+})

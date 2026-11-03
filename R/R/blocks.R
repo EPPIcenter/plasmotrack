@@ -1,7 +1,7 @@
 pt_acceptance <- function(a, level = c("type", "sampler"), phase = "sampling", by_run = FALSE, per_window = FALSE) {
   level <- rlang::arg_match(level)
   phase <- check_phase(phase)
-  keys <- c(if (by_run) "run", "type", if (level == "sampler") "sampler")
+  keys <- c(block_keys(by_run, per_window), "type", if (level == "sampler") "sampler")
   rows <- pt_table(a, "acceptance", phase = phase) |>
     dplyr::mutate(type = split_part(.data$sampler, "/", 1L))
   sum_block(a, rows, keys, c("accepted", "proposed"))
@@ -20,4 +20,9 @@ sum_block <- function(a, rows, keys, counts) {
   if ("run" %in% keys) sort_keys$run <- match(rows$run, a$runs$run)
   rows <- rows[do.call(order, unname(sort_keys)), c(keys, counts, "rate")]
   tibble::as_tibble(rows)
+}
+
+# The leading keys every Block summary groups by.
+block_keys <- function(by_run, per_window) {
+  c(if (by_run) "run", if (per_window) c("window", "phase"))
 }
