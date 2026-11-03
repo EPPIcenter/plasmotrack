@@ -332,3 +332,125 @@ expect_oracle_equal <- function(actual, expected, keys, tolerance = 1e-12) {
   }
   invisible(actual)
 }
+
+# ---- Latent genotypes and COI (#121) ----
+# Bitstrings are split character by character in R: character k (1-based here) is Allele k - 1.
+
+oracle_bits <- function(alleles) strsplit(alleles, "", fixed = TRUE)[[1]] == "1"
+
+oracle_alleles <- function(o, runs = NULL, phase = "sampling") {
+  out <- list()
+  for (run in oracle_runs(o, runs)) {
+    rows <- oracle_table(o, run, "latent_genotypes", phase)
+    for (i in seq_len(NROW(rows))) {
+      for (k in which(oracle_bits(rows$alleles[[i]]))) {
+        out[[length(out) + 1]] <- data.frame(run = run, iteration = rows$iteration[[i]],
+                                             infection = rows$infection[[i]], locus = rows$locus[[i]],
+                                             allele = k - 1)
+      }
+    }
+  }
+  oracle_bind(out, NULL)
+}
+
+oracle_coi_draws <- function(o, runs = NULL, phase = "sampling") {
+  out <- list()
+  for (run in oracle_runs(o, runs)) {
+    rows <- oracle_table(o, run, "latent_genotypes", phase)
+    coi <- list()
+    for (i in seq_len(NROW(rows))) {
+      k <- paste(rows$iteration[[i]], rows$infection[[i]], sep = "\r")
+      coi[[k]] <- max(if (is.null(coi[[k]])) 0 else coi[[k]], sum(oracle_bits(rows$alleles[[i]])))
+    }
+    for (k in names(coi)) {
+      parts <- strsplit(k, "\r", fixed = TRUE)[[1]]
+      out[[length(out) + 1]] <- data.frame(run = run, iteration = as.numeric(parts[[1]]), infection = parts[[2]],
+                                           coi = coi[[k]])
+    }
+  }
+  oracle_bind(out, NULL)
+}
+
+# The sampling Runs a pooled summary uses (those with Draws), and the groups it pools: every Run together, or each.
+oracle_pool_groups <- function(o, runs, by_run) {
+  runs <- oracle_runs(o, runs)
+  runs <- runs[vapply(runs, function(r) length(oracle_draws(o, r)) > 0, logical(1))]
+  if (by_run) setNames(as.list(runs), runs) else list(pooled = runs)
+}
+
+# COI median (type 7 over every Draw's COI) and distribution (long: infection, coi, fraction of the Draws).
+oracle_coi <- function(o, by_run = FALSE, runs = NULL) {
+  medians <- list()
+  dist <- list()
+  for (group in oracle_pool_groups(o, runs, by_run)) {
+    draws <- sum(vapply(group, function(r) length(oracle_draws(o, r)), numeric(1)))
+    per_draw <- oracle_coi_draws(o, group)
+    for (inf in sort(unique(per_draw$infection), method = "radix")) {
+      values <- per_draw$coi[per_draw$infection == inf]
+      lead <- if (by_run) data.frame(run = group) else data.frame(row.names = 1)
+      medians[[length(medians) + 1]] <- cbind(lead, infection = inf,
+                                              median = unname(stats::quantile(values, 0.5, type = 7)))
+      for (v in sort(unique(values))) {
+        dist[[length(dist) + 1]] <- cbind(lead, infection = inf, coi = v, fraction = sum(values == v) / draws)
+      }
+    }
+  }
+  list(median = oracle_bind(medians, NULL), distribution = oracle_bind(dist, NULL))
+}
+
+# Per (infection, locus) seen at a Draw, the count of Draws of each bitstring, over the Runs of one group.
+oracle_bitstring_counts <- function(o, group) {
+  counts <- list()
+  for (run in group) {
+    rows <- oracle_table(o, run, "latent_genotypes", "sampling")
+    for (i in seq_len(NROW(rows))) {
+      k <- paste(rows$infection[[i]], rows$locus[[i]], sep = "\r")
+      tally <- counts[[k]]
+      if (is.null(tally)) tally <- numeric()
+      b <- rows$alleles[[i]]
+      tally[b] <- (if (is.na(tally[b])) 0 else tally[b]) + 1
+      counts[[k]] <- tally
+    }
+  }
+  counts
+}
+
+oracle_genotype_presence <- function(o, by_run = FALSE, runs = NULL) {
+  loci <- oracle_parquet(file.path(o$runs[[1]]$path, "structure", "loci.parquet"))
+  out <- list()
+  for (group in oracle_pool_groups(o, runs, by_run)) {
+    draws <- sum(vapply(group, function(r) length(oracle_draws(o, r)), numeric(1)))
+    counts <- oracle_bitstring_counts(o, group)
+    for (k in names(counts)) {
+      parts <- strsplit(k, "\r", fixed = TRUE)[[1]]
+      n_alleles <- sum(loci$locus == parts[[2]])
+      present <- numeric(n_alleles)
+      tally <- counts[[k]]
+      for (b in names(tally)) present <- present + oracle_bits(b) * tally[[b]]
+      for (allele in seq_len(n_alleles)) {
+        out[[length(out) + 1]] <- cbind(if (by_run) data.frame(run = group) else data.frame(row.names = 1),
+                                        infection = parts[[1]], locus = parts[[2]], allele = allele - 1,
+                                        presence = present[[allele]] / draws)
+      }
+    }
+  }
+  oracle_bind(out, NULL)
+}
+
+oracle_genotype_mode <- function(o, by_run = FALSE, runs = NULL) {
+  out <- list()
+  for (group in oracle_pool_groups(o, runs, by_run)) {
+    draws <- sum(vapply(group, function(r) length(oracle_draws(o, r)), numeric(1)))
+    counts <- oracle_bitstring_counts(o, group)
+    for (k in names(counts)) {
+      parts <- strsplit(k, "\r", fixed = TRUE)[[1]]
+      tally <- counts[[k]]
+      best <- names(tally)[tally == max(tally)]
+      mode <- sort(best, method = "radix")[[1]]
+      out[[length(out) + 1]] <- cbind(if (by_run) data.frame(run = group) else data.frame(row.names = 1),
+                                      infection = parts[[1]], locus = parts[[2]], alleles = mode,
+                                      fraction = tally[[mode]] / draws, agreement = tally[[mode]] / sum(tally))
+    }
+  }
+  oracle_bind(out, NULL)
+}
