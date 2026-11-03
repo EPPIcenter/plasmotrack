@@ -58,3 +58,70 @@ pt_coi_draws <- function(a, runs = NULL, phase = "sampling") {
     dplyr::summarise(coi = max(.data$n_present, na.rm = TRUE), .groups = "drop") |>
     dplyr::select("run", "iteration", "infection", "coi")
 }
+
+# Count rows of a lazy per-Draw table by `keys` in DuckDB (with `run` first when by_run), collect, and attach the
+# Draw total each count is a fraction of: the Run's Draws, or every selected Run's. Rows sorted by Run (Run-table
+# order) then keys as strings.
+tally_draws <- function(a, rows, keys, by_run, runs) {
+  groups <- c(if (by_run) "run", keys)
+  counts <- rows |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(groups))) |>
+    dplyr::summarise(n = dplyr::n(), .groups = "drop") |>
+    dplyr::collect()
+  counts$n <- as.numeric(counts$n)
+  draws <- stats::setNames(as.numeric(a$runs$draws), a$runs$run)
+  counts$draws <- if (by_run) unname(draws[counts$run]) else rep(sum(draws[runs]), nrow(counts))
+  order_by <- lapply(groups, function(g) if (g == "run") match(counts$run, a$runs$run) else counts[[g]])
+  counts[do.call(order, c(unname(order_by), method = "radix")), ]
+}
+
+# The type-7 quantile at `p` of a sample given as distinct values and their counts.
+quantile7_counts <- function(values, counts, p) {
+  o <- order(values)
+  values <- values[o]
+  ends <- cumsum(counts[o])
+  h <- (sum(counts) - 1) * p + 1
+  at <- function(i) values[[which(ends >= i)[[1]]]]
+  lo <- at(floor(h))
+  lo + (h - floor(h)) * (at(ceiling(h)) - lo)
+}
+
+#' Pooled COI
+#'
+#' Each Infection's complexity of infection (COI, see [pt_coi_draws()]) over the sampling Draws: its median and its
+#' distribution.
+#'
+#' Draws pool as everywhere in the package: the fraction of a COI value is the number of Draws with that value,
+#' summed over Runs, divided by the total Draw count, so each Run weighs by its Draws. The median is the type-7
+#' quantile (R's default, see [stats::quantile()]) of the pooled per-Draw values, so it can fall halfway between two
+#' values. Runs with no sampling Draws are skipped with a message. An Infection genotyped at no Locus has no row.
+#'
+#' @inheritParams pt_edge_marginals
+#' @param by_run `FALSE` to pool every Run; `TRUE` for one row per Run per Infection.
+#' @return A tibble of `infection`, `median` and `distribution`, after `run` when `by_run = TRUE`, sorted by `run`
+#'   (in [pt_runs()] order), then `infection` as strings. `distribution` is a list column of tibbles of `coi` and
+#'   `fraction`, one row per COI value seen, in increasing order.
+#' @seealso [pt_coi_draws()] for the per-Draw values.
+#' @export
+#' @examples
+#' golden <- system.file("extdata", "golden", package = "plasmotrackr")
+#' a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange")), threads = 1)
+#' pt_coi(a)
+#' pt_coi(a)$distribution[[1]]
+#' pt_close(a)
+pt_coi <- function(a, by_run = FALSE, runs = NULL) {
+  check_flag(by_run)
+  runs <- runs_with_draws(a, runs)
+  counts <- tally_draws(a, pt_coi_draws(a, runs), c("infection", "coi"), by_run, runs)
+  keys <- c(if (by_run) "run", "infection")
+  group <- do.call(paste, c(unname(as.list(counts[keys])), sep = "\r"))
+  first <- !duplicated(group)
+  rows <- split(seq_len(nrow(counts)), factor(group, levels = unique(group)))
+  out <- counts[first, keys]
+  out$median <- vapply(rows, function(i) quantile7_counts(counts$coi[i], counts$n[i], 0.5), numeric(1),
+                       USE.NAMES = FALSE)
+  out$distribution <- lapply(rows, function(i) {
+    tibble::tibble(coi = counts$coi[i], fraction = counts$n[i] / counts$draws[i])
+  }) |> unname()
+  tibble::as_tibble(out)
+}
