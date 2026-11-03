@@ -52,6 +52,14 @@ namespace transmission_nets::impl::Model {
         inline constexpr const char* ASYMPTOMATIC_IDP = "asymptomatic_idp";
     }// namespace input_names
 
+    // The file a Run input's copy has in the store root: `input.json`, or `input.json.gz` for an input whose name
+    // ends in `.gz` (the engine reads such an input as gzip), and `symptomatic_idp.txt` and `asymptomatic_idp.txt`.
+    std::string storedInputName(const std::string& inputName, const std::filesystem::path& source);
+
+    // Copies each Run input, by input_names, into the store root byte for byte, durably: temporary name, sync, rename.
+    // A new Run copies its inputs before its first Window; a resumed Run keeps the copies its store holds.
+    void copyRunInputs(const std::filesystem::path& store, const std::map<std::string, std::filesystem::path>& inputs);
+
     // The identity and recipe of a Run, as the CLI knows it. The recorder adds its own options when it writes the
     // Run manifest.
     struct RunManifest {

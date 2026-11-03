@@ -7,8 +7,9 @@ the ticket that holds the reasoning.
 `plasmotrackr` is an R package that reads plasmotrack Run stores (`doc/store-layout.md`), checks convergence across
 Runs, and hands users tidy data to analyze however they like. It is native R: it reads the Parquet Stores itself
 through DuckDB and computes every quantity from the raw tables. The Infections' observation times and candidate
-parents come from the input JSON, which the Store doesn't hold (newer Stores keep a copy of it). It needs no Python, never reads `derived/`, and
-writes nothing into a Store.
+parents come from the input JSON. New Stores embed it (`input.json` or `input.json.gz`) and the IDPs
+(`doc/store-layout.md`, "Run inputs"); old Stores don't. It needs no Python, never reads `derived/`, and writes
+nothing into a Store.
 
 ## Destination
 
@@ -273,7 +274,7 @@ Flow functions, all lazy and per Draw:
   - Enrichment is the cell's share of edge mass over its share of candidate pairs, and NA where the cell has no
     candidate pair.
   - `candidates` is a `parent, child` data frame. It defaults to `pt_candidates(a)`, the input's `allowed_parents`,
-    which the Store doesn't hold.
+    from the Store's embedded copy of the input or, for old Stores, the input file.
 - **`pt_net_flow(a, by)`**: stratum, net_flow: expected out-edges minus in-edges, counting only edges between different
   strata.
 - **`pt_reassign_long_lags(a, max_lag, by = NULL)`**: mean_out_degree and mean_p_latent_parent after every edge with
@@ -377,6 +378,7 @@ unless stated here.
 - `infections`: infection, infection_time, observation_time, duration, symptomatic
 - `genotypes`: infection, strain, locus, allele, long, in simulator numbering
 - `loci`
+- `observed`: infection, locus, allele, each case's observed genotype in simulator numbering (for the Allele mapping)
 
 Ids are strings. Truth is restricted to the Analysis's Infections only when scoring, so one `pt_truth` serves both the
 full and the partial fit of a simulation.
@@ -385,6 +387,7 @@ full and the partial fit of a simulation.
 - **The rule:** an input's Alleles at a Locus are the simulator's Alleles observed in any of that input's Infections,
   in simulator order. This held for every renumbered Locus checked: 683 in full inputs and 185 in partial ones.
 - **Check:** scoring errors, naming the Locus, when the mapped count differs from the Locus's `n_alleles`.
+- A Locus whose input kept the simulator's Allele count keeps the simulator's numbering.
 - **Unrepresentable Alleles:** true Alleles that no Infection shows are counted as `unrepresentable` and excluded from
   genotype accuracy.
 
@@ -404,8 +407,8 @@ Latent parent. Comparison uses observed members plus `has_latent_parent`.
     it returns the PR curve instead: direction, threshold, recall, precision.
 - **`pt_score_parent_sets(a, truth, level = 0.8)`**: one row per Infection: infection, credible_size, covered,
   top_probability. The fit summary's credible size, coverage and top-probability columns are its means and median.
-- **`pt_score_map(a, truth)`**: per Infection, whether the MAP Parent set equals the true Parent set, plus the share
-  that do.
+- **`pt_score_map(a, truth)`**: per Infection, whether the MAP Parent set equals the true Parent set (`correct`); the
+  share that do is `mean(correct)`.
 - **`pt_score_genotypes(a, truth)`**: per (infection, locus), true Alleles against posterior presence called at 0.5,
   plus the unrepresentable count.
 - **`pt_score_coi(a, truth)`**: posterior COI median against the identifiable true COI, meaning the most distinct true

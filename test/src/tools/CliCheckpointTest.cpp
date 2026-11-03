@@ -14,6 +14,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <sys/stat.h>
+
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -66,6 +68,20 @@ namespace {
         return waitFor(startResume(work, options));
     }
 
+    const std::vector<std::string> RUN_INPUT_COPIES{"input.json", "symptomatic_idp.txt", "asymptomatic_idp.txt"};
+
+    // Each Run input copy's inode and modification time: a copy written again gets a new inode, as it is renamed into
+    // place.
+    std::vector<std::pair<ino_t, std::int64_t>> copyIdentities(const fs::path& store) {
+        std::vector<std::pair<ino_t, std::int64_t>> out;
+        for (const auto& name : RUN_INPUT_COPIES) {
+            struct stat st {};
+            EXPECT_EQ(::stat((store / name).c_str(), &st), 0) << name;
+            out.emplace_back(st.st_ino, static_cast<std::int64_t>(fs::last_write_time(store / name).time_since_epoch().count()));
+        }
+        return out;
+    }
+
     std::vector<Event> eventsOfType(const fs::path& store, const std::string& type) {
         std::vector<Event> out;
         for (const auto& e : events(store)) {
@@ -93,6 +109,7 @@ TEST(CliCheckpoint, AnInterruptedRunResumesWhereItsCheckpointLeftOff) {
     const auto manifest     = readJson(store / "manifest.json");
     const auto interruptedAt = traceIterations(store).back();
     const auto windowsBefore = closedWindows(store).size();
+    const auto copiesBefore  = copyIdentities(store);
 
     pid = startResume(work, {});
     ASSERT_TRUE(waitForClosedWindows(pid, store, windowsBefore + 3)) << consoleOutput(work);
@@ -114,6 +131,8 @@ TEST(CliCheckpoint, AnInterruptedRunResumesWhereItsCheckpointLeftOff) {
     EXPECT_EQ(eventsOfType(store, "run_started").size(), 1u);
     EXPECT_EQ(eventsOfType(store, "run_ended").size(), 2u);
     EXPECT_EQ(readJson(store / "manifest.json"), manifest);
+    // The resumed Run keeps its store's copies of its inputs and writes none.
+    EXPECT_EQ(copyIdentities(store), copiesBefore);
 
     if (!HasFailure()) fs::remove_all(work);
 }
@@ -149,6 +168,11 @@ TEST(CliCheckpoint, StartFromMakesANewRunFromACheckpointsState) {
     EXPECT_NEAR(scalarAt(store, "likelihood", 0), scalarAt(source, "likelihood", 30), 1e-6);
     // The source Run is untouched.
     EXPECT_EQ(readJson(source / "manifest.json"), sourceManifest);
+    // The new Run's store holds its own copies of its inputs.
+    for (const auto& name : RUN_INPUT_COPIES) {
+        ASSERT_TRUE(fs::exists(store / name)) << name;
+        EXPECT_EQ(readText(store / name), readText(source / name)) << name;
+    }
 
     if (!HasFailure()) fs::remove_all(work);
 }

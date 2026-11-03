@@ -63,7 +63,7 @@ TEST(RandomAllelesBitSetSamplerTest, AllelesBitSetTest) {
         sampler.adapt();
     }
 
-    Eigen::Array<double, 6, 1> results;
+    Eigen::Array<double, 6, 1> results = Eigen::Array<double, 6, 1>::Zero();
     i = 1000;
     while (i > 0) {
         i--;
