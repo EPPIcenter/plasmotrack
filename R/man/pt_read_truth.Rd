@@ -20,6 +20,9 @@ from \code{latent_genotype}). Alleles are in the simulator's numbering: Allele k
 vector, counted from 0 as in the Store. An input may renumber them; scoring maps them back. Strains count
 from 1.
 \item \code{loci}: \code{locus}, \code{n_alleles} (the simulator's Allele count).
+\item \code{observed}: \code{infection}, \code{locus}, \code{allele}, one row per Allele each case's observed genotype shows
+(\code{observed_genotype}, with any sequencing errors the simulator added), in the simulator's numbering. Scoring
+reads the input's Allele numbering off it (see \code{\link[=pt_score_genotypes]{pt_score_genotypes()}}). Empty when the file has none.
 }
 }
 \description{
@@ -34,5 +37,6 @@ truth$edges
 }
 }
 \seealso{
-\code{\link[=pt_score_edges]{pt_score_edges()}}, \code{\link[=pt_score_pairs]{pt_score_pairs()}}
+\code{\link[=pt_score_edges]{pt_score_edges()}}, \code{\link[=pt_score_pairs]{pt_score_pairs()}}, \code{\link[=pt_score_parent_sets]{pt_score_parent_sets()}}, \code{\link[=pt_score_map]{pt_score_map()}},
+\code{\link[=pt_score_genotypes]{pt_score_genotypes()}}, \code{\link[=pt_score_coi]{pt_score_coi()}}
 }
