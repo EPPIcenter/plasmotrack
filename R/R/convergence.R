@@ -179,10 +179,12 @@ convergence_draw_set <- function(a, runs = NULL, iterations = NULL, call = rlang
   empty <- lengths(its) == 0
   if (any(empty)) {
     if (all(empty)) {
-      cli::cli_abort("No sampling Draws with iteration in {iterations[[1]]}-{iterations[[2]]}.", call = call)
+      cli::cli_abort("No sampling Draws with iteration in {paste(iterations, collapse = '-')}.", call = call)
     }
-    cli::cli_inform("Skipping Run{?s} {.val {runs[empty]}}: no sampling Draws with iteration in
-                     {iterations[[1]]}-{iterations[[2]]}.")
+    skipped <- runs[empty]
+    range <- paste(iterations, collapse = "-")
+    cli::cli_inform(c("Skipping {cli::qty(skipped)}Run{?s} {.val {skipped}}:",
+                       " " = "no sampling Draws with iteration in {range}."))
     its <- its[!empty]
   }
   counts <- lengths(its)
@@ -190,8 +192,8 @@ convergence_draw_set <- function(a, runs = NULL, iterations = NULL, call = rlang
   its <- lapply(its, function(x) x[seq_len(n)])
   list(
     runs = names(its), n = n, iterations = its, counts = counts,
-    used = tibble::tibble(run = names(its), first_iteration = vapply(its, function(x) x[[1]], numeric(1)),
-                          last_iteration = vapply(its, function(x) x[[n]], numeric(1)))
+    used = tibble::tibble(run = names(its), first_iteration = unname(vapply(its, function(x) x[[1]], numeric(1))),
+                          last_iteration = unname(vapply(its, function(x) x[[n]], numeric(1))))
   )
 }
 
