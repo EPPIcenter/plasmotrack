@@ -93,3 +93,53 @@ test_that("per_window with by_run keeps run first, then the Window", {
   coi <- pooled[pooled$sampler == "ConstrainedContinuousRandomWalk/mean_coi", ]
   expect_equal(c(coi$accepted, coi$proposed), c(25, 19, 50, 50))
 })
+
+test_that("pt_swaps() sums each temperature pair's sampling swaps per Run", {
+  a <- pt_read(c(four = golden_store("replica-exchange")))
+  on.exit(pt_close(a))
+  swaps <- pt_swaps(a)
+  expect_s3_class(swaps, "tbl_df")
+  expect_equal(names(swaps), c("run", "temperature_pair", "accepted", "attempted", "rate"))
+  # Hand sums of the golden Store's sampling Windows 1 and 2.
+  expect_equal(swaps$run, rep("four", 3))
+  expect_equal(swaps$temperature_pair, c(0, 1, 2))
+  expect_equal(swaps$accepted, c(12 + 11, 10 + 9, 10 + 9))
+  expect_equal(swaps$attempted, c(13 + 12, 12 + 13, 13 + 12))
+  expect_equal(swaps$rate, c(23, 19, 19) / 25)
+})
+
+test_that("pt_swaps() is empty for one-chain Runs", {
+  a <- pt_read(c(one = golden_store()))
+  on.exit(pt_close(a))
+  swaps <- pt_swaps(a)
+  expect_equal(nrow(swaps), 0)
+  expect_equal(names(swaps), c("run", "temperature_pair", "accepted", "attempted", "rate"))
+  expect_type(swaps$rate, "double")
+  expect_equal(nrow(pt_swaps(a, by_run = FALSE, per_window = TRUE)), 0)
+})
+
+test_that("pt_swaps() pools over Runs, skipping one-chain Runs, and keeps Windows with per_window", {
+  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")))
+  on.exit(pt_close(a))
+  expect_equal(unique(pt_swaps(a)$run), "four")
+  pooled <- pt_swaps(a, by_run = FALSE)
+  expect_equal(names(pooled), c("temperature_pair", "accepted", "attempted", "rate"))
+  expect_equal(pooled$accepted, c(23, 19, 19))
+
+  windows <- pt_swaps(a, phase = c("burn_in", "sampling"), per_window = TRUE)
+  expect_equal(names(windows), c("run", "window", "phase", "temperature_pair", "accepted", "attempted", "rate"))
+  pair0 <- windows[windows$temperature_pair == 0, ]
+  expect_equal(pair0$window, c(0, 1, 2))
+  expect_equal(pair0$phase, c("burn_in", "sampling", "sampling"))
+  expect_equal(pair0$accepted, c(8, 12, 11))
+  expect_equal(pair0$rate, c(8 / 10, 12 / 13, 11 / 12))
+})
+
+test_that("by_run, per_window and level are checked", {
+  a <- pt_read(c(one = golden_store()))
+  on.exit(pt_close(a))
+  expect_error(pt_acceptance(a, by_run = NA), "by_run")
+  expect_error(pt_swaps(a, per_window = "yes"), "per_window")
+  expect_error(pt_acceptance(a, level = "kind"), "level")
+  expect_error(pt_acceptance(a, phase = "sample"), "phase")
+})
