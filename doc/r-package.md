@@ -407,7 +407,7 @@ it as is.
 - The functional columns are built from the functions above. The observed-only and mixed composition columns are
   rollups of `pt_composition`, and `mean_no_parent_probability` is always 0.
 - There is no cohort function: users `bind_rows` the per-fit rows.
-- On corehpc it runs as a SLURM array, one simulation per task, each writing a one-row file.
+- On a SLURM cluster it runs as an array, one simulation per task, each writing a one-row file.
 
 ## Plots
 
@@ -520,8 +520,8 @@ From [Which vignettes and example data ship with plasmotrackr?](https://github.c
 1. **Getting started**, a package vignette on the golden stores: `pt_read`, the Run table, `pt_table`, lazy versus
    eager, functionals with `pt_interval()`, and network export.
 2. **Convergence**: `pt_convergence()`, its plots, disputed Infections, and what to do when Runs disagree.
-3. **Scoring a simulation**: truth, scoring, `pt_fit_summary()`, a cohort loop as a SLURM array, and the corehpc install
-   recipe.
+3. **Scoring a simulation**: truth, scoring, `pt_fit_summary()`, and a cohort loop as a SLURM
+   array.
 4. **Strata and flows**: `by =`, attribution, enrichment, net flow, long-lag reassignment, the lag histogram and spatial
    scale.
 
@@ -549,8 +549,7 @@ No real-cohort data (Eswatini, Zanzibar, He01) is shipped or downloaded.
 
 ## Package metadata and install
 
-From [What are plasmotrackr's Imports, Suggests and supported platforms?](https://github.com/EPPIcenter/plasmotrack/issues/113)
-and [Can plasmotrackr's dependencies run on corehpc?](https://github.com/EPPIcenter/plasmotrack/issues/108).
+From [What are plasmotrackr's Imports, Suggests and supported platforms?](https://github.com/EPPIcenter/plasmotrack/issues/113).
 
 ```
 Package: plasmotrackr
@@ -568,16 +567,8 @@ License: MIT + file LICENSE
   working tree.
 - **Install:** `pak::pak("EPPIcenter/plasmotrack/R")`, or `remotes::install_github("EPPIcenter/plasmotrack",
   subdir = "R")`.
-- **Supported platforms:** macOS (arm64 and x86_64), Linux x86_64 and Windows, all in CI. corehpc is supported by
-  recipe:
-
-  ```bash
-  module load CBI r/4.6.1
-  export R_LIBS_USER=/mnt/scratch/user/<user>/R/plasmotrackr-4.6   # installed on the login node from
-  export LANG=C.UTF-8                                              # Posit's RHEL 9 binaries
-  ```
-
-  A compute-node test read a rerun simulation's four Runs under a 2 GB cap in 1.2 s, peaking at 189 MB of memory.
+- **Supported platforms:** macOS (arm64 and x86_64), Linux x86_64 and Windows, all in CI. On Linux clusters without
+  internet on compute nodes, install from Posit Package Manager's binaries on a login node into a user library.
 
 ## Build order
 
@@ -590,7 +581,7 @@ Each step ends with tests passing and can become one or more implementation tick
 4. Pooled summaries: Edge marginals, Parent sets, MAP, size range, infection summary, genotypes, COI, times, order
    pairs and co-inclusion.
 5. `pt_convergence`, `pt_as_draws`, and the convergence `print` method.
-6. Truth, scoring and `pt_fit_summary`, then the thesis factor script in `tools/` and a corehpc dry run on a few
+6. Truth, scoring and `pt_fit_summary`, then the thesis factor script in `tools/` and a dry run on a few
    simulations.
 7. Strata and flows, and the out-degree posteriors.
 8. Plots, network export and sampler Blocks.
@@ -609,7 +600,6 @@ Every decision lives on its ticket. In map order:
 - [How does plasmotrackr read simulation truth and score against it?](https://github.com/EPPIcenter/plasmotrack/issues/105)
 - [How is plasmotrackr tested?](https://github.com/EPPIcenter/plasmotrack/issues/106)
 - [Which plots ship in v1, with which signatures?](https://github.com/EPPIcenter/plasmotrack/issues/107)
-- [Can plasmotrackr's dependencies run on corehpc?](https://github.com/EPPIcenter/plasmotrack/issues/108)
 - [How does plasmotrackr define attribution, flows and strata without an epi value?](https://github.com/EPPIcenter/plasmotrack/issues/109)
 - [How does plasmotrackr treat replica-exchange, resumed, killed and --start-from Runs?](https://github.com/EPPIcenter/plasmotrack/issues/110)
 - [Do sampler Blocks get plasmotrackr functions in v1?](https://github.com/EPPIcenter/plasmotrack/issues/111)
