@@ -151,3 +151,66 @@ rank_scores <- function(score, true) {
   metrics$top_k_precision <- sum(true[score >= kth]) / sum(score >= kth)
   list(metrics = metrics, curve = tibble::tibble(threshold = thresholds, recall = recall, precision = precision))
 }
+
+#' Score Latent genotypes against the truth
+#'
+#' Compares each Infection's true Alleles at each Locus it was genotyped at with its posterior genotype, called
+#' Allele by Allele: an Allele is called present when its pooled presence (see [pt_genotype_presence()]) is at least
+#' 0.5.
+#'
+#' **Allele numbering.** The simulator numbers a Locus's Alleles over the whole simulated population; an input built
+#' from a subset of cases may keep only the Alleles its cases show and renumber them. Scoring maps the truth into the
+#' input's numbering by this rule, the convention of the thesis inputs:
+#' * A Locus whose Allele count in the input equals the simulator's keeps the simulator's numbering.
+#' * Otherwise the input's Alleles at the Locus are the simulator's Alleles shown in the observed genotype (the
+#'   truth's `observed`) of any of the Analysis's Infections, in simulator order: the smallest is Allele 0.
+#' * When that count differs from the input's Allele count, the simulator has fewer Alleles than the input, or the
+#'   truth lacks the Locus, scoring errors and names the Locus.
+#'
+#' A true Allele that no Infection of the Analysis shows has no number in the input: the model cannot represent it.
+#' It is counted in `unrepresentable` and left out of every other column.
+#'
+#' @inheritParams pt_score_edges
+#' @return A tibble with one row per (infection, locus) that has a Latent genotype, sorted by `infection` and
+#'   `locus` as strings: `true_alleles` and `called_alleles` (list columns of integer Allele numbers in the input's
+#'   numbering, 0-based as in [pt_alleles()]), `true_positives`, `false_positives`, `false_negatives`,
+#'   `unrepresentable` (the true Alleles left out) and `exact` (whether the called Alleles are the true ones).
+#' @seealso [pt_score_coi()]; [pt_read_truth()].
+#' @export
+#' @examples
+#' \dontrun{
+#' a <- pt_read("runs/sim_0_s7")
+#' truth <- pt_read_truth("sim_0_s7.json.gz")
+#' scores <- pt_score_genotypes(a, truth)
+#' mean(scores$exact)
+#' }
+pt_score_genotypes <- function(a, truth) {
+  ids <- truth_infection_ids(a, truth)
+  map <- truth_allele_map(a, truth, ids)
+  presence <- pt_genotype_presence(a)
+  keys <- unique(presence[c("infection", "locus")])
+  key <- paste(keys$infection, keys$locus, sep = "\r")
+
+  called <- presence[presence$presence >= 0.5, ]
+  called <- split(as.integer(called$allele), factor(paste(called$infection, called$locus, sep = "\r"), levels = key))
+
+  true <- unique(truth$genotypes[truth$genotypes$infection %in% ids, c("infection", "locus", "allele")])
+  true$key <- paste(true$infection, true$locus, sep = "\r")
+  true <- true[true$key %in% key, ]
+  true$mapped <- map$allele[match(paste(true$locus, true$allele, sep = "\r"), paste(map$locus, map$simulator, sep = "\r"))]
+  unrepresentable <- as.vector(table(factor(true$key[is.na(true$mapped)], levels = key)))
+  true <- true[!is.na(true$mapped), ]
+  true <- split(true$mapped, factor(true$key, levels = key))
+  true <- lapply(true, function(x) sort(as.integer(x)))
+
+  hits <- mapply(function(t, c) sum(c %in% t), true, called)
+  tibble::tibble(
+    infection = keys$infection, locus = keys$locus,
+    true_alleles = unname(true), called_alleles = unname(called),
+    true_positives = as.integer(hits),
+    false_positives = as.integer(lengths(called) - hits),
+    false_negatives = as.integer(lengths(true) - hits),
+    unrepresentable = as.integer(unrepresentable),
+    exact = unname(mapply(identical, true, called))
+  )
+}

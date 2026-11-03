@@ -16,7 +16,11 @@
 #'     vector, counted from 0 as in the Store. An input may renumber them; scoring maps them back. Strains count
 #'     from 1.
 #'   * `loci`: `locus`, `n_alleles` (the simulator's Allele count).
-#' @seealso [pt_score_edges()], [pt_score_pairs()]
+#'   * `observed`: `infection`, `locus`, `allele`, one row per Allele each case's observed genotype shows
+#'     (`observed_genotype`, with any sequencing errors the simulator added), in the simulator's numbering. Scoring
+#'     reads the input's Allele numbering off it (see [pt_score_genotypes()]). Empty when the file has none.
+#' @seealso [pt_score_edges()], [pt_score_pairs()], [pt_score_parent_sets()], [pt_score_map()],
+#'   [pt_score_genotypes()], [pt_score_coi()]
 #' @export
 #' @examples
 #' \dontrun{
@@ -57,6 +61,7 @@ pt_read_truth <- function(path) {
     symptomatic = field(nodes, "symptomatic", as.logical)
   )
   genotypes <- truth_genotypes(nodes)
+  observed <- truth_observed(nodes)
   loci <- tibble::tibble(locus = field(json$loci, "locus", as.character),
                          n_alleles = field(json$loci, "num_alleles", as.integer))
 
@@ -65,8 +70,31 @@ pt_read_truth <- function(path) {
     edges = by(edges, edges$parent, edges$child),
     infections = by(infections, infections$infection),
     genotypes = by(genotypes, genotypes$infection, genotypes$strain, genotypes$locus, genotypes$allele),
-    loci = by(loci, loci$locus)
+    loci = by(loci, loci$locus),
+    observed = by(observed, observed$infection, observed$locus, observed$allele)
   ), class = "pt_truth")
+}
+
+# One row per (infection, locus, allele shown) from the nodes' observed_genotype: a bitstring per Locus, or a 0/1
+# vector.
+truth_observed <- function(nodes) {
+  rows <- lapply(nodes, function(node) {
+    loci <- node$observed_genotype
+    alleles <- lapply(loci, function(g) {
+      bits <- unlist(g$genotype)
+      if (is.character(bits)) bits <- strsplit(paste(bits, collapse = ""), "", fixed = TRUE)[[1]]
+      which(as.integer(bits) == 1L) - 1L
+    })
+    n <- lengths(alleles)
+    list(infection = rep(as.character(node$id), sum(n)),
+         locus = rep(vapply(loci, function(g) as.character(g$locus), character(1)), n),
+         allele = unlist(alleles))
+  })
+  tibble::tibble(
+    infection = as.character(unlist(lapply(rows, `[[`, "infection"))),
+    locus = as.character(unlist(lapply(rows, `[[`, "locus"))),
+    allele = as.integer(unlist(lapply(rows, `[[`, "allele")))
+  )
 }
 
 # One row per (infection, strain, locus, allele present) from the nodes' latent_genotype.
@@ -166,4 +194,41 @@ true_parent_sets <- function(a, truth, call = rlang::caller_env()) {
     parents = lapply(all_parents, function(p) sort(unique(p[p %in% ids]), method = "radix")),
     has_latent_parent = vapply(all_parents, function(p) length(p) == 0 || any(!p %in% ids), logical(1))
   )
+}
+
+# The input's Allele numbering of the truth at each Locus of the Analysis: locus, simulator (the simulator's Allele),
+# allele (the input's), both 0-based. A Locus whose input kept the simulator's Allele count is numbered as the
+# simulator numbers it. A Locus with fewer Alleles in the input was renumbered: its Alleles are the simulator's
+# Alleles shown in any observed genotype of the Analysis's Infections (`ids`), in simulator order. Errors naming
+# every Locus where that count differs from the input's, where the simulator has fewer Alleles than the input, or
+# that the truth lacks. Simulator Alleles with no row are
+# unrepresentable.
+truth_allele_map <- function(a, truth, ids, call = rlang::caller_env()) {
+  loci <- a$loci
+  simulator <- truth$loci$n_alleles[match(loci$locus, truth$loci$locus)]
+  absent <- loci$locus[is.na(simulator)]
+  if (length(absent)) {
+    cli::cli_abort("{cli::qty(absent)}Locus{?/Loci} {.val {cli_escape(absent)}} of the Analysis {?is/are} not in the truth.",
+                   call = call)
+  }
+  shown <- truth$observed[truth$observed$infection %in% ids, c("locus", "allele")]
+  parts <- lapply(seq_len(nrow(loci)), function(i) {
+    n <- loci$n_alleles[[i]]
+    from <- if (simulator[[i]] == n) seq_len(n) - 1L else sort(unique(shown$allele[shown$locus == loci$locus[[i]]]))
+    tibble::tibble(locus = rep(loci$locus[[i]], length(from)), simulator = as.integer(from),
+                   allele = seq_along(from) - 1L)
+  })
+  mapped <- vapply(parts, nrow, 1L)
+  wrong <- mapped != loci$n_alleles | simulator < loci$n_alleles
+  if (any(wrong)) {
+    detail <- sprintf("%s: the input has %d Allele%s, the simulator %d, of which the Analysis's Infections show %d",
+                      loci$locus[wrong], loci$n_alleles[wrong], ifelse(loci$n_alleles[wrong] == 1, "", "s"),
+                      simulator[wrong], mapped[wrong])
+    cli::cli_abort(c(
+      "Can't map the truth's Alleles to the input's at {cli::qty(sum(wrong))}Locus{?/Loci} {.val {cli_escape(loci$locus[wrong])}}.",
+      rlang::set_names(cli_escape(detail), "x"),
+      i = "A renumbered Locus must hold exactly the simulator's Alleles shown in the Analysis's Infections."
+    ), call = call)
+  }
+  dplyr::bind_rows(parts)
 }
