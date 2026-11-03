@@ -208,3 +208,16 @@ test_that("pt_convergence() and pt_as_draws() check their arguments", {
   expect_error(pt_as_draws(a, groups = "edges"), "groups")
   expect_error(pt_convergence(a, runs = "z"), "Unknown Run")
 })
+
+test_that("print() shows the Runs, the Draws used, the gap and flagged counts per group", {
+  expect_warning(a <- pt_read(local_unequal_runs()), "Draw counts differ")
+  on.exit(pt_close(a))
+  expect_snapshot(print(pt_convergence(a)))
+  expect_snapshot(print(pt_convergence(a, iterations = c(2, 4))))
+})
+
+test_that("print() on the golden Runs", {
+  a <- read_golden(golden_pair())
+  on.exit(pt_close(a))
+  expect_snapshot(print(pt_convergence(a)))
+})

@@ -370,3 +370,66 @@ check_positive <- function(x, arg, call = rlang::caller_env()) {
     cli::cli_abort("{.arg {arg}} must be a positive number.", call = call)
   }
 }
+
+# ---- Print ----
+
+#' @export
+print.pt_convergence <- function(x, ...) {
+  for (section in convergence_print_sections) section(x)
+  invisible(x)
+}
+
+# The report, one function per section, in order. #125 adds the Infection sections here.
+convergence_print_sections <- list(
+  function(x) {
+    s <- attr(x, "settings")
+    runs <- x$runs
+    n <- runs$draws[[1]]
+    cat(sprintf("<pt_convergence> %d Run%s, %s Draw%s each%s\n", nrow(runs), if (nrow(runs) == 1) "" else "s",
+                format_count(n), if (n == 1) "" else "s",
+                if (is.null(s$iterations)) "" else sprintf(", iterations %s", paste(format_count(s$iterations),
+                                                                                    collapse = "-"))))
+    if (length(unique(s$counts)) > 1) {
+      cat(sprintf("Runs cut to the shortest: %s Draws\n",
+                  paste(names(s$counts), format_count(s$counts), sep = " ", collapse = ", ")))
+    }
+    cat_columns(data.frame(
+      run = runs$run, draws = format_count(runs$draws),
+      iterations = paste0(format_count(runs$first_iteration), "-", format_count(runs$last_iteration)),
+      log_posterior = formatC(runs$log_posterior, format = "f", digits = 2),
+      gap = formatC(runs$gap, format = "f", digits = 2)
+    ), left = c("run", "iterations"))
+    cat(sprintf("Log-posterior gap: %s (reported, not flagged)\n", formatC(max(runs$gap), format = "f", digits = 2)))
+  },
+  function(x) {
+    s <- attr(x, "settings")
+    q <- x$quantities
+    cat(sprintf("Quantities: %s, %s flagged (stuck, R-hat > %s or ess_bulk < %s)\n", format_count(nrow(q)),
+                format_count(sum(q$flagged)), format(s$rhat), format(s$ess)))
+    groups <- convergence_groups
+    by_group <- lapply(groups, function(g) q[q$group == g, ])
+    worst <- function(v, f) {
+      v <- v[!is.na(v)]
+      if (length(v)) formatC(f(v), format = "g", digits = 3) else "-"
+    }
+    cat_columns(data.frame(
+      group = groups,
+      quantities = format_count(vapply(by_group, nrow, integer(1))),
+      flagged = format_count(vapply(by_group, function(g) sum(g$flagged), integer(1))),
+      stuck = format_count(vapply(by_group, function(g) sum(g$status == "stuck"), integer(1))),
+      constant = format_count(vapply(by_group, function(g) sum(g$status == "constant"), integer(1))),
+      max_rhat = vapply(by_group, function(g) worst(g$rhat, max), character(1)),
+      min_ess_bulk = vapply(by_group, function(g) worst(g$ess_bulk, min), character(1))
+    ), left = "group")
+  }
+)
+
+# Print a data frame of strings as aligned columns: `left` columns left-aligned, the rest right-aligned.
+cat_columns <- function(table, left = character()) {
+  lines <- vapply(names(table), function(column) {
+    values <- c(column, table[[column]])
+    formatC(values, width = if (column %in% left) -max(nchar(values)) else max(nchar(values)))
+  }, character(nrow(table) + 1))
+  lines <- matrix(lines, ncol = ncol(table))
+  cat(paste0("  ", apply(lines, 1, paste, collapse = "  "), "\n"), sep = "")
+}
