@@ -9,7 +9,7 @@ reference:
 - title: Reading an Analysis
   desc: >
     Open the Runs of one input as an Analysis, and list its Runs, Infections, Loci, and
-    candidate pairs.
+    candidate pairs. `pt_example()` downloads the example simulation that the articles use.
   contents:
   - pt_read
   - pt_close
@@ -17,6 +17,7 @@ reference:
   - pt_infections
   - pt_loci
   - pt_candidates
+  - pt_example
 
 - title: Raw tables
   desc: >
