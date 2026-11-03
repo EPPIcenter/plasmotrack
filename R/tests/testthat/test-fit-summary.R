@@ -45,3 +45,23 @@ test_that("pt_fit_summary() counts cases and scores the true network by hand", {
   expect_identical(row$mean_no_parent_probability_lower, 0)
   expect_identical(row$mean_no_parent_probability_upper, 0)
 })
+
+test_that("pt_fit_summary() matches the oracle on both golden Stores", {
+  paths <- golden_fit_paths()
+  a <- read_golden(paths)
+  on.exit(pt_close(a))
+  expected <- oracle_fit_summary(
+    oracle_read(paths),
+    true_edges = data.frame(parent = c("1", "3"), child = c("3", "2")),
+    true_sets = list(`1` = list(members = character(), latent = TRUE),
+                     `2` = list(members = "3", latent = TRUE),
+                     `3` = list(members = "1", latent = FALSE)),
+    n_true_cases = 4
+  )
+  for (fit_type in c("posterior", "null_prior")) {
+    row <- pt_fit_summary(a, golden_fit_truth(), fit_type = fit_type, missingness = "missing_50")
+    expect_identical(row$fit_type, fit_type)
+    expect_identical(row$missingness_condition, "missing_50")
+    expect_oracle_equal(row[names(expected)], expected, character())
+  }
+})
