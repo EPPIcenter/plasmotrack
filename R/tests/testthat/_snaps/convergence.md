@@ -21,6 +21,11 @@
         order_pair                         0        0      0         0         -             -
         p_latent_parent                    1        0      0         1         -             -
         functional                         7        0      0         7         -             -
+      Infections: 1, 0 flagged (spread > 0.2)
+      Infections by spread:
+        infection  spread  class  worst_rhat  top_parent          
+        1           0.000  -               -  a: latent, b: latent
+      Order pairs: 0, 0 flagged (spread > 0.2)
 
 ---
 
@@ -44,6 +49,11 @@
         order_pair                         0        0      0         0         -             -
         p_latent_parent                    1        0      0         1         -             -
         functional                         7        0      0         7         -             -
+      Infections: 1, 0 flagged (spread > 0.2)
+      Infections by spread:
+        infection  spread  class  worst_rhat  top_parent          
+        1           0.000  -               -  a: latent, b: latent
+      Order pairs: 0, 0 flagged (spread > 0.2)
 
 # print() on the golden Runs
 
@@ -67,4 +77,11 @@
         order_pair                         1        0      0         1         -             -
         p_latent_parent                    3        2      0         1      1.16            10
         functional                        11       11      0         0      1.63            10
+      Infections: 3, 0 flagged (spread > 0.2)
+      Infections by spread:
+        infection  spread  class  worst_rhat  top_parent                                    
+        3           0.116  -            1.18  single-chain: 1, replica-exchange: 1          
+        2           0.000  -            1.16  single-chain: latent, replica-exchange: latent
+        1           0.000  -            1.29  single-chain: latent, replica-exchange: latent
+      Order pairs: 1, 0 flagged (spread > 0.2)
 

@@ -240,3 +240,37 @@ test_that("order pairs are diagnosed only when joined by an edge above edge_floo
   low <- pt_convergence(a, edge_floor = 0.0075)$quantities
   expect_identical(low$name[low$group == "order_pair"], c("order_pair[1,2]", "order_pair[1,3]", "order_pair[2,3]"))
 })
+
+test_that("pairs: P(i before j) per Run and its spread, for pairs joined by an edge above edge_floor", {
+  a <- pt_read(local_edge_runs())
+  on.exit(pt_close(a))
+  pairs <- pt_convergence(a)$pairs
+  expect_s3_class(pairs, "tbl_df")
+  expect_identical(names(pairs), c("i", "j", "p_before", "spread", "flagged"))
+  expect_identical(pairs$i, c("1", "2"))
+  expect_identical(pairs$j, c("2", "3"))
+  expect_equal(pairs$p_before, list(c(a = 0.5, b = 0.75), c(a = 1, b = 1)), tolerance = 1e-12)
+  expect_equal(pairs$spread, c(0.25, 0), tolerance = 1e-12)
+  expect_identical(pairs$flagged, c(TRUE, FALSE))
+  expect_identical(pt_convergence(a, spread = 0.3)$pairs$flagged, c(FALSE, FALSE))
+  low <- pt_convergence(a, edge_floor = 0.0075)$pairs
+  expect_identical(paste(low$i, low$j), c("1 2", "1 3", "2 3"))
+})
+
+test_that("worst R-hat is the largest over an Infection's own quantities, its incoming edges included", {
+  a <- pt_read(local_edge_runs())
+  on.exit(pt_close(a))
+  inf <- pt_convergence(a)$infections
+  expect_identical(inf$infection, c("1", "2", "3"))
+  # 1: every quantity constant; 2: edge[2,1] mixing; 3: edge[3,2] stuck.
+  expect_equal(inf$worst_rhat, c(NA, posterior::rhat(cbind(c(0.5, 0.5, 0, 0), c(0, 0, 0, 0))), Inf),
+               tolerance = 1e-12)
+})
+
+test_that("Runs without diagnosed edges give empty pairs", {
+  a <- pt_read(local_status_runs())
+  on.exit(pt_close(a))
+  pairs <- pt_convergence(a)$pairs
+  expect_identical(nrow(pairs), 0L)
+  expect_identical(names(pairs), c("i", "j", "p_before", "spread", "flagged"))
+})

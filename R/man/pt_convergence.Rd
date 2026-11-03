@@ -39,6 +39,13 @@ those Draws, \code{log_posterior} (the Run's mean log posterior over them) and \
 this Run's, in log units).
 \item \code{quantities}: \code{group}, \code{name}, \code{status}, \code{rhat}, \code{ess_bulk}, \code{ess_tail} and \code{flagged}, in the group order
 above, names sorted by their keys within a group.
+\item \code{infections}: one row per Infection, in id (string) order. \code{infection}, \code{spread}, \code{class} (the disagreement
+class above; \code{NA} when not flagged), \code{top_parent} (a list column: per row, a character vector of top parents
+named by Run, \code{"latent"} for the Latent parent), \code{worst_rhat} (the largest \code{rhat} of the quantities the
+Infection owns: its \code{expected_false_positives}, \code{expected_false_negatives}, \code{infection_duration},
+\code{p_latent_parent} and the edges into it; \code{NA} when all are constant) and \code{flagged}.
+\item \code{pairs}: one row per diagnosed order pair (the \code{order_pair} quantities). \code{i}, \code{j}, \code{p_before} (a list column:
+P(i acquired before j) named by Run), \code{spread} and \code{flagged} (spread above \code{spread}).
 }
 }
 \description{
@@ -82,6 +89,29 @@ largest value, and the tail indicator is constant.
 
 A quantity is \code{flagged} when it is stuck, or mixing with \code{rhat} above \code{rhat} or \code{ess_bulk} below \code{ess}. The thresholds
 follow Vehtari et al. (2021): R-hat 1.01, and 100 effective Draws per Run.
+
+\strong{Tree diagnostics.} A quantity's \emph{Run mean} is its mean over one Run's Draws, and its \emph{Spread} is the largest Run
+mean minus the smallest. An Infection's parent keys are every Infection that is its parent at some Draw of some Run,
+plus its Latent parent; an edge's Run mean is its Edge marginal over the Run's Draws, 0 in a Run that never has it,
+and the Latent parent's is the Run mean of \code{p_latent_parent}. Edges below \code{edge_floor} count here. The Infection's
+spread is the largest spread over its keys, and its \emph{top parent} in a Run is the key with the largest Run mean.
+Ties go to the smaller id in string order (\code{"10"} before \code{"2"}), and an observed parent wins a tie against the
+Latent parent. An Infection is flagged when its spread is above \code{spread}, and then gets the first disagreement
+class that matches, with \emph{t} = \code{spread}:
+\enumerate{
+\item \code{same_top}: every Run has the same top parent.
+\item \code{root_flip}: some Run's top is the Latent parent, and in that Run the Infection infects another Run's top
+parent with Edge marginal above \emph{t}.
+\item \code{latent_vs_observed}: one Run's top is the Latent parent, another's is an observed parent, and rule 2 doesn't
+apply.
+\item \code{direction_flip}: in some Run, the Infection infects another Run's top parent with Edge marginal above \emph{t}.
+\item \code{linked_parents}: the top parents differ, and in some Run one of them infects another with Edge marginal above
+\emph{t}.
+\item \code{different_parent}: everything else.
+}
+
+The Log-posterior gap (the spread of the log posterior) is reported but not flagged on its own: the log
+posterior's R-hat flags it.
 }
 \examples{
 golden <- system.file("extdata", "golden", package = "plasmotrackr")
@@ -90,6 +120,7 @@ a <- pt_read(file.path(golden, c("single-chain", "replica-exchange")), input = i
 conv <- pt_convergence(a)
 conv
 conv$quantities[conv$quantities$flagged, ]
+conv$infections
 pt_close(a)
 }
 \references{
