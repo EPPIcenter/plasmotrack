@@ -25,7 +25,7 @@ A tibble with \code{run} first when \code{by_run = TRUE}. \code{pt_map_out_degre
 \description{
 Summaries of how many children an Infection infected, read off the pooled Parent sets of
 \code{\link[=pt_parent_sets_pooled]{pt_parent_sets_pooled()}}. Both are means over every Infection as a source, so they are on the scale of
-\code{pt_mean_out_degree()} (ψ_edge).
+\code{\link[=pt_mean_out_degree]{pt_mean_out_degree()}} (ψ_edge).
 }
 \details{
 \itemize{

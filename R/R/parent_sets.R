@@ -64,7 +64,7 @@ pt_map_graph <- function(a, by_run = FALSE, runs = NULL) {
 #'
 #' Summaries of how many children an Infection infected, read off the pooled Parent sets of
 #' [pt_parent_sets_pooled()]. Both are means over every Infection as a source, so they are on the scale of
-#' `pt_mean_out_degree()` (ψ_edge).
+#' [pt_mean_out_degree()] (ψ_edge).
 #'
 #' * `pt_map_out_degree()` estimates the manuscript's ψ_MAP: the mean out-degree in the MAP graph, the number of
 #'   observed parents over every Infection's MAP Parent set divided by the number of Infections. The Latent parent

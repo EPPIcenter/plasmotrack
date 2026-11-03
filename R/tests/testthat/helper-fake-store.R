@@ -28,6 +28,14 @@
 #   tables       Named list of data frames that replace the default rows of other Traces (run_scalars, infections,
 #                ordering, allele_frequencies, latent_genotypes, chains). Give the Store's columns except phase and
 #                window, which are filled in from `iteration`.
+#   observation_time
+#                Named numeric vector: Infection id -> observation time. Missing ids are null (NA) in the input.
+#   allowed_parents
+#                Named list: child id -> character vector of candidate parent ids. Default: none.
+#                The Store gets its own copy of an input JSON built from `infections`, `observation_time` and
+#                `allowed_parents`, as engines from #140 write it, and the manifest's input_sha256$input is its hash,
+#                so pt_read() finds it without `input =`. Fake Runs with the same infections and these two
+#                arguments share the hash and open together.
 #   manifest     Named list of manifest fields to override (such as null_model = TRUE, input_sha256 = list(...)).
 #   unclosed     Window numbers written without a marker (the reader rule must skip them).
 #
@@ -37,7 +45,8 @@
 #   path <- fake_store(parent_sets = sets, infections = c("10", "2"))
 fake_store <- function(path = NULL, infections = NULL, parent_sets = NULL, symptomatic = TRUE, loci = c(L1 = 2L),
                        burn_in = 0, samples = NULL, thin = 1, window = NULL, tables = list(), manifest = list(),
-                       unclosed = integer(), .local_envir = parent.frame()) {
+                       unclosed = integer(), observation_time = NULL, allowed_parents = NULL,
+                       .local_envir = parent.frame()) {
   if (is.null(path)) path <- file.path(withr::local_tempdir(.local_envir = .local_envir), "fake")
   if (!is.null(parent_sets)) parent_sets <- fake_parent_set_rows(parent_sets)
   if (is.null(infections)) {
@@ -161,7 +170,10 @@ fake_store <- function(path = NULL, infections = NULL, parent_sets = NULL, sympt
   }
   fields <- list(
     burn_in = burn_in, chains = 1, cli_arguments = list("<cli>"), engine_version = "fake", git_commit = "fake",
-    gradient = 0, input_sha256 = list(asymptomatic_idp = "fake", input = "fake", symptomatic_idp = "fake"),
+    gradient = 0,
+    input_sha256 = list(asymptomatic_idp = "fake",
+                        input = fake_input(path, infections, observation_time, allowed_parents),
+                        symptomatic_idp = "fake"),
     null_model = FALSE, parent_set_floor = 1e-9, run_id = "fake", samples = samples, seed = 1,
     started_at = "2026-11-03T00:00:00.000Z", thin = thin, window = window
   )
@@ -208,4 +220,18 @@ fake_write_parquet <- function(con, rows, file) {
   }, character(1))
   DBI::dbExecute(con, sprintf("COPY (SELECT %s FROM %s) TO %s (FORMAT parquet)", paste(cols, collapse = ", "),
                               name, as.character(DBI::dbQuoteString(con, file))))
+}
+
+# Write the fake Store's copy of its input JSON (nodes only: id, observation_time, allowed_parents), sorted by id.
+# Returns its SHA-256.
+fake_input <- function(path, infections, observation_time, allowed_parents) {
+  ids <- sort(infections, method = "radix")
+  nodes <- lapply(ids, function(id) {
+    time <- if (id %in% names(observation_time)) unname(observation_time[[id]]) else NA
+    list(id = id, observation_time = if (is.na(time)) NULL else time,
+         allowed_parents = I(as.character(allowed_parents[[id]])))
+  })
+  file <- file.path(path, "input.json")
+  jsonlite::write_json(list(nodes = nodes), file, auto_unbox = TRUE, digits = NA, null = "null")
+  cli::hash_file_sha256(file)
 }

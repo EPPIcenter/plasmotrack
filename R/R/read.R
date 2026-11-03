@@ -7,6 +7,17 @@
 #' Traces. Tables are read later, lazily, from the Windows that are closed, so a Run that is still running, or was
 #' killed, reads up to its last closed Window.
 #'
+#' The Store does not hold the Infections' observation times or their candidate parents; only the input JSON does.
+#' `pt_read()` looks for it in this order:
+#'
+#' 1. `input`. Its SHA-256 must be the `input_sha256` of every Run's manifest; a different file errors.
+#' 2. The first Run's own copy, `input.json` or `input.json.gz` in the Store root (Stores written by newer engines).
+#' 3. The input path in the first Run's `cli_arguments`. A relative path is taken from the directory the engine was
+#'    started in, when the Run directory shows it, then from R's working directory.
+#'
+#' Steps 2 and 3 use a file only if its hash matches every Run's. When neither does, observation times are `NA`,
+#' [pt_candidates()] errors, and `pt_read()` says what it tried in one message.
+#'
 #' `pt_read()` warns when a Run is not finished (see `status` in [pt_runs()]), when Runs have different numbers of
 #' sampling Draws, and when a Run recorded non-finite values. A Run with no sampling Draws yet stays in the Analysis;
 #' pooled summaries and diagnostics skip it with a message.
@@ -24,22 +35,27 @@
 #'   directory name.
 #' @param epi Optional data frame of epidemiological data with an `infection` column of Infection ids, one row per
 #'   Infection.
+#' @param input Optional path of the input JSON the Runs were given, gzipped or not. `NULL` looks for the Store's
+#'   copy, then the path in the first Run's manifest.
 #' @param memory_limit,temp_directory,threads DuckDB settings for this Analysis. `NULL` uses the R option, then the
 #'   default.
-#' @return A `pt_analysis`: an S3 list holding the DuckDB connection, the Run table, the Infections, the Loci and
-#'   `epi`.
+#' @return A `pt_analysis`: an S3 list holding the DuckDB connection, the Run table, the Infections, the Loci,
+#'   `epi`, and the input's path and candidate pairs (`NULL` without the input).
 #' @seealso [pt_runs()], [pt_table()], [pt_close()]
 #' @export
 #' @examples
 #' golden <- system.file("extdata", "golden", package = "plasmotrackr")
-#' a <- pt_read(file.path(golden, c(one = "single-chain", four = "replica-exchange")), threads = 1)
+#' input <- system.file("extdata", "example_input.json", package = "plasmotrackr")
+#' runs <- file.path(golden, c(one = "single-chain", four = "replica-exchange"))
+#' a <- pt_read(runs, input = input, threads = 1)
 #' a
 #' pt_runs(a)
 #' pt_close(a)
-pt_read <- function(paths, epi = NULL, memory_limit = NULL, temp_directory = NULL, threads = NULL) {
+pt_read <- function(paths, epi = NULL, input = NULL, memory_limit = NULL, temp_directory = NULL, threads = NULL) {
   runs <- resolve_runs(paths)
   runs$manifest <- lapply(runs$path, read_manifest)
   check_comparable(runs)
+  input <- find_input(input, runs)
   runs$windows <- lapply(runs$path, closed_windows)
   epi <- check_epi(epi)
 
@@ -56,11 +72,17 @@ pt_read <- function(paths, epi = NULL, memory_limit = NULL, temp_directory = NUL
   structure <- read_structure(con, runs$path[[1]])
   runs <- count_draws(con, runs)
   runs <- summarise_events(con, runs)
+  if (!is.null(input)) {
+    structure$infections$observation_time <- input$times$observation_time[
+      match(structure$infections$infection, input$times$infection)
+    ]
+  }
   ok <- TRUE
   warn_runs(runs)
 
   structure(
-    list(engine = engine, runs = runs, infections = structure$infections, loci = structure$loci, epi = epi),
+    list(engine = engine, runs = runs, infections = structure$infections, loci = structure$loci, epi = epi,
+         input = if (!is.null(input)) list(path = input$path, candidates = input$candidates)),
     class = "pt_analysis"
   )
 }
@@ -335,7 +357,8 @@ pt_runs <- function(a) {
 #' The input's Infections and Loci, from the Store's `structure/` tables. They are the same in every Run of an
 #' Analysis.
 #'
-#' The Store does not record observation times, so `observation_time` is `NA` for now.
+#' Observation times come from the input JSON (see `input` in [pt_read()]); they are `NA` when [pt_read()] did not
+#' find the input.
 #'
 #' @inheritParams pt_runs
 #' @return `pt_infections()`: a tibble of `infection`, `observation_time`, `symptomatic` (which infection-duration
@@ -385,6 +408,11 @@ print.pt_analysis <- function(x, ...) {
     columns <- setdiff(names(x$epi), "infection")
     cat(sprintf("Epi: %d of %d Infections matched; columns %s\n", matched, nrow(x$infections),
                 if (length(columns)) paste(columns, collapse = ", ") else "none"))
+  }
+  if (is.null(x$input)) {
+    cat("Input: not found; observation times are NA (give pt_read() `input =`)\n")
+  } else {
+    cat(sprintf("Input: %s\n", x$input$path))
   }
   if (is.null(x$engine$con)) {
     cat("Engine: closed\n")

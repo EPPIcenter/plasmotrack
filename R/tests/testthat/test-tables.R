@@ -21,7 +21,7 @@ expect_same_rows <- function(tbl, expected) {
 }
 
 test_that("pt_table() is a lazy table of sampling rows, run first, then the Store's columns", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   tbl <- pt_table(a, "run_scalars")
   expect_s3_class(tbl, "tbl_lazy")
@@ -31,7 +31,7 @@ test_that("pt_table() is a lazy table of sampling rows, run first, then the Stor
 })
 
 test_that("pt_table() unions every Run", {
-  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")))
+  a <- read_golden(c(one = golden_store(), four = golden_store("replica-exchange")))
   on.exit(pt_close(a))
   expected <- rbind(
     cbind(run = "four", golden_rows(golden_store("replica-exchange"), "infections", 1:2)),
@@ -41,7 +41,7 @@ test_that("pt_table() unions every Run", {
 })
 
 test_that("phase selects burn-in rows, starting State included, or both Phases", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   burn_in <- dplyr::collect(pt_table(a, "ordering", phase = "burn_in"))
   expect_equal(sort(unique(burn_in$iteration)), c(0, 5, 10, 15, 20))
@@ -51,7 +51,7 @@ test_that("phase selects burn-in rows, starting State included, or both Phases",
 })
 
 test_that("parent_set_members is read over every closed Window whatever the phase", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   # The golden Store writes every Parent set in burn-in Window 0.
   expect_same_rows(pt_table(a, "parent_set_members"),
@@ -59,14 +59,14 @@ test_that("parent_set_members is read over every closed Window whatever the phas
 })
 
 test_that("runs narrows the Runs read", {
-  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")))
+  a <- read_golden(c(one = golden_store(), four = golden_store("replica-exchange")))
   on.exit(pt_close(a))
   expect_equal(unique(dplyr::pull(pt_table(a, "run_scalars", runs = "four"), run)), "four")
   expect_error(pt_table(a, "run_scalars", runs = "five"), "five")
 })
 
 test_that("a table no Run has rows for is empty, with the Store's columns", {
-  a <- pt_read(c(one = golden_store()))
+  a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
   swaps <- dplyr::collect(pt_table(a, "swaps"))
   expect_equal(nrow(swaps), 0)
@@ -74,19 +74,19 @@ test_that("a table no Run has rows for is empty, with the Store's columns", {
 })
 
 test_that("a table only some Runs have reads those Runs", {
-  a <- pt_read(c(one = golden_store(), four = golden_store("replica-exchange")))
+  a <- read_golden(c(one = golden_store(), four = golden_store("replica-exchange")))
   on.exit(pt_close(a))
   expect_same_rows(pt_table(a, "swaps"), cbind(run = "four", golden_rows(golden_store("replica-exchange"), "swaps", 1:2)))
 })
 
 test_that("an unknown table name errors and lists the tables", {
-  a <- pt_read(golden_store())
+  a <- read_golden(golden_store())
   on.exit(pt_close(a))
   expect_snapshot(pt_table(a, "parent_set"), error = TRUE)
 })
 
 test_that("an unknown phase errors", {
-  a <- pt_read(golden_store())
+  a <- read_golden(golden_store())
   on.exit(pt_close(a))
   expect_error(pt_table(a, "run_scalars", phase = "sample"), "phase")
 })
