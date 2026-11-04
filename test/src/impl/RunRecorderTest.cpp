@@ -91,7 +91,7 @@ namespace {
                 .samples       = 6};
     }
 
-    const std::vector<std::string> SAMPLER_IDS{"ConstrainedContinuousRandomWalk/mean_coi", "SALTSampler/allele_frequencies/AS1", "JointGeneticsTimeSampler/infection/1"};
+    const std::vector<std::string> SAMPLER_IDS{"ConstrainedContinuousRandomWalk/mean_coi", "SALTSampler/allele_frequencies/AS1", "ParentRelinkSampler/infection/1"};
 
     struct RunRecorderTest : ::testing::Test {
         Replica replica{1};
@@ -240,7 +240,7 @@ TEST_F(RunRecorderTest, StructureSplitsEachSamplerIdIntoTypeAndTarget) {
     const auto& samplers = sink->structure("samplers");
     EXPECT_EQ(samplers.names(), (std::vector<std::string>{"sampler", "type", "target"}));
     EXPECT_EQ(samplers.column<std::string>("sampler"), SAMPLER_IDS);
-    EXPECT_EQ(samplers.column<std::string>("type"), (std::vector<std::string>{"ConstrainedContinuousRandomWalk", "SALTSampler", "JointGeneticsTimeSampler"}));
+    EXPECT_EQ(samplers.column<std::string>("type"), (std::vector<std::string>{"ConstrainedContinuousRandomWalk", "SALTSampler", "ParentRelinkSampler"}));
     EXPECT_EQ(samplers.column<std::string>("target"), (std::vector<std::string>{"mean_coi", "allele_frequencies/AS1", "infection/1"}));
 }
 

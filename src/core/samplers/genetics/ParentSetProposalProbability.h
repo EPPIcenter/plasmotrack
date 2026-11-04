@@ -1,5 +1,5 @@
 //
-// The proposal probability of RandomAllelesBitSetSampler3 and JointGeneticsTimeSampler.
+// The proposal probability of RandomAllelesBitSetSampler3.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_PARENTSETPROPOSALPROBABILITY_H

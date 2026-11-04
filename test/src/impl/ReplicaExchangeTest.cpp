@@ -8,9 +8,7 @@
 
 #include "core/samplers/meta/ReplicaExchange.h"
 #include "impl/model/Model/Model.h"
-// SequentialScheduler.h relies on the sampler headers SampleScheduler.h pulls in.
-#include "impl/model/Model/SampleScheduler.h"
-#include "impl/model/Model/SequentialScheduler.h"
+#include "impl/model/Model/SamplerSet.h"
 #include "impl/model/Model/State.h"
 
 #include <boost/random.hpp>
@@ -27,7 +25,7 @@ using namespace transmission_nets::impl::Model;
 using transmission_nets::core::samplers::ReplicaExchange;
 
 namespace {
-    using Exchange = ReplicaExchange<State, Model, SequentialSampleScheduler>;
+    using Exchange = ReplicaExchange<State, Model, SamplerSet>;
 
     nlohmann::json exampleInput() {
         std::ifstream in(EXAMPLE_INPUT_PATH);
@@ -265,12 +263,12 @@ TEST(ReplicaExchangeTest, SnapshotMatchesTheSlotSwapAndSamplerCountQueries) {
     EXPECT_EQ(snapshot.swaps, repex->swapCounts());
 
     const auto& ids = repex->samplerIds();
-    EXPECT_EQ(ids, repex->chains.front().sampler->scheduler_.samplerIds());
+    EXPECT_EQ(ids, repex->chains.front().sampler->ids());
     ASSERT_EQ(snapshot.acceptance.size(), 4u);
     for (size_t replica = 0; replica < 4; ++replica) {
         ASSERT_EQ(snapshot.acceptance[replica].size(), ids.size());
         for (size_t id = 0; id < ids.size(); ++id) {
-            EXPECT_EQ(snapshot.acceptance[replica][id], repex->chains[replica].sampler->scheduler_.sampler(ids[id]).counts()) << ids[id];
+            EXPECT_EQ(snapshot.acceptance[replica][id], repex->chains[replica].sampler->sampler(ids[id]).counts()) << ids[id];
         }
     }
 }
@@ -284,10 +282,10 @@ TEST(ReplicaExchangeTest, FinalAdaptationIsTheHotChainsSamplersAndTheLadder) {
     const auto adaptation = repex->finalAdaptation();
 
     const auto& ids       = repex->samplerIds();
-    const auto& scheduler = repex->hotChain().sampler->scheduler_;
+    const auto& samplers  = *repex->hotChain().sampler;
     ASSERT_EQ(adaptation.samplers.size(), ids.size());
     for (size_t id = 0; id < ids.size(); ++id) {
-        EXPECT_EQ(adaptation.samplers[id], scheduler.sampler(ids[id]).adaptationState()) << ids[id];
+        EXPECT_EQ(adaptation.samplers[id], samplers.sampler(ids[id]).adaptationState()) << ids[id];
     }
     const auto slots = repex->slots();
     ASSERT_EQ(adaptation.temperatures.size(), slots.size());
@@ -319,11 +317,9 @@ namespace {
         NoSamplers(std::shared_ptr<FixedState>, std::shared_ptr<FixedModel>, std::shared_ptr<boost::random::mt19937>) {}
         void step(bool) {}
 
-        struct Registry {
-            const std::vector<std::string>& samplerIds() const { return ids; }
-            transmission_nets::core::samplers::AbstractSampler& sampler(const std::string&) const { throw std::logic_error("no samplers"); }
-            std::vector<std::string> ids;
-        } scheduler_;
+        const std::vector<std::string>& ids() const { return ids_; }
+        transmission_nets::core::samplers::AbstractSampler& sampler(const std::string&) const { throw std::logic_error("no samplers"); }
+        std::vector<std::string> ids_;
     };
 
     using FixedExchange = ReplicaExchange<FixedState, FixedModel, NoSamplers>;

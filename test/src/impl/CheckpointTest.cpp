@@ -149,10 +149,10 @@ TEST(CheckpointTest, EverySamplerKeepsItsCountsAndAdaptationState) {
     auto restored = restoredFrom(file);
 
     for (size_t replica = 0; replica < 2; ++replica) {
-        const auto& was = original.ensemble->chains[replica].sampler->scheduler_;
-        const auto& is  = restored.ensemble->chains[replica].sampler->scheduler_;
-        ASSERT_EQ(is.samplerIds(), was.samplerIds());
-        for (const auto& id : was.samplerIds()) {
+        const auto& was = *original.ensemble->chains[replica].sampler;
+        const auto& is  = *restored.ensemble->chains[replica].sampler;
+        ASSERT_EQ(is.ids(), was.ids());
+        for (const auto& id : was.ids()) {
             EXPECT_EQ(is.sampler(id).counts(), was.sampler(id).counts()) << id;
             EXPECT_EQ(is.sampler(id).adaptationState(), was.sampler(id).adaptationState()) << id;
         }
@@ -182,7 +182,7 @@ TEST(CheckpointTest, EachSamplerIsNamedOnceWhateverTheChainCount) {
     TempDir dir;
     const auto file = dir.path / "checkpoint.cbor";
     auto original = burnedIn(3, 21, 5);
-    const auto& ids = original.ensemble->chains[0].sampler->scheduler_.samplerIds();
+    const auto& ids = original.ensemble->chains[0].sampler->ids();
     ASSERT_FALSE(ids.empty());
 
     checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
@@ -301,11 +301,11 @@ TEST(CheckpointTest, SamplersAdaptOnTheSameSamplingIterationsAfterRestore) {
 
     checkpoint::save(checkpoint::capture(*original.ensemble, *original.rng, identity(), position(), {}), file);
     auto restored = restoredFrom(file);
-    const auto& scheduler = restored.ensemble->chains[0].sampler->scheduler_;
+    const auto& samplers = *restored.ensemble->chains[0].sampler;
     const auto proposalScales = [&] {
         std::vector<double> variances;
-        for (const auto& id : scheduler.samplerIds()) {
-            for (const auto& scale : scheduler.sampler(id).adaptationState().scales) {
+        for (const auto& id : samplers.ids()) {
+            for (const auto& scale : samplers.sampler(id).adaptationState().scales) {
                 variances.push_back(scale.variance);
             }
         }

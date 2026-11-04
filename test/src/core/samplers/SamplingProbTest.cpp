@@ -1,5 +1,5 @@
 //
-// Checks that RandomAllelesBitSetSampler3, JointGeneticsTimeSampler and ParentRelinkSampler compute the same proposal
+// Checks that RandomAllelesBitSetSampler3 and ParentRelinkSampler compute the same proposal
 // probabilities as the plain implementations in SamplingProbReference.h.
 //
 
@@ -12,7 +12,6 @@
 #include "core/datatypes/Alleles.h"
 #include "core/parameters/Parameter.h"
 #include "core/samplers/genetics/RandomAllelesBitSetSampler3.h"
-#include "core/samplers/specialized/JointGeneticsTimeSampler.h"
 #include "core/samplers/specialized/ParentRelinkSampler.h"
 
 #include <boost/random.hpp>
@@ -48,7 +47,6 @@ namespace {
     };
 
     using Sampler3 = genetics::RandomAllelesBitSetSampler3<UnusedTarget, Engine, InfectionEvent, GeneticsImpl, FixedParentSet, MAX_PARENTS, MAX_COI>;
-    using Joint    = specialized::JointGeneticsTimeSampler<UnusedTarget, Engine, InfectionEvent, GeneticsImpl, FixedParentSet, MAX_PARENTS, MAX_COI>;
     using Relink   = specialized::ParentRelinkSampler<UnusedTarget, Engine, InfectionEvent>;
 
     std::string randomGenotype(Engine& rng, const unsigned int numAlleles) {
@@ -121,10 +119,8 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
 
     // Samplers are kept across rounds, as in a run: each keeps its partition of parents by genome between
     // evaluations, and must notice when their genomes change.
-    auto duration = std::make_shared<Parameter<double>>(10.0);
     std::vector<std::shared_ptr<FixedParentSet>> parentSets;
     std::vector<std::unique_ptr<Sampler3>> samplers3;
-    std::vector<std::unique_ptr<Joint>> joints;
     std::vector<std::unique_ptr<Relink>> relinks;
     for (int c = 0; c < numInfections; ++c) {
         std::vector<std::shared_ptr<InfectionEvent>> allowed;
@@ -135,7 +131,6 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
         }
         parentSets.push_back(std::make_shared<FixedParentSet>());
         samplers3.push_back(std::make_unique<Sampler3>(infections[c], parentSets[c], latentParents[c], nullptr, std::make_shared<Engine>(1), 0.1, 0.1));
-        joints.push_back(std::make_unique<Joint>(infections[c], parentSets[c], latentParents[c], duration, nullptr, std::make_shared<Engine>(1), 1.0, 1000.0, 3.0, 0.05, 0.05));
         relinks.push_back(std::make_unique<Relink>(infections[c], latentParents[c], allowed, nullptr, std::make_shared<Engine>(1), 1.0, 59.0, shape, 0.05, 0.05));
     }
 
@@ -150,14 +145,12 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
             }
         }
         const double expected3 = transmission_nets::test::reference::proposalProb<GeneticsImpl, MAX_PARENTS>(infections[c], parentSets[c]->value(), latentParents[c], 0.1, 0.1);
-        const double expectedJ = transmission_nets::test::reference::proposalProb<GeneticsImpl, MAX_PARENTS>(infections[c], parentSets[c]->value(), latentParents[c], 0.05, 0.05);
         const double expectedR = transmission_nets::test::reference::relinkProposalDensity<GeneticsImpl>(infections[c], latentParents[c], allowed, 1.0, 59.0, shape, 0.05, 0.05);
         const auto label = where + ", child " + std::to_string(c) + ", parents " + std::to_string(parentSets[c]->parents.size());
         expectSame(expected3, samplers3[c]->calculateSamplingProb(), "Sampler3 " + label);
-        expectSame(expectedJ, joints[c]->calculateSamplingProb(), "Joint " + label);
         expectSame(expectedR, relinks[c]->logProposalDensity(), "Relink " + label);
-        comparisons += 3;
-        finite += std::isfinite(expected3) + std::isfinite(expectedJ) + std::isfinite(expectedR);
+        comparisons += 2;
+        finite += std::isfinite(expected3) + std::isfinite(expectedR);
         finiteRelink += std::isfinite(expectedR);
     };
 
@@ -206,10 +199,10 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
         }
     }
 
-    EXPECT_EQ(comparisons, 3 * numInfections * 8);
+    EXPECT_EQ(comparisons, 2 * numInfections * 8);
     // Guard against a test that only ever compares -inf. Many of these random parent sets are impossible: every
     // chosen parent must share an allele with the child at every locus, observed or not, and genotype changes
     // accumulate over the rounds while the latent parents keep their starting genotypes.
     EXPECT_GT(finite, comparisons / 4);
-    EXPECT_GT(finiteRelink, comparisons / 12);
+    EXPECT_GT(finiteRelink, comparisons / 8);
 }

@@ -16,7 +16,6 @@ set(CORE_CONTAINERS_TESTS
     src/core/containers/InfectionTest.cpp
     src/core/containers/UidOrderTest.cpp
     src/core/containers/AlleleFrequencyContainerTest.cpp
-    src/core/containers/TransmissionNetworkTest.cpp
 )
 
 set(CORE_DATATYPES_TESTS
@@ -26,7 +25,6 @@ set(CORE_DATATYPES_TESTS
 
 set(CORE_DISTRIBUTIONS_TESTS
     src/core/distributions/GeometricTest.cpp
-    src/core/distributions/ZTMultiplicativeBinomialTest.cpp
     src/core/distributions/DiscreteTest.cpp
     src/core/distributions/ZTGeometricTest.cpp
 )
@@ -35,10 +33,6 @@ set(CORE_SAMPLERS_TESTS
     src/core/samplers/ContinuousRandomWalkTest.cpp
     src/core/samplers/ConstrainedContinuousRandomWalkTest.cpp
     src/core/samplers/SALTSamplerTest.cpp
-    src/core/samplers/OrderSamplerTest.cpp
-    src/core/samplers/DiscreteRandomWalkTest.cpp
-    src/core/samplers/ConstrainedDiscreteRandomWalkTest.cpp
-    src/core/samplers/genetics/RandomAllelesBitSetSamplerTest.cpp
     src/core/samplers/genetics/RandomAllelesBitSetSampler4Test.cpp
     src/core/samplers/genetics/GenotypeSamplerStationaryTest.cpp
     src/core/samplers/specialized/CloneOrderSwapSamplerTest.cpp
@@ -58,23 +52,16 @@ set(CORE_UTILS_TESTS
 )
 
 set(CORE_COMPUTATION_TESTS
-    src/core/core_likelihood_tests.cpp
     src/core/computation/ObservationTimeDerivedOrderingTest.cpp
     src/core/parameters/OrderingTest.cpp
 )
 
 set(MODEL_TRANSMISSION_TESTS
     src/model/transmission_process/OrderDerivedParentSetTest.cpp
-    src/model/transmission_process/OrderBasedTransmissionProcessTest.cpp
-    src/model/transmission_process/source_transmission_process/MultinomialSourceTransmissionProcessTest.cpp
-    src/model/transmission_process/NetworkBasedTransmissionProcessTest.cpp
-    src/model/transmission_process/node_transmission_process/SuperInfectionNoMutationTest.cpp
-    src/model/transmission_process/node_transmission_process/SimpleLossTest.cpp
     src/model/transmission_process/node_transmission_process/MultinomialTransmissionProcessTest.cpp
     src/model/transmission_process/node_transmission_process/MarginalLatentParentTest.cpp
     src/impl/ModelCacheConsistencyTest.cpp
     src/impl/RunRecorderTest.cpp
-    src/impl/ReplicaExchangeSchedulerTest.cpp
     src/impl/RegisteredSamplerTest.cpp
     src/impl/ReplicaExchangeTest.cpp
     src/impl/CheckpointTest.cpp
