@@ -18,9 +18,8 @@
 
 #include "model/observation_process/ObservationProcessLikelihoodv2.h"
 
-#include "model/transmission_process/OrderBasedTransmissionProcessV3.h"
-#include "model/transmission_process/node_transmission_process/MultinomialTransmissionProcess.h"
-#include "model/transmission_process/node_transmission_process/LatentParentMarginal.h"
+#include "model/transmission_process/TransmissionTerm.h"
+#include "model/transmission_process/TransmissionMemo.h"
 #include <filesystem>
 
 namespace transmission_nets::impl::Model {
@@ -54,15 +53,13 @@ namespace transmission_nets::impl::Model {
 
     using COIProbabilityImpl     = core::distributions::ZTPoisson<MAX_COI>;
     using ParentSetSizeLikelihoodImpl = core::distributions::ZTGeometric<MAX_PARENT_SET_SIZE>;
-    using NodeTransmissionImpl = model::transmission_process::MultinomialTransmissionProcess<MAX_PARENTS, MAX_STRAINS, ParentSetSizeLikelihoodImpl, GeneticsImpl>;
-
     using OrderingImpl        = core::computation::ObservationTimeDerivedOrdering<InfectionEvent>;
     using ParentSetImpl       = core::computation::OrderDerivedParentSet<InfectionEvent, OrderingImpl>;
 
-    // The latent parent summed out of each infection's transmission term.
-    using LatentMarginalImpl = model::transmission_process::LatentParentMarginal<MAX_PARENTS, MAX_COI, MAX_STRAINS, NodeTransmissionImpl, COIProbabilityImpl, AlleleFrequencyContainerImpl, GeneticsImpl, LocusImpl>;
+    // The per-chain memory of Transmission kernel results, with the latent parent summed out of each term through it.
+    using TransmissionMemoImpl = model::transmission_process::TransmissionMemo<MAX_PARENTS, MAX_STRAINS, MAX_COI, GeneticsImpl, InfectionEvent, LocusImpl, AlleleFrequencyContainerImpl>;
 
-    using TransmissionProcess = model::transmission_process::OrderBasedTransmissionProcessV3<MAX_PARENTS, NodeTransmissionImpl, LatentMarginalImpl, ParentSetSizeLikelihoodImpl, InfectionEvent, ParentSetImpl>;
+    using TransmissionProcess = model::transmission_process::TransmissionTerm<MAX_PARENTS, TransmissionMemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEvent, ParentSetImpl>;
 
 }// namespace transmission_nets::impl::Model
 

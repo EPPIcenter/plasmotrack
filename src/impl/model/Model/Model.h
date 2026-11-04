@@ -39,13 +39,9 @@ namespace transmission_nets::impl::Model {
         // Parent Set Size Likelihood
         std::shared_ptr<ParentSetSizeLikelihoodImpl> parentSetSizeLikelihood;
 
-        // Node Transmission Process
-//        std::shared_ptr<InterTransmissionProbImpl> intp;
-        std::shared_ptr<NodeTransmissionImpl> nodeTransmissionProcess;
-
-        // The Source's COI distribution, and the latent parents summed out of the transmission process.
+        // The Transmission memo every Transmission term reads through, and the Source's COI distribution.
+        std::shared_ptr<TransmissionMemoImpl> transmissionMemo;
         std::shared_ptr<COIProbabilityImpl> coiProb;
-        std::shared_ptr<LatentMarginalImpl> latentMarginal;
 
         // Transmission Process: each Infection's Parent set over its Candidate parents, by Infection id.
         std::map<std::string, std::shared_ptr<ParentSetImpl>> parentSets{};
