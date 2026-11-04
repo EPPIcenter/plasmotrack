@@ -48,6 +48,13 @@ namespace transmission_nets::core::samplers {
             return Proposal<Target, Engine>(target, rng, counts_);
         }
 
+        // Counts one proposal, for a move made of several Proposals that count elsewhere and is accepted or rejected
+        // as a whole.
+        void countMove(const bool accepted) noexcept {
+            ++counts_.proposed;
+            counts_.accepted += accepted;
+        }
+
     private:
         SamplerCounts counts_{};
     };
