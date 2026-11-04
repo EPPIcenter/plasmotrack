@@ -251,9 +251,9 @@ int main(int argc, char** argv) {
         const fs::path outputDir = recipe.store;
         if (!resuming) {
             // The Store embeds the Run's inputs; a resumed Run keeps the copies its Store holds.
-            Model::copyRunInputs(outputDir, {{Model::input_names::INPUT, nodesFile},
-                                             {Model::input_names::SYMPTOMATIC_IDP, symptomatic_idp_path},
-                                             {Model::input_names::ASYMPTOMATIC_IDP, asymptomatic_idp_path}});
+            Model::copyRunInputs(outputDir, {{Model::RunInput::Input, nodesFile},
+                                             {Model::RunInput::SymptomaticIdp, symptomatic_idp_path},
+                                             {Model::RunInput::AsymptomaticIdp, asymptomatic_idp_path}});
         }
 
         Model::RunRecorder recorder(*repex->hotChain().state, repex->samplerIds(), std::make_unique<ParquetStoreSink>(outputDir),
