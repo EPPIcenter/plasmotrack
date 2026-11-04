@@ -19,13 +19,14 @@
 #' Draws; a set with no row at a Draw counts 0 there. Weights are used as stored: the Store drops sets below
 #' `parent_set_floor` (default 1e-9) without renormalising, so an Infection's weights may sum to slightly less than 1.
 #'
-#' `rank` orders an Infection's sets by weight, largest first. Ties in weight go to the members list compared element
-#' by element: the observed parents in id string order (`"10" < "2"`), then the Latent parent, which sorts after any
+#' `rank` orders an Infection's sets by weight, largest first. Weights tie when they agree to 12 significant digits
+#' (`signif(weight, 12)`), so sets whose pooled weights differ only by summation order tie. Ties go to the members
+#' list compared element by element: the observed parents in id string order (`"10" < "2"`), then the Latent parent, which sorts after any
 #' observed id; a list that is a prefix of another comes first. So `{10}` precedes `{10, Latent}`, which precedes
 #' `{2}`, which precedes `{Latent}`.
 #'
 #' The Credible collection at `level` is the highest-ranked sets whose cumulative weight reaches `level` (up to
-#' 1e-12), plus every set tied in weight with the last set needed. When an Infection's weights never reach `level`,
+#' 1e-12), plus every set tied in weight (to 12 significant digits) with the last set needed. When an Infection's weights never reach `level`,
 #' every one of its sets is credible.
 #'
 #' `pt_map_graph()` keeps the rank-1 rows: each Infection's MAP Parent set. Together they make the MAP graph.
@@ -130,7 +131,7 @@ pt_out_degree_range <- function(a, level = 0.8, by = NULL, by_run = FALSE, runs 
   credible <- sets[sets$credible, ]
   strata <- source_strata(a, by)
   per_run(credible, by_run, function(rows) {
-    # Per credible set, its observed parents in each stratum; min and max within each recipient.
+    # Per Credible collection, its observed parents in each stratum; min and max within each recipient.
     counts <- stratum_counts(rows$members, strata)
     child <- factor(rows$infection)
     lo <- vapply(seq_along(strata$n), function(k) sum(tapply(counts[, k], child, min)), 0)
@@ -190,10 +191,10 @@ pt_co_inclusion <- function(a, infections = NULL, by_run = FALSE, runs = NULL) {
     total = rep(sets$weight * unname(draws_of(a, sets$run)), n)
   )
   if (!by_run) rows$run <- ""
-  pair <- paste(rows$child, rows$parent_a, rows$parent_b, sep = "\r")
+  pair <- row_key(rows$child, rows$parent_a, rows$parent_b)
   keys <- unique(rows[c("child", "parent_a", "parent_b")])
   keys <- keys[order(keys$child, keys$parent_a, keys$parent_b, method = "radix"), ]
-  key <- paste(keys$child, keys$parent_a, keys$parent_b, sep = "\r")
+  key <- row_key(keys$child, keys$parent_a, keys$parent_b)
   columns <- if (by_run) runs else ""
   total <- matrix(0, nrow(keys), length(columns))
   for (j in seq_along(columns)) {
@@ -211,6 +212,7 @@ pt_co_inclusion <- function(a, infections = NULL, by_run = FALSE, runs = NULL) {
   )
 }
 
+# The Draw count of each Run in `runs`, named by Run: the pooling denominator (Conventions 1 and 3).
 draws_of <- function(a, runs) stats::setNames(as.numeric(a$runs$draws), a$runs$run)[runs]
 
 check_credible_level <- function(level, call = rlang::caller_env()) {
@@ -221,11 +223,11 @@ check_credible_level <- function(level, call = rlang::caller_env()) {
 
 pooled_sets <- function(a, runs, by_run, level) {
   totals <- set_totals(a, runs)
-  draws <- stats::setNames(as.numeric(a$runs$draws), a$runs$run)[runs]
+  draws <- draws_of(a, runs)
 
   # Sum each set's totals within its group: (run,) infection, observed members, has_latent_parent.
   group_run <- if (by_run) totals$run else rep("", nrow(totals))
-  id <- paste(group_run, totals$infection, totals$observed, totals$has_latent_parent, sep = "\r")
+  id <- row_key(group_run, totals$infection, totals$observed, totals$has_latent_parent)
   first <- !duplicated(id)
   sets <- tibble::tibble(
     run = group_run[first], infection = totals$infection[first], observed = totals$observed[first],
@@ -283,8 +285,12 @@ canonical_observed <- function(observed) {
   sorted[match(observed, canonical)]
 }
 
-# Rank sets within (run, infection): weight descending, then the members list element by element (observed ids in
-# string order, the Latent parent after every id, a prefix first). Adds members (list), rank, cumulative_mass and
+# Weights compare as equal when they agree to 12 significant digits, so two sets whose summed weights differ only by
+# summation order (last bits) tie. Used for the rank and the credible cutoff alike.
+tie_weight <- function(weight) signif(weight, 12)
+
+# Rank sets within (run, infection): weight (as tie_weight) descending, then the members list element by element
+# (observed ids in string order, the Latent parent after every id, a prefix first). Adds members (list), rank, cumulative_mass and
 # credible, and sorts rows by run (in `run_order`), infection, rank.
 rank_sets <- function(sets, members, run_order, level) {
   ids <- sort(unique(unlist(members)), method = "radix")
@@ -297,11 +303,11 @@ rank_sets <- function(sets, members, run_order, level) {
   columns <- lapply(seq_len(width), function(k) vapply(tokens, function(t) if (k <= length(t)) t[[k]] else 0L, 0L))
   run_index <- match(sets$run, c("", run_order))
   infection_index <- match(sets$infection, sort(unique(sets$infection), method = "radix"))
-  o <- do.call(order, c(list(run_index, infection_index, -sets$weight), columns, list(method = "radix")))
+  o <- do.call(order, c(list(run_index, infection_index, -tie_weight(sets$weight)), columns, list(method = "radix")))
   sets <- sets[o, ]
   sets$members <- members[o]
 
-  group <- paste(sets$run, sets$infection, sep = "\r")
+  group <- row_key(sets$run, sets$infection)
   sets$rank <- stats::ave(seq_len(nrow(sets)), group, FUN = seq_along)
   sets$cumulative_mass <- stats::ave(sets$weight, group, FUN = cumsum)
   sets$credible <- stats::ave(seq_len(nrow(sets)), group, FUN = function(i) {
@@ -309,7 +315,8 @@ rank_sets <- function(sets, members, run_order, level) {
     m <- which(cumulative >= level - 1e-12)
     if (length(m) == 0) return(rep(1L, length(i)))
     m <- m[[1]]
-    as.integer(seq_along(i) <= m | sets$weight[i] == sets$weight[i][[m]])
+    tied <- tie_weight(sets$weight[i])
+    as.integer(seq_along(i) <= m | tied == tied[[m]])
   }) == 1L
   sets
 }

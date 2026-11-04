@@ -331,11 +331,13 @@ oracle_parent_sets_pooled <- function(o, level = 0.8, by_run = FALSE, runs = NUL
     length(x) < length(y)
   }
   for (k in names(sets)) sets[[k]]$weight <- sets[[k]]$total / sets[[k]]$draws
+  # Conventions, ties: weights equal to 12 significant digits are tied.
+  w12 <- function(w) signif(w, 12)
   out <- list()
   for (g in unique(vapply(sets, function(s) paste(s$run, s$infection, sep = "|"), ""))) {
     mine <- Filter(function(s) paste(s$run, s$infection, sep = "|") == g, sets)
     rank <- vapply(mine, function(s) {
-      1 + sum(vapply(mine, function(t) t$weight > s$weight || (t$weight == s$weight && list_before(t, s)), TRUE))
+      1 + sum(vapply(mine, function(t) w12(t$weight) > w12(s$weight) || (w12(t$weight) == w12(s$weight) && list_before(t, s)), TRUE))
     }, 1)
     mine <- mine[order(rank)]
     cumulative <- 0
@@ -350,7 +352,7 @@ oracle_parent_sets_pooled <- function(o, level = 0.8, by_run = FALSE, runs = NUL
                               weight = mine[[r]]$weight, rank = r, cumulative_mass = cumulative)
     }
     rows <- do.call(rbind, rows)
-    rows$credible <- if (is.na(reached)) TRUE else rows$rank <= reached | rows$weight == rows$weight[reached]
+    rows$credible <- if (is.na(reached)) TRUE else rows$rank <= reached | w12(rows$weight) == w12(rows$weight[reached])
     out[[g]] <- rows
   }
   out <- oracle_bind(out, NULL)

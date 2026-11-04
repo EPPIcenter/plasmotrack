@@ -1,5 +1,5 @@
 //
-// Golden run: the CLI, run on the example input with a fixed seed, must write the same store as the golden store under
+// Golden run: the CLI, run on the example input with a fixed seed, must write the same Store as the golden Store under
 // test/data/golden/<variant>/: the same files, the same Window markers, the same decoded tables, the same Run manifest
 // and the same bytes in its copies of the input and IDPs. What differs from one Run to the next by design is left out: the manifest's Run id, start time and commit,
 // the paths in its CLI arguments, and every wall time and duration in the events table. Comparing decoded tables also
@@ -12,13 +12,13 @@
 //       --symptomatic-idp test/data/golden/symptomatic_idp.txt --asymptomatic-idp test/data/golden/asymptomatic_idp.txt \
 //       --seed 42 -b 20 -s 50 -t 5 --window 25 [-n 4 -g 0.5 -c 1]
 //
-// A regenerated store's events files differ from the committed ones in their wall times only; a change that leaves the
+// A regenerated Store's events files differ from the committed ones in their wall times only; a change that leaves the
 // events table's decoded rows alone keeps the committed files.
 //
-// Before they replaced it, the store of these commands (with the default --window) held the same values as the gzip
+// Before they replaced it, the Store of these commands (with the default --window) held the same values as the gzip
 // capture of #39 for every quantity both hold.
 //
-// Never rewrite a golden store to make this pass after a change: a mismatch means the output changed.
+// Never rewrite a golden Store to make this pass after a change: a mismatch means the output changed.
 //
 
 #include "gtest/gtest.h"
@@ -111,7 +111,7 @@ TEST_P(GoldenRunTest, StoreMatchesTheGoldenStore) {
         << " > \"" << (work / "cli.txt").string() << "\" 2>&1";
     ASSERT_EQ(std::system(cmd.str().c_str()), 0) << "CLI failed; console output in " << work / "cli.txt";
 
-    // Checkpoints carry the Run id, so they are not part of the golden store; their contents are tested elsewhere.
+    // Checkpoints carry the Run id, so they are not part of the golden Store; their contents are tested elsewhere.
     auto files = filesUnder(out);
     for (const auto* checkpoint : {"checkpoint.cbor", "checkpoint-burn-in.cbor"}) {
         EXPECT_EQ(files.erase(checkpoint), 1u) << checkpoint;

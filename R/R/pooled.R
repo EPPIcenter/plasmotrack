@@ -22,7 +22,7 @@
 #' @return A tibble of `child`, `parent`, `marginal` and `lag`, after `run` when `by_run = TRUE`, sorted by `run`
 #'   (in [pt_runs()] order), then `child` and `parent` as strings. `lag` is the child's observation time minus the
 #'   parent's, from [pt_infections()]; it is `NA` where either time is missing.
-#' @seealso [pt_edge_draws()] for the per-Draw edge weights.
+#' @seealso [pt_edge_draws()] for each edge's probability at each Draw.
 #' @export
 #' @examples
 #' golden <- system.file("extdata", "golden", package = "plasmotrackr")
@@ -40,13 +40,13 @@ pt_edge_marginals <- function(a, floor = 0, by_run = FALSE, runs = NULL) {
     dplyr::group_by(.data$run, .data$child, .data$parent) |>
     dplyr::summarise(total = sum(.data$prob, na.rm = TRUE), .groups = "drop") |>
     dplyr::collect()
-  draws <- stats::setNames(as.numeric(a$runs$draws), a$runs$run)[runs]
+  draws <- draws_of(a, runs)
 
   edges <- unique(totals[c("child", "parent")])
   edges <- edges[order(edges$child, edges$parent, method = "radix"), ]
   # Edge x Run totals, 0 where a Run lacks the edge.
   total <- matrix(0, nrow(edges), length(runs), dimnames = list(NULL, runs))
-  total[cbind(match(paste(totals$child, totals$parent, sep = "\r"), paste(edges$child, edges$parent, sep = "\r")),
+  total[cbind(match(row_key(totals$child, totals$parent), row_key(edges$child, edges$parent)),
               match(totals$run, runs))] <- totals$total
 
   lag <- edge_lag(a, edges$child, edges$parent)

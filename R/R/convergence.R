@@ -28,7 +28,7 @@ convergence_groups <- c("log_posterior", "global", "expected_false_positives", "
 #'   `infection_duration[12]`. The per-Allele error rate is the expected count over the Infection's Alleles, a
 #'   constant factor, so its diagnostics are the count's.
 #' * `allele_frequency`: one per Locus and Allele (0-based), such as `allele_frequency[AS1,0]`.
-#' * `edge`: the per-Draw Edge weight, zero-filled, such as `edge[12,7]` for child 12 and parent 7. Only edges whose
+#' * `edge`: the edge's probability at each Draw (the per-Draw Edge marginal), zero-filled, such as `edge[12,7]` for child 12 and parent 7. Only edges whose
 #'   mean in some Run is at least `edge_floor` are diagnosed.
 #' * `order_pair`: the 0/1 indicator that `i` was acquired before `j` (see [pt_order_pair_draws()]), such as
 #'   `order_pair[10,2]` with `i` the smaller id as a string. Only pairs joined by a diagnosed edge, in either
@@ -92,7 +92,8 @@ convergence_groups <- c("log_posterior", "global", "expected_false_positives", "
 #'     above, names sorted by their keys within a group.
 #'   * `infections`: one row per Infection, in id (string) order. `infection`, `spread`, `class` (the disagreement
 #'     class above; `NA` when not flagged), `top_parent` (a list column: per row, a character vector of top parents
-#'     named by Run, `"latent"` for the Latent parent), `worst_rhat` (the largest `rhat` of the quantities the
+#'     named by Run, `"latent"` for the Latent parent; an Infection with id `"latent"` is an error, since the two
+#'     would be indistinguishable), `worst_rhat` (the largest `rhat` of the quantities the
 #'     Infection owns: its `expected_false_positives`, `expected_false_negatives`, `infection_duration`,
 #'     `p_latent_parent` and the edges into it; `NA` when all are constant) and `flagged`.
 #'   * `pairs`: one row per diagnosed order pair (the `order_pair` quantities). `i`, `j`, `p_before` (a list column:
@@ -116,6 +117,7 @@ pt_convergence <- function(a, runs = NULL, iterations = NULL, edge_floor = 0.01,
   check_positive(rhat, "rhat")
   if (!is.null(ess)) check_positive(ess, "ess")
   check_fraction(spread, "spread")
+  check_no_latent_id(a)
   ds <- convergence_draw_set(a, runs, iterations)
   if (is.null(ess)) ess <- 100 * length(ds$runs)
 
@@ -255,8 +257,8 @@ edge_run_means <- function(a, ds) {
   k <- nrow(edges)
   means <- tibble::tibble(run = rep(ds$runs, each = k), child = rep(edges$child, length(ds$runs)),
                           parent = rep(edges$parent, length(ds$runs)), mean = 0)
-  at <- match(paste(totals$run, totals$child, totals$parent, sep = "\r"),
-              paste(means$run, means$child, means$parent, sep = "\r"))
+  at <- match(row_key(totals$run, totals$child, totals$parent),
+              row_key(means$run, means$child, means$parent))
   means$mean[at] <- totals$total / ds$n
   means
 }
@@ -264,9 +266,9 @@ edge_run_means <- function(a, ds) {
 # The edges diagnosed: those whose Run mean over the Draw set is at least edge_floor in some Run, sorted.
 kept_edges <- function(a, ds, edge_floor) {
   means <- edge_run_means(a, ds)
-  top <- tapply(means$mean, paste(means$child, means$parent, sep = "\r"), max)
+  top <- tapply(means$mean, row_key(means$child, means$parent), max)
   kept <- unique(means[c("child", "parent")])
-  as.data.frame(kept[top[paste(kept$child, kept$parent, sep = "\r")] >= edge_floor, ])
+  as.data.frame(kept[top[row_key(kept$child, kept$parent)] >= edge_floor, ])
 }
 
 # ---- Quantity arrays ----
@@ -278,8 +280,8 @@ group_array <- function(a, ds, group, edge_floor = 0.01) {
   rows <- g$rows
   if (nrow(rows)) {
     draw <- unlist(lapply(ds$iterations, seq_along))
-    names(draw) <- paste(rep(ds$runs, each = ds$n), unlist(ds$iterations), sep = "\r")
-    x[cbind(draw[paste(rows$run, as.numeric(rows$iteration), sep = "\r")], match(rows$run, ds$runs),
+    names(draw) <- row_key(rep(ds$runs, each = ds$n), unlist(ds$iterations))
+    x[cbind(draw[row_key(rows$run, as.numeric(rows$iteration))], match(rows$run, ds$runs),
             match(rows$name, g$names))] <- rows$value
   }
   x
@@ -422,6 +424,16 @@ diagnose_quantity <- function(m, rhat, ess) {
 # The key of the Latent parent among an Infection's parent keys (top_parent values).
 latent_key <- "latent"
 
+# `top_parent` names the Latent parent `latent_key`, so an Infection with that id would read as the Latent parent.
+check_no_latent_id <- function(a, call = rlang::caller_env()) {
+  if (latent_key %in% a$infections$infection) {
+    cli::cli_abort(c(
+      "Infection id {.val {latent_key}} collides with the Latent parent's key in {.field top_parent}.",
+      i = "Rename that Infection in the input so the two can be told apart."
+    ), call = call)
+  }
+}
+
 # Run means of an n x Runs x variables array: a Runs x variables matrix.
 run_means <- function(x) {
   matrix(colMeans(x), dim(x)[[2]], dim(x)[[3]], dimnames = dimnames(x)[2:3])
@@ -434,10 +446,10 @@ tree_infections <- function(a, ds, latent_means, quantities, spread) {
   runs <- ds$runs
   ids <- a$infections$infection[order(a$infections$infection, method = "radix")]
   edges <- edge_run_means(a, ds)
-  edge_mean <- stats::setNames(edges$mean, paste(edges$run, edges$child, edges$parent, sep = "\r"))
+  edge_mean <- stats::setNames(edges$mean, row_key(edges$run, edges$child, edges$parent))
   edge <- function(run, child, parent) {
     if (length(child) == 0 || length(parent) == 0) return(numeric())
-    v <- edge_mean[paste(run, child, parent, sep = "\r")]
+    v <- edge_mean[row_key(run, child, parent)]
     ifelse(is.na(v), 0, unname(v))
   }
   by_child <- split(edges, edges$child)
@@ -470,8 +482,8 @@ tree_infections <- function(a, ds, latent_means, quantities, spread) {
   )
 }
 
-# The first rule that matches (classify_stuck.py of the thesis convergence work). `edge(run, child, parent)` is a
-# Run mean; `tops` each Run's top parent, in `runs` order.
+# The first class, in `disagreement_classes` order, whose rule matches (the rules are documented on pt_convergence()).
+# `edge(run, child, parent)` is a Run mean; `tops` each Run's top parent, in `runs` order.
 disagreement_class <- function(child, tops, runs, edge, t) {
   if (length(unique(tops)) == 1) return("same_top")
   observed <- setdiff(unique(tops), latent_key)

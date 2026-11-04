@@ -52,8 +52,8 @@ pt_acceptance <- function(a, level = c("type", "sampler"), phase = "sampling", b
 #' `swaps` Block. Temperature pair `k` is the swaps between slots `k` and `k + 1`; slot 0 is the Hot chain. A Run with
 #' one chain has no swaps and adds no rows, so the result is empty when every Run has one chain.
 #'
-#' A pair whose rate is near 0 is a barrier: replicas rarely pass between those temperatures, so the hotter chains
-#' do little for the Hot chain.
+#' A pair whose rate is near 0 is a barrier: replicas rarely pass between those temperatures, so the Tempered chains
+#' above the barrier do little for the Hot chain.
 #'
 #' Window numbers are per Run. With `per_window = TRUE` and `by_run = FALSE`, Windows with the same number in
 #' different Runs are summed.

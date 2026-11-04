@@ -93,16 +93,21 @@ namespace transmission_nets::impl::Model {
         }
     }// namespace
 
-    std::string storedInputName(const std::string& inputName, const std::filesystem::path& source) {
-        if (inputName == input_names::INPUT) {
-            return source.extension() == ".gz" ? "input.json.gz" : "input.json";
+    std::string storedInputName(RunInput kind, const std::filesystem::path& source) {
+        switch (kind) {
+            case RunInput::Input:
+                return source.extension() == ".gz" ? "input.json.gz" : "input.json";
+            case RunInput::SymptomaticIdp:
+                return "symptomatic_idp.txt";
+            case RunInput::AsymptomaticIdp:
+                return "asymptomatic_idp.txt";
         }
-        return inputName + ".txt";
+        throw std::logic_error("storedInputName: unknown Run input kind");
     }
 
-    void copyRunInputs(const std::filesystem::path& store, const std::map<std::string, std::filesystem::path>& inputs) {
-        for (const auto& [name, source] : inputs) {
-            core::io::copyDurably(source, store / storedInputName(name, source));
+    void copyRunInputs(const std::filesystem::path& store, const std::map<RunInput, std::filesystem::path>& inputs) {
+        for (const auto& [kind, source] : inputs) {
+            core::io::copyDurably(source, store / storedInputName(kind, source));
         }
     }
 

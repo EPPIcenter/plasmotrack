@@ -120,6 +120,16 @@ test_that("pt_coi() pools Runs by their Draws, or gives one row per Run", {
   expect_error(pt_coi(a, by_run = NA), "by_run")
 })
 
+test_that("the counted type-7 quantile is stats::quantile()'s to the last bit, at non-integer values", {
+  # Internal helper (pt_coi()'s median): COI values are integers, where the two interpolation forms agree, so the
+  # form that matches stats::quantile() exactly is checked here.
+  expect_identical(quantile7_counts(c(9.4, 1.7), c(1, 1), 0.94), unname(stats::quantile(c(1.7, 9.4), 0.94)))
+  expect_identical(quantile7_counts(c(0.2, 3.3, 1.1), c(2, 1, 3), 0.37),
+                   unname(stats::quantile(c(0.2, 0.2, 3.3, 1.1, 1.1, 1.1), 0.37)))
+  # Equal neighbours give the value itself, not (1 - w) x + w x.
+  expect_identical(quantile7_counts(c(0.1, 5), c(3, 1), 0.3), 0.1)
+})
+
 # The distribution list column, unnested, to compare with the oracle's long form.
 coi_distribution_long <- function(coi) {
   keys <- intersect(c("run", "infection"), names(coi))

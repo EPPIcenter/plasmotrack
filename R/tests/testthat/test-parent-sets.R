@@ -116,6 +116,27 @@ test_that("the Credible collection admits sets tied at the cutoff and holds ever
   expect_error(pt_parent_sets_pooled(a, level = 1.5), "level")
 })
 
+test_that("weights that differ only in the last bit are tied, for the MAP rule and the credible cutoff", {
+  up <- function(x) x * (1 + .Machine$double.eps)
+  down <- function(x) x * (1 - .Machine$double.eps / 2)
+  expect_false(up(0.4) == 0.4)
+  expect_false(down(0.2) == 0.2)
+  # 4: {3} is above {10} in the last bit only: still tied, so {10} ("10" < "3") is the MAP Parent set.
+  # 2: {10} .6, {3} .2 reach 0.8; {4} is below .2 in the last bit only and is admitted as tied.
+  path <- fake_store(infections = c("10", "2", "3", "4"), parent_sets = rbind(
+    pset(1, "4", c("3", "10", ""), c(FALSE, FALSE, TRUE), c(up(0.4), 0.4, 0.2)),
+    pset(1, "2", c("10", "3", "4", ""), c(FALSE, FALSE, FALSE, TRUE), c(0.6, 0.2, down(0.2), 0.0001)),
+    pset(1, "10", "", TRUE, 1), pset(1, "3", "", TRUE, 1)
+  ))
+  a <- pt_read(c(r = path))
+  on.exit(pt_close(a))
+  p <- pt_parent_sets_pooled(a)
+  expect_equal(p$members[p$infection == "4"], list("10", "3", character()))
+  expect_equal(p$members[p$infection == "2"], list("10", "3", "4", character()))
+  expect_equal(p$credible[p$infection == "2"], c(TRUE, TRUE, TRUE, FALSE))
+  expect_equal(pt_map_graph(a)$members[[4]], "10")
+})
+
 golden_paths <- function() c(one = golden_store(), four = golden_store("replica-exchange"))
 
 test_that("pt_parent_sets_pooled() and pt_map_graph() match the oracle on fake and golden Stores", {

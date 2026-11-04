@@ -2,7 +2,7 @@
 #
 # A Latent genotype is an Allele bitstring: character k (0-based, from the left) is Allele k, "1" means present.
 # Only Loci the Infection was genotyped at have rows. Pooled summaries count bitstrings in DuckDB first and expand
-# the few distinct ones in R: joining every row to its Alleles first cost 25 GB on Eswatini.
+# the few distinct ones in R: joining every row to its Alleles first took 25 GB on a real 457-Infection Store.
 
 # The Alleles present in `alleles`, as a DuckDB list of 0-based indices.
 present_alleles_sql <- "list_filter(range(length(alleles)), lambda k: substr(alleles, CAST(k AS INTEGER) + 1, 1) = '1')"
@@ -60,17 +60,20 @@ pt_coi_draws <- function(a, runs = NULL, phase = "sampling") {
 }
 
 # Count rows of a lazy per-Draw table by `keys` in DuckDB (with `run` first when by_run), collect, and attach the
-# Draw total each count is a fraction of: the Run's Draws, or every selected Run's. Rows sorted by Run (Run-table
+# Draw total each count is a fraction of: the Run's Draws, or every selected Run's. With `count`, the name of a
+# logical column, `n` counts only the rows where it is TRUE (0 for a group with none). Rows sorted by Run (Run-table
 # order) then keys as strings.
-tally_draws <- function(a, rows, keys, by_run, runs) {
+tally_draws <- function(a, rows, keys, by_run, runs, count = NULL) {
   groups <- c(if (by_run) "run", keys)
+  n <- if (is.null(count)) rlang::quo(dplyr::n()) else {
+    rlang::quo(sum(dplyr::if_else(.data[[!!count]], 1, 0), na.rm = TRUE))
+  }
   counts <- rows |>
     dplyr::group_by(dplyr::across(dplyr::all_of(groups))) |>
-    dplyr::summarise(n = dplyr::n(), .groups = "drop") |>
+    dplyr::summarise(n = !!n, .groups = "drop") |>
     dplyr::collect()
   counts$n <- as.numeric(counts$n)
-  draws <- stats::setNames(as.numeric(a$runs$draws), a$runs$run)
-  counts$draws <- if (by_run) unname(draws[counts$run]) else rep(sum(draws[runs]), nrow(counts))
+  counts$draws <- if (by_run) unname(draws_of(a, counts$run)) else rep(sum(draws_of(a, runs)), nrow(counts))
   order_by <- lapply(groups, function(g) if (g == "run") match(counts$run, a$runs$run) else counts[[g]])
   counts[do.call(order, c(unname(order_by), method = "radix")), ]
 }
@@ -83,7 +86,11 @@ quantile7_counts <- function(values, counts, p) {
   h <- (sum(counts) - 1) * p + 1
   at <- function(i) values[[which(ends >= i)[[1]]]]
   lo <- at(floor(h))
-  lo + (h - floor(h)) * (at(ceiling(h)) - lo)
+  hi <- at(ceiling(h))
+  if (hi == lo) return(lo)
+  # stats::quantile()'s own form, so the result matches it to the last bit.
+  w <- h - floor(h)
+  (1 - w) * lo + w * hi
 }
 
 #' Pooled COI
@@ -114,7 +121,7 @@ pt_coi <- function(a, by_run = FALSE, runs = NULL) {
   runs <- runs_with_draws(a, runs)
   counts <- tally_draws(a, pt_coi_draws(a, runs), c("infection", "coi"), by_run, runs)
   keys <- c(if (by_run) "run", "infection")
-  group <- do.call(paste, c(unname(as.list(counts[keys])), sep = "\r"))
+  group <- do.call(row_key, unname(as.list(counts[keys])))
   first <- !duplicated(group)
   rows <- split(seq_len(nrow(counts)), factor(group, levels = unique(group)))
   out <- counts[first, keys]
@@ -169,7 +176,7 @@ pt_genotype_presence <- function(a, by_run = FALSE, runs = NULL) {
   at <- rep(seq_len(nrow(counts)), n_alleles)
   allele <- sequence(n_alleles) - 1
   held <- substr(counts$alleles[at], allele + 1, allele + 1) == "1"
-  group <- do.call(paste, c(unname(as.list(counts[at, keys])), list(allele), sep = "\r"))
+  group <- do.call(row_key, c(unname(as.list(counts[at, keys])), list(allele)))
   total <- rowsum(counts$n[at] * held, factor(group, levels = unique(group)), reorder = FALSE)
   first <- at[!duplicated(group)]
   out <- counts[first, keys]
@@ -185,7 +192,7 @@ pt_genotype_mode <- function(a, by_run = FALSE, runs = NULL) {
   runs <- runs_with_draws(a, runs)
   counts <- bitstring_counts(a, by_run, runs)
   keys <- c(if (by_run) "run", "infection", "locus")
-  group <- do.call(paste, c(unname(as.list(counts[keys])), sep = "\r"))
+  group <- do.call(row_key, unname(as.list(counts[keys])))
   group <- match(group, unique(group))
   seen <- as.vector(rowsum(counts$n, group, reorder = FALSE))[group]
   # Within each group, most Draws first, then the smaller bitstring: the first row is the mode.

@@ -60,12 +60,12 @@ pt_infection_summary <- function(a, by_run = FALSE, runs = NULL) {
   ids <- sort(a$infections$infection, method = "radix")
   groups <- if (by_run) runs else ""
   out <- tibble::tibble(run = rep(groups, each = length(ids)), infection = rep(ids, length(groups)))
-  keys <- paste(out$run, out$infection, sep = "\r")
+  keys <- row_key(out$run, out$infection)
   denominator <- if (by_run) unname(draws[out$run]) else rep(sum(draws), nrow(out))
   # Sum `values` of rows keyed by (run, infection) into the output rows, 0 where a row has none.
   total <- function(run, infection, values) {
     if (!by_run) run <- rep("", length(run))
-    k <- factor(paste(run, infection, sep = "\r"), levels = keys)
+    k <- factor(row_key(run, infection), levels = keys)
     as.vector(rowsum(c(values, numeric(length(keys))), c(k, factor(keys, levels = keys)), reorder = TRUE))
   }
 
@@ -108,7 +108,7 @@ pt_infection_summary <- function(a, by_run = FALSE, runs = NULL) {
                                   sets$weight[positive] * log(sets$weight[positive]))
   out$posterior_effective_size <- exp(out$posterior_entropy)
   map <- sets[sets$rank == 1L, ]
-  at <- match(keys, paste(map$run, map$infection, sep = "\r"))
+  at <- match(keys, row_key(map$run, map$infection))
   out$map_members <- lapply(at, function(i) if (is.na(i)) character() else map$members[[i]])
   out$map_class <- map$class[at]
   out$map_weight <- map$weight[at]
@@ -117,7 +117,7 @@ pt_infection_summary <- function(a, by_run = FALSE, runs = NULL) {
   edge_run <- if (by_run) edges$run else rep("", nrow(edges))
   top <- edges[edges$marginal > 0, ]
   top_run <- edge_run[edges$marginal > 0]
-  top_key <- paste(top_run, top$child, sep = "\r")
+  top_key <- row_key(top_run, top$child)
   o <- order(top_key, -top$marginal, top$parent, method = "radix")
   top <- top[o, ]
   top_key <- top_key[o]
@@ -129,7 +129,7 @@ pt_infection_summary <- function(a, by_run = FALSE, runs = NULL) {
 
   coi <- pt_coi(a, by_run = by_run, runs = runs)
   coi_run <- if (by_run) coi$run else rep("", nrow(coi))
-  out$coi_median <- coi$median[match(keys, paste(coi_run, coi$infection, sep = "\r"))]
+  out$coi_median <- coi$median[match(keys, row_key(coi_run, coi$infection))]
 
   if (!by_run) out$run <- NULL
   out

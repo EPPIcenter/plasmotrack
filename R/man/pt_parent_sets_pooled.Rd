@@ -36,13 +36,14 @@ its stored weight over every sampling Draw of every Run, divided by the total Dr
 Draws; a set with no row at a Draw counts 0 there. Weights are used as stored: the Store drops sets below
 \code{parent_set_floor} (default 1e-9) without renormalising, so an Infection's weights may sum to slightly less than 1.
 
-\code{rank} orders an Infection's sets by weight, largest first. Ties in weight go to the members list compared element
-by element: the observed parents in id string order (\code{"10" < "2"}), then the Latent parent, which sorts after any
+\code{rank} orders an Infection's sets by weight, largest first. Weights tie when they agree to 12 significant digits
+(\code{signif(weight, 12)}), so sets whose pooled weights differ only by summation order tie. Ties go to the members
+list compared element by element: the observed parents in id string order (\code{"10" < "2"}), then the Latent parent, which sorts after any
 observed id; a list that is a prefix of another comes first. So \code{{10}} precedes \verb{\{10, Latent\}}, which precedes
 \code{{2}}, which precedes \code{{Latent}}.
 
 The Credible collection at \code{level} is the highest-ranked sets whose cumulative weight reaches \code{level} (up to
-1e-12), plus every set tied in weight with the last set needed. When an Infection's weights never reach \code{level},
+1e-12), plus every set tied in weight (to 12 significant digits) with the last set needed. When an Infection's weights never reach \code{level},
 every one of its sets is credible.
 
 \code{pt_map_graph()} keeps the rank-1 rows: each Infection's MAP Parent set. Together they make the MAP graph.

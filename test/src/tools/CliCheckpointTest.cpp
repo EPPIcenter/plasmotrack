@@ -1,7 +1,7 @@
 //
 // Checkpoints through the CLI end to end: --resume continues an interrupted Run from its checkpoint, --start-from
 // begins a new Run from one's State, and a checkpoint that can't be written ends the Run. Each test runs the CLI binary
-// on the example input and reads the store back with the Arrow C++ reader. When Checkpoints are taken and where a
+// on the example input and reads the Store back with the Arrow C++ reader. When Checkpoints are taken and where a
 // resumed Run picks up are tested in-process in RunDriverTest; which checkpoints a Run may resume or start from, in
 // RunRecipeTest.
 //
@@ -131,7 +131,7 @@ TEST(CliCheckpoint, AnInterruptedRunResumesWhereItsCheckpointLeftOff) {
     EXPECT_EQ(eventsOfType(store, "run_started").size(), 1u);
     EXPECT_EQ(eventsOfType(store, "run_ended").size(), 2u);
     EXPECT_EQ(readJson(store / "manifest.json"), manifest);
-    // The resumed Run keeps its store's copies of its inputs and writes none.
+    // The resumed Run keeps its Store's copies of its inputs and writes none.
     EXPECT_EQ(copyIdentities(store), copiesBefore);
 
     if (!HasFailure()) fs::remove_all(work);
@@ -146,7 +146,7 @@ namespace {
     }
 }// namespace
 
-// A new Run from a finished Run's last checkpoint: its own store, manifest and seed, iterations from 0, and a starting
+// A new Run from a finished Run's last checkpoint: its own Store, manifest and seed, iterations from 0, and a starting
 // State that is the checkpoint's.
 TEST(CliCheckpoint, StartFromMakesANewRunFromACheckpointsState) {
     const auto work   = makeWork("start-from");
@@ -168,7 +168,7 @@ TEST(CliCheckpoint, StartFromMakesANewRunFromACheckpointsState) {
     EXPECT_NEAR(scalarAt(store, "likelihood", 0), scalarAt(source, "likelihood", 30), 1e-6);
     // The source Run is untouched.
     EXPECT_EQ(readJson(source / "manifest.json"), sourceManifest);
-    // The new Run's store holds its own copies of its inputs.
+    // The new Run's Store holds its own copies of its inputs.
     for (const auto& name : RUN_INPUT_COPIES) {
         ASSERT_TRUE(fs::exists(store / name)) << name;
         EXPECT_EQ(readText(store / name), readText(source / name)) << name;

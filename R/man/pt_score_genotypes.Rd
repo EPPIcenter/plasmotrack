@@ -34,8 +34,10 @@ truth's \code{observed}) of any of the Analysis's Infections, in simulator order
 truth lacks the Locus, scoring errors and names the Locus.
 }
 
-A true Allele that no Infection of the Analysis shows has no number in the input: the model cannot represent it.
-It is counted in \code{unrepresentable} and left out of every other column.
+At a renumbered Locus, a true Allele that no Infection of the Analysis shows has no number in the input: the model
+cannot represent it. It is counted in \code{unrepresentable} and left out of every other column. At a Locus that keeps
+the simulator's numbering every Allele is representable, so such an Allele is scored like any other (a false
+negative unless called).
 }
 \examples{
 \dontrun{

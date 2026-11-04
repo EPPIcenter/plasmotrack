@@ -65,7 +65,7 @@ network_tables <- function(a, floor, graph, runs, call = rlang::caller_env()) {
     child <- rep(map$infection, lengths(map$members))
     parent <- as.character(unlist(map$members))
     o <- order(child, parent, method = "radix")
-    at <- match(paste(child[o], parent[o], sep = "\r"), paste(marginals$child, marginals$parent, sep = "\r"))
+    at <- match(row_key(child[o], parent[o]), row_key(marginals$child, marginals$parent))
     marginals <- marginals[at, ]
   }
   edges <- data.frame(

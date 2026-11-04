@@ -161,7 +161,7 @@ plasmotrackr returns results in one of two forms:
   you collect it.
 - A result averaged or ranked over Draws is eager: a tibble, computed when you call the function.
 
-For example, `pt_edge_draws()` gives each Infection's Edge weight at each Draw. Filter it to one child before you
+For example, `pt_edge_draws()` gives each edge's probability at each Draw (the per-Draw Edge marginal). Filter it to one child before you
 collect it:
 
 ```{r edge-draws}

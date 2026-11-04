@@ -90,8 +90,8 @@ draw_grid <- function(a, runs = NULL, phase = "sampling") {
 #'   source only"), `observed_1`, `observed_1_latent`, `observed_2`, and so on. The classes are those of any Parent
 #'   set with weight in the Runs and Phases read, and every one of them has a row for every Infection at every Draw,
 #'   0 when the Infection has no set of that class.
-#' * `pt_out_degree_draws()`: `infection`, `out_degree`, the sum of the Infection's Edge weights as a parent over every
-#'   child at the Draw. A full grid: every Infection at every Draw, 0 when it is no one's parent.
+#' * `pt_out_degree_draws()`: `infection`, `out_degree`, the sum over every child of the probability, at the Draw, that
+#'   the Infection is its parent (the per-Draw Edge marginals). A full grid: every Infection at every Draw, 0 when it is no one's parent.
 #'
 #' The Draws of a Run are the iterations of its `run_scalars` rows in the Phases read.
 #'

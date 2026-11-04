@@ -988,3 +988,11 @@ TEST_F(RunRecorderTest, AResumedRunKeepsTheParentSetIdsItIsHanded) {
         EXPECT_TRUE(known.contains({sets.column<std::string>("infection")[r], sets.column<std::int64_t>("set_id")[r]}));
     }
 }
+
+// Each kind of Run input has one file name in the Store root; a gzipped input keeps its compression.
+TEST(StoredInputNameTest, EachRunInputKindHasItsFileInTheStoreRoot) {
+    EXPECT_EQ(storedInputName(RunInput::Input, "dir/nodes.json"), "input.json");
+    EXPECT_EQ(storedInputName(RunInput::Input, "dir/nodes.json.gz"), "input.json.gz");
+    EXPECT_EQ(storedInputName(RunInput::SymptomaticIdp, "dir/sym.csv"), "symptomatic_idp.txt");
+    EXPECT_EQ(storedInputName(RunInput::AsymptomaticIdp, "dir/asym.txt.gz"), "asymptomatic_idp.txt");
+}
