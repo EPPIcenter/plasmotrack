@@ -1,6 +1,6 @@
 # plasmotrackr: spec
 
-Status: accepted spec, 2026-11-03. Nothing here is built. Every decision below was settled on the map
+Status: accepted spec, 2026-11-03; built in `R/`. Every decision below was settled on the map
 [Find the way to an R analysis package spec](https://github.com/EPPIcenter/plasmotrack/issues/98); each section links
 the ticket that holds the reasoning.
 
@@ -42,13 +42,18 @@ merged) and [Which derived quantities ship in v1, with which signatures?](https:
   the explicit step from lazy to eager. Nothing is cached: users reuse a lazy table with `dplyr::compute()`.
 - **Naming.**
   - Every function starts with `pt_`.
-  - A lazy table with one row per Draw per key ends in `_draws`.
+  - A lazy table with one row per Draw per key ends in `_draws`. `pt_alleles` is the exception: it is a long view
+    of a Trace column (the `alleles` bitstrings of `latent_genotypes`, one row per Allele present), named for what it
+    expands.
   - A functional (one value per Draw, a mean over Infections) has no suffix.
   - Raw Store tables come only through `pt_table()`, so every other named function is something the package computes.
   - There is one function per functional and no bundle function.
 - **Columns.** `run` is the first column of every table that has it, and `iteration` the second.
 - **Common arguments.**
-  - `runs = NULL` is the only way to narrow Runs.
+  - `runs = NULL` is the only way to narrow Runs, in the functions that narrow them. The out-degree posteriors
+    (`pt_out_degree_dist`, `pt_realized_out_degree`, `pt_sample_networks`) and scoring (`pt_score_*`,
+    `pt_fit_summary`) take no `runs` and pool every Run with Draws; the Block summaries take none either and sum every
+    Run, or give one row per Run with `by_run`.
   - `phase = "sampling"` is taken only by `pt_table()`, the lazy per-Draw tables and the Block summaries
     ([How does plasmotrackr treat replica-exchange, resumed, killed and --start-from Runs?](https://github.com/EPPIcenter/plasmotrack/issues/110)).
     Pooled summaries, scoring and convergence always use sampling Draws.
@@ -100,6 +105,9 @@ pt_close(esw)
     `tempdir()`.
   - The cap bounds each Analysis, not the session, and the docs say so.
   - No shared connection: comparisons across Analyses join small pooled tibbles in R.
+  - Every connection sets `disabled_optimizers = 'common_subplan'`: DuckDB 1.5.6's common-subplan optimizer returned
+    wrong rows when one query left-joins two aggregations of the same joined subquery grouped by different keys (net
+    flow's out- and in-sums).
   - DuckDB through `dbplyr`, never `arrow` or `duckplyr`
     ([Which R engine reads a Run store lazily within a memory cap?](https://github.com/EPPIcenter/plasmotrack/issues/99)).
 - **Reader rule.** Each table is read from a file list built from the `_closed/` markers, never a glob, because a DuckDB
@@ -231,7 +239,7 @@ Draw is exact.
 - **`pt_out_degree_dist(a, infections = NULL, level = 0.95, pmf = FALSE)`** gives one row per Infection: infection,
   estimate, lower, upper, level, var_within, var_between, p_zero and draws. It is Poisson-binomial given a Draw, over
   the Infection's candidate children. With `pmf = TRUE` the output is long: infection, k, probability.
-- **`pt_realized_out_degree(a, by = NULL, level = 0.95)`**: stratum, n, estimate, lower, upper, level, var_within,
+- **`pt_realized_out_degree(a, by = NULL, level = 0.95)`**: stratum (only with `by`), n, estimate, lower, upper, level, var_within,
   var_between, draws, on the mean scale. It counts sources as `pt_mean_out_degree` does, and reads each Run once
   whatever the number of strata.
 - **`pt_sample_networks(a, n)`**: sample, run, iteration, infection, members, has_latent_parent.
@@ -257,7 +265,9 @@ From [How does plasmotrackr define attribution, flows and strata without an epi 
 - `by =` takes one epi column and adds a `stratum` column. Cross-strata come from a combined column the user adds to
   `epi`.
 - Infections with an NA value, or missing from `epi`, form an NA stratum. It is kept in every output, so per-stratum
-  values weighted by `n_S` average back to the overall value.
+  values weighted by `n_S` average back to the overall value. `pt_out_degree_range` is the exception: each recipient
+  contributes its min (or max) over its Credible collection per stratum, and a sum of per-stratum minima is at most
+  the overall minimum (of maxima, at least the overall maximum), so its strata don't average back.
 - **Which functions take `by =`:** `pt_mean_out_degree`, `pt_map_out_degree`, `pt_out_degree_range`,
   `pt_mean_p_latent_parent`, `pt_composition`, `pt_multi_source`, `pt_entropy`, `pt_realized_out_degree`, and the flow
   functions below.
@@ -387,12 +397,14 @@ Ids are strings. Truth is restricted to the Analysis's Infections only when scor
 full and the partial fit of a simulation.
 
 **Allele mapping.**
-- **The rule:** an input's Alleles at a Locus are the simulator's Alleles observed in any of that input's Infections,
-  in simulator order. This held for every renumbered Locus checked: 683 in full inputs and 185 in partial ones.
+- **The rule:** applies only to a renumbered Locus, one where the input has fewer Alleles than the simulator. There
+  the input's Alleles are the simulator's Alleles observed in any of that input's Infections, in simulator order.
+  This held for every renumbered Locus checked: 683 in full inputs and 185 in partial ones.
 - **Check:** scoring errors, naming the Locus, when the mapped count differs from the Locus's `n_alleles`.
-- A Locus whose input kept the simulator's Allele count keeps the simulator's numbering.
-- **Unrepresentable Alleles:** true Alleles that no Infection shows are counted as `unrepresentable` and excluded from
-  genotype accuracy.
+- A Locus whose input kept the simulator's Allele count keeps the simulator's numbering. Every Allele there is
+  representable, so a true Allele no Infection shows is scored like any other (a false negative if not called).
+- **Unrepresentable Alleles:** at a renumbered Locus, true Alleles that no Infection shows are counted as
+  `unrepresentable` and excluded from genotype accuracy.
 
 **True Parent set.** An Infection's true parents among the Analysis's Infections, plus the Latent parent when the
 Infection is a root or any true parent is outside the Analysis. In a `missing_50` fit, a dropped parent counts as the

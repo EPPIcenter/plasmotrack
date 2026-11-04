@@ -172,8 +172,10 @@ rank_scores <- function(score, true) {
 #' * When that count differs from the input's Allele count, the simulator has fewer Alleles than the input, or the
 #'   truth lacks the Locus, scoring errors and names the Locus.
 #'
-#' A true Allele that no Infection of the Analysis shows has no number in the input: the model cannot represent it.
-#' It is counted in `unrepresentable` and left out of every other column.
+#' At a renumbered Locus, a true Allele that no Infection of the Analysis shows has no number in the input: the model
+#' cannot represent it. It is counted in `unrepresentable` and left out of every other column. At a Locus that keeps
+#' the simulator's numbering every Allele is representable, so such an Allele is scored like any other (a false
+#' negative unless called).
 #'
 #' @inheritParams pt_score_edges
 #' @return A tibble with one row per (infection, locus) that has a Latent genotype, sorted by `infection` and
