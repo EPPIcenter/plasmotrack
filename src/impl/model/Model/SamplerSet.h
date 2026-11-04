@@ -99,7 +99,7 @@ namespace transmission_nets::impl::Model {
                                         .adaptationStart = 20,
                                         .adaptationEnd = 200});
             if (!state->null_model_) {
-                scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler3<T, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>>(infection, state->parentSetList[infection_id], state->latentParents[infection_idx_], target, r),
+                scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler3<T, Engine, InfectionEvent, GeneticsImpl, ParentSetImpl, MAX_PARENTS, MAX_COI>>(infection, target->parentSets.at(infection_id), state->latentParents[infection_idx_], target, r),
                                             .id = fmt::format("RandomAllelesBitSetSampler3/latent_genotypes/{}", infection_id)});
                 // Move the infection to another source in one step (its latent parent stands for the Source, via its fixed anchor).
                 scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infection_idx_], state->allowedRelationships->allowedParents(infection), target, r, 1.0, upperBound, isSymptomatic ? state->symptomaticInfectionDurationDist->value() : state->asymptomaticInfectionDurationDist->value(), 0.01, 0.01, RELINK_TRIES),

@@ -100,17 +100,7 @@ TEST(CheckpointTest, RestoredChainsHaveTheSameStateAndLikelihood) {
 
     const auto again = checkpoint::capture(*restored.ensemble, *restored.rng, identity(), position(), {});
     for (size_t replica = 0; replica < 3; ++replica) {
-        const auto& is  = again.replicas[replica].state;
-        const auto& was = saved.replicas[replica].state;
-        EXPECT_EQ(is.latentGenotypes, was.latentGenotypes);
-        EXPECT_EQ(is.alleleFrequencies, was.alleleFrequencies);
-        EXPECT_EQ(is.ordering, was.ordering);
-        EXPECT_EQ(is.infectionDurations, was.infectionDurations);
-        EXPECT_EQ(is.expectedFalsePositives, was.expectedFalsePositives);
-        EXPECT_EQ(is.expectedFalseNegatives, was.expectedFalseNegatives);
-        EXPECT_EQ(is.meanCoi, was.meanCoi);
-        EXPECT_EQ(is.meanStrainsTransmitted, was.meanStrainsTransmitted);
-        EXPECT_EQ(is.parentSetSizeProb, was.parentSetSizeProb);
+        EXPECT_EQ(again.replicas[replica].state, saved.replicas[replica].state) << "replica " << replica;
     }
     for (size_t replica = 0; replica < 3; ++replica) {
         auto& was = *original.ensemble->chains[replica].model;

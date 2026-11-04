@@ -1,6 +1,3 @@
-//
-// Created by Maxwell Murphy on 10/29/21.
-//
 
 #include "State.h"
 #include "core/io/serialize.h"
@@ -19,10 +16,6 @@ namespace transmission_nets::impl::Model {
 
         initPriors();
 
-        // alleleFrequencies = std::make_shared<AlleleFrequencyContainerImpl>();
-        // for (const auto& [locus_label, locus] : this->loci) {
-        //     alleleFrequencies->addLocus(locus);
-        // }
 
         alleleFrequencies = core::io::parseAlleleFrequenciesFromJSON<AlleleFrequencyContainerImpl>(input, loci, MIN_ALLELE_FREQUENCY);
 
@@ -49,9 +42,6 @@ namespace transmission_nets::impl::Model {
             }
         }
 
-//        geometricGenerationProb = std::make_shared<core::parameters::Parameter<double>>(.95);
-//        lossProb                = std::make_shared<core::parameters::Parameter<double>>(.5);
-//        mutationProb            = std::make_shared<core::parameters::Parameter<double>>(.05);
         meanCOI                 = std::make_shared<core::parameters::Parameter<double>>(1.01);
         meanStrainsTransmitted  = std::make_shared<core::parameters::Parameter<double>>(2.00);
         parentSetSizeProb = std::make_shared<core::parameters::Parameter<double>>(.9);
@@ -75,13 +65,39 @@ namespace transmission_nets::impl::Model {
         parentSetSizePriorAlpha = std::make_shared<core::parameters::Parameter<double>>(10);
         parentSetSizePriorBeta = std::make_shared<core::parameters::Parameter<double>>(1);
 
-        /*
-         * Symptomatic vs Asymptomatic Infection Duration
-         * Parameterizes the time between infection and clinical detection
-         */
-//        symptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(10);
-//        symptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(10);
-//        asymptomaticInfectionDurationShape = std::make_shared<core::parameters::Parameter<double>>(1);
-//        asymptomaticInfectionDurationScale = std::make_shared<core::parameters::Parameter<double>>(100);
     }
-}// namespace transmission_nets::impl::ModelNine
+    namespace {
+        // Records the names the enumeration gives, once each.
+        struct Names {
+            std::vector<std::string> scalars;
+            std::vector<std::string> perInfectionQuantities;
+
+            template<typename P>
+            void scalar(const char* name, const P&) { scalars.emplace_back(name); }
+            template<typename P>
+            void perInfection(const char* name, const size_t index, const P&) {
+                if (index == 0) {
+                    perInfectionQuantities.emplace_back(name);
+                }
+            }
+            template<typename L, typename P>
+            void alleleFrequencies(const L&, const P&) {}
+            template<typename L, typename P>
+            void latentGenotype(size_t, const L&, const P&) {}
+            template<typename O>
+            void ordering(const O&) {}
+        };
+    }// namespace
+
+    std::vector<std::string> State::scalarNames() const {
+        Names names;
+        quantities(names);
+        return names.scalars;
+    }
+
+    std::vector<std::string> State::perInfectionNames() const {
+        Names names;
+        quantities(names);
+        return names.perInfectionQuantities;
+    }
+}// namespace transmission_nets::impl::Model
