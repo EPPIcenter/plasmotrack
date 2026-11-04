@@ -41,7 +41,8 @@ this Run's, in log units).
 above, names sorted by their keys within a group.
 \item \code{infections}: one row per Infection, in id (string) order. \code{infection}, \code{spread}, \code{class} (the disagreement
 class above; \code{NA} when not flagged), \code{top_parent} (a list column: per row, a character vector of top parents
-named by Run, \code{"latent"} for the Latent parent), \code{worst_rhat} (the largest \code{rhat} of the quantities the
+named by Run, \code{"latent"} for the Latent parent; an Infection with id \code{"latent"} is an error, since the two
+would be indistinguishable), \code{worst_rhat} (the largest \code{rhat} of the quantities the
 Infection owns: its \code{expected_false_positives}, \code{expected_false_negatives}, \code{infection_duration},
 \code{p_latent_parent} and the edges into it; \code{NA} when all are constant) and \code{flagged}.
 \item \code{pairs}: one row per diagnosed order pair (the \code{order_pair} quantities). \code{i}, \code{j}, \code{p_before} (a list column:

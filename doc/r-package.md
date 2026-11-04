@@ -328,6 +328,8 @@ edges, `p_latent_parent`, and the functionals.
 - *Log-posterior gap*: spread of the log posterior.
 - *Top parent* in a Run: the key with the largest Run mean. Ties go to the smaller id, and an observed parent wins a
   tie against the Latent parent.
+- `top_parent` labels the Latent parent `"latent"`. Any string can be an Infection id, so no label is safe; instead
+  `pt_convergence()` errors when an Infection's id is `"latent"`.
 
 **Disagreement classes.** Each flagged Infection gets the first matching rule, with *t* the spread threshold:
 1. `same_top`: every Run has the same top parent.

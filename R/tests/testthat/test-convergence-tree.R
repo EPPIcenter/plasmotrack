@@ -60,6 +60,13 @@ test_that("top-parent ties go to the smaller id, and an observed parent beats th
   expect_identical(tree_row(conv, "3")$top_parent[[1]], c(a = "2", b = "latent"))
 })
 
+test_that("an Infection id \"latent\" is refused: it would collide with the Latent parent's top_parent key", {
+  x <- pt_read(local_tree_runs(list(`1` = c(latent = 1)), list(`1` = c(L = 1)), infections = c("1", "latent")))
+  on.exit(pt_close(x))
+  expect_error(pt_convergence(x), "latent")
+  expect_error(pt_convergence(x), "Latent parent")
+})
+
 test_that("Infection spread uses zero-filled Edge marginals with the Latent parent as a key", {
   paths <- local_tree_runs(
     # 1: edge 1<-2 has mean 1 in both Runs; only the Latent parent differs (0.25 in a, 1 in b).

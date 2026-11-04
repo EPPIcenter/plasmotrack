@@ -92,7 +92,8 @@ convergence_groups <- c("log_posterior", "global", "expected_false_positives", "
 #'     above, names sorted by their keys within a group.
 #'   * `infections`: one row per Infection, in id (string) order. `infection`, `spread`, `class` (the disagreement
 #'     class above; `NA` when not flagged), `top_parent` (a list column: per row, a character vector of top parents
-#'     named by Run, `"latent"` for the Latent parent), `worst_rhat` (the largest `rhat` of the quantities the
+#'     named by Run, `"latent"` for the Latent parent; an Infection with id `"latent"` is an error, since the two
+#'     would be indistinguishable), `worst_rhat` (the largest `rhat` of the quantities the
 #'     Infection owns: its `expected_false_positives`, `expected_false_negatives`, `infection_duration`,
 #'     `p_latent_parent` and the edges into it; `NA` when all are constant) and `flagged`.
 #'   * `pairs`: one row per diagnosed order pair (the `order_pair` quantities). `i`, `j`, `p_before` (a list column:
@@ -116,6 +117,7 @@ pt_convergence <- function(a, runs = NULL, iterations = NULL, edge_floor = 0.01,
   check_positive(rhat, "rhat")
   if (!is.null(ess)) check_positive(ess, "ess")
   check_fraction(spread, "spread")
+  check_no_latent_id(a)
   ds <- convergence_draw_set(a, runs, iterations)
   if (is.null(ess)) ess <- 100 * length(ds$runs)
 
@@ -421,6 +423,16 @@ diagnose_quantity <- function(m, rhat, ess) {
 
 # The key of the Latent parent among an Infection's parent keys (top_parent values).
 latent_key <- "latent"
+
+# `top_parent` names the Latent parent `latent_key`, so an Infection with that id would read as the Latent parent.
+check_no_latent_id <- function(a, call = rlang::caller_env()) {
+  if (latent_key %in% a$infections$infection) {
+    cli::cli_abort(c(
+      "Infection id {.val {latent_key}} collides with the Latent parent's key in {.field top_parent}.",
+      i = "Rename that Infection in the input so the two can be told apart."
+    ), call = call)
+  }
+}
 
 # Run means of an n x Runs x variables array: a Runs x variables matrix.
 run_means <- function(x) {
