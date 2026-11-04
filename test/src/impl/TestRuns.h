@@ -16,6 +16,9 @@
 #include "impl/model/Model/RunAssembly.h"
 #include "impl/model/Model/RunDriver.h"
 #include "impl/model/Model/RunRecorder.h"
+#include "impl/model/Model/Study.h"
+
+#include "Studies.h"
 
 #include <nlohmann/json.hpp>
 
@@ -38,16 +41,9 @@ namespace transmission_nets::test::runs {
     namespace fs = std::filesystem;
     using Engine = checkpoint::Engine;
 
-    inline nlohmann::json exampleInput() {
-        std::ifstream in(EXAMPLE_INPUT_PATH);
-        return nlohmann::json::parse(in);
-    }
-
-    inline const std::vector<double> IDP(60, 1.0 / 60);
-
-    // The example input with flat IDPs, loaded once.
-    inline const Inputs& inputs() {
-        static const Inputs loaded{.input = exampleInput(), .symptomaticIdp = IDP, .asymptomaticIdp = IDP};
+    // The example input with flat IDPs as a Study, loaded once.
+    inline const Study& study() {
+        static const Study loaded = studies::exampleStudy();
         return loaded;
     }
 
@@ -128,12 +124,12 @@ namespace transmission_nets::test::runs {
 
     // A new Run.
     inline AssembledRun freshRun(MemoryStoreSink& store, const Recipe& recipe, const Reporting& reporting = {}) {
-        return assemble(recipe, inputs(), std::nullopt, std::make_unique<SharedSink>(store), reporting.progress ? *reporting.progress : unread(), PROVENANCE, reporting.clock);
+        return assemble(recipe, study(), std::nullopt, std::make_unique<SharedSink>(store), reporting.progress ? *reporting.progress : unread(), PROVENANCE, reporting.clock);
     }
 
     // The Run whose store is `store` and `dir`, resumed from the latest Checkpoint in `dir`.
     inline AssembledRun resumedRun(MemoryStoreSink& store, const fs::path& dir, const RunPlan& plan, const Reporting& reporting = {}) {
-        return assemble(resumeRecipe(store, dir, plan), inputs(), checkpoint::load(dir / checkpoint::LATEST_FILE), std::make_unique<SharedSink>(store),
+        return assemble(resumeRecipe(store, dir, plan), study(), checkpoint::load(dir / checkpoint::LATEST_FILE), std::make_unique<SharedSink>(store),
                         reporting.progress ? *reporting.progress : unread(), PROVENANCE, reporting.clock);
     }
 
@@ -141,7 +137,7 @@ namespace transmission_nets::test::runs {
     inline AssembledRun startedRun(MemoryStoreSink& store, Recipe recipe, const checkpoint::Checkpoint& saved, const Reporting& reporting = {}) {
         recipe.mode              = Mode::StartFrom;
         recipe.manifest.gradient = std::nullopt;
-        return assemble(recipe, inputs(), saved, std::make_unique<SharedSink>(store), reporting.progress ? *reporting.progress : unread(), PROVENANCE, reporting.clock);
+        return assemble(recipe, study(), saved, std::make_unique<SharedSink>(store), reporting.progress ? *reporting.progress : unread(), PROVENANCE, reporting.clock);
     }
 
     // Never asks the Run to stop.

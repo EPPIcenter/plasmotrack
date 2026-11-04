@@ -3,11 +3,17 @@
 #define TRANSMISSION_NETWORKS_APP_STATE_H
 
 #include "config.h"
-#include "core/io/utils.h"
-#include "core/io/parse_json.h"
+#include "Refusal.h"
+#include "Study.h"
 #include "core/containers/AllowedRelationships.h"
+#include "core/distributions/DiscreteDistribution.h"
 
-#include <nlohmann/json.hpp>
+#include <boost/random.hpp>
+
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 
 namespace transmission_nets::impl::Model {
@@ -15,13 +21,16 @@ namespace transmission_nets::impl::Model {
         using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
         using p_DiscreteDist = std::shared_ptr<core::distributions::DiscreteDistribution>;
 
-        explicit State(const nlohmann::json& input,
-                       const std::vector<core::computation::Probability>& symptomaticIDPDist,
-                       const std::vector<core::computation::Probability>& asymptomaticIDPDist,
-                       const std::shared_ptr<boost::random::mt19937>& rng,
-                       bool null_model = false);
+        // Builds the starting State of `study`: each unobserved Locus's Latent genotype is one random Allele drawn
+        // from `rng`. Throws Refused for a Study whose Infections name a Locus or a parent it doesn't have, or whose
+        // genotypes or frequencies don't fit their Locus.
+        explicit State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, bool null_model = false);
 
         void initPriors();
+
+        // The Infection with `id`, and its position in `infections`. Throw std::out_of_range for an unknown id.
+        [[nodiscard]] std::shared_ptr<InfectionEvent> infection(const std::string& id) const;
+        [[nodiscard]] size_t indexOf(const std::string& id) const;
 
         // Visits every Quantity, in a fixed order: the Run scalars, then each Infection's values, each Locus's Allele
         // frequencies, each Infection's Latent genotype at each of its Loci (Loci in label order), then the Ordering.

@@ -41,7 +41,6 @@ set(CORE_DISTRIBUTIONS_SOURCES
 )
 
 set(CORE_IO_SOURCES
-    core/io/parse_json.h
     core/io/serialize.h
     core/io/utils.cpp
     core/io/utils.h
@@ -97,6 +96,8 @@ set(MODEL_SOURCES
 set(IMPL_SOURCES
     impl/model/Model/State.cpp
     impl/model/Model/State.h
+    impl/model/Model/Study.cpp
+    impl/model/Model/Study.h
     impl/model/Model/Model.cpp
     impl/model/Model/Model.h
     impl/model/Model/config.h

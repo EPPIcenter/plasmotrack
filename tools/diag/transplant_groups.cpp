@@ -8,7 +8,8 @@
 // one at a time (genome; genome and duration; genome, duration and error rates) and lists the TOP largest gains.
 // Every change is undone after it is evaluated.
 
-#include "core/io/parse_json.h"
+#include "impl/model/Model/Study.h"
+#include <nlohmann/json.hpp>
 #include "core/io/utils.h"
 #include "impl/model/Model/Checkpoint.h"
 #include "impl/model/Model/EnsembleCheckpoint.h"
@@ -50,11 +51,12 @@ int main(int argc, char** argv) {
         return 2;
     }
     const int top     = argc > 6 ? std::stoi(argv[6]) : 10;
-    const auto input  = core::io::loadJSON(core::io::decompressGzipFile(argv[1]));
+    const auto input  = nlohmann::json::parse(core::io::decompressGzipFile(argv[1]));
     const auto sIdp   = core::io::loadVectorFromFile<core::computation::Probability>(argv[2]);
     const auto aIdp   = core::io::loadVectorFromFile<core::computation::Probability>(argv[3]);
-    auto target       = checkpoint::restore(checkpoint::load(argv[4]), std::make_shared<checkpoint::Engine>(1), input, sIdp, aIdp, false, 1);
-    auto source       = checkpoint::restore(checkpoint::load(argv[5]), std::make_shared<checkpoint::Engine>(2), input, sIdp, aIdp, false, 1);
+    const auto study   = studyFromJson(input, sIdp, aIdp);
+    auto target       = checkpoint::restore(checkpoint::load(argv[4]), std::make_shared<checkpoint::Engine>(1), study, false, 1);
+    auto source       = checkpoint::restore(checkpoint::load(argv[5]), std::make_shared<checkpoint::Engine>(2), study, false, 1);
     const auto& t     = *target->hotChain().state;
     const auto& s     = *source->hotChain().state;
     auto& model       = *target->hotChain().model;

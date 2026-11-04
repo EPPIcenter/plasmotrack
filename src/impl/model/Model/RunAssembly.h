@@ -15,10 +15,9 @@
 #include "RunDriver.h"
 #include "RunRecipe.h"
 #include "RunRecorder.h"
+#include "Study.h"
 
 #include "core/io/StoreSink.h"
-
-#include <nlohmann/json.hpp>
 
 #include <chrono>
 #include <memory>
@@ -27,13 +26,6 @@
 #include <vector>
 
 namespace transmission_nets::impl::Model {
-    // A Run's inputs, loaded: the nodes input and the two IDP distributions.
-    struct Inputs {
-        nlohmann::json input;
-        std::vector<core::computation::Probability> symptomaticIdp;
-        std::vector<core::computation::Probability> asymptomaticIdp;
-    };
-
     // What only the caller knows about a new Run, for its Run manifest. A resumed Run keeps its stored manifest and
     // takes nothing from this.
     struct Provenance {
@@ -62,10 +54,10 @@ namespace transmission_nets::impl::Model {
         }
     };
 
-    // Assembles the Run `recipe` describes. `saved` is the checkpoint the recipe resumes or starts from, none for a new
-    // Run. `sink` takes the Run's store; the Run's Checkpoints go to the recipe's store directory. `clock` gives the
+    // Assembles the Run `recipe` describes, of `study`. `saved` is the checkpoint the recipe resumes or starts from,
+    // none for a new Run. `sink` takes the Run's store; the Run's Checkpoints go to the recipe's store directory. `clock` gives the
     // manifest's start time and the Run recorder's and Run driver's wall times.
-    AssembledRun assemble(const Recipe& recipe, const Inputs& inputs, const std::optional<checkpoint::Checkpoint>& saved,
+    AssembledRun assemble(const Recipe& recipe, const Study& study, const std::optional<checkpoint::Checkpoint>& saved,
                           std::unique_ptr<core::io::StoreSink> sink, Progress& progress, const Provenance& provenance,
                           RunRecorder::Clock clock = std::chrono::system_clock::now);
 }// namespace transmission_nets::impl::Model
