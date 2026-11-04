@@ -40,7 +40,7 @@ pt_edge_marginals <- function(a, floor = 0, by_run = FALSE, runs = NULL) {
     dplyr::group_by(.data$run, .data$child, .data$parent) |>
     dplyr::summarise(total = sum(.data$prob, na.rm = TRUE), .groups = "drop") |>
     dplyr::collect()
-  draws <- stats::setNames(as.numeric(a$runs$draws), a$runs$run)[runs]
+  draws <- draws_of(a, runs)
 
   edges <- unique(totals[c("child", "parent")])
   edges <- edges[order(edges$child, edges$parent, method = "radix"), ]

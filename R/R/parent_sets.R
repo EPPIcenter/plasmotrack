@@ -212,6 +212,7 @@ pt_co_inclusion <- function(a, infections = NULL, by_run = FALSE, runs = NULL) {
   )
 }
 
+# The Draw count of each Run in `runs`, named by Run: the pooling denominator (Conventions 1 and 3).
 draws_of <- function(a, runs) stats::setNames(as.numeric(a$runs$draws), a$runs$run)[runs]
 
 check_credible_level <- function(level, call = rlang::caller_env()) {
@@ -222,7 +223,7 @@ check_credible_level <- function(level, call = rlang::caller_env()) {
 
 pooled_sets <- function(a, runs, by_run, level) {
   totals <- set_totals(a, runs)
-  draws <- stats::setNames(as.numeric(a$runs$draws), a$runs$run)[runs]
+  draws <- draws_of(a, runs)
 
   # Sum each set's totals within its group: (run,) infection, observed members, has_latent_parent.
   group_run <- if (by_run) totals$run else rep("", nrow(totals))

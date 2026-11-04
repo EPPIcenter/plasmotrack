@@ -60,17 +60,20 @@ pt_coi_draws <- function(a, runs = NULL, phase = "sampling") {
 }
 
 # Count rows of a lazy per-Draw table by `keys` in DuckDB (with `run` first when by_run), collect, and attach the
-# Draw total each count is a fraction of: the Run's Draws, or every selected Run's. Rows sorted by Run (Run-table
+# Draw total each count is a fraction of: the Run's Draws, or every selected Run's. With `count`, the name of a
+# logical column, `n` counts only the rows where it is TRUE (0 for a group with none). Rows sorted by Run (Run-table
 # order) then keys as strings.
-tally_draws <- function(a, rows, keys, by_run, runs) {
+tally_draws <- function(a, rows, keys, by_run, runs, count = NULL) {
   groups <- c(if (by_run) "run", keys)
+  n <- if (is.null(count)) rlang::quo(dplyr::n()) else {
+    rlang::quo(sum(dplyr::if_else(.data[[!!count]], 1, 0), na.rm = TRUE))
+  }
   counts <- rows |>
     dplyr::group_by(dplyr::across(dplyr::all_of(groups))) |>
-    dplyr::summarise(n = dplyr::n(), .groups = "drop") |>
+    dplyr::summarise(n = !!n, .groups = "drop") |>
     dplyr::collect()
   counts$n <- as.numeric(counts$n)
-  draws <- stats::setNames(as.numeric(a$runs$draws), a$runs$run)
-  counts$draws <- if (by_run) unname(draws[counts$run]) else rep(sum(draws[runs]), nrow(counts))
+  counts$draws <- if (by_run) unname(draws_of(a, counts$run)) else rep(sum(draws_of(a, runs)), nrow(counts))
   order_by <- lapply(groups, function(g) if (g == "run") match(counts$run, a$runs$run) else counts[[g]])
   counts[do.call(order, c(unname(order_by), method = "radix")), ]
 }

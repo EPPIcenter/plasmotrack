@@ -82,17 +82,10 @@ pt_order_pairs <- function(a, infections = NULL, by_run = FALSE, runs = NULL) {
   check_flag(by_run)
   infections <- check_infection_subset(a, infections)
   runs <- runs_with_draws(a, runs)
-  groups <- c(if (by_run) "run", "i", "j")
-  counts <- order_pairs_lazy(a, runs, "sampling", infections) |>
-    dplyr::group_by(dplyr::across(dplyr::all_of(groups))) |>
-    dplyr::summarise(n_before = sum(dplyr::if_else(.data$before, 1, 0), na.rm = TRUE), .groups = "drop") |>
-    dplyr::collect()
-  draws <- stats::setNames(as.numeric(a$runs$draws), a$runs$run)
-  counts$draws <- if (by_run) unname(draws[counts$run]) else rep(sum(draws[runs]), nrow(counts))
-  counts$p_before <- as.numeric(counts$n_before) / counts$draws
-  order_by <- lapply(groups, function(g) if (g == "run") match(counts$run, a$runs$run) else counts[[g]])
-  counts <- counts[do.call(order, c(unname(order_by), method = "radix")), ]
-  tibble::as_tibble(counts[c(groups, "p_before", "draws")])
+  counts <- tally_draws(a, order_pairs_lazy(a, runs, "sampling", infections), c("i", "j"), by_run, runs,
+                        count = "before")
+  counts$p_before <- counts$n / counts$draws
+  tibble::as_tibble(counts[c(if (by_run) "run", "i", "j", "p_before", "draws")])
 }
 
 # NULL, or `infections` as unique character ids of the Analysis; unknown ids are an error.
