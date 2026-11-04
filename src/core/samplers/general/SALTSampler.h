@@ -74,6 +74,10 @@ namespace transmission_nets::core::samplers {
 
         void adapt() noexcept override;
 
+        // Fixes the Dirichlet move's fit as it stands (no move if it has none yet): what the sampler proposes no longer
+        // depends on its trajectory. Called when Sampling iterations stop adapting.
+        void freezeFit() noexcept { window_ = fitWindows_.size(); }
+
         double acceptanceRate(int idx) noexcept;
 
         // One proposal scale per Allele frequency.

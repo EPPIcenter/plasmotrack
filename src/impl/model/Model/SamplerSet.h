@@ -41,6 +41,14 @@ namespace transmission_nets::impl::Model {
         // One Sampling iteration: every sampler due this iteration updates, and those inside their adaptation window
         // also adapt, unless `adapt` is false.
         void step(const bool adapt = true) {
+            // The allele-frequency samplers' Dirichlet fits follow their own trajectories; with fewer updates than the
+            // fit windows in burn-in they would still be refitting while sampling. Fix them when adaptation stops.
+            if (not adapt and not fitsFrozen_) {
+                for (auto* salt : saltSamplers_) {
+                    salt->freezeFit();
+                }
+                fitsFrozen_ = true;
+            }
             scheduler_.step(adapt);
         }
 
@@ -72,6 +80,8 @@ namespace transmission_nets::impl::Model {
 
     private:
         core::samplers::Scheduler scheduler_;
+        std::vector<core::samplers::SALTSampler<T, Engine>*> saltSamplers_{};
+        bool fitsFrozen_ = false;
     };
 
     template<typename T, typename Engine>
@@ -177,6 +187,7 @@ namespace transmission_nets::impl::Model {
                     alleleFrequencySampler->enableDirichletMove(ALLELE_FREQUENCY_FIT_WINDOWS, ALLELE_FREQUENCY_DIRICHLET_WIDEN, SALT_UPDATE_FREQUENCY, ALLELE_FREQUENCY_DIRICHLET_EVERY,
                                                                 ALLELE_FREQUENCY_DIRICHLET_BLOCK);
                 }
+                saltSamplers_.push_back(alleleFrequencySampler.get());
                 scheduler_.registerSampler({.sampler = std::move(alleleFrequencySampler),
                                             .id = fmt::format("SALTSampler/allele_frequencies/{}", locus_label),
                                             .adaptationStart = 20,
