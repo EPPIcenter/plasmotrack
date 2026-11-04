@@ -74,6 +74,10 @@ namespace transmission_nets::model::transmission_process {
         // Allows querying the individual parent set likelihoods
         ParentSetDist<InfectionEventImpl> calcParentSetDist();
 
+        // calcParentSetDist()'s log-likelihoods alone, in its order, without building the parent sets. Returns the
+        // term's value, their log-sum.
+        Likelihood parentSetLliks(std::vector<Likelihood>& out);
+
         std::string identifier() override;
 
         // Input parameters
@@ -1350,6 +1354,38 @@ namespace transmission_nets::model::transmission_process {
         }
 
         return dist;
+    }
+
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    Likelihood TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::parentSetLliks(std::vector<Likelihood>& out) {
+        const Likelihood total  = this->value();
+        const auto& current     = cache();
+        const size_t totalNodes = ordering_->candidateParents(child_).size();
+        out.clear();
+        out.push_back(current.lliks[0]);
+        std::array<unsigned int, 2> classes{};
+        auto add = [&](const size_t size) {
+            if (size == 2 and classes[0] > classes[1]) {
+                std::swap(classes[0], classes[1]);
+            }
+            const size_t position = 1 + 2 * combinationIndex(std::span<const unsigned int>(classes.data(), size));
+            out.push_back(current.lliks[position]);
+            out.push_back(current.lliks[position + 1]);
+        };
+        for (unsigned int i = 0; i < totalNodes; ++i) {
+            classes[0] = current.parentClass[i];
+            add(1);
+        }
+        if constexpr (ParentSetMaxCardinality == 2) {
+            for (unsigned int i = 0; i + 1 < totalNodes; ++i) {
+                for (unsigned int j = i + 1; j < totalNodes; ++j) {
+                    classes[0] = current.parentClass[i];
+                    classes[1] = current.parentClass[j];
+                    add(2);
+                }
+            }
+        }
+        return total;
     }
 
 }// namespace transmission_nets::model::transmission_process

@@ -49,6 +49,11 @@ namespace transmission_nets::impl::Model {
             return scheduler_.samplerIds();
         }
 
+        // Every sampler with its update frequency, in update order.
+        [[nodiscard]] const std::vector<core::samplers::ScheduledSampler>& schedule() const noexcept {
+            return scheduler_.samplers();
+        }
+
         // Throws std::out_of_range for an id that isn't registered.
         [[nodiscard]] core::samplers::AbstractSampler& sampler(const std::string& id) const {
             return scheduler_.sampler(id);
@@ -101,10 +106,15 @@ namespace transmission_nets::impl::Model {
                                         .adaptationStart = 20,
                                         .adaptationEnd = 200});
             if (!state->nullModel) {
-                scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler3<T, Engine, InfectionEvent, OrderingImpl, MAX_PARENTS, MAX_COI>>(infection, state->infectionEventOrdering, state->latentParents[infectionIndex], target, r),
+                genetics::ParentSetLliks parentSetLliks = nullptr;
+                if constexpr (requires { target->transmissionProcessList; }) {
+                    parentSetLliks = [term = target->transmissionProcessList[infectionIndex]](std::vector<double>& out) { return term->parentSetLliks(out); };
+                }
+                scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler3<T, Engine, InfectionEvent, OrderingImpl, MAX_PARENTS, MAX_COI>>(infection, state->infectionEventOrdering, state->latentParents[infectionIndex], target, r, 0.01, 0.01, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex], std::move(parentSetLliks), PARENT_SET_PROPOSAL_UNIFORM_SHARE, PARENT_SET_PROPOSAL_LOCI),
                                             .id = fmt::format("RandomAllelesBitSetSampler3/latent_genotypes/{}", infection_id)});
                 // Move the infection to another source in one step (its latent parent stands for the Source, via its fixed anchor).
-                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, 1.0, upperBound, durations, 0.01, 0.01, RELINK_TRIES),
+                // The 0.01 rates apply only if the infection's sampled error counts are absent; those counts replace them.
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, 1.0, upperBound, durations, 0.01, 0.01, RELINK_TRIES, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex]),
                                             .id = fmt::format("ParentRelinkSampler/infection/{}", infection_id)});
                 scheduler_.registerSampler({.sampler = std::make_unique<genetics::StrainCountSampler<T, Engine, InfectionEvent>>(infection, target, r, MAX_COI),
                                             .id = fmt::format("StrainCountSampler/latent_genotypes/{}", infection_id)});
@@ -121,11 +131,15 @@ namespace transmission_nets::impl::Model {
                                             .id = fmt::format("InformedOrderJumpSampler/ordering/{}", infection_id)});
                 for (const auto& [locus_label, locus] : state->loci) {
                     if (infection->latentGenotype().contains(locus)) {
-                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler4<T, Engine, InfectionEvent, LocusImpl>>(infection, state->latentParents[infectionIndex], locus, state->allowedRelationships, target, r, MAX_COI),
-                                                    .id = fmt::format("RandomAllelesBitSetSampler4/latent_genotypes/{}/{}", infection_id, locus_label)});
+                        // Same schedule as the allele swap below. A locus with one observed allele still has a sampler, every
+                        // 10th iteration: dropping it would change the Sampler set and break a Checkpoint. The path walk
+                        // reads this infection's sampled error counts.
+                        const unsigned int observedAlleles = infection->observedGenotype().contains(locus) ? infection->observedGenotype(locus)->value().totalPositiveCount() : 0;
+                        scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler4<T, Engine, InfectionEvent, LocusImpl>>(infection, state->latentParents[infectionIndex], locus, state->allowedRelationships, target, r, MAX_COI, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex]),
+                                                    .id = fmt::format("RandomAllelesBitSetSampler4/latent_genotypes/{}/{}", infection_id, locus_label),
+                                                    .updateFrequency = observedAlleles == 0 ? 1 : 10});
                         // Swaps pay where the observation says little about which allele is present: every Sampling iteration at
                         // loci with no allele observed, every 10th at loci with several, and never at loci with exactly one.
-                        const unsigned int observedAlleles = infection->observedGenotype().contains(locus) ? infection->observedGenotype(locus)->value().totalPositiveCount() : 0;
                         if (observedAlleles != 1) {
                             scheduler_.registerSampler({.sampler = std::make_unique<genetics::AlleleSwapSampler<T, Engine>>(infection->latentGenotype(locus), target, r),
                                                     .id = fmt::format("AlleleSwapSampler/latent_genotypes/{}/{}", infection_id, locus_label),

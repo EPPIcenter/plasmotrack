@@ -24,11 +24,16 @@
 
 namespace transmission_nets::impl::Model {
     // Tries per ParentRelinkSampler update (1: a plain independence move; more: a multiple-try move).
-    constexpr unsigned int RELINK_TRIES = 2;
+    constexpr unsigned int RELINK_TRIES = 1;
     // Partners tried per InformedOrderJumpSampler update (a random subset when an infection has more).
-    constexpr size_t INFORMED_JUMP_MAX_TRIES = 8;
+    constexpr size_t INFORMED_JUMP_MAX_TRIES = 4;
     // Allele-frequency (SALT) updates run every this many Sampling iterations.
-    constexpr int SALT_UPDATE_FREQUENCY = 3;
+    constexpr int SALT_UPDATE_FREQUENCY = 10;
+    // Share of RandomAllelesBitSetSampler3 updates whose parent-set option is uniform; the rest follow the
+    // infection's parent-set posterior. 1 makes every option uniform.
+    constexpr double PARENT_SET_PROPOSAL_UNIFORM_SHARE = 0.1;
+    // Loci RandomAllelesBitSetSampler3 redraws per update, chosen uniformly; 0 redraws every locus.
+    constexpr size_t PARENT_SET_PROPOSAL_LOCI = 0;
 
 
     static constexpr int MAX_COI           = 20;

@@ -6,6 +6,7 @@
 #define TRANSMISSION_NETWORKS_APP_PARENTRELINKSAMPLER_H
 
 #include "core/datatypes/Genotype.h"
+#include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
 #include "core/samplers/genetics/GenomePartition.h"
 #include "core/samplers/genetics/ParentSetGenotypeProposal.h"
@@ -52,7 +53,9 @@ namespace transmission_nets::core::samplers::specialized {
                             std::vector<double> durationShape,
                             double fnRate       = 0.01,
                             double fpRate       = 0.01,
-                            unsigned int tries = 1);
+                            unsigned int tries = 1,
+                            std::shared_ptr<core::parameters::Parameter<double>> expectedFalsePositives = nullptr,
+                            std::shared_ptr<core::parameters::Parameter<double>> expectedFalseNegatives = nullptr);
 
         void update() noexcept override;
 
@@ -71,6 +74,14 @@ namespace transmission_nets::core::samplers::specialized {
         // logProposalDensity() call, which gathers what it needs.
         [[nodiscard]] double logGenomeProb(size_t s) const;
         [[nodiscard]] double logGenomeProbFrom(const InfectionEventImpl& source) const;
+        // Per-allele rates. The fixed fnRate_ and fpRate_ when this sampler was not given the infection's counts.
+        [[nodiscard]] double fpAt(unsigned int nAlleles) const;
+        [[nodiscard]] double fnAt(unsigned int nAlleles) const;
+        // How well the source's alleles cover the infection's observations, per observed locus. Zero when nothing
+        // was observed. Depends on the source and the observations, not on the latent genotype being proposed.
+        [[nodiscard]] double sourceLogWeight(size_t s) const;
+        [[nodiscard]] double sourceLogNormalizer(const std::vector<std::pair<size_t, double>>& sources) const;
+        [[nodiscard]] std::pair<size_t, double> drawSource(const std::vector<std::pair<size_t, double>>& sources);
 
         std::shared_ptr<InfectionEventImpl> infection_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
@@ -83,6 +94,8 @@ namespace transmission_nets::core::samplers::specialized {
         double fnRate_;
         double fpRate_;
         unsigned int tries_;
+        std::shared_ptr<core::parameters::Parameter<double>> expectedFp_;
+        std::shared_ptr<core::parameters::Parameter<double>> expectedFn_;
 
         // One draw of the proposal: a duration and the infection's genotypes by locus, in infection_->loci() order.
         struct Try {
@@ -115,7 +128,9 @@ namespace transmission_nets::core::samplers::specialized {
                                                                            std::vector<double> durationShape,
                                                                            const double fnRate,
                                                                            const double fpRate,
-                                                                           const unsigned int tries)
+                                                                           const unsigned int tries,
+                                                                           std::shared_ptr<core::parameters::Parameter<double>> expectedFalsePositives,
+                                                                           std::shared_ptr<core::parameters::Parameter<double>> expectedFalseNegatives)
         : infection_(std::move(infection)),
           latentParent_(std::move(latentParent)),
           permittedParents_(std::move(permittedParents)),
@@ -126,7 +141,9 @@ namespace transmission_nets::core::samplers::specialized {
           durationShape_(std::move(durationShape)),
           fnRate_(fnRate),
           fpRate_(fpRate),
-          tries_(std::max(1u, tries)) {}
+          tries_(std::max(1u, tries)),
+          expectedFp_(std::move(expectedFalsePositives)),
+          expectedFn_(std::move(expectedFalseNegatives)) {}
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     std::pair<double, double> ParentRelinkSampler<T, Engine, InfectionEventImpl>::window(const size_t s) const {
@@ -165,15 +182,90 @@ namespace transmission_nets::core::samplers::specialized {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
+    double ParentRelinkSampler<T, Engine, InfectionEventImpl>::fpAt(const unsigned int nAlleles) const {
+        if (!expectedFp_ or nAlleles == 0) {
+            return fpRate_;
+        }
+        return std::clamp(expectedFp_->value() / static_cast<double>(nAlleles), 1e-4, 0.49);
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    double ParentRelinkSampler<T, Engine, InfectionEventImpl>::fnAt(const unsigned int nAlleles) const {
+        if (!expectedFn_ or nAlleles == 0) {
+            return fnRate_;
+        }
+        return std::clamp(expectedFn_->value() / static_cast<double>(nAlleles), 1e-4, 0.49);
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    double ParentRelinkSampler<T, Engine, InfectionEventImpl>::sourceLogWeight(const size_t s) const {
+        const auto& from = source(s);
+        int observedLoci = 0;
+        double sum       = 0;
+        for (const auto& locus : infection_->loci()) {
+            if (!infection_->observedGenotype().contains(locus)) {
+                continue;
+            }
+            const auto& observed = infection_->observedGenotype(locus)->value();
+            const auto& parent   = from.latentGenotype(locus)->value();
+            const double covered = Genotype::truePositiveCount(parent, observed);
+            const double missing = Genotype::falsePositiveCount(parent, observed);
+            sum += covered - missing;
+            ++observedLoci;
+        }
+        return observedLoci == 0 ? 0.0 : sum / static_cast<double>(observedLoci);
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    double ParentRelinkSampler<T, Engine, InfectionEventImpl>::sourceLogNormalizer(const std::vector<std::pair<size_t, double>>& sources) const {
+        double maxWeight = -std::numeric_limits<double>::infinity();
+        std::vector<double> weights;
+        weights.reserve(sources.size());
+        for (const auto& [s, mass] : sources) {
+            (void)mass;
+            weights.push_back(sourceLogWeight(s));
+            maxWeight = std::max(maxWeight, weights.back());
+        }
+        return utils::logSumExpKnownMax(weights.begin(), weights.end(), maxWeight);
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    std::pair<size_t, double> ParentRelinkSampler<T, Engine, InfectionEventImpl>::drawSource(const std::vector<std::pair<size_t, double>>& sources) {
+        double maxWeight = -std::numeric_limits<double>::infinity();
+        std::vector<double> weights;
+        weights.reserve(sources.size());
+        for (const auto& [s, mass] : sources) {
+            (void)mass;
+            weights.push_back(sourceLogWeight(s));
+            maxWeight = std::max(maxWeight, weights.back());
+        }
+        double sum = 0;
+        for (const double weight : weights) {
+            sum += std::exp(weight - maxWeight);
+        }
+        double remaining = uniform_(*rng_) * sum;
+        for (size_t i = 0; i < sources.size(); ++i) {
+            remaining -= std::exp(weights[i] - maxWeight);
+            if (remaining <= 0 or i + 1 == sources.size()) {
+                return sources[i];
+            }
+        }
+        return sources.back();
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
     double ParentRelinkSampler<T, Engine, InfectionEventImpl>::logGenomeProbFrom(const InfectionEventImpl& from) const {
         genetics::latentGenotypesAlong(*infection_, from, sourceGenotypes_);
         double total = 0;
-        for (size_t l = 0; l < sourceGenotypes_.size(); ++l) {
+        size_t l     = 0;
+        for (const auto& [locus, genotype] : infection_->latentGenotype()) {
+            (void)genotype;
             const std::array<const Genotype*, 1> parents{&sourceGenotypes_[l]};
-            total += genetics::logLocusProposalProb(parents, 1, genotypes_.latent[l], genotypes_.observed[l], genotypes_.presence[l], fpRate_);
+            total += genetics::logLocusProposalProb(parents, 1, genotypes_.latent[l], genotypes_.observed[l], genotypes_.presence[l], fpAt(locus->totalAlleles()));
             if (total == -std::numeric_limits<double>::infinity()) {
                 break;
             }
+            ++l;
         }
         return total;
     }
@@ -189,6 +281,17 @@ namespace transmission_nets::core::samplers::specialized {
         sourceClasses_.update(permittedParents_);
         classLogProb_.assign(sourceClasses_.numClasses(), std::numeric_limits<double>::quiet_NaN());
         genotypes_.gather(*infection_, fnRate_);
+        if (expectedFn_) {
+            size_t l = 0;
+            for (const auto& [locus, genotype] : infection_->latentGenotype()) {
+                (void)genotype;
+                if (infection_->observedGenotype().contains(locus)) {
+                    genotypes_.presence[l] = fnAt(locus->totalAlleles());
+                }
+                ++l;
+            }
+        }
+        const double logZ = sourceLogNormalizer(sources);
         std::vector<double> terms{};
         terms.reserve(sources.size());
         for (const auto& [s, mass] : sources) {
@@ -196,31 +299,31 @@ namespace transmission_nets::core::samplers::specialized {
             if (duration < first or duration >= second) {
                 continue;
             }
-            terms.push_back(std::log(density / mass) + logGenomeProb(s));
+            terms.push_back(std::log(density / mass) + logGenomeProb(s) + sourceLogWeight(s) - logZ);
         }
         if (terms.empty()) {
             return -std::numeric_limits<double>::infinity();
         }
         const double maxTerm = *std::max_element(terms.begin(), terms.end());
-        return utils::logSumExpKnownMax(terms.begin(), terms.end(), maxTerm) - std::log(static_cast<double>(sources.size()));
+        return utils::logSumExpKnownMax(terms.begin(), terms.end(), maxTerm);
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     void ParentRelinkSampler<T, Engine, InfectionEventImpl>::drawTry(Try& t) {
         const auto sources = feasibleSources();
-        boost::random::uniform_int_distribution<size_t> pickSource(0, sources.size() - 1);
-        const auto [s, mass]       = sources[pickSource(*rng_)];
+        const auto [s, mass]       = drawSource(sources);
         const auto [first, second] = window(s);
         t.duration                 = durationShape_.draw(first, second, mass, *rng_);
         t.genotypes.clear();
         for (const auto& locus : infection_->loci()) {
             const std::array<const Genotype*, 1> parents{&source(s).latentGenotype(locus)->value()};
+            const double fp = fpAt(locus->totalAlleles());
             if (infection_->observedGenotype().contains(locus)) {
-                t.genotypes.push_back(genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnRate_, fpRate_));
+                t.genotypes.push_back(genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnAt(locus->totalAlleles()), fp));
             } else {
                 auto nothingObserved = infection_->latentGenotype(locus)->value();
                 nothingObserved.reset();
-                t.genotypes.push_back(genetics::proposeLocus(parents, 1, nothingObserved, *rng_, genetics::UNOBSERVED_LOCUS_PRESENCE, fpRate_));
+                t.genotypes.push_back(genetics::proposeLocus(parents, 1, nothingObserved, *rng_, genetics::UNOBSERVED_LOCUS_PRESENCE, fp));
             }
         }
     }
@@ -327,8 +430,7 @@ namespace transmission_nets::core::samplers::specialized {
         const double currentLogQ = logProposalDensity();
 
         const auto sources = feasibleSources();
-        boost::random::uniform_int_distribution<size_t> pickSource(0, sources.size() - 1);
-        const auto [s, mass]       = sources[pickSource(*rng_)];
+        const auto [s, mass]       = drawSource(sources);
         const auto [first, second] = window(s);
 
         const double proposed = durationShape_.draw(first, second, mass, *rng_);
@@ -336,13 +438,14 @@ namespace transmission_nets::core::samplers::specialized {
         for (const auto& locus : infection_->loci()) {
             auto genotype = infection_->latentGenotype(locus);
             const std::array<const Genotype*, 1> parents{&source(s).latentGenotype(locus)->value()};
+            const double fp = fpAt(locus->totalAlleles());
             Genotype proposedGenotype;
             if (infection_->observedGenotype().contains(locus)) {
-                proposedGenotype = genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnRate_, fpRate_);
+                proposedGenotype = genetics::proposeLocus(parents, 1, infection_->observedGenotype(locus)->value(), *rng_, fnAt(locus->totalAlleles()), fp);
             } else {
                 auto nothingObserved = genotype->value();
                 nothingObserved.reset();
-                proposedGenotype = genetics::proposeLocus(parents, 1, nothingObserved, *rng_, genetics::UNOBSERVED_LOCUS_PRESENCE, fpRate_);
+                proposedGenotype = genetics::proposeLocus(parents, 1, nothingObserved, *rng_, genetics::UNOBSERVED_LOCUS_PRESENCE, fp);
             }
             if (proposedGenotype != genotype->value()) {
                 proposal.change(*genotype, proposedGenotype);
