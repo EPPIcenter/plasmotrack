@@ -3,6 +3,7 @@
 //
 
 #include "RunAssembly.h"
+#include "impl/model/Model/EnsembleCheckpoint.h"
 
 #include "core/utils/timers.h"
 
@@ -37,10 +38,8 @@ namespace transmission_nets::impl::Model {
             run.ensemble = checkpoint::restore(*saved, run.rng, inputs.input, inputs.symptomaticIdp, inputs.asymptomaticIdp, manifest.nullModel, recipe.cores);
             if (recipe.mode == Mode::StartFrom) {
                 // A new Run's burn-in counts from 0, not from the saved position, so its ladder adapts on the same
-                // iterations as a fresh Run's.
-                auto exchange             = run.ensemble->exchangeState();
-                exchange.burnInIterations = 0;
-                run.ensemble->restoreExchangeState(exchange);
+                // iterations as a fresh Run's, with no barriers pending from the source Run's.
+                run.ensemble->restartBurnIn();
                 // A new Run draws from its own seed, from the saved State on.
                 run.rng->seed(static_cast<std::uint32_t>(manifest.seed));
                 for (auto& chain : run.ensemble->chains) {
@@ -60,7 +59,7 @@ namespace transmission_nets::impl::Model {
 
         run.recorder = std::make_unique<RunRecorder>(*run.ensemble->hotChain().state, run.ensemble->samplerIds(), std::move(sink), recipe.recorder, manifest, clock);
         const checkpoint::Identity identity{.runId = manifest.runId, .inputHash = manifest.inputSha256.at(input_names::INPUT), .engineVersion = manifest.engineVersion};
-        run.driver = std::make_unique<RunDriver>(*run.ensemble, *run.rng, *run.recorder, recipe.store, identity, progress, std::move(clock));
+        run.driver = std::make_unique<RunDriver>(*run.ensemble, *run.recorder, recipe.store, identity, progress, std::move(clock));
 
         run.start = FreshRun{};
         if (resuming) {

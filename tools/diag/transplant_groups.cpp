@@ -11,6 +11,7 @@
 #include "core/io/parse_json.h"
 #include "core/io/utils.h"
 #include "impl/model/Model/Checkpoint.h"
+#include "impl/model/Model/EnsembleCheckpoint.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/State.h"
 #include "impl/model/Model/config.h"

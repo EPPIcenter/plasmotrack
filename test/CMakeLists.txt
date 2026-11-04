@@ -89,6 +89,7 @@ set(TOOLS_TESTS
     src/core/io/ParquetRoundTripTest.cpp
     src/core/io/ParquetStoreSinkTest.cpp
     src/core/io/DurableFileTest.cpp
+    src/core/io/CborFileTest.cpp
 )
 
 set(SOURCE_FILES

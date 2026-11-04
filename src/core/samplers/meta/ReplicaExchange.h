@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_REPLICAEXCHANGE_H
 #define TRANSMISSION_NETWORKS_APP_REPLICAEXCHANGE_H
 
+#include "core/samplers/meta/EnsembleRecord.h"
 #include "core/samplers/meta/EnsembleSnapshot.h"
 #include "spline.h"
 
@@ -16,9 +17,12 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <ranges>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 // OpenMP support - conditionally include if available
@@ -57,8 +61,28 @@ namespace transmission_nets::core::samplers {
               }) {}
 
         // Builds each replica's State with `makeState(replica, chainRng)` before its Model, so a State filled in by
-        // `makeState` (as a checkpoint restore does) has every Model cache computed from it.
+        // `makeState` (as a restore does) has every Model cache computed from it.
         using MakeState = std::function<std::shared_ptr<State>(size_t replica, std::shared_ptr<Engine> chainRng)>;
+
+        // Restores the ensemble `saved` records: each replica's State is built by `restoreState(replica, its saved
+        // state, chainRng)` before its Model, every engine continues where it was, `r` included, and the samplers and
+        // temperature slots are as saved. Throws std::invalid_argument for a record of another ensemble: no replicas,
+        // other samplers, or counts that don't fit.
+        template<typename ChainState, typename RestoreState>
+        ReplicaExchange(const EnsembleRecord<ChainState>& saved, std::shared_ptr<Engine> r, const unsigned int num_cores, RestoreState&& restoreState)
+            : ReplicaExchange(replicaCount(saved), 0.5, std::move(r), num_cores, [&](const size_t replica, std::shared_ptr<Engine> chainRng) {
+                  return restoreState(replica, saved.replicas[replica].state, std::move(chainRng));
+              }) {
+            if (saved.samplerIds != samplerIds()) {
+                throw std::invalid_argument("record has other samplers than this ensemble");
+            }
+            restoreExchangeState(saved.exchange);
+            for (size_t replica = 0; replica < chains.size(); ++replica) {
+                setEngineState(*chains[replica].r, saved.replicas[replica].rng);
+                chains[replica].sampler->restore(saved.replicas[replica].samplers);
+            }
+            setEngineState(*r_, saved.runRng);
+        }
 
         ReplicaExchange(const int numChains, const double gradient, std::shared_ptr<Engine> r, const unsigned int num_cores, const MakeState& makeState) : r_(r), num_cores_(num_cores) {
             swap_counts.resize(numChains - 1);
@@ -208,21 +232,34 @@ namespace transmission_nets::core::samplers {
             return adaptation;
         }
 
-        // Everything replica exchange carries between Sampling iterations, apart from each chain's own State and RNG.
-        struct ExchangeState {
-            std::vector<size_t> replicas;         // replica occupying each temperature slot
-            std::vector<double> temperatures;     // ladder by temperature slot
-            std::vector<double> swapBarriers;     // summed swap rejection per pair since the last adaptation
-            int barrierIterations = 0;            // burn-in iterations those sums cover
-            int burnInIterations  = 0;            // burn-in iterations run, which decide when the ladder next adapts
-            bool secondPairSetNext = false;       // the next iteration tries pairs (1,2),(3,4),... instead of (0,1),...
-            std::vector<SwapCounts> swapCounts;
-
-            bool operator==(const ExchangeState&) const = default;
-        };
+        // Everything replica exchange carries between Sampling iterations, apart from each chain's own State, engine
+        // and Sampler set; see EnsembleRecord.h.
+        using ExchangeState = core::samplers::ExchangeState;
 
         ExchangeState exchangeState() const {
             return {swap_indices, temp_gradient, swap_barriers, num_swaps, burn_in_iterations, even_swap, swap_counts};
+        }
+
+        // Everything the ensemble carries between Sampling iterations, with each chain's State as `captureState(state)`
+        // records it. The restoring constructor takes it back.
+        template<typename CaptureState>
+        auto record(CaptureState&& captureState) const {
+            using ChainState = std::remove_cvref_t<std::invoke_result_t<CaptureState&, const State&>>;
+            EnsembleRecord<ChainState> saved{.samplerIds = samplerIds(), .runRng = engineState(*r_), .exchange = exchangeState()};
+            saved.replicas.reserve(chains.size());
+            for (const auto& chain : chains) {
+                saved.replicas.push_back({.state = captureState(std::as_const(*chain.state)), .rng = engineState(*chain.r), .samplers = chain.sampler->record()});
+            }
+            return saved;
+        }
+
+        // Begins a new burn-in from the current State and ladder, as a Run started from a checkpoint does: burn-in
+        // counts from 0, so the ladder adapts on the same iterations as a fresh Run's, and no swap barriers are
+        // pending, since any the record held were summed under another Run's burn-in.
+        void restartBurnIn() {
+            burn_in_iterations = 0;
+            num_swaps          = 0;
+            std::ranges::fill(swap_barriers, 0.0);
         }
 
         // Puts each replica in its saved temperature slot at the saved temperature. Throws std::invalid_argument for a
@@ -266,6 +303,25 @@ namespace transmission_nets::core::samplers {
         std::vector<Chain> chains{};
 
     private:
+        template<typename ChainState>
+        static int replicaCount(const EnsembleRecord<ChainState>& saved) {
+            if (saved.replicas.empty()) {
+                throw std::invalid_argument("record has no replicas");
+            }
+            return static_cast<int>(saved.replicas.size());
+        }
+
+        static std::string engineState(const Engine& engine) {
+            std::ostringstream out;
+            out << engine;
+            return out.str();
+        }
+
+        static void setEngineState(Engine& engine, const std::string& state) {
+            std::istringstream in(state);
+            in >> engine;
+        }
+
         // Respaces the Tempered chains' temperatures so that swap rejection is even across neighbouring slots. The Hot
         // chain stays at 1 and the lowest temperature stays put. A ladder that comes out NaN is not applied.
         TemperatureAdaptation adaptTemperatures() {

@@ -49,6 +49,8 @@ set(CORE_IO_SOURCES
     core/io/StoreSink.h
     core/io/Table.h
     core/io/DurableFile.cpp
+    core/io/CborFile.cpp
+    core/io/CborFile.h
     core/io/DurableFile.h
     core/io/OutputFailure.cpp
     core/io/OutputFailure.h
@@ -100,6 +102,8 @@ set(IMPL_SOURCES
     impl/model/Model/config.h
     impl/model/Model/Checkpoint.cpp
     impl/model/Model/Checkpoint.h
+    impl/model/Model/EnsembleCheckpoint.cpp
+    impl/model/Model/EnsembleCheckpoint.h
     impl/model/Model/RunPosition.h
     impl/model/Model/ParentSetIds.h
     impl/model/Model/RunRecorder.cpp
