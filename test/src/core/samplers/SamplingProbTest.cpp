@@ -36,17 +36,17 @@ namespace {
     using InfectionEvent = Infection<GeneticsImpl>;
     using Engine         = boost::random::mt19937;
 
-    // calculateSamplingProb only reads the parent set; the target is never used (update() is not called).
-    struct FixedParentSet {
+    // calculateSamplingProb only reads the Candidate parents; the target is never used (update() is not called).
+    struct FixedOrdering {
         ParentSet<InfectionEvent> parents{};
-        [[nodiscard]] ParentSet<InfectionEvent> value() const { return parents; }
+        [[nodiscard]] const ParentSet<InfectionEvent>& candidateParents(const std::shared_ptr<InfectionEvent>&) const { return parents; }
     };
     struct UnusedTarget {
         double value() { return 0; }
         [[nodiscard]] bool isDirty() const { return false; }
     };
 
-    using Sampler3 = genetics::RandomAllelesBitSetSampler3<UnusedTarget, Engine, InfectionEvent, GeneticsImpl, FixedParentSet, MAX_PARENTS, MAX_COI>;
+    using Sampler3 = genetics::RandomAllelesBitSetSampler3<UnusedTarget, Engine, InfectionEvent, GeneticsImpl, FixedOrdering, MAX_PARENTS, MAX_COI>;
     using Relink   = specialized::ParentRelinkSampler<UnusedTarget, Engine, InfectionEvent>;
 
     std::string randomGenotype(Engine& rng, const unsigned int numAlleles) {
@@ -119,7 +119,7 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
 
     // Samplers are kept across rounds, as in a run: each keeps its partition of parents by genome between
     // evaluations, and must notice when their genomes change.
-    std::vector<std::shared_ptr<FixedParentSet>> parentSets;
+    std::vector<std::shared_ptr<FixedOrdering>> parentSets;
     std::vector<std::unique_ptr<Sampler3>> samplers3;
     std::vector<std::unique_ptr<Relink>> relinks;
     for (int c = 0; c < numInfections; ++c) {
@@ -129,7 +129,7 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
                 allowed.push_back(infections[p]);
             }
         }
-        parentSets.push_back(std::make_shared<FixedParentSet>());
+        parentSets.push_back(std::make_shared<FixedOrdering>());
         samplers3.push_back(std::make_unique<Sampler3>(infections[c], parentSets[c], latentParents[c], nullptr, std::make_shared<Engine>(1), 0.1, 0.1));
         relinks.push_back(std::make_unique<Relink>(infections[c], latentParents[c], allowed, nullptr, std::make_shared<Engine>(1), 1.0, 59.0, shape, 0.05, 0.05));
     }
@@ -144,7 +144,7 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
                 allowed.push_back(infections[p]);
             }
         }
-        const double expected3 = transmission_nets::test::reference::proposalProb<GeneticsImpl, MAX_PARENTS>(infections[c], parentSets[c]->value(), latentParents[c], 0.1, 0.1);
+        const double expected3 = transmission_nets::test::reference::proposalProb<GeneticsImpl, MAX_PARENTS>(infections[c], parentSets[c]->parents, latentParents[c], 0.1, 0.1);
         const double expectedR = transmission_nets::test::reference::relinkProposalDensity<GeneticsImpl>(infections[c], latentParents[c], allowed, 1.0, 59.0, shape, 0.05, 0.05);
         const auto label = where + ", child " + std::to_string(c) + ", parents " + std::to_string(parentSets[c]->parents.size());
         expectSame(expected3, samplers3[c]->calculateSamplingProb(), "Sampler3 " + label);

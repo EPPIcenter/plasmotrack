@@ -55,14 +55,11 @@ namespace transmission_nets::impl::Model {
                         ));
                 likelihood.addTarget(observationProcessLikelihoodList.back());
             }
-
-            parentSets[infection->id()] = std::make_shared<ParentSetImpl>(state_->infectionEventOrdering, infection, state_->allowedRelationships->allowedParents(infection));
             i++;
         }
 
             for (unsigned int j = 0; j < state_->infections.size(); ++j) {
                 auto infection = state_->infections[j];
-                auto parentSet = parentSets[infection->id()];
                 // Names the infection's latent parent in its parent-set distribution; its genotypes are summed out.
                 auto latentParent = state_->latentParents[j];
 
@@ -71,7 +68,7 @@ namespace transmission_nets::impl::Model {
                         coiProb,
                         parentSetSizeLikelihood,
                         infection,
-                        parentSet,
+                        state_->infectionEventOrdering,
                         latentParent,
                         state_->null_model_
                         ));

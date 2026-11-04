@@ -43,8 +43,7 @@ namespace transmission_nets::impl::Model {
         std::shared_ptr<TransmissionMemoImpl> transmissionMemo;
         std::shared_ptr<COIProbabilityImpl> coiProb;
 
-        // Transmission Process: each Infection's Parent set over its Candidate parents, by Infection id.
-        std::map<std::string, std::shared_ptr<ParentSetImpl>> parentSets{};
+        // Transmission Process: each Infection's term.
         std::vector<std::shared_ptr<TransmissionProcess>> transmissionProcessList{};
         std::shared_mutex valueMutex;
 
