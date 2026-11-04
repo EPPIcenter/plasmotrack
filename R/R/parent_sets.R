@@ -19,13 +19,14 @@
 #' Draws; a set with no row at a Draw counts 0 there. Weights are used as stored: the Store drops sets below
 #' `parent_set_floor` (default 1e-9) without renormalising, so an Infection's weights may sum to slightly less than 1.
 #'
-#' `rank` orders an Infection's sets by weight, largest first. Ties in weight go to the members list compared element
-#' by element: the observed parents in id string order (`"10" < "2"`), then the Latent parent, which sorts after any
+#' `rank` orders an Infection's sets by weight, largest first. Weights tie when they agree to 12 significant digits
+#' (`signif(weight, 12)`), so sets whose pooled weights differ only by summation order tie. Ties go to the members
+#' list compared element by element: the observed parents in id string order (`"10" < "2"`), then the Latent parent, which sorts after any
 #' observed id; a list that is a prefix of another comes first. So `{10}` precedes `{10, Latent}`, which precedes
 #' `{2}`, which precedes `{Latent}`.
 #'
 #' The Credible collection at `level` is the highest-ranked sets whose cumulative weight reaches `level` (up to
-#' 1e-12), plus every set tied in weight with the last set needed. When an Infection's weights never reach `level`,
+#' 1e-12), plus every set tied in weight (to 12 significant digits) with the last set needed. When an Infection's weights never reach `level`,
 #' every one of its sets is credible.
 #'
 #' `pt_map_graph()` keeps the rank-1 rows: each Infection's MAP Parent set. Together they make the MAP graph.
@@ -283,8 +284,12 @@ canonical_observed <- function(observed) {
   sorted[match(observed, canonical)]
 }
 
-# Rank sets within (run, infection): weight descending, then the members list element by element (observed ids in
-# string order, the Latent parent after every id, a prefix first). Adds members (list), rank, cumulative_mass and
+# Weights compare as equal when they agree to 12 significant digits, so two sets whose summed weights differ only by
+# summation order (last bits) tie. Used for the rank and the credible cutoff alike.
+tie_weight <- function(weight) signif(weight, 12)
+
+# Rank sets within (run, infection): weight (as tie_weight) descending, then the members list element by element
+# (observed ids in string order, the Latent parent after every id, a prefix first). Adds members (list), rank, cumulative_mass and
 # credible, and sorts rows by run (in `run_order`), infection, rank.
 rank_sets <- function(sets, members, run_order, level) {
   ids <- sort(unique(unlist(members)), method = "radix")
@@ -297,7 +302,7 @@ rank_sets <- function(sets, members, run_order, level) {
   columns <- lapply(seq_len(width), function(k) vapply(tokens, function(t) if (k <= length(t)) t[[k]] else 0L, 0L))
   run_index <- match(sets$run, c("", run_order))
   infection_index <- match(sets$infection, sort(unique(sets$infection), method = "radix"))
-  o <- do.call(order, c(list(run_index, infection_index, -sets$weight), columns, list(method = "radix")))
+  o <- do.call(order, c(list(run_index, infection_index, -tie_weight(sets$weight)), columns, list(method = "radix")))
   sets <- sets[o, ]
   sets$members <- members[o]
 
@@ -309,7 +314,8 @@ rank_sets <- function(sets, members, run_order, level) {
     m <- which(cumulative >= level - 1e-12)
     if (length(m) == 0) return(rep(1L, length(i)))
     m <- m[[1]]
-    as.integer(seq_along(i) <= m | sets$weight[i] == sets$weight[i][[m]])
+    tied <- tie_weight(sets$weight[i])
+    as.integer(seq_along(i) <= m | tied == tied[[m]])
   }) == 1L
   sets
 }

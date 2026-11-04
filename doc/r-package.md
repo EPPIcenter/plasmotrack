@@ -481,11 +481,13 @@ These apply everywhere unless a section says otherwise.
 4. **Weights as stored.** The Store drops sets below `parent_set_floor` without renormalising, and so does the package.
    An Infection's weights may sum to slightly less than 1. The docs bound the error.
 5. **Quantiles.** Type 7 everywhere, the COI median included. The out-degree posteriors are the one exception.
-6. **Ranking tie-break.** Ties in weight go to the members list compared element by element. The list is the observed
-   parents in id string order, with the Latent parent last. This applies to the MAP Parent set and `rank`.
+6. **Ranking tie-break.** Weights tie when they agree to 12 significant digits (`signif(w, 12)`): pooled weights
+   are sums, and summation order changes their last bits. Ties in weight go to the members list compared element by
+   element. The list is the observed parents in id string order, with the Latent parent last. This applies to the MAP
+   Parent set and `rank`.
 7. **Credible collection.** The highest-ranked sets whose cumulative weight reaches ≥ level − 1e-12. It also admits
-   every set tied in weight with the last set needed, and holds every set when the weights never reach the level.
-   Default level 0.8.
+   every set tied in weight (as in 6) with the last set needed, and holds every set when the weights never reach the
+   level. Default level 0.8.
 8. **Levels.** Credible collection and size range default to 0.8. Intervals and infection times default to 0.95.
 9. **Ids** are strings and sort as strings (`"10" < "2"`).
 10. **Bitstrings.** Character k of an `alleles` bitstring is Allele k.
