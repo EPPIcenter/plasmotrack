@@ -1,5 +1,6 @@
 //
-// Created by Maxwell Murphy on 1/8/20.
+// Cacheable: a CRTP mixin that gives a computation a dirty flag and announces each time it is marked dirty, so that
+// what depends on it is marked dirty too (see Dependency.h). value() recomputes when dirty and marks clean.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_CACHEABLE_H
@@ -23,9 +24,6 @@ namespace transmission_nets::core::abstract {
 
         void setClean() noexcept;
 
-        template<typename T0>
-        void registerDirtyTarget(T0* target);
-
     protected:
         bool is_dirty_{true};
     };
@@ -44,12 +42,6 @@ namespace transmission_nets::core::abstract {
     template<typename T>
     void Cacheable<T>::setClean() noexcept {
         this->underlying().is_dirty_ = false;
-    }
-
-    template<typename T>
-    template<typename T0>
-    void Cacheable<T>::registerDirtyTarget(T0* target) {
-        this->underlying().add_set_dirty_listener([=, this]() { target->setDirty(); });
     }
 }// namespace transmission_nets::core::abstract
 

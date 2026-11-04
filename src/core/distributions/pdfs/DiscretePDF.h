@@ -7,6 +7,7 @@
 #define TRANSMISSION_NETWORKS_APP_DISCRETEPDF_H
 
 #include "core/computation/PartialLikelihood.h"
+#include "core/abstract/observables/Dependency.h"
 #include "core/distributions/DiscreteDistribution.h"
 #include "core/parameters/Parameter.h"
 
@@ -36,11 +37,7 @@ namespace transmission_nets::core::distributions {
             std::string label
             ) : target_(std::move(target)), probabilities_(std::move(probabilities)), label_(std::move(label))
     {
-        target_->registerCacheableCheckpointTarget(this);
-        target_->add_post_change_listener([=, this]() { this->setDirty(); });
-
-        probabilities_->registerCacheableCheckpointTarget(this);
-        probabilities_->add_post_change_listener([=, this]() { this->setDirty(); });
+        abstract::dependsOn(this, target_, probabilities_);
     }
 
     template<typename T>

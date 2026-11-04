@@ -1,59 +1,23 @@
 //
-// Created by Maxwell Murphy on 1/25/20.
+// Checkpointable: a CRTP mixin that gives a value a stack of saved states, so that a Proposal's change to it can be
+// accepted or restored, and announces each save, accept and restore to whatever depends on it (see Dependency.h).
+// A save is ignored while the same id is on top of the stack, a restore pops only if its id is on top, and an accept
+// clears the stack; Proposal.h gives ids and the order of calls.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_CHECKPOINTABLE_H
 #define TRANSMISSION_NETWORKS_APP_CHECKPOINTABLE_H
 
-#include <utility>
-#include <vector>
-#include <string>
-// #include <source_location>
-#include <functional>
-
-// #include <boost/container/flat_set.hpp>
-// #include <boost/pool/pool_alloc.hpp>
-
 #include "core/abstract/crtp.h"
 #include "core/abstract/observables/Observable.h"
 
+#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
+
 namespace transmission_nets::core::abstract {
 
-//     template <typename T>
-//     consteval auto func_name() {
-//         const auto& loc = std::source_location::current();
-//         return loc.function_name();
-//     }
-//
-//     template <typename T>
-//     consteval std::string_view type_of_impl_() {
-//         constexpr std::string_view functionName = func_name<T>();
-// //        std::string_view sub_type;
-// //
-// //        for (unsigned int ii = 72; ii < functionName.size(); ++ii) {
-// //            if (functionName[ii] == '<') {
-// //                sub_type = functionName.substr(72, ii);
-// //                break;
-// //            }
-// //        }
-//
-// //        return sub_type;
-//         return functionName;
-//     }
-//
-//     template <typename T>
-//     constexpr auto type_of(T&& arg) {
-//         return type_of_impl_<decltype(arg)>();
-//     }
-//
-//     template <typename T>
-//     constexpr auto type_of() {
-//         return type_of_impl_<T>();
-//     }
-//
-    /*
-     * CRTP mixin to enable checkpointing of a value. Allows for the underlying class with field value_ to be saved and restored.
-     */
     template<typename T, typename ValueType>
     class Checkpointable : public crtp<T, Checkpointable, ValueType> {
         using CallbackType            = std::function<void()>;
@@ -69,15 +33,7 @@ namespace transmission_nets::core::abstract {
             int saved_state_id;
         };
 
-        // static constexpr std::string_view checkpointable_type = type_of<T>();
-
     public:
-        template<typename T0>
-        std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> registerCheckpointTarget(T0* target);
-
-        template<typename T0>
-        std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> registerCacheableCheckpointTarget(T0* target);
-
         void addPreSaveHook(const SaveRestoreCallbackType& cb) {
             this->pre_save_hooks_.emplace_back(cb);
         }
@@ -102,6 +58,7 @@ namespace transmission_nets::core::abstract {
             this->post_accept_hooks_.emplace_back(cb);
         }
 
+        // Pushes the current value under `savedStateId`, evaluating it first, unless that id is already on top.
         void saveState(int savedStateId) noexcept;
 
         void restoreState(int savedStateId) noexcept;
@@ -122,49 +79,7 @@ namespace transmission_nets::core::abstract {
 
 
     template<typename T, typename ValueType>
-    template<typename T0>
-    std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType>::registerCheckpointTarget(T0* target) {
-        ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=, this](int savedStateId) {
-            target->saveState(savedStateId);
-        });
-
-        ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=, this]() {
-            target->acceptState();
-        });
-
-        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=, this](int savedStateId) {
-            target->restoreState(savedStateId);
-        });
-
-
-        return std::make_tuple(saveStateEventId, acceptStateEventId, restoreStateEventId);
-    }
-
-
-    template<typename T, typename ValueType>
-    template<typename T0>
-    std::tuple<ListenerId_t, ListenerId_t, ListenerId_t> Checkpointable<T, ValueType>::registerCacheableCheckpointTarget(T0* target) {
-        ListenerId_t saveStateEventId = this->underlying().add_save_state_listener([=](int savedStateId) {
-            target->saveState(savedStateId);
-        });
-
-        ListenerId_t acceptStateEventId = this->underlying().add_accept_state_listener([=]() {
-            target->acceptState();
-            target->setClean();
-        });
-
-        ListenerId_t restoreStateEventId = this->underlying().add_restore_state_listener([=](int savedStateId) {
-            target->restoreState(savedStateId);
-            target->setClean();
-        });
-
-
-        return std::make_tuple(saveStateEventId, acceptStateEventId, restoreStateEventId);
-    }
-
-    template<typename T, typename ValueType>
     void Checkpointable<T, ValueType>::saveState(int savedStateId) noexcept {
-//        fmt::print("Saving state for {} with id {}\n", checkpointable_type, savedStateId);
         if (!isSaved() or saved_states_stack_.back().saved_state_id != savedStateId) {
             for (auto& cb : pre_save_hooks_) {
                 cb(savedStateId);

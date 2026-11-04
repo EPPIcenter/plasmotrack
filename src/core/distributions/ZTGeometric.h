@@ -7,6 +7,7 @@
 
 #include "core/abstract/observables/Cacheable.h"
 #include "core/abstract/observables/Checkpointable.h"
+#include "core/abstract/observables/Dependency.h"
 #include "core/abstract/observables/Observable.h"
 
 #include "core/computation/Computation.h"
@@ -45,8 +46,7 @@ namespace transmission_nets::core::distributions {
     template<int MAX_COUNT>
     ZTGeometric<MAX_COUNT>::ZTGeometric(std::shared_ptr<Parameter<double>> prob) noexcept : prob_(std::move(prob)) {
         this->value_(0) = 0;
-        prob_->registerCacheableCheckpointTarget(this);
-        prob_->add_post_change_listener([=, this]() { this->setDirty(); });
+        abstract::dependsOn(this, prob_);
         this->setDirty();
         this->ZTGeometric::value();
     }
