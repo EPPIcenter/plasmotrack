@@ -1,0 +1,4 @@
+# The golden Stores hold Parquet files; never convert line endings.
+inst/extdata/golden/** -text
+# The input the golden Stores were run on: its SHA-256 is checked byte for byte.
+inst/extdata/example_input.json -text

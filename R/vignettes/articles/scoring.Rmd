@@ -1,0 +1,351 @@
+---
+title: "Score an Analysis against a simulation"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4.5)
+```
+
+On simulated data the true transmission network is known, so you can measure how well plasmotrack recovers it. This
+article shows you how to read a simulation's truth, score the edges, Parent sets, genotypes, and COI of an Analysis
+against it, summarise a fit in one row with `pt_fit_summary()`, and score many simulations at once as a job array on a
+SLURM cluster.
+
+The article uses the example simulation from `pt_example()`: four Runs of the full model, one Run of the null model,
+and the simulator's truth.
+
+## Before you begin
+
+Load the packages and download the example:
+
+```{r setup, message = FALSE}
+library(plasmotrackr)
+library(dplyr)
+library(ggplot2)
+
+ex <- pt_example()
+a <- pt_read(ex$full, input = ex$input)
+```
+
+Before you score a fit, check that its Runs agree. For more information, see
+[Check convergence across Runs](convergence.html).
+
+## Read the truth
+
+`pt_read_truth()` reads the simulator's JSON output, gzipped or not. The result holds the true edges, the
+Infections with their true infection and observation times, the true genotype of every strain, the Loci, and each
+case's observed genotype:
+
+```{r truth}
+truth <- pt_read_truth(ex$truth)
+truth
+truth$edges
+```
+
+The truth covers every case of the simulated outbreak, observed or not. Scoring restricts it to the Infections of
+the Analysis, so one truth serves every fit of a simulation, such as a fit to all cases and a fit to a subsample.
+Ids are strings in both.
+
+In a fit to a subsample, not every case is observed, and the share of true edges with both ends observed bounds what
+any fit can recover. This example fits every case, so the share is 1:
+
+```{r observed-edges}
+observed <- pt_infections(a)$infection
+truth$edges |>
+  summarise(
+    true_edges = n(),
+    both_observed = sum(parent %in% observed & child %in% observed)
+  )
+```
+
+## Score the edges
+
+`pt_score_edges()` ranks every ordered pair of Infections by its pooled Edge marginal and scores the ranking against
+the true edges. It returns one row for directed edges and one for undirected edges, where a pair's score is the sum
+of both directions:
+
+```{r score-edges}
+pt_score_edges(a, truth)
+```
+
+The columns are the following:
+
+- `n_edge_universe`: the number of pairs ranked.
+- `n_true_edges`: the number of true edges among them.
+- `average_precision` and `pr_auc`: two summaries of the precision-recall curve.
+- `top_k_precision`: the precision among the *k* highest-scoring pairs, where *k* is the number of true edges.
+
+A true edge whose parent was never observed cannot be recovered directly. With `edges = "transitive"`, a pair also
+counts as true when a path through unobserved cases only joins the two Infections. This example observes every case, so
+the table matches the one above; the option matters for fits to a subsample:
+
+```{r score-edges-transitive}
+pt_score_edges(a, truth, edges = "transitive")
+```
+
+Set `curve = TRUE` for the precision-recall curve itself:
+
+```{r pr-curve}
+pt_score_edges(a, truth, curve = TRUE) |>
+  ggplot(aes(recall, precision, colour = direction)) +
+  geom_step(direction = "vh") +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1))
+```
+
+## Score the Parent sets
+
+An Infection's true Parent set is its true parents among the observed Infections, plus the Latent parent when the
+Infection is a root of the outbreak or has a true parent that was not observed.
+
+`pt_score_parent_sets()` checks, for each Infection, whether the true Parent set is in its Credible collection: the
+highest-ranked Parent sets that hold 80% of the posterior weight. Coverage near 0.8 with small collections is the
+goal:
+
+```{r score-parent-sets}
+sets <- pt_score_parent_sets(a, truth)
+sets |>
+  summarise(
+    coverage = mean(covered),
+    mean_credible_size = mean(credible_size),
+    mean_top_probability = mean(top_probability)
+  )
+```
+
+`pt_score_map()` checks whether each Infection's MAP Parent set, its single most probable set, is the true one:
+
+```{r score-map}
+map <- pt_score_map(a, truth)
+mean(map$correct)
+```
+
+List the Infections whose MAP Parent set is wrong, with the true set next to it:
+
+```{r score-map-wrong}
+map |>
+  filter(!correct) |>
+  select(infection, members, has_latent_parent, weight, true_members, true_has_latent_parent)
+```
+
+## Score the Functionals
+
+A Functional is one number per Draw, such as the mean out-degree. Compare its posterior interval with the value of
+the same Functional on the true network. The true mean out-degree counts the true edges between observed Infections:
+
+```{r functional-truth}
+true_mean_out_degree <- truth$edges |>
+  filter(parent %in% observed, child %in% observed) |>
+  nrow() / length(observed)
+
+pt_mean_out_degree(a) |>
+  pt_interval() |>
+  pt_plot_interval(truth = true_mean_out_degree)
+```
+
+## Score the genotypes and COI
+
+plasmotrack infers each Infection's genotype at every Locus. `pt_score_genotypes()` calls an Allele present when its
+posterior presence is at least 0.5 and compares the calls with the true Alleles:
+
+```{r score-genotypes}
+genotypes <- pt_score_genotypes(a, truth)
+genotypes |>
+  summarise(
+    exact = mean(exact),
+    true_positives = sum(true_positives),
+    false_positives = sum(false_positives),
+    false_negatives = sum(false_negatives),
+    unrepresentable = sum(unrepresentable)
+  )
+```
+
+A true Allele that no observed Infection shows cannot be inferred; it is counted as `unrepresentable` and left out of
+the other counts.
+
+The posterior presence of each Allele is in `pt_genotype_presence()`. Plot it for a few Infections, with one panel per
+Locus:
+
+```{r genotype-plot, fig.height = 6}
+first_infections <- head(sort(observed), 6)
+pt_genotype_presence(a) |>
+  filter(infection %in% first_infections) |>
+  ggplot(aes(factor(allele), infection, fill = presence)) +
+  geom_tile() +
+  facet_wrap(vars(locus), scales = "free_x") +
+  labs(x = "Allele", y = "Infection")
+```
+
+`pt_score_coi()` compares each Infection's posterior median COI with its true COI, counted as the most distinct true
+genotypes at any observed Locus:
+
+```{r score-coi}
+coi <- pt_score_coi(a, truth)
+count(coi, true_coi, median)
+```
+
+The posterior distribution of each Infection's COI is in `pt_coi()`, as the list column `distribution`. The following
+helper unnests it:
+
+```{r tidy-coi}
+tidy_coi <- function(x) {
+  bind_rows(Map(function(id, d) mutate(d, infection = id), x$infection, x$distribution))
+}
+```
+
+Plot the distribution for the 12 Infections whose COI is least certain, with the true COI as a dashed line:
+
+```{r coi-plot}
+coi_distribution <- tidy_coi(pt_coi(a))
+least_certain <- coi_distribution |>
+  group_by(infection) |>
+  summarise(top_fraction = max(fraction)) |>
+  slice_min(top_fraction, n = 12, with_ties = FALSE)
+
+coi_distribution |>
+  filter(infection %in% least_certain$infection) |>
+  left_join(select(coi, infection, true_coi), by = "infection") |>
+  ggplot(aes(coi, fraction)) +
+  geom_col() +
+  geom_vline(aes(xintercept = true_coi), linetype = "dashed") +
+  facet_wrap(vars(infection)) +
+  labs(x = "COI", y = "Posterior probability")
+```
+
+## Summarise a fit in one row
+
+`pt_fit_summary()` computes every score above, and posterior intervals of the Functionals, as one row with 70
+columns. Rows of different fits bind into one table:
+
+```{r fit-summary}
+full_row <- pt_fit_summary(a, truth)
+full_row |>
+  select(
+    fit_type, n_true_cases, n_observed_cases, true_average_outdegree, estimated_average_outdegree,
+    directed_average_precision, credible_parent_set_coverage_80
+  )
+```
+
+The first 12 columns describe the simulation, such as its size and genetic panel. They are `NA` unless you pass a
+one-row data frame as `factors`.
+
+The null model ignores the observed genotypes and observation times, so its Run samples the prior. It gives the
+baseline that the full model must beat: a score no better than the null model's comes from the prior, not the data. Open it as its own Analysis, because
+`pt_read()` doesn't mix full-model and null-model Runs, and set `fit_type = "null_prior"`:
+
+```{r null-model}
+null <- pt_read(ex$null, input = ex$input)
+null_row <- pt_fit_summary(null, truth, fit_type = "null_prior")
+
+bind_rows(full_row, null_row) |>
+  select(fit_type, estimated_unobserved_source_proportion, directed_average_precision, mean_top_parent_set_probability)
+```
+
+In the fit summary, the Latent parent probability is named the unobserved source proportion.
+
+### Optional: score pairwise relatedness
+
+Pairwise relatedness estimates, such as identity by descent (IBD) between two Infections, rank pairs without a
+direction. `pt_score_pairs()` scores a data frame of `a`, `b`, and `score` against the true edges. The example holds
+no such estimates, so the following code doesn't run here:
+
+```{r score-pairs, eval = FALSE}
+ibd <- read.csv("ibd.csv", colClasses = c(a = "character", b = "character"))
+pt_score_pairs(ibd, truth, infections = observed)
+```
+
+With `fit_type = "dcifer"` and `scores = ibd`, `pt_fit_summary()` puts the same scores in the fit-summary layout.
+
+## Score many simulations as a job array
+
+A simulation study scores hundreds of fits. plasmotrackr has no cohort function: you loop over your directory layout
+and bind the rows. On a SLURM cluster, run the loop as a job array, one simulation per task, with each task writing
+a one-row file.
+
+The following layout is an example. Each simulation has its own directory with its truth, its input, and its Runs:
+
+```
+simulations/
+  sim_001/
+    truth.json.gz
+    input.json.gz
+    full/run1/ ... full/run4/
+    null/run1/
+  sim_002/
+  ...
+```
+
+### Write the scoring script
+
+Save the following script as `score-one.R`. It reads the task index from `SLURM_ARRAY_TASK_ID`, scores the matching
+simulation, and saves its two rows:
+
+```{r score-one, eval = FALSE}
+library(plasmotrackr)
+
+simulations <- sort(list.dirs("simulations", recursive = FALSE))
+task <- as.integer(Sys.getenv("SLURM_ARRAY_TASK_ID"))
+sim <- simulations[task]
+threads <- as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1"))
+
+truth <- pt_read_truth(file.path(sim, "truth.json.gz"))
+input <- file.path(sim, "input.json.gz")
+factors <- data.frame(simulation = basename(sim))
+
+full <- pt_read(file.path(sim, "full"), input = input, threads = threads, memory_limit = "6GB")
+null <- pt_read(file.path(sim, "null"), input = input, threads = threads, memory_limit = "6GB")
+rows <- rbind(
+  pt_fit_summary(full, truth, factors = factors),
+  pt_fit_summary(null, truth, fit_type = "null_prior", factors = factors)
+)
+
+dir.create("scores", showWarnings = FALSE)
+saveRDS(rows, file.path("scores", paste0(basename(sim), ".rds")))
+```
+
+Set `memory_limit` below the memory that you request for each task. DuckDB spills to `temp_directory` beyond it,
+which defaults to R's temporary directory; on a cluster, point it at node-local scratch space if your site has it.
+
+### Submit the array
+
+Save the following batch script as `score.sbatch`. Set `--array` to the number of simulations, and replace the
+module line with however your cluster provides R:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=score
+#SBATCH --array=1-200%50
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=8G
+#SBATCH --time=00:30:00
+#SBATCH --output=logs/score-%A_%a.out
+
+module load r
+Rscript score-one.R
+```
+
+The `%50` suffix runs at most 50 tasks at once. Create the `logs` directory, then submit the script from the
+directory that holds `simulations/`:
+
+```bash
+mkdir -p logs
+sbatch score.sbatch
+```
+
+Install plasmotrackr into your user library before you submit. If compute nodes have no internet access, install it
+on a login node.
+
+### Bind the rows
+
+After every task finishes, bind the rows into one table:
+
+```{r bind-rows, eval = FALSE}
+scores <- list.files("scores", pattern = "\\.rds$", full.names = TRUE) |>
+  lapply(readRDS) |>
+  bind_rows()
+```
+
+A task that failed leaves no file. Compare the files with the simulation directories to find the tasks to rerun.
+
+```{r close, include = FALSE}
+pt_close(a)
+pt_close(null)
+```

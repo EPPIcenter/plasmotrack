@@ -1,5 +1,5 @@
 //
-// The Run recorder writing a store: the one place that decides what of a Run reaches its output and when. One per Run,
+// The Run recorder writing a Store: the one place that decides what of a Run reaches its output and when. One per Run,
 // never one per chain. It writes Trace rows on the `-t` grid in both Phases, Blocks of acceptance and swap counts over
 // every Sampling iteration, and the Run events the caller reports. It groups them into Windows counted in Sampling
 // iterations and hands each Window to a StoreSink to commit. Rows go to the sink as they are written, and a row group
@@ -52,6 +52,17 @@ namespace transmission_nets::impl::Model {
         inline constexpr const char* ASYMPTOMATIC_IDP = "asymptomatic_idp";
     }// namespace input_names
 
+    // The kinds of Run input the Store keeps a copy of. A closed set, so every kind has a file name.
+    enum class RunInput { Input, SymptomaticIdp, AsymptomaticIdp };
+
+    // The file a Run input's copy has in the Store root: `input.json`, or `input.json.gz` for an input whose name
+    // ends in `.gz` (the engine reads such an input as gzip), and `symptomatic_idp.txt` and `asymptomatic_idp.txt`.
+    std::string storedInputName(RunInput kind, const std::filesystem::path& source);
+
+    // Copies each Run input into the Store root byte for byte, durably: temporary name, sync, rename.
+    // A new Run copies its inputs before its first Window; a resumed Run keeps the copies its Store holds.
+    void copyRunInputs(const std::filesystem::path& store, const std::map<RunInput, std::filesystem::path>& inputs);
+
     // The identity and recipe of a Run, as the CLI knows it. The recorder adds its own options when it writes the
     // Run manifest.
     struct RunManifest {
@@ -72,7 +83,7 @@ namespace transmission_nets::impl::Model {
         bool operator==(const RunManifest&) const = default;
     };
 
-    // What the store of a Run records about it: its Run manifest and the recorder's options.
+    // What the Store of a Run records about it: its Run manifest and the recorder's options.
     struct StoredRun {
         RunManifest manifest;
         RecorderOptions options;
@@ -84,7 +95,7 @@ namespace transmission_nets::impl::Model {
     // exceptions for JSON that lacks a field.
     StoredRun storedRunFromJson(const nlohmann::json& j);
 
-    // The Run the store at `store` holds, or none if it holds no Run manifest. Throws Refused for a Run manifest it
+    // The Run the Store at `store` holds, or none if it holds no Run manifest. Throws Refused for a Run manifest it
     // can't read.
     std::optional<StoredRun> readStoredRun(const std::filesystem::path& store);
 
@@ -181,7 +192,7 @@ namespace transmission_nets::impl::Model {
         void recordInterrupt(const std::string& signal, Interrupt which);
 
         // The Run is over, completed or after an interrupt: commits the in-flight Window. A resumed Run that recorded
-        // no Sampling iteration commits nothing, so the store stays as its checkpoint left it. Does nothing once a
+        // no Sampling iteration commits nothing, so the Store stays as its checkpoint left it. Does nothing once a
         // second interrupt has ended the Run.
         void recordEnd();
 

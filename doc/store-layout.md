@@ -1,7 +1,7 @@
 # Run store layout
 
 A Run writes its output to one directory, the store: Parquet tables committed one Window at a time, a Run manifest,
-lookup tables, and checkpoints. This page describes what the engine writes, so that a Run can be read without reading
+lookup tables, copies of the Run's input and IDP files, and checkpoints. This page describes what the engine writes, so that a Run can be read without reading
 the C++. `test/data/golden/single-chain` and `test/data/golden/replica-exchange` are small, real stores to try it on.
 
 The writer is `src/impl/model/Model/RunRecorder.cpp` (which rows exist and when) and
@@ -25,6 +25,9 @@ page needs fixing.
 ```
 <run>/
 ├── manifest.json                     Run manifest, written once at Run start
+├── input.json                        the Run's input, copied at Run start (input.json.gz if it was gzipped)
+├── symptomatic_idp.txt               the symptomatic IDP file, copied at Run start
+├── asymptomatic_idp.txt              the asymptomatic IDP file, copied at Run start
 ├── structure/
 │   ├── loci.parquet                  Allele positions per Locus
 │   ├── infections.parquet            each Infection's Latent parent and symptomatic flag
@@ -290,6 +293,24 @@ Written once at Run start. A resumed Run keeps its manifest, and its `run_resume
 | `parent_set_floor` | `--parent-set-floor` |
 | `started_from` | Only for `--start-from`: `run_id` and `engine_version` of the Run the checkpoint came from, and `temperatures`, the checkpoint's ladder by temperature slot, which the new Run starts with |
 
+## Run inputs
+
+A Run copies its input files into the store root at Run start, before the first Window, so a reader has the
+Infections' observation times, allowed parents and observed genotypes without the original input file:
+
+| File | Copy of |
+|---|---|
+| `input.json` | The input (the CLI's first argument). An input whose name ends in `.gz` is copied, still gzipped, as `input.json.gz` instead |
+| `symptomatic_idp.txt` | `--symptomatic-idp` |
+| `asymptomatic_idp.txt` | `--asymptomatic-idp` |
+
+- Each copy holds the source file's bytes unchanged, so its SHA-256 is the manifest's `input_sha256` entry: `input`,
+  `symptomatic_idp` and `asymptomatic_idp`.
+- Each is written like the manifest: under a temporary name, synced, renamed into place, and its directory synced.
+- `--resume` keeps the store's copies and writes none; it refuses inputs whose hashes differ from the manifest's.
+  `--start-from` copies its own inputs into its new store.
+- A store written before the engine made these copies has none. Its manifest's hashes still identify the inputs.
+
 ## Checkpoints and the two CLI options
 
 `checkpoint.cbor` is written after every Window's marker. It holds the State at the Window's last Sampling iteration,
@@ -317,6 +338,7 @@ Model caches are not saved; they are rebuilt from the State.
 **`--resume <run>`** continues the same Run in its own store. Give the same input and IDPs and no output directory.
 
 - Before continuing, it deletes every Window newer than `checkpoint.cbor`, markers first, and any in-flight file.
+- It keeps the store's copies of the Run inputs and writes none.
 - It refuses a different input, IDP, engine version, `-n`, `-t`, `--window`, `-b`, `-g`, `--parent-set-floor`,
   `--seed` or `--null-model`. Options left out take the Run's values.
 - `-s` may grow, which extends a finished Run. It may not shrink.
@@ -329,6 +351,7 @@ Model caches are not saved; they are rebuilt from the State.
 adaptation state. The checkpoint may be `checkpoint-burn-in.cbor` or `checkpoint.cbor` of any Run.
 
 - It needs the same input and the same chain count. `-n` defaults to the checkpoint's.
+- Its store gets its own manifest and its own copies of the input and IDP files it was given.
 - The engine version may differ; it is recorded in `started_from`.
 - The temperature ladder is the checkpoint's, recorded in `started_from`; `-g` is ignored, and the manifest has no
   `gradient`. Resuming such a Run refuses `-g`.

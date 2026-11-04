@@ -1,13 +1,15 @@
 # plasmotrackr: spec
 
-Status: accepted spec, 2026-11-03. Nothing here is built. Every decision below was settled on the map
+Status: accepted spec, 2026-11-03; built in `R/`. Every decision below was settled on the map
 [Find the way to an R analysis package spec](https://github.com/EPPIcenter/plasmotrack/issues/98); each section links
 the ticket that holds the reasoning.
 
 `plasmotrackr` is an R package that reads plasmotrack Run stores (`doc/store-layout.md`), checks convergence across
 Runs, and hands users tidy data to analyze however they like. It is native R: it reads the Parquet Stores itself
-through DuckDB and computes every quantity from the raw tables. It needs no Python, never reads `derived/`, and
-writes nothing into a Store.
+through DuckDB and computes every quantity from the raw tables. The Infections' observation times and candidate
+parents come from the input JSON. New Stores embed it (`input.json` or `input.json.gz`) and the IDPs
+(`doc/store-layout.md`, "Run inputs"); old Stores don't. It needs no Python, never reads `derived/`, and writes
+nothing into a Store.
 
 ## Destination
 
@@ -40,13 +42,18 @@ merged) and [Which derived quantities ship in v1, with which signatures?](https:
   the explicit step from lazy to eager. Nothing is cached: users reuse a lazy table with `dplyr::compute()`.
 - **Naming.**
   - Every function starts with `pt_`.
-  - A lazy table with one row per Draw per key ends in `_draws`.
+  - A lazy table with one row per Draw per key ends in `_draws`. `pt_alleles` is the exception: it is a long view
+    of a Trace column (the `alleles` bitstrings of `latent_genotypes`, one row per Allele present), named for what it
+    expands.
   - A functional (one value per Draw, a mean over Infections) has no suffix.
   - Raw Store tables come only through `pt_table()`, so every other named function is something the package computes.
   - There is one function per functional and no bundle function.
 - **Columns.** `run` is the first column of every table that has it, and `iteration` the second.
 - **Common arguments.**
-  - `runs = NULL` is the only way to narrow Runs.
+  - `runs = NULL` is the only way to narrow Runs, in the functions that narrow them. The out-degree posteriors
+    (`pt_out_degree_dist`, `pt_realized_out_degree`, `pt_sample_networks`) and scoring (`pt_score_*`,
+    `pt_fit_summary`) take no `runs` and pool every Run with Draws; the Block summaries take none either and sum every
+    Run, or give one row per Run with `by_run`.
   - `phase = "sampling"` is taken only by `pt_table()`, the lazy per-Draw tables and the Block summaries
     ([How does plasmotrackr treat replica-exchange, resumed, killed and --start-from Runs?](https://github.com/EPPIcenter/plasmotrack/issues/110)).
     Pooled summaries, scoring and convergence always use sampling Draws.
@@ -62,11 +69,12 @@ directory layout.
 ```r
 esw <- pt_read("~/runs/eswatini-prod", epi = epi)        # finds the Run subdirectories
 esw <- pt_read(c(a = "run1", b = "run2"), epi = epi)     # names become Run labels
+esw <- pt_read("~/runs/eswatini-prod", input = "eswatini.json.gz")  # the input JSON, when pt_read() can't find it
 pt_close(esw)
 ```
 
-- **`pt_read(paths, epi = NULL, memory_limit =, temp_directory =, threads =)`** takes Run directories, or one parent
-  directory whose Run subdirectories it finds. `epi` is a data frame keyed by Infection id.
+- **`pt_read(paths, epi = NULL, input = NULL, memory_limit =, temp_directory =, threads =)`** takes Run directories,
+  or one parent directory whose Run subdirectories it finds. `epi` is a data frame keyed by Infection id.
   - It reads only the Window markers, the manifests, `structure/`, events and the Draw count per Run. It reads no
     Traces.
   - It checks that the tables and columns the package needs are present, and errors naming what is missing. There is
@@ -74,9 +82,22 @@ pt_close(esw)
   - It errors when Runs differ in `input_sha256` or `null_model`. Differences in `thin`, `burn_in`, `samples`, `chains`
     or engine version are allowed.
   - It warns when Draw counts differ, when a Run is not finished, and when a Run has `non_finite` > 0.
-  - It prints one line per Run, plus the epi match count and the engine settings.
-- **The object** is an S3 `pt_analysis` list. It holds the DuckDB connection, the Run table, the Infections, the Loci
-  and epi.
+  - **The input JSON** holds what the Store doesn't: observation times and each Infection's `allowed_parents`
+    ([#139](https://github.com/EPPIcenter/plasmotrack/issues/139)). `pt_read()` looks for it in this order, gzipped
+    or not:
+    1. `input =`. Its SHA-256 must equal every Run manifest's `input_sha256.input`; a mismatch errors.
+    2. The first Run's own copy, `input.json` or `input.json.gz` in the Store root, which newer engines write
+       ([#140](https://github.com/EPPIcenter/plasmotrack/issues/140)).
+    3. The input path in the first Run's manifest `cli_arguments` (`-i`, `--input` or the first positional). A
+       relative path is resolved from the directory the engine was started in, when the Run directory's path ends
+       with the recorded output directory, then from R's working directory.
+
+    Steps 2 and 3 use a file only if it exists and its hash matches. When none is found, observation times are NA,
+    `pt_candidates()` errors, and `pt_read()` gives one message listing what it tried and how to supply the input.
+  - It prints one line per Run, plus the epi match count, the input's path (or that it wasn't found) and the engine
+    settings.
+- **The object** is an S3 `pt_analysis` list. It holds the DuckDB connection, the Run table, the Infections, the Loci,
+  epi, and the input's path and candidate pairs.
 - **Engine.** One DuckDB connection per Analysis, opened with `duckdb(shared_home = FALSE)` and closed by `pt_close()`
   or garbage collection.
   - Memory cap, spill directory and threads are R options (`plasmotrackr.memory_limit`,
@@ -84,6 +105,9 @@ pt_close(esw)
     `tempdir()`.
   - The cap bounds each Analysis, not the session, and the docs say so.
   - No shared connection: comparisons across Analyses join small pooled tibbles in R.
+  - Every connection sets `disabled_optimizers = 'common_subplan'`: DuckDB 1.5.6's common-subplan optimizer returned
+    wrong rows when one query left-joins two aggregations of the same joined subquery grouped by different keys (net
+    flow's out- and in-sums).
   - DuckDB through `dbplyr`, never `arrow` or `duckplyr`
     ([Which R engine reads a Run store lazily within a memory cap?](https://github.com/EPPIcenter/plasmotrack/issues/99)).
 - **Reader rule.** Each table is read from a file list built from the `_closed/` markers, never a glob, because a DuckDB
@@ -98,8 +122,10 @@ pt_close(esw)
   - thin, burn_in
   - sampling_seconds and iterations_per_second, from sampling-Window `window_closed` events
   - non_finite: the count of `non_finite_value` events
-- **`pt_infections(a)`** returns infection, observation_time, symptomatic and latent_parent. **`pt_loci(a)`** returns
-  locus and n_alleles.
+- **`pt_infections(a)`** returns infection, observation_time, symptomatic and latent_parent. observation_time is a
+  double from the input JSON, NA when the input wasn't found. **`pt_loci(a)`** returns locus and n_alleles.
+- **`pt_candidates(a)`** returns the candidate pairs, parent and child, from the input's `allowed_parents`, sorted by
+  child then parent. It errors when `pt_read()` found no input.
 
 **Runs that aren't one uninterrupted chain** (resolved in the edge-cases ticket above):
 - **Replica exchange:** Draws are Hot-chain rows only. Tempered chains are reachable only through
@@ -213,7 +239,7 @@ Draw is exact.
 - **`pt_out_degree_dist(a, infections = NULL, level = 0.95, pmf = FALSE)`** gives one row per Infection: infection,
   estimate, lower, upper, level, var_within, var_between, p_zero and draws. It is Poisson-binomial given a Draw, over
   the Infection's candidate children. With `pmf = TRUE` the output is long: infection, k, probability.
-- **`pt_realized_out_degree(a, by = NULL, level = 0.95)`**: stratum, n, estimate, lower, upper, level, var_within,
+- **`pt_realized_out_degree(a, by = NULL, level = 0.95)`**: stratum (only with `by`), n, estimate, lower, upper, level, var_within,
   var_between, draws, on the mean scale. It counts sources as `pt_mean_out_degree` does, and reads each Run once
   whatever the number of strata.
 - **`pt_sample_networks(a, n)`**: sample, run, iteration, infection, members, has_latent_parent.
@@ -239,7 +265,9 @@ From [How does plasmotrackr define attribution, flows and strata without an epi 
 - `by =` takes one epi column and adds a `stratum` column. Cross-strata come from a combined column the user adds to
   `epi`.
 - Infections with an NA value, or missing from `epi`, form an NA stratum. It is kept in every output, so per-stratum
-  values weighted by `n_S` average back to the overall value.
+  values weighted by `n_S` average back to the overall value. `pt_out_degree_range` is the exception: each recipient
+  contributes its min (or max) over its Credible collection per stratum, and a sum of per-stratum minima is at most
+  the overall minimum (of maxima, at least the overall maximum), so its strata don't average back.
 - **Which functions take `by =`:** `pt_mean_out_degree`, `pt_map_out_degree`, `pt_out_degree_range`,
   `pt_mean_p_latent_parent`, `pt_composition`, `pt_multi_source`, `pt_entropy`, `pt_realized_out_degree`, and the flow
   functions below.
@@ -252,11 +280,12 @@ Flow functions, all lazy and per Draw:
   - Per recipient stratum, its Infections' attributed parent mass (expected observed parents plus Latent parent
     probability) is split by source stratum and normalised within the recipient at each Draw.
   - The Latent parent row has `latent = TRUE` and `source = NA`.
-- **`pt_enrichment(a, by, candidates)`**: source, recipient, enrichment.
-  - Enrichment is the cell's share of edge mass over its share of candidate pairs, and NA where the cell has no
-    candidate pair.
-  - `candidates` is a `parent, child` data frame. **`pt_read_candidates(input_json)`** reads the input's
-    `allowed_parents`, which the Store doesn't hold.
+- **`pt_enrichment(a, by, candidates = pt_candidates(a))`**: source, recipient, enrichment.
+  - Enrichment is the cell's share of edge mass over its share of candidate pairs. It is NA where the cell has no
+    candidate pair and at a Draw with no observed edge mass; filter with `dplyr::filter(!is.na(enrichment))` before
+    `pt_interval()`, which errors on NA and names the keys that hold it.
+  - `candidates` is a `parent, child` data frame. It defaults to `pt_candidates(a)`, the input's `allowed_parents`,
+    from the Store's embedded copy of the input or, for old Stores, the input file.
 - **`pt_net_flow(a, by)`**: stratum, net_flow: expected out-edges minus in-edges, counting only edges between different
   strata.
 - **`pt_reassign_long_lags(a, max_lag, by = NULL)`**: mean_out_degree and mean_p_latent_parent after every edge with
@@ -310,6 +339,8 @@ edges, `p_latent_parent`, and the functionals.
 - *Log-posterior gap*: spread of the log posterior.
 - *Top parent* in a Run: the key with the largest Run mean. Ties go to the smaller id, and an observed parent wins a
   tie against the Latent parent.
+- `top_parent` labels the Latent parent `"latent"`. Any string can be an Infection id, so no label is safe; instead
+  `pt_convergence()` errors when an Infection's id is `"latent"`.
 
 **Disagreement classes.** Each flagged Infection gets the first matching rule, with *t* the spread threshold:
 1. `same_top`: every Run has the same top parent.
@@ -360,16 +391,20 @@ unless stated here.
 - `infections`: infection, infection_time, observation_time, duration, symptomatic
 - `genotypes`: infection, strain, locus, allele, long, in simulator numbering
 - `loci`
+- `observed`: infection, locus, allele, each case's observed genotype in simulator numbering (for the Allele mapping)
 
 Ids are strings. Truth is restricted to the Analysis's Infections only when scoring, so one `pt_truth` serves both the
 full and the partial fit of a simulation.
 
 **Allele mapping.**
-- **The rule:** an input's Alleles at a Locus are the simulator's Alleles observed in any of that input's Infections,
-  in simulator order. This held for every renumbered Locus checked: 683 in full inputs and 185 in partial ones.
+- **The rule:** applies only to a renumbered Locus, one where the input has fewer Alleles than the simulator. There
+  the input's Alleles are the simulator's Alleles observed in any of that input's Infections, in simulator order.
+  This held for every renumbered Locus checked: 683 in full inputs and 185 in partial ones.
 - **Check:** scoring errors, naming the Locus, when the mapped count differs from the Locus's `n_alleles`.
-- **Unrepresentable Alleles:** true Alleles that no Infection shows are counted as `unrepresentable` and excluded from
-  genotype accuracy.
+- A Locus whose input kept the simulator's Allele count keeps the simulator's numbering. Every Allele there is
+  representable, so a true Allele no Infection shows is scored like any other (a false negative if not called).
+- **Unrepresentable Alleles:** at a renumbered Locus, true Alleles that no Infection shows are counted as
+  `unrepresentable` and excluded from genotype accuracy.
 
 **True Parent set.** An Infection's true parents among the Analysis's Infections, plus the Latent parent when the
 Infection is a root or any true parent is outside the Analysis. In a `missing_50` fit, a dropped parent counts as the
@@ -387,8 +422,8 @@ Latent parent. Comparison uses observed members plus `has_latent_parent`.
     it returns the PR curve instead: direction, threshold, recall, precision.
 - **`pt_score_parent_sets(a, truth, level = 0.8)`**: one row per Infection: infection, credible_size, covered,
   top_probability. The fit summary's credible size, coverage and top-probability columns are its means and median.
-- **`pt_score_map(a, truth)`**: per Infection, whether the MAP Parent set equals the true Parent set, plus the share
-  that do.
+- **`pt_score_map(a, truth)`**: per Infection, whether the MAP Parent set equals the true Parent set (`correct`); the
+  share that do is `mean(correct)`.
 - **`pt_score_genotypes(a, truth)`**: per (infection, locus), true Alleles against posterior presence called at 0.5,
   plus the unrepresentable count.
 - **`pt_score_coi(a, truth)`**: posterior COI median against the identifiable true COI, meaning the most distinct true
@@ -397,13 +432,16 @@ Latent parent. Comparison uses observed members plus `has_latent_parent`.
   - Each unordered pair keeps its largest score, and ids outside `infections` are ignored.
   - It returns the directed ranking columns (each pair scores the same both ways) and the undirected ones.
 
-**Fit summary.** `pt_fit_summary(a, truth, fit_type = "posterior", missingness = "full", factors = NULL)` returns one
-row with the 70 columns of `simulation_fit_summary.rds`, names unchanged, so the existing table and figure scripts read
-it as is.
-- `factors` is a one-row data frame bound in front of the other columns.
-- Parsing the thesis directory layout into factors is a script under `tools/`, not part of the package.
+**Fit summary.** `pt_fit_summary(a, truth, fit_type = "posterior", missingness = "full", factors = NULL, scores =
+NULL)` returns one row with the 70 columns of `simulation_fit_summary.rds`, names unchanged, so the existing table and
+figure scripts read it as is. The committed `fit-summary-columns.csv` holds the layout.
+- `factors` is a one-row data frame bound in front of the other columns. With `NULL`, the 12 thesis factor columns are
+  `NA`. Its `missingness_condition` and `fit_type` columns stand in for those arguments when they are not given.
+- Parsing the thesis directory layout into the 14 factor columns is `tools/plasmotrackr/thesis-factors.R`, not part of
+  the package.
 - The null model is its own row: `pt_fit_summary()` on the null Analysis with `fit_type = "null_prior"`.
-- With `fit_type = "dcifer"`, the `pt_score_pairs()` columns fill the layout with NA functionals.
+- With `fit_type = "dcifer"`, the `pt_score_pairs()` columns of `scores` over the Analysis's Infections fill the layout
+  with NA functionals.
 - The functional columns are built from the functions above. The observed-only and mixed composition columns are
   rollups of `pt_composition`, and `mean_no_parent_probability` is always 0.
 - There is no cohort function: users `bind_rows` the per-fit rows.
@@ -458,11 +496,13 @@ These apply everywhere unless a section says otherwise.
 4. **Weights as stored.** The Store drops sets below `parent_set_floor` without renormalising, and so does the package.
    An Infection's weights may sum to slightly less than 1. The docs bound the error.
 5. **Quantiles.** Type 7 everywhere, the COI median included. The out-degree posteriors are the one exception.
-6. **Ranking tie-break.** Ties in weight go to the members list compared element by element. The list is the observed
-   parents in id string order, with the Latent parent last. This applies to the MAP Parent set and `rank`.
+6. **Ranking tie-break.** Weights tie when they agree to 12 significant digits (`signif(w, 12)`): pooled weights
+   are sums, and summation order changes their last bits. Ties in weight go to the members list compared element by
+   element. The list is the observed parents in id string order, with the Latent parent last. This applies to the MAP
+   Parent set and `rank`.
 7. **Credible collection.** The highest-ranked sets whose cumulative weight reaches ≥ level − 1e-12. It also admits
-   every set tied in weight with the last set needed, and holds every set when the weights never reach the level.
-   Default level 0.8.
+   every set tied in weight (as in 6) with the last set needed, and holds every set when the weights never reach the
+   level. Default level 0.8.
 8. **Levels.** Credible collection and size range default to 0.8. Intervals and infection times default to 0.95.
 9. **Ids** are strings and sort as strings (`"10" < "2"`).
 10. **Bitstrings.** Character k of an `alleles` bitstring is Allele k.
@@ -533,9 +573,9 @@ site builds, so `R CMD check` and installs never download anything. The vignette
 - event payloads read with `jsonlite`
 - low acceptance by sampler type
 
-**Example data.** **`pt_example()`** downloads a GitHub release asset of about 16–20 MB into
+**Example data.** **`pt_example()`** downloads a GitHub release asset of about 23 MB into
 `tools::R_user_dir("plasmotrackr", "cache")`. It holds:
-- one thesis simulation's four full-model Runs (200 Infections, MOI 2, medium diversity, without checkpoints)
+- one thesis simulation's four full-model Runs (214 Infections, MOI 2, medium diversity, without checkpoints)
 - its null-model Run
 - the truth JSON and the input JSON
 - a synthetic epi data frame with district and travel columns

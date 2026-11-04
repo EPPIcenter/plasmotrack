@@ -31,9 +31,9 @@
 namespace transmission_nets::core::io {
     class ParquetStoreSink final : public StoreSink {
     public:
-        // The rows the sink holds per table, in bytes of Arrow memory, before it writes a row group. On the He01 Run of
-        // #56 that is about 5 Sampling iterations of `parent_sets` and 17 of each genotype table, and the store is 2.5%
-        // larger than with one row group per Window; 16 MiB makes it 11% larger, 8 MiB 25%.
+        // The rows the sink holds per table, in bytes of Arrow memory, before it writes a row group. On the large real
+        // Run of #56 that is about 5 Sampling iterations of `parent_sets` and 17 of each genotype table, and the store
+        // is 2.5% larger than with one row group per Window; 16 MiB makes it 11% larger, 8 MiB 25%.
         static constexpr std::int64_t ROW_GROUP_BYTES = std::int64_t{32} << 20;
 
         // Creates `root` if it does not exist.

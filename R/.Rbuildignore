@@ -1,0 +1,8 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.gitattributes$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^vignettes/articles$
+^tests/manual$

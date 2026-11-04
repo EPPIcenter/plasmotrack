@@ -1,0 +1,62 @@
+# R CMD check for plasmotrackr (R/), and a check that its golden Stores match the engine's.
+# Never builds the C++ engine.
+name: plasmotrackr
+
+on:
+  push:
+    paths:
+      - "R/**"
+      - "test/data/golden/**"
+      - "examples/example_input.json"
+      - "tools/plasmotrackr/**"
+      - ".github/workflows/plasmotrackr.yml"
+  pull_request:
+    paths:
+      - "R/**"
+      - "test/data/golden/**"
+      - "examples/example_input.json"
+      - "tools/plasmotrackr/**"
+      - ".github/workflows/plasmotrackr.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  golden-sync:
+    name: golden copy matches the engine's
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: tools/plasmotrackr/golden-sync.sh --check
+
+  check:
+    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { os: macos-latest, r: release }
+          - { os: windows-latest, r: release }
+          - { os: ubuntu-latest, r: release }
+          - { os: ubuntu-latest, r: oldrel-1 }
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.config.r }}
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: R
+          extra-packages: any::rcmdcheck
+          needs: check
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          working-directory: R
+          upload-snapshots: true
+          build_args: 'c("--no-manual", "--compact-vignettes=gs+qpdf")'

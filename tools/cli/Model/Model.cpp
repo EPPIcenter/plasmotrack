@@ -182,8 +182,8 @@ int main(int argc, char** argv) {
                                        {Model::input_names::SYMPTOMATIC_IDP, sha256HexOfFile(symptomatic_idp_path)},
                                        {Model::input_names::ASYMPTOMATIC_IDP, sha256HexOfFile(asymptomatic_idp_path)}};
 
-        // The Run the store holds, and the checkpoint the option given names. Which of them a Run may use is the Run
-        // recipe's to rule. A store with no Run has no checkpoint to read: the recipe refuses to resume it.
+        // The Run the Store holds, and the checkpoint the option given names. Which of them a Run may use is the Run
+        // recipe's to rule. A Store with no Run has no checkpoint to read: the recipe refuses to resume it.
         const auto stored = store ? Model::readStoredRun(*store) : std::nullopt;
         std::optional<checkpoint::Checkpoint> saved;
         if (given.startFrom) {
@@ -249,6 +249,12 @@ int main(int argc, char** argv) {
             manifest.gitCommit    = TRANSMISSION_NETWORKS_GIT_COMMIT;
         }
         const fs::path outputDir = recipe.store;
+        if (!resuming) {
+            // The Store embeds the Run's inputs; a resumed Run keeps the copies its Store holds.
+            Model::copyRunInputs(outputDir, {{Model::RunInput::Input, nodesFile},
+                                             {Model::RunInput::SymptomaticIdp, symptomatic_idp_path},
+                                             {Model::RunInput::AsymptomaticIdp, asymptomatic_idp_path}});
+        }
 
         Model::RunRecorder recorder(*repex->hotChain().state, repex->samplerIds(), std::make_unique<ParquetStoreSink>(outputDir),
                                     recipe.recorder, manifest);
