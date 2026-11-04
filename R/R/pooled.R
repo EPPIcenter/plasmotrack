@@ -46,7 +46,7 @@ pt_edge_marginals <- function(a, floor = 0, by_run = FALSE, runs = NULL) {
   edges <- edges[order(edges$child, edges$parent, method = "radix"), ]
   # Edge x Run totals, 0 where a Run lacks the edge.
   total <- matrix(0, nrow(edges), length(runs), dimnames = list(NULL, runs))
-  total[cbind(match(paste(totals$child, totals$parent, sep = "\r"), paste(edges$child, edges$parent, sep = "\r")),
+  total[cbind(match(row_key(totals$child, totals$parent), row_key(edges$child, edges$parent)),
               match(totals$run, runs))] <- totals$total
 
   lag <- edge_lag(a, edges$child, edges$parent)

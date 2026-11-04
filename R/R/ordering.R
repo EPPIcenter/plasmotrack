@@ -139,7 +139,7 @@ pt_infection_times <- function(a, level = 0.95, by_run = FALSE, runs = NULL) {
   # Distinct durations and their Draw counts: a duration often stays put between Draws.
   counts <- tally_draws(a, durations, c("infection", "duration"), by_run, runs)
   keys <- c(if (by_run) "run", "infection")
-  group <- do.call(paste, c(unname(as.list(counts[keys])), sep = "\r"))
+  group <- do.call(row_key, unname(as.list(counts[keys])))
   rows <- split(seq_len(nrow(counts)), factor(group, levels = unique(group)))
   probs <- c((1 + level) / 2, 0.5, (1 - level) / 2)
   quantiles <- vapply(rows, function(i) {

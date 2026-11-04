@@ -121,7 +121,7 @@ pt_coi <- function(a, by_run = FALSE, runs = NULL) {
   runs <- runs_with_draws(a, runs)
   counts <- tally_draws(a, pt_coi_draws(a, runs), c("infection", "coi"), by_run, runs)
   keys <- c(if (by_run) "run", "infection")
-  group <- do.call(paste, c(unname(as.list(counts[keys])), sep = "\r"))
+  group <- do.call(row_key, unname(as.list(counts[keys])))
   first <- !duplicated(group)
   rows <- split(seq_len(nrow(counts)), factor(group, levels = unique(group)))
   out <- counts[first, keys]
@@ -176,7 +176,7 @@ pt_genotype_presence <- function(a, by_run = FALSE, runs = NULL) {
   at <- rep(seq_len(nrow(counts)), n_alleles)
   allele <- sequence(n_alleles) - 1
   held <- substr(counts$alleles[at], allele + 1, allele + 1) == "1"
-  group <- do.call(paste, c(unname(as.list(counts[at, keys])), list(allele), sep = "\r"))
+  group <- do.call(row_key, c(unname(as.list(counts[at, keys])), list(allele)))
   total <- rowsum(counts$n[at] * held, factor(group, levels = unique(group)), reorder = FALSE)
   first <- at[!duplicated(group)]
   out <- counts[first, keys]
@@ -192,7 +192,7 @@ pt_genotype_mode <- function(a, by_run = FALSE, runs = NULL) {
   runs <- runs_with_draws(a, runs)
   counts <- bitstring_counts(a, by_run, runs)
   keys <- c(if (by_run) "run", "infection", "locus")
-  group <- do.call(paste, c(unname(as.list(counts[keys])), sep = "\r"))
+  group <- do.call(row_key, unname(as.list(counts[keys])))
   group <- match(group, unique(group))
   seen <- as.vector(rowsum(counts$n, group, reorder = FALSE))[group]
   # Within each group, most Draws first, then the smaller bitstring: the first row is the mode.

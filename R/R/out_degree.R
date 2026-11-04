@@ -154,8 +154,8 @@ group_count_rows <- function(a, runs, groups, index) {
     dplyr::group_by(.data$run, .data$iteration, .data$infection, .data$grp, .data$c) |>
     dplyr::summarise(weight = sum(.data$prob, na.rm = TRUE), .groups = "drop") |>
     dplyr::collect()
-  rows$draw <- index$draw[match(paste(rows$run, rows$iteration, sep = "\r"),
-                                paste(index$run, index$iteration, sep = "\r"))]
+  rows$draw <- index$draw[match(row_key(rows$run, rows$iteration),
+                                row_key(index$run, index$iteration))]
   rows <- rows[!is.na(rows$draw), ]
   rows$grp <- as.integer(rows$grp)
   rows$c <- as.integer(rows$c)
@@ -168,7 +168,7 @@ group_count_rows <- function(a, runs, groups, index) {
 child_count_pmfs <- function(rows, draws, n_groups) {
   out <- rep(list(list()), n_groups)
   # Rows are unique per (group, child, Draw, count), so each lands in its own cell.
-  keys <- split(seq_len(nrow(rows)), paste(rows$grp, rows$infection, sep = "\r"))
+  keys <- split(seq_len(nrow(rows)), row_key(rows$grp, rows$infection))
   for (key in keys) {
     g <- rows$grp[[key[[1]]]]
     p <- matrix(0, draws, max(rows$c[key]) + 1L)
@@ -270,14 +270,14 @@ pt_sample_networks <- function(a, n) {
   picked <- index[sample.int(nrow(index), n, replace = TRUE), ]
   sets <- picked_sets(a, picked)
 
-  draw_key <- paste(sets$run, sets$iteration, sep = "\r")
-  child_key <- paste(draw_key, sets$infection, sep = "\r")
+  draw_key <- row_key(sets$run, sets$iteration)
+  child_key <- row_key(draw_key, sets$infection)
   by_child <- split(seq_len(nrow(sets)), factor(child_key, levels = unique(child_key)))
   children_of <- split(names(by_child), factor(sub("\r[^\r]*$", "", names(by_child)), levels = unique(draw_key)))
 
   # One uniform per (network, child), networks in order, children in string order.
   rows <- lapply(seq_len(n), function(s) {
-    children <- children_of[[paste(picked$run[[s]], picked$iteration[[s]], sep = "\r")]]
+    children <- children_of[[row_key(picked$run[[s]], picked$iteration[[s]])]]
     u <- stats::runif(length(children))
     vapply(seq_along(children), function(k) {
       i <- by_child[[children[[k]]]]

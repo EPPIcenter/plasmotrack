@@ -194,15 +194,15 @@ pt_score_genotypes <- function(a, truth) {
   map <- truth_allele_map(a, truth, ids)
   presence <- pt_genotype_presence(a)
   keys <- unique(presence[c("infection", "locus")])
-  key <- paste(keys$infection, keys$locus, sep = "\r")
+  key <- row_key(keys$infection, keys$locus)
 
   called <- presence[presence$presence >= 0.5, ]
-  called <- split(as.integer(called$allele), factor(paste(called$infection, called$locus, sep = "\r"), levels = key))
+  called <- split(as.integer(called$allele), factor(row_key(called$infection, called$locus), levels = key))
 
   true <- unique(truth$genotypes[truth$genotypes$infection %in% ids, c("infection", "locus", "allele")])
-  true$key <- paste(true$infection, true$locus, sep = "\r")
+  true$key <- row_key(true$infection, true$locus)
   true <- true[true$key %in% key, ]
-  true$mapped <- map$allele[match(paste(true$locus, true$allele, sep = "\r"), paste(map$locus, map$simulator, sep = "\r"))]
+  true$mapped <- map$allele[match(row_key(true$locus, true$allele), row_key(map$locus, map$simulator))]
   unrepresentable <- as.vector(table(factor(true$key[is.na(true$mapped)], levels = key)))
   true <- true[!is.na(true$mapped), ]
   true <- split(true$mapped, factor(true$key, levels = key))
@@ -249,16 +249,16 @@ pt_score_coi <- function(a, truth) {
   g <- truth$genotypes[truth$genotypes$infection %in% ids, ]
   g <- g[order(g$infection, g$strain, g$locus, g$allele, method = "radix"), ]
   # One genotype string per (infection, strain, locus), then distinct strings per (infection, locus).
-  strain_key <- paste(g$infection, g$strain, g$locus, sep = "\r")
+  strain_key <- row_key(g$infection, g$strain, g$locus)
   first <- !duplicated(strain_key)
   per_strain <- tibble::tibble(
     infection = g$infection[first], locus = g$locus[first],
     genotype = vapply(split(g$allele, factor(strain_key, levels = unique(strain_key))), paste, "", collapse = ",")
   )
-  per_strain <- per_strain[paste(per_strain$infection, per_strain$locus, sep = "\r") %in%
-                             paste(genotyped$infection, genotyped$locus, sep = "\r"), ]
+  per_strain <- per_strain[row_key(per_strain$infection, per_strain$locus) %in%
+                             row_key(genotyped$infection, genotyped$locus), ]
   distinct <- unique(per_strain)
-  at_locus <- tapply(distinct$genotype, paste(distinct$infection, distinct$locus, sep = "\r"), length)
+  at_locus <- tapply(distinct$genotype, row_key(distinct$infection, distinct$locus), length)
   infection_of <- sub("\r.*$", "", names(at_locus))
   true_coi <- tapply(as.vector(at_locus), infection_of, max)[coi$infection]
   strains <- tapply(g$strain, g$infection, function(s) length(unique(s)))[coi$infection]
@@ -352,5 +352,5 @@ pt_score_map <- function(a, truth) {
 
 # One string per Parent set: infection, observed members (in the order given), Latent parent flag.
 set_key <- function(infection, members, has_latent_parent) {
-  paste(infection, vapply(members, paste, "", collapse = "\x1f"), has_latent_parent, sep = "\r")
+  row_key(infection, vapply(members, paste, "", collapse = "\x1f"), has_latent_parent)
 }

@@ -191,10 +191,10 @@ pt_co_inclusion <- function(a, infections = NULL, by_run = FALSE, runs = NULL) {
     total = rep(sets$weight * unname(draws_of(a, sets$run)), n)
   )
   if (!by_run) rows$run <- ""
-  pair <- paste(rows$child, rows$parent_a, rows$parent_b, sep = "\r")
+  pair <- row_key(rows$child, rows$parent_a, rows$parent_b)
   keys <- unique(rows[c("child", "parent_a", "parent_b")])
   keys <- keys[order(keys$child, keys$parent_a, keys$parent_b, method = "radix"), ]
-  key <- paste(keys$child, keys$parent_a, keys$parent_b, sep = "\r")
+  key <- row_key(keys$child, keys$parent_a, keys$parent_b)
   columns <- if (by_run) runs else ""
   total <- matrix(0, nrow(keys), length(columns))
   for (j in seq_along(columns)) {
@@ -227,7 +227,7 @@ pooled_sets <- function(a, runs, by_run, level) {
 
   # Sum each set's totals within its group: (run,) infection, observed members, has_latent_parent.
   group_run <- if (by_run) totals$run else rep("", nrow(totals))
-  id <- paste(group_run, totals$infection, totals$observed, totals$has_latent_parent, sep = "\r")
+  id <- row_key(group_run, totals$infection, totals$observed, totals$has_latent_parent)
   first <- !duplicated(id)
   sets <- tibble::tibble(
     run = group_run[first], infection = totals$infection[first], observed = totals$observed[first],
@@ -307,7 +307,7 @@ rank_sets <- function(sets, members, run_order, level) {
   sets <- sets[o, ]
   sets$members <- members[o]
 
-  group <- paste(sets$run, sets$infection, sep = "\r")
+  group <- row_key(sets$run, sets$infection)
   sets$rank <- stats::ave(seq_len(nrow(sets)), group, FUN = seq_along)
   sets$cumulative_mass <- stats::ave(sets$weight, group, FUN = cumsum)
   sets$credible <- stats::ave(seq_len(nrow(sets)), group, FUN = function(i) {

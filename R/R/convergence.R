@@ -255,8 +255,8 @@ edge_run_means <- function(a, ds) {
   k <- nrow(edges)
   means <- tibble::tibble(run = rep(ds$runs, each = k), child = rep(edges$child, length(ds$runs)),
                           parent = rep(edges$parent, length(ds$runs)), mean = 0)
-  at <- match(paste(totals$run, totals$child, totals$parent, sep = "\r"),
-              paste(means$run, means$child, means$parent, sep = "\r"))
+  at <- match(row_key(totals$run, totals$child, totals$parent),
+              row_key(means$run, means$child, means$parent))
   means$mean[at] <- totals$total / ds$n
   means
 }
@@ -264,9 +264,9 @@ edge_run_means <- function(a, ds) {
 # The edges diagnosed: those whose Run mean over the Draw set is at least edge_floor in some Run, sorted.
 kept_edges <- function(a, ds, edge_floor) {
   means <- edge_run_means(a, ds)
-  top <- tapply(means$mean, paste(means$child, means$parent, sep = "\r"), max)
+  top <- tapply(means$mean, row_key(means$child, means$parent), max)
   kept <- unique(means[c("child", "parent")])
-  as.data.frame(kept[top[paste(kept$child, kept$parent, sep = "\r")] >= edge_floor, ])
+  as.data.frame(kept[top[row_key(kept$child, kept$parent)] >= edge_floor, ])
 }
 
 # ---- Quantity arrays ----
@@ -278,8 +278,8 @@ group_array <- function(a, ds, group, edge_floor = 0.01) {
   rows <- g$rows
   if (nrow(rows)) {
     draw <- unlist(lapply(ds$iterations, seq_along))
-    names(draw) <- paste(rep(ds$runs, each = ds$n), unlist(ds$iterations), sep = "\r")
-    x[cbind(draw[paste(rows$run, as.numeric(rows$iteration), sep = "\r")], match(rows$run, ds$runs),
+    names(draw) <- row_key(rep(ds$runs, each = ds$n), unlist(ds$iterations))
+    x[cbind(draw[row_key(rows$run, as.numeric(rows$iteration))], match(rows$run, ds$runs),
             match(rows$name, g$names))] <- rows$value
   }
   x
@@ -434,10 +434,10 @@ tree_infections <- function(a, ds, latent_means, quantities, spread) {
   runs <- ds$runs
   ids <- a$infections$infection[order(a$infections$infection, method = "radix")]
   edges <- edge_run_means(a, ds)
-  edge_mean <- stats::setNames(edges$mean, paste(edges$run, edges$child, edges$parent, sep = "\r"))
+  edge_mean <- stats::setNames(edges$mean, row_key(edges$run, edges$child, edges$parent))
   edge <- function(run, child, parent) {
     if (length(child) == 0 || length(parent) == 0) return(numeric())
-    v <- edge_mean[paste(run, child, parent, sep = "\r")]
+    v <- edge_mean[row_key(run, child, parent)]
     ifelse(is.na(v), 0, unname(v))
   }
   by_child <- split(edges, edges$child)

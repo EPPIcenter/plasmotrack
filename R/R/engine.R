@@ -48,3 +48,7 @@ query <- function(con, sql) tibble::as_tibble(DBI::dbGetQuery(con, sql))
 
 # Text shown verbatim in a cli message: braces doubled so cli does not interpolate them.
 cli_escape <- function(x) gsub("}", "}}", gsub("{", "{{", x, fixed = TRUE), fixed = TRUE)
+
+# One string key per row from several columns, for matching and grouping rows in R. The separator is a carriage
+# return, assumed absent from ids, Locus names and Run labels, so distinct rows get distinct keys.
+row_key <- function(...) paste(..., sep = "\r")
