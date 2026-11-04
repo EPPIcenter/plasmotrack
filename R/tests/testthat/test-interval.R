@@ -112,3 +112,17 @@ test_that("pt_interval() rejects tables that are not per Draw", {
   user$v[1] <- NA
   expect_error(pt_interval(user, by = id), "missing")
 })
+
+test_that("pt_interval() names the keys with missing values and how to drop them", {
+  user <- data.frame(run = "r", iteration = rep(1:2, each = 3), id = c("a", "b", "c"), v = c(NA, 1, 2, 3, NA, 4),
+                     w = 1)
+  err <- expect_error(pt_interval(user, by = id), class = "rlang_error")
+  msg <- conditionMessage(err)
+  expect_match(msg, "id = \"a\"", fixed = FALSE)
+  expect_match(msg, "id = \"b\"")
+  expect_no_match(msg, "id = \"c\"")
+  expect_match(msg, "filter(!is.na(v))", fixed = TRUE)
+  expect_no_match(msg, "is.na(w)", fixed = TRUE)
+  # Without `by`, the Draws are counted.
+  expect_match(conditionMessage(expect_error(pt_interval(user[user$id == "a", ]))), "1 Draw")
+})

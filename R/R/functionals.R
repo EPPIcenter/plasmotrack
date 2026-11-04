@@ -127,6 +127,31 @@ pt_entropy <- function(a, by = NULL, runs = NULL, phase = "sampling") {
     per_draw_mean(c("mean_entropy", "mean_effective_size"), keys = strata_keys(by))
 }
 
+# The error for value columns with NA: where they are (the `by` keys, or a Draw count without `by`) and the filter that
+# drops them.
+abort_missing_values <- function(rows, bad, by, call = rlang::caller_env()) {
+  na <- Reduce(`|`, lapply(bad, function(v) is.na(rows[[v]])))
+  where <- if (length(by)) {
+    keys <- unique(rows[na, by, drop = FALSE])
+    labels <- do.call(paste, c(lapply(by, function(k) {
+      v <- keys[[k]]
+      paste(k, "=", if (is.character(v) || is.factor(v)) encodeString(as.character(v), quote = '"') else v)
+    }), sep = ", "))
+    shown <- utils::head(labels, 5)
+    more <- if (length(labels) > 5) sprintf(" and %d more", length(labels) - 5) else ""
+    sprintf("at %d key%s: %s%s", length(labels), if (length(labels) == 1) "" else "s",
+            paste(shown, collapse = "; "), more)
+  } else {
+    n <- nrow(unique(rows[na, c("run", "iteration")]))
+    sprintf("at %d Draw%s", n, if (n == 1) "" else "s")
+  }
+  filter <- sprintf("dplyr::filter(%s)", paste0("!is.na(", bad, ")", collapse = ", "))
+  cli::cli_abort(c(
+    paste0("Value column{?s} {.field {bad}} {?has/have} missing values ", cli_escape(where), "."),
+    i = paste0("Drop those rows first, such as with {.code ", cli_escape(filter), "}.")
+  ), call = call)
+}
+
 #' Posterior mean and interval of a per-Draw table
 #'
 #' Turns any per-Draw table into estimates with intervals: the step from lazy per-Draw values to an eager summary.
@@ -140,7 +165,7 @@ pt_entropy <- function(a, by = NULL, runs = NULL, phase = "sampling") {
 #' only (see the spec's out-degree posteriors for the variance within a Draw).
 #'
 #' Each group must have at most one row per Draw: give every key column in `by`. Value columns may not hold missing
-#' values; filter them first.
+#' values: the error names the keys that do, and `dplyr::filter(!is.na(<column>))` drops them.
 #'
 #' @param x A per-Draw table (lazy or a data frame) with `run`, `iteration` and numeric value columns.
 #' @param by Key columns (tidy-select, such as `class` or `c(locus, allele)`); one row per key in the result.
@@ -187,9 +212,7 @@ pt_interval <- function(x, by = NULL, value = NULL, level = 0.95) {
     dplyr::select(dplyr::all_of(unique(c("run", "iteration", by, value)))) |>
     dplyr::collect()
   bad <- value[vapply(value, function(v) anyNA(rows[[v]]), logical(1))]
-  if (length(bad)) {
-    cli::cli_abort("Value column{?s} {.field {bad}} {?has/have} missing values; filter them first.")
-  }
+  if (length(bad)) abort_missing_values(rows, bad, by)
   if (anyDuplicated(rows[unique(c("run", "iteration", by))])) {
     cli::cli_abort(c("{.arg x} has more than one row per Draw per {.arg by} key.",
                      i = "Give every key column in {.arg by}."))

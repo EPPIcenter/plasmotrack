@@ -34,7 +34,7 @@ weighs by its Draws. The interval is equal-tailed: the type-7 quantiles (\code{\
 only (see the spec's out-degree posteriors for the variance within a Draw).
 
 Each group must have at most one row per Draw: give every key column in \code{by}. Value columns may not hold missing
-values; filter them first.
+values: the error names the keys that do, and \verb{dplyr::filter(!is.na(<column>))} drops them.
 }
 \examples{
 store <- system.file("extdata", "golden", "single-chain", package = "plasmotrackr")

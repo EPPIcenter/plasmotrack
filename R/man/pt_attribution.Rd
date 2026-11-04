@@ -51,9 +51,10 @@ parent, normalised so that the shares of a recipient sum to 1 at each Draw. The 
 \code{latent = FALSE}.
 \item \code{pt_enrichment()}: \code{source}, \code{recipient}, \code{enrichment}: the cell's share of all observed edge mass at the Draw
 over its share of the candidate pairs. A candidate pair (parent, child) lies in the cell of the parent's and the
-child's strata. \code{enrichment} is NA where the cell has no candidate pair (and at a Draw with no observed edge);
-filter those rows before \code{\link[=pt_interval]{pt_interval()}}. Above 1, the cell carries more transmission than its candidate pairs
-alone would give it.
+child's strata. \code{enrichment} is NA where the cell has no candidate pair, and also at a Draw with no observed
+edge mass (no Parent set with weight holds an observed parent). \code{\link[=pt_interval]{pt_interval()}} refuses NA values, so drop those
+rows first with \code{dplyr::filter(!is.na(enrichment))}, as in the examples. Above 1, the cell carries more
+transmission than its candidate pairs alone would give it.
 \item \code{pt_net_flow()}: \code{stratum}, \code{net_flow}: the stratum's expected out-edges to other strata minus its in-edges
 from other strata. Edges within a stratum do not count. The net flows of a Draw sum to 0.
 }

@@ -271,8 +271,9 @@ Flow functions, all lazy and per Draw:
     probability) is split by source stratum and normalised within the recipient at each Draw.
   - The Latent parent row has `latent = TRUE` and `source = NA`.
 - **`pt_enrichment(a, by, candidates = pt_candidates(a))`**: source, recipient, enrichment.
-  - Enrichment is the cell's share of edge mass over its share of candidate pairs, and NA where the cell has no
-    candidate pair.
+  - Enrichment is the cell's share of edge mass over its share of candidate pairs. It is NA where the cell has no
+    candidate pair and at a Draw with no observed edge mass; filter with `dplyr::filter(!is.na(enrichment))` before
+    `pt_interval()`, which errors on NA and names the keys that hold it.
   - `candidates` is a `parent, child` data frame. It defaults to `pt_candidates(a)`, the input's `allowed_parents`,
     from the Store's embedded copy of the input or, for old Stores, the input file.
 - **`pt_net_flow(a, by)`**: stratum, net_flow: expected out-edges minus in-edges, counting only edges between different
