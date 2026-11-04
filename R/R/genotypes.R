@@ -83,7 +83,11 @@ quantile7_counts <- function(values, counts, p) {
   h <- (sum(counts) - 1) * p + 1
   at <- function(i) values[[which(ends >= i)[[1]]]]
   lo <- at(floor(h))
-  lo + (h - floor(h)) * (at(ceiling(h)) - lo)
+  hi <- at(ceiling(h))
+  if (hi == lo) return(lo)
+  # stats::quantile()'s own form, so the result matches it to the last bit.
+  w <- h - floor(h)
+  (1 - w) * lo + w * hi
 }
 
 #' Pooled COI
