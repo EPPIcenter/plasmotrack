@@ -63,7 +63,7 @@ estimates elsewhere in the package still use every Draw.
 \code{infection_duration[12]}. The per-Allele error rate is the expected count over the Infection's Alleles, a
 constant factor, so its diagnostics are the count's.
 \item \code{allele_frequency}: one per Locus and Allele (0-based), such as \code{allele_frequency[AS1,0]}.
-\item \code{edge}: the per-Draw Edge weight, zero-filled, such as \code{edge[12,7]} for child 12 and parent 7. Only edges whose
+\item \code{edge}: the edge's probability at each Draw (the per-Draw Edge marginal), zero-filled, such as \code{edge[12,7]} for child 12 and parent 7. Only edges whose
 mean in some Run is at least \code{edge_floor} are diagnosed.
 \item \code{order_pair}: the 0/1 indicator that \code{i} was acquired before \code{j} (see \code{\link[=pt_order_pair_draws]{pt_order_pair_draws()}}), such as
 \code{order_pair[10,2]} with \code{i} the smaller id as a string. Only pairs joined by a diagnosed edge, in either

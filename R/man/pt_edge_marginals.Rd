@@ -44,5 +44,5 @@ pt_edge_marginals(a, by_run = TRUE)
 pt_close(a)
 }
 \seealso{
-\code{\link[=pt_edge_draws]{pt_edge_draws()}} for the per-Draw edge weights.
+\code{\link[=pt_edge_draws]{pt_edge_draws()}} for each edge's probability at each Draw.
 }

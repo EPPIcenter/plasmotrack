@@ -22,7 +22,7 @@
 #' @return A tibble of `child`, `parent`, `marginal` and `lag`, after `run` when `by_run = TRUE`, sorted by `run`
 #'   (in [pt_runs()] order), then `child` and `parent` as strings. `lag` is the child's observation time minus the
 #'   parent's, from [pt_infections()]; it is `NA` where either time is missing.
-#' @seealso [pt_edge_draws()] for the per-Draw edge weights.
+#' @seealso [pt_edge_draws()] for each edge's probability at each Draw.
 #' @export
 #' @examples
 #' golden <- system.file("extdata", "golden", package = "plasmotrackr")

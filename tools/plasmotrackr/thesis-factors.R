@@ -4,7 +4,8 @@
 #
 # Source it and call thesis_factors(paths), or run it: Rscript thesis-factors.R <path>... prints a CSV.
 #
-# A path names, in order (anything before or after is ignored, such as the Run's chainN directory):
+# A path names, in order (anything before or after is ignored, such as the Run directory, named chainN in the rerun
+# layout):
 #   <model>      full | partial | null (the reruns) or output_multichain | partially_obs_multichain (the thesis)
 #   <scenario>   [simple_]total_nodes_<n>_founder_prop_<p>_super_infected_prop_<p>_r0_<r>_mean_moi_<m>_asymptomatic_prop_<p>
 #   <network>    [simple_]tx_network_<panel>_div, or the bare panel (low | med | high)

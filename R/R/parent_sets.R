@@ -130,7 +130,7 @@ pt_out_degree_range <- function(a, level = 0.8, by = NULL, by_run = FALSE, runs 
   credible <- sets[sets$credible, ]
   strata <- source_strata(a, by)
   per_run(credible, by_run, function(rows) {
-    # Per credible set, its observed parents in each stratum; min and max within each recipient.
+    # Per Credible collection, its observed parents in each stratum; min and max within each recipient.
     counts <- stratum_counts(rows$members, strata)
     child <- factor(rows$infection)
     lo <- vapply(seq_along(strata$n), function(k) sum(tapply(counts[, k], child, min)), 0)

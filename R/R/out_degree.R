@@ -25,8 +25,8 @@ out_degree_tolerance <- 1e-12
 #' Given a Draw, children's Parent sets are independent, so the distribution given the Draw is exact:
 #'
 #' * `pt_out_degree_dist()`: an Infection's out-degree is Poisson-binomial over its children, each child holding it
-#'   as a parent with probability the Edge weight at the Draw (see [pt_edge_draws()]). An Infection that is no
-#'   Infection's parent has out-degree 0.
+#'   as a parent with probability the edge's probability at the Draw (its per-Draw Edge marginal, see
+#'   [pt_edge_draws()]). An Infection that is no Infection's parent has out-degree 0.
 #' * `pt_realized_out_degree()`: the realized mean out-degree of a stratum's Infections, counted as sources as
 #'   [pt_mean_out_degree()] counts them. Given a Draw, the stratum's total out-degree is the sum over children of the
 #'   number of observed parents in the stratum, independent across children. Values are on the mean scale (the total

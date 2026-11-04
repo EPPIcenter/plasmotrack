@@ -100,7 +100,7 @@ test_that("pt_fit_summary() checks fit_type and scores", {
   expect_error(pt_fit_summary(a, truth, scores = data.frame(a = "1", b = "2", score = 1)), "dcifer")
 })
 
-# A made-up path in the thesis rerun layout: <model>/<scenario>/<network>/<simulation>/<Run>.
+# A made-up path in the thesis rerun layout: <model>/<scenario>/<network>/<simulation>/<Run directory, named chainN in the rerun layout>.
 thesis_path <- function(model = "null", simple = "simple_") {
   file.path("/data/thesis-reruns", model,
             "total_nodes_200_founder_prop_0.2_super_infected_prop_0.1_r0_1.5_mean_moi_3_asymptomatic_prop_0.5",

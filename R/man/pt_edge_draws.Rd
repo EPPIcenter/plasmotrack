@@ -55,8 +55,8 @@ classes are named by their observed parents and the Latent parent: \code{latent_
 source only"), \code{observed_1}, \code{observed_1_latent}, \code{observed_2}, and so on. The classes are those of any Parent
 set with weight in the Runs and Phases read, and every one of them has a row for every Infection at every Draw,
 0 when the Infection has no set of that class.
-\item \code{pt_out_degree_draws()}: \code{infection}, \code{out_degree}, the sum of the Infection's Edge weights as a parent over every
-child at the Draw. A full grid: every Infection at every Draw, 0 when it is no one's parent.
+\item \code{pt_out_degree_draws()}: \code{infection}, \code{out_degree}, the sum over every child of the probability, at the Draw, that
+the Infection is its parent (the per-Draw Edge marginals). A full grid: every Infection at every Draw, 0 when it is no one's parent.
 }
 
 The Draws of a Run are the iterations of its \code{run_scalars} rows in the Phases read.

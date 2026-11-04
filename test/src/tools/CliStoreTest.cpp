@@ -1,6 +1,6 @@
 //
-// The CLI's store end to end: the Run inputs it copies, and real signals: a first interrupt ends the Run cleanly and a
-// second ends it at once. Each test runs the CLI binary on the example input and reads the store back with the Arrow C++ reader. How the Run
+// The CLI's Store end to end: the Run inputs it copies, and real signals: a first interrupt ends the Run cleanly and a
+// second ends it at once. Each test runs the CLI binary on the example input and reads the Store back with the Arrow C++ reader. How the Run
 // driver ends a Run for a stop request or a forced end is tested in-process in RunDriverTest.
 //
 
@@ -115,7 +115,7 @@ namespace {
     }
 }// namespace
 
-// A Run's store holds its input and IDP files, byte for byte, written before the first Window, and the manifest's
+// A Run's Store holds its input and IDP files, byte for byte, written before the first Window, and the manifest's
 // input_sha256 hashes them.
 TEST(CliStore, ARunsStoreHoldsCopiesOfItsInputs) {
     const auto work = makeWork("run-inputs");
