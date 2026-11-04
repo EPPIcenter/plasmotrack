@@ -6,7 +6,6 @@
 #define TRANSMISSION_NETWORKS_APP_CLONEORDERSWAPSAMPLER_H
 
 #include "core/samplers/AbstractSampler.h"
-#include "core/samplers/SamplerEnum.h"
 #include "core/samplers/genetics/GenomePartition.h"
 #include "core/samplers/specialized/DurationShape.h"
 
@@ -54,9 +53,6 @@ namespace transmission_nets::core::samplers::specialized {
 
         void update() noexcept override;
 
-        [[nodiscard]] unsigned int acceptances() const noexcept { return acceptances_; }
-        [[nodiscard]] unsigned int rejections() const noexcept { return rejections_; }
-
     private:
         // The durations [first, second) for which the infection was infected before the partner (`before`) or after it.
         [[nodiscard]] std::pair<double, double> window(const InfectionEventImpl& partner, bool before) const;
@@ -68,10 +64,6 @@ namespace transmission_nets::core::samplers::specialized {
         double minDuration_;
         double maxDuration_;
         DurationShape durationShape_;
-
-        boost::random::uniform_01<> uniform_{};
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_  = 0;
 
         std::vector<size_t> clones_{};// indices into partners_
     };
@@ -120,7 +112,6 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     void CloneOrderSwapSampler<T, Engine, InfectionEventImpl>::update() noexcept {
-        const SAMPLER_STATE_ID stateId = CloneOrderSwapID;
         clones_.clear();
         for (size_t p = 0; p < partners_.size(); ++p) {
             if (genetics::GenomePartition<InfectionEventImpl>::sameGenome(*partners_[p].infection, *infection_)) {
@@ -145,23 +136,12 @@ namespace transmission_nets::core::samplers::specialized {
         const auto [backFirst, backSecond] = window(*partner.infection, before);
         const double currentDensity        = durationShape_.density(current);
         const double currentLogQ           = currentDensity > 0 ? std::log(currentDensity / durationShape_.mass(backFirst, backSecond)) : -std::numeric_limits<double>::infinity();
-        const double currentLik            = target_->value();
+        auto proposal = this->propose(*target_, *rng_);
 
         const double proposed = durationShape_.draw(first, second, proposedMass, *rng_);
-        duration->saveState(stateId);
-        duration->setValue(proposed);
-
-        const double proposedLogQ    = std::log(durationShape_.density(proposed) / proposedMass);
-        const double acceptanceRatio = target_->value() - currentLik + currentLogQ - proposedLogQ;
-        if (std::log(uniform_(*rng_)) <= acceptanceRatio) {
-            ++acceptances_;
-            countProposal(true);
-            duration->acceptState();
-        } else {
-            ++rejections_;
-            countProposal(false);
-            duration->restoreState(stateId);
-        }
+        proposal.change(*duration, proposed);
+        const double proposedLogQ = std::log(durationShape_.density(proposed) / proposedMass);
+        proposal.metropolis(currentLogQ - proposedLogQ);
     }
 
 }// namespace transmission_nets::core::samplers::specialized

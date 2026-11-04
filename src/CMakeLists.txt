@@ -57,7 +57,9 @@ set(CORE_IO_SOURCES
 )
 
 set(CORE_SAMPLERS_SOURCES
-    core/samplers/SamplerEnum.h
+    core/samplers/AbstractSampler.h
+    core/samplers/Proposal.h
+    core/samplers/SamplerCounts.h
     core/samplers/genetics/RandomAllelesBitSetSampler4.h
     core/samplers/scheduler/Scheduler.cpp
     core/samplers/scheduler/Scheduler.h

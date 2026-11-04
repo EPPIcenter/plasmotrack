@@ -6,7 +6,6 @@
 #define TRANSMISSION_NETWORKS_APP_STRAINCOUNTSAMPLER_H
 
 #include "core/samplers/AbstractSampler.h"
-#include "core/samplers/SamplerEnum.h"
 
 #include <boost/random.hpp>
 
@@ -51,9 +50,6 @@ namespace transmission_nets::core::samplers::genetics {
 
         void update() noexcept override;
 
-        [[nodiscard]] unsigned int acceptances() const noexcept { return acceptances_; }
-        [[nodiscard]] unsigned int rejections() const noexcept { return rejections_; }
-
     private:
         static constexpr double NEG_INF = -std::numeric_limits<double>::infinity();
 
@@ -75,8 +71,6 @@ namespace transmission_nets::core::samplers::genetics {
         double observedWeight_;
 
         boost::random::uniform_01<> uniform_{};
-        unsigned int acceptances_ = 0;
-        unsigned int rejections_  = 0;
     };
 
     template<typename T, typename Engine, typename InfectionEventImpl>
@@ -147,8 +141,7 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     void StrainCountSampler<T, Engine, InfectionEventImpl>::update() noexcept {
-        const SAMPLER_STATE_ID stateId = StrainCountID;
-        const auto& loci               = infection_->loci();
+        const auto& loci = infection_->loci();
         std::vector<Genetics> current;
         current.reserve(loci.size());
         for (const auto& locus : loci) {
@@ -234,32 +227,13 @@ namespace transmission_nets::core::samplers::genetics {
             logReverse = logRemoveProb(proposed);
         }
 
-        const double currentLik = target_->value();
+        auto proposal = this->propose(*target_, *rng_);
         for (size_t l = 0; l < loci.size(); ++l) {
             if (chosen[l]) {
-                auto genotype = infection_->latentGenotype(loci[l]);
-                genotype->saveState(stateId);
-                genotype->setValue(proposed[l]);
+                proposal.change(*infection_->latentGenotype(loci[l]), proposed[l]);
             }
         }
-        const double acceptanceRatio = target_->value() - currentLik + logReverse - logForward;
-        if (std::log(uniform_(*rng_)) <= acceptanceRatio) {
-            ++acceptances_;
-            countProposal(true);
-            for (size_t l = 0; l < loci.size(); ++l) {
-                if (chosen[l]) {
-                    infection_->latentGenotype(loci[l])->acceptState();
-                }
-            }
-        } else {
-            ++rejections_;
-            countProposal(false);
-            for (size_t l = 0; l < loci.size(); ++l) {
-                if (chosen[l]) {
-                    infection_->latentGenotype(loci[l])->restoreState(stateId);
-                }
-            }
-        }
+        proposal.metropolis(logReverse - logForward);
     }
 
 }// namespace transmission_nets::core::samplers::genetics

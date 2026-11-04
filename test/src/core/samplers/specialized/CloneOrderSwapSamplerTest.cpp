@@ -204,5 +204,5 @@ TEST(CloneOrderSwapSamplerTest, OnlyMovesAgainstClones) {
     for (int i = 0; i < 100; ++i) {
         sampler.update();
     }
-    EXPECT_EQ(sampler.acceptances() + sampler.rejections(), 0u);
+    EXPECT_EQ(sampler.counts().proposed, 0u);
 }
