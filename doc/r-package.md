@@ -540,7 +540,7 @@ site builds, so `R CMD check` and installs never download anything. The vignette
 - the truth JSON and the input JSON
 - a synthetic epi data frame with district and travel columns
 
-No real-cohort data (Eswatini, Zanzibar, He01) is shipped or downloaded.
+No real-cohort data is shipped or downloaded.
 
 **pkgdown.**
 - **Hosting:** GitHub Pages, built by a workflow on pushes to `master` that touch `R/`.
