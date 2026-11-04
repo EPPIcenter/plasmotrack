@@ -69,8 +69,8 @@ namespace {
             x       = state->infection("x");
             y       = state->infection("y");
             x->infectionDuration()->initializeValue(X_DURATION);
-            x->latentGenotype(locus)->initializeValue(GeneticsImpl("110"));
-            y->latentGenotype(locus)->initializeValue(GeneticsImpl("110"));
+            x->latentGenotype(locus)->initializeValue(Genotype("110"));
+            y->latentGenotype(locus)->initializeValue(Genotype("110"));
         }
     };
 
@@ -165,8 +165,8 @@ TEST(CloneOrderSwapSamplerTest, LeavesTargetInvariant) {
             ++moved;
             ASSERT_NE(after > BOUNDARY, before > BOUNDARY);
         }
-        ASSERT_EQ(f.x->latentGenotype(f.locus)->value(), GeneticsImpl("110"));
-        ASSERT_EQ(f.y->latentGenotype(f.locus)->value(), GeneticsImpl("110"));
+        ASSERT_EQ(f.x->latentGenotype(f.locus)->value(), Genotype("110"));
+        ASSERT_EQ(f.y->latentGenotype(f.locus)->value(), Genotype("110"));
         ++sideVisits[sideKey()];
         ++durationVisits[durationKey()];
     }
@@ -185,7 +185,7 @@ TEST(CloneOrderSwapSamplerTest, LeavesTargetInvariant) {
 
 TEST(CloneOrderSwapSamplerTest, OnlyMovesAgainstClones) {
     Fixture f;
-    f.x->latentGenotype(f.locus)->initializeValue(GeneticsImpl("100"));
+    f.x->latentGenotype(f.locus)->initializeValue(Genotype("100"));
     auto target  = std::make_shared<Target>(Target{&f});
     auto sampler = makeSampler(f, target);
     for (int i = 0; i < 100; ++i) {

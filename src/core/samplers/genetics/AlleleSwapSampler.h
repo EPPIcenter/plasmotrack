@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_ALLELESWAPSAMPLER_H
 #define TRANSMISSION_NETWORKS_APP_ALLELESWAPSAMPLER_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
 
@@ -26,10 +27,10 @@ namespace transmission_nets::core::samplers::genetics {
      * locus with no informative observation, a wrong allele then stays, and it can rule out the infection's true parent,
      * since a child carries only alleles its parents carry. A swap makes that change in one step.
      */
-    template<typename T, typename Engine, typename GeneticsImpl>
+    template<typename T, typename Engine>
     class AlleleSwapSampler : public AbstractSampler {
     public:
-        AlleleSwapSampler(std::shared_ptr<parameters::Parameter<GeneticsImpl>> genotype, std::shared_ptr<T> target, std::shared_ptr<Engine> rng)
+        AlleleSwapSampler(std::shared_ptr<parameters::Parameter<core::datatypes::Genotype>> genotype, std::shared_ptr<T> target, std::shared_ptr<Engine> rng)
             : genotype_(std::move(genotype)), target_(std::move(target)), rng_(std::move(rng)) {}
 
         void update() noexcept override {
@@ -52,7 +53,7 @@ namespace transmission_nets::core::samplers::genetics {
             proposal.metropolis();
         }
     private:
-        std::shared_ptr<parameters::Parameter<GeneticsImpl>> genotype_;
+        std::shared_ptr<parameters::Parameter<core::datatypes::Genotype>> genotype_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
         std::vector<unsigned int> present_{}, absent_{};

@@ -8,6 +8,7 @@
 #define TRANSMISSION_NETWORKS_APP_TRANSMISSIONTERM_H
 
 
+#include "core/datatypes/Genotype.h"
 #include "core/containers/ParentSet.h"
 #include "core/abstract/observables/Dependency.h"
 #include "core/computation/PartialLikelihood.h"
@@ -82,7 +83,7 @@ namespace transmission_nets::model::transmission_process {
         std::shared_ptr<OrderingImpl> ordering_;
         std::shared_ptr<InfectionEventImpl> latentParent_;
 
-        bool null_model_ = false;
+        bool nullModel = false;
 
     private:
         void postSaveState(int savedStateId);
@@ -91,7 +92,7 @@ namespace transmission_nets::model::transmission_process {
 
         void postRestoreState(int savedStateId);
 
-        using Genetics   = typename InfectionEventImpl::GeneticsType;
+        using Genotype   = core::datatypes::Genotype;
         using LocusPtr   = std::shared_ptr<typename InfectionEventImpl::LocusType>;
         using StrainSums  = typename MemoImpl::StrainSums;
         using LatentSums  = typename MemoImpl::LatentSums;
@@ -103,12 +104,12 @@ namespace transmission_nets::model::transmission_process {
         // Lowers every entry's state, or only the latent-parent entries', to at most `state`.
         void degrade(unsigned char state, bool latentOnly);
         // Called before a latent genotype of the child or a parent changes.
-        void recordChange(const InfectionEventImpl* infection, const LocusPtr& locus, const Genetics& previous);
+        void recordChange(const InfectionEventImpl* infection, const LocusPtr& locus, const Genotype& previous);
         // A latent genotype that changed since the sums were last brought up to date, with its value then.
         struct GenotypeChange {
             const InfectionEventImpl* infection;
             LocusPtr locus;
-            Genetics previous;
+            Genotype previous;
         };
 
         // A parent enters the likelihood only through its latent genotypes, so parent sets whose parents have the same
@@ -257,8 +258,8 @@ namespace transmission_nets::model::transmission_process {
         std::vector<std::uint32_t> classOrder_{};
         std::vector<std::uint32_t> classRank_{};
         // Scratch for applyChanges(): each class's genotype at one locus before and after, and whether it changed.
-        std::vector<Genetics> previousClasses_{};
-        std::vector<Genetics> currentClasses_{};
+        std::vector<Genotype> previousClasses_{};
+        std::vector<Genotype> currentClasses_{};
         std::vector<unsigned char> classChanged_{};
         std::vector<std::pair<const InfectionEventImpl*, std::uint32_t>> changedMembers_{};
         std::vector<LocusPtr> changedLoci_{};
@@ -272,7 +273,7 @@ namespace transmission_nets::model::transmission_process {
         // Each child locus' position in child_->loci().
         boost::container::flat_map<const typename InfectionEventImpl::LocusType*, size_t> locusIndex_{};
         // Scratch: the observed parents' genotypes at one locus.
-        std::array<const Genetics*, ParentSetMaxCardinality> parentGenotypes_{};
+        std::array<const Genotype*, ParentSetMaxCardinality> parentGenotypes_{};
 
         std::string lastUpdated_ = "None";
     };
@@ -292,7 +293,7 @@ namespace transmission_nets::model::transmission_process {
           child_(std::move(child)),
           ordering_(std::move(ordering)),
           latentParent_(std::move(latent_parent)),
-          null_model_(null_model) {
+          nullModel(null_model) {
 
         // The strain-count parameter enters every entry's strain-summed likelihood, through the memo's table of it.
         core::abstract::dependsOn(this, memo_->meanStrainsTransmitted(), [this]() {
@@ -714,9 +715,9 @@ namespace transmission_nets::model::transmission_process {
     }
 
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
-    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::recordChange(const InfectionEventImpl* infection, const LocusPtr& locus, const Genetics& previous) {
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::recordChange(const InfectionEventImpl* infection, const LocusPtr& locus, const Genotype& previous) {
         const auto& current = cache();
-        if (null_model_ or current.valid.empty()) {
+        if (nullModel or current.valid.empty()) {
             return;
         }
         // A parent that is not in the parent set the entries refer to has no entries to update; any it gains are
@@ -757,8 +758,8 @@ namespace transmission_nets::model::transmission_process {
         const bool recompute = 2 * changedLoci_.size() > child_->loci().size();
 
         const size_t numClasses = current.classSize.size();
-        std::array<const Genetics*, ParentSetMaxCardinality> previousCombination{};
-        std::array<const Genetics*, ParentSetMaxCardinality> currentCombination{};
+        std::array<const Genotype*, ParentSetMaxCardinality> previousCombination{};
+        std::array<const Genotype*, ParentSetMaxCardinality> currentCombination{};
         bool childChanged = false;
         classChanged_.assign(numClasses, 0);
 
@@ -790,8 +791,8 @@ namespace transmission_nets::model::transmission_process {
 
         for (const auto& locus : changedLoci_) {
             // Every genotype at this locus as summed and as it is now.
-            const Genetics currentChild = child_->latentGenotype(locus)->value();
-            Genetics previousChild      = currentChild;
+            const Genotype currentChild = child_->latentGenotype(locus)->value();
+            Genotype previousChild      = currentChild;
             if (not recompute) {
                 childChanged = false;
                 classChanged_.assign(numClasses, 0);
@@ -833,8 +834,8 @@ namespace transmission_nets::model::transmission_process {
                     previousCombination[t] = &previousClasses_[combination[t]];
                     currentCombination[t]  = &currentClasses_[combination[t]];
                 }
-                const std::span<const Genetics* const> previousParents(previousCombination.data(), combination.size());
-                const std::span<const Genetics* const> currentParents(currentCombination.data(), combination.size());
+                const std::span<const Genotype* const> previousParents(previousCombination.data(), combination.size());
+                const std::span<const Genotype* const> currentParents(currentCombination.data(), combination.size());
                 if (withLatent) {
                     auto& sums = current.latentSums[position / 2];
                     if (sums.stoppedAt != nullptr) {
@@ -899,7 +900,7 @@ namespace transmission_nets::model::transmission_process {
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
     void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::applyFrequencyChanges(LikelihoodCache& current) {
         const size_t numClasses = current.classSize.size();
-        std::array<const Genetics*, ParentSetMaxCardinality> combinationGenotypes{};
+        std::array<const Genotype*, ParentSetMaxCardinality> combinationGenotypes{};
         for (const size_t l : pendingFrequencyLoci_) {
             const auto& locus           = child_->loci()[l];
             const FrequencyId updated   = memo_->frequencyId(locus);
@@ -909,7 +910,7 @@ namespace transmission_nets::model::transmission_process {
             }
             current.frequencyIds[l] = updated;
             current.stale           = true;
-            const Genetics& child   = child_->latentGenotype(locus)->value();
+            const Genotype& child   = child_->latentGenotype(locus)->value();
             currentClasses_.resize(numClasses);
             for (size_t k = 0; k < numClasses; ++k) {
                 currentClasses_[k] = current.parents[current.classMember[k]]->latentGenotype(locus)->value();
@@ -921,7 +922,7 @@ namespace transmission_nets::model::transmission_process {
                 for (size_t t = 0; t < combination.size(); ++t) {
                     combinationGenotypes[t] = &currentClasses_[combination[t]];
                 }
-                const std::span<const Genetics* const> parents(combinationGenotypes.data(), combination.size());
+                const std::span<const Genotype* const> parents(combinationGenotypes.data(), combination.size());
                 auto& sums = current.latentSums[position / 2];
                 if (sums.stoppedAt != nullptr) {
                     if (sums.stoppedAt == locus.get() and not memo_->locusTable(updated, child, parents).impossible) {
@@ -954,7 +955,7 @@ namespace transmission_nets::model::transmission_process {
             for (size_t t = 0; t < parents.size(); ++t) {
                 parentGenotypes_[t] = &parents[t]->latentGenotype(locus)->value();
             }
-            const auto& table = memo_->locusTable(current.frequencyIds[l], child_->latentGenotype(locus)->value(), std::span<const Genetics* const>(parentGenotypes_.data(), parents.size()));
+            const auto& table = memo_->locusTable(current.frequencyIds[l], child_->latentGenotype(locus)->value(), std::span<const Genotype* const>(parentGenotypes_.data(), parents.size()));
             sums.add(table);
             if (table.impossible) {
                 sums.stoppedAt = locus.get();
@@ -1048,10 +1049,10 @@ namespace transmission_nets::model::transmission_process {
             // Genome ids, used to group parents and compute entries, stay valid until the next batch.
             memo_->beginBatch();
             // The latent parent's COI log-probabilities, read once per evaluation that recomputes a latent entry.
-            std::optional<std::decay_t<decltype(coiProb_->value())>> coiLogProbsRead;
+            const std::decay_t<decltype(coiProb_->logProbs())>* coiLogProbsRead = nullptr;
             const auto coiLogProbs = [&]() -> const auto& {
                 if (not coiLogProbsRead) {
-                    coiLogProbsRead = coiProb_->value();
+                    coiLogProbsRead = &coiProb_->logProbs();
                 }
                 return *coiLogProbsRead;
             };
@@ -1065,7 +1066,7 @@ namespace transmission_nets::model::transmission_process {
             parentsMayHaveChanged_ = false;
             auto& current          = mutableCache();
 
-            if (null_model_) {
+            if (nullModel) {
                 current.changes.clear();
                 for (size_t position = 0; position < current.valid.size(); ++position) {
                     if (current.logMultiplicity[position] != -std::numeric_limits<Likelihood>::infinity()) {
@@ -1208,7 +1209,7 @@ namespace transmission_nets::model::transmission_process {
 
             this->setClean();
         }
-        if (null_model_) {
+        if (nullModel) {
             // The entries' multiplicities still combine to a count; the term itself is 0.
             this->value_ = 0;
         }
@@ -1280,7 +1281,7 @@ namespace transmission_nets::model::transmission_process {
             }
         }
 
-        if (null_model_) {
+        if (nullModel) {
             Likelihood totalLlik = 0;
             for (const auto& [llik, ps] : dist.parentSetLliks) {
                 totalLlik += std::exp(llik);

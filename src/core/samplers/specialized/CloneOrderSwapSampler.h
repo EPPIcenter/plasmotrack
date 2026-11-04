@@ -91,12 +91,12 @@ namespace transmission_nets::core::samplers::specialized {
             AllowedRelationships& allowed,
             const size_t i) {
         std::vector<Partner> out{};
-        const auto parents = allowed.allowedParents(infections[i]);
+        const auto parents = allowed.permittedParents(infections[i]);
         for (size_t j = 0; j < infections.size(); ++j) {
             if (std::ranges::find(parents, infections[j]) == parents.end()) {
                 continue;
             }
-            if (const auto theirs = allowed.allowedParents(infections[j]); std::ranges::find(theirs, infections[i]) != theirs.end()) {
+            if (const auto theirs = allowed.permittedParents(infections[j]); std::ranges::find(theirs, infections[i]) != theirs.end()) {
                 out.push_back({infections[j]});
             }
         }

@@ -38,7 +38,7 @@ namespace {
 
     // log target = sum of the weights of the alleles present.
     struct WeightedAllelesTarget {
-        std::shared_ptr<Parameter<GeneticsImpl>> genotype;
+        std::shared_ptr<Parameter<Genotype>> genotype;
 
         double value() const {
             double out = 0;
@@ -52,7 +52,7 @@ namespace {
     };
 
     double targetWeight(const std::string& genotype) {
-        return std::exp(WeightedAllelesTarget{std::make_shared<Parameter<GeneticsImpl>>(GeneticsImpl(genotype))}.value());
+        return std::exp(WeightedAllelesTarget{std::make_shared<Parameter<Genotype>>(Genotype(genotype))}.value());
     }
 
     // Total variation distance between the visited genotypes' frequencies and the target over those genotypes, each
@@ -76,7 +76,7 @@ namespace {
     }
 
     template<typename Sampler>
-    std::map<std::string, int> run(Sampler& sampler, const std::shared_ptr<Parameter<GeneticsImpl>>& genotype, const int draws) {
+    std::map<std::string, int> run(Sampler& sampler, const std::shared_ptr<Parameter<Genotype>>& genotype, const int draws) {
         for (int i = 0; i < 5000; ++i) {
             sampler.update();
         }
@@ -115,7 +115,7 @@ namespace {
         }
 
         void setGenotype(const std::shared_ptr<InfectionEvent>& infection, const std::string& genotype) const {
-            infection->latentGenotype(locus)->initializeValue(GeneticsImpl(genotype));
+            infection->latentGenotype(locus)->initializeValue(Genotype(genotype));
         }
     };
 }// namespace
@@ -132,7 +132,7 @@ TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSampler) {
 
     auto genotype = child->latentGenotype(f.locus);
     auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
-    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<WeightedAllelesTarget, Engine, InfectionEvent, GeneticsImpl, OrderingImpl, MAX_PARENTS, MAX_COI>
+    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<WeightedAllelesTarget, Engine, InfectionEvent, OrderingImpl, MAX_PARENTS, MAX_COI>
             sampler(child, f.state->infectionEventOrdering, f.state->latentParents[c], target, f.rng, 0.3, 0.3);
 
     constexpr int draws = 400000;
@@ -154,7 +154,7 @@ TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSamplerAtUnobservedLocus) {
 
     auto genotype = child->latentGenotype(f.locus);
     auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
-    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<WeightedAllelesTarget, Engine, InfectionEvent, GeneticsImpl, OrderingImpl, MAX_PARENTS, MAX_COI>
+    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<WeightedAllelesTarget, Engine, InfectionEvent, OrderingImpl, MAX_PARENTS, MAX_COI>
             sampler(child, f.state->infectionEventOrdering, f.state->latentParents[m], target, f.rng, 0.3, 0.3);
 
     constexpr int draws = 400000;
@@ -184,17 +184,17 @@ TEST_P(ParentRelinkStationaryTest, LeavesTargetInvariant) {
         shape[day] = 1.0 + static_cast<double>(day);
     }
     transmission_nets::core::samplers::specialized::ParentRelinkSampler<WeightedAllelesTarget, Engine, InfectionEvent>
-            sampler(infection, f.state->latentParents[r], f.state->allowedRelationships->allowedParents(infection), target, f.rng, 1.0, 60.0, shape, 0.3, 0.3, GetParam());
+            sampler(infection, f.state->latentParents[r], f.state->allowedRelationships->permittedParents(infection), target, f.rng, 1.0, 60.0, shape, 0.3, 0.3, GetParam());
 
     // A genotype can be drawn from a source if it lies within the source's alleles and shares one of them, at the
     // durations for which the source came first: [1, 30) for p, infected on day 390, and for the latent parent any
     // duration whose day, round(duration), is below 60, so [1, 59.5).
-    const std::vector<std::pair<GeneticsImpl, double>> sources{{GeneticsImpl("110"), 29.0}, {GeneticsImpl("011"), 58.5}};
+    const std::vector<std::pair<Genotype, double>> sources{{Genotype("110"), 29.0}, {Genotype("011"), 58.5}};
     auto durations = [&](const std::string& genotypeString) {
-        const GeneticsImpl candidate(genotypeString);
+        const Genotype candidate(genotypeString);
         double longest = 0;
         for (const auto& [alleles, length] : sources) {
-            if (GeneticsImpl::falsePositiveCount(alleles, candidate) == 0 and GeneticsImpl::truePositiveCount(alleles, candidate) > 0) {
+            if (Genotype::falsePositiveCount(alleles, candidate) == 0 and Genotype::truePositiveCount(alleles, candidate) > 0) {
                 longest = std::max(longest, length);
             }
         }
@@ -231,7 +231,7 @@ TEST(GenotypeSamplerStationaryTest, AlleleSwapSampler) {
     f.setGenotype(f.state->infections[c], "100");
     auto genotype = f.state->infections[c]->latentGenotype(f.locus);
     auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
-    transmission_nets::core::samplers::genetics::AlleleSwapSampler<WeightedAllelesTarget, Engine, GeneticsImpl> sampler(genotype, target, f.rng);
+    transmission_nets::core::samplers::genetics::AlleleSwapSampler<WeightedAllelesTarget, Engine> sampler(genotype, target, f.rng);
 
     constexpr int draws = 200000;
     const auto visits   = run(sampler, genotype, draws);

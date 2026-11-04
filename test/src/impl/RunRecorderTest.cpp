@@ -50,7 +50,7 @@ namespace {
 
         // Sets the Latent genotypes of every Infection and Latent parent, by id then Locus, as one accepted proposal.
         void setLatentGenotypes(const std::map<std::string, std::map<std::string, std::string>>& alleles) const {
-            std::vector<std::pair<std::shared_ptr<transmission_nets::core::parameters::Parameter<GeneticsImpl>>, std::string>> changes;
+            std::vector<std::pair<std::shared_ptr<transmission_nets::core::parameters::Parameter<Genotype>>, std::string>> changes;
             for (const auto& owners : {state->infections, state->latentParents}) {
                 for (const auto& owner : owners) {
                     for (const auto& [locus, bits] : alleles.at(owner->id())) {
@@ -62,7 +62,7 @@ namespace {
                 genotype->saveState(1);
             }
             for (const auto& [genotype, bits] : changes) {
-                genotype->setValue(GeneticsImpl(bits));
+                genotype->setValue(Genotype(bits));
             }
             model->value();
             for (const auto& [genotype, _] : changes) {
@@ -538,8 +538,8 @@ TEST_F(RunRecorderTest, RowsReadWhicheverChainIsHotAtTheCall) {
     replica.state->meanCOI->initializeValue(3.5);
     other.state->meanCOI->initializeValue(7.25);
     const auto& as1 = replica.state->loci.at("AS1");
-    replica.state->infections[0]->latentGenotype(as1)->initializeValue(GeneticsImpl("00010001"));
-    other.state->infections[0]->latentGenotype(other.state->loci.at("AS1"))->initializeValue(GeneticsImpl("10000000"));
+    replica.state->infections[0]->latentGenotype(as1)->initializeValue(Genotype("00010001"));
+    other.state->infections[0]->latentGenotype(other.state->loci.at("AS1"))->initializeValue(Genotype("10000000"));
     auto recorder = makeRecorder(1, 10);
 
     recorder.recordStart(ensemble());

@@ -17,6 +17,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_TRANSMISSIONKERNEL_H
 #define TRANSMISSION_NETWORKS_APP_TRANSMISSIONKERNEL_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/utils/ProbAnyMissing.h"
 #include "core/utils/fastmath.h"
 #include "core/utils/numerics.h"
@@ -36,8 +37,11 @@
 
 namespace transmission_nets::model::transmission_process {
 
-    template<int MAX_PARENTS, int MAX_STRAINS, int MAX_COI, typename Genetics>
+    template<int MAX_PARENTS, int MAX_STRAINS, int MAX_COI>
     class TransmissionKernel {
+    public:
+        using Genotype = core::datatypes::Genotype;
+
     public:
         using Likelihood  = double;
         using Probability = double;
@@ -135,7 +139,7 @@ namespace transmission_nets::model::transmission_process {
 
         // log f_l(m) for one locus from the genotypes at it: the child's, the observed parents' in parent-set order,
         // and the latent parent's (null for the observed-parents variant).
-        LocusTerm locusTerm(const Variant variant, const Genetics& childGenotype, const std::span<const Genetics* const> parents, const Genetics* latentParent) {
+        LocusTerm locusTerm(const Variant variant, const Genotype& childGenotype, const std::span<const Genotype* const> parents, const Genotype* latentParent) {
             LocusTerm out{};
             const size_t numParents = parents.size() + (latentParent != nullptr ? 1 : 0);
 
@@ -153,7 +157,7 @@ namespace transmission_nets::model::transmission_process {
             switch (variant) {
                 case Variant::ObservedParents: {
                     zeroProbCutoff = 1e-10;
-                    for (const Genetics* parent : parents) {
+                    for (const Genotype* parent : parents) {
                         const auto& parentGenotype    = *parent;
                         const int totalAllelesPresent = parentGenotype.totalPositiveCount();
                         for (size_t k = 0; k < childAlleles_.size(); ++k) {
@@ -165,7 +169,7 @@ namespace transmission_nets::model::transmission_process {
                     break;
                 }
                 case Variant::ObservedAndLatentParents: {
-                    for (const Genetics* parent : parents) {
+                    for (const Genotype* parent : parents) {
                         const auto& parentGenotype    = *parent;
                         const int totalAllelesPresent = parentGenotype.totalPositiveCount();
                         for (size_t k = 0; k < childAlleles_.size(); ++k) {
@@ -176,7 +180,7 @@ namespace transmission_nets::model::transmission_process {
                     }
                     const auto& latentParentGenotype = *latentParent;
                     const int totalAllelesPresent    = latentParentGenotype.totalPositiveCount();
-                    if (Genetics::truePositiveCount(latentParentGenotype, childGenotype) == 0) {
+                    if (Genotype::truePositiveCount(latentParentGenotype, childGenotype) == 0) {
                         out.impossible = true;
                         return out;
                     }
@@ -331,7 +335,7 @@ namespace transmission_nets::model::transmission_process {
         };
 
         // The F table for a child genotype and the observed parents' genotypes (none for the latent parent alone).
-        FTable fTable(const Genetics& child, const std::span<const Genetics* const> parents) {
+        FTable fTable(const Genotype& child, const std::span<const Genotype* const> parents) {
             const auto childAlleles = allelesOf(child);
             const unsigned int A    = child.totalAlleles();
             const auto c            = static_cast<unsigned int>(childAlleles.size());
@@ -344,7 +348,7 @@ namespace transmission_nets::model::transmission_process {
             // without all of them are impossible and skipped without computing their terms.
             unsigned int required = 0;
             for (unsigned int i = 0; i < c; ++i) {
-                if (std::ranges::none_of(parents, [&](const Genetics* parent) { return parent->allele(childAlleles[i]); })) {
+                if (std::ranges::none_of(parents, [&](const Genotype* parent) { return parent->allele(childAlleles[i]); })) {
                     required |= 1u << i;
                 }
             }
@@ -359,7 +363,7 @@ namespace transmission_nets::model::transmission_process {
                     outside.push_back(a);
                 }
             }
-            Genetics latent = child;
+            Genotype latent = child;
             for (unsigned int mask = 1; mask < numMasks; ++mask) {
                 if ((mask & required) != required) {
                     continue;
@@ -489,7 +493,7 @@ namespace transmission_nets::model::transmission_process {
         }
 
         // The indices of a genotype's alleles.
-        static std::vector<unsigned int> allelesOf(const Genetics& g) {
+        static std::vector<unsigned int> allelesOf(const Genotype& g) {
             std::vector<unsigned int> out;
             for (unsigned int i = 0; i < g.totalAlleles(); ++i) {
                 if (g.allele(i)) {

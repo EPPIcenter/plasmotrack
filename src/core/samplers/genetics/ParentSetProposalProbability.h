@@ -5,6 +5,7 @@
 #ifndef TRANSMISSION_NETWORKS_APP_PARENTSETPROPOSALPROBABILITY_H
 #define TRANSMISSION_NETWORKS_APP_PARENTSETPROPOSALPROBABILITY_H
 
+#include "core/datatypes/Genotype.h"
 #include "core/samplers/genetics/GenomePartition.h"
 #include "core/samplers/genetics/ParentSetGenotypeProposal.h"
 #include "core/utils/numerics.h"
@@ -29,7 +30,7 @@ namespace transmission_nets::core::samplers::genetics {
     template<typename InfectionEventImpl, int MaxParentSetSize>
     class ParentSetProposalProbability {
         static_assert(MaxParentSetSize == 1 or MaxParentSetSize == 2, "options are enumerated for at most two observed parents");
-        using GeneticsImpl = typename InfectionEventImpl::GeneticsType;
+        using Genotype = core::datatypes::Genotype;
 
     public:
         // The proposal's rates.
@@ -40,16 +41,16 @@ namespace transmission_nets::core::samplers::genetics {
         double logProb(const InfectionEventImpl& child, const InfectionEventImpl& latentParent, const ParentSet& parentSet);
 
     private:
-        using Members = std::array<const GeneticsImpl*, MaxParentSetSize + 1>;
+        using Members = std::array<const core::datatypes::Genotype*, MaxParentSetSize + 1>;
 
         // Log probability of proposing the child's genotypes from the latent parent (if `withLatent`) and the classes'
         // genomes, or -inf.
         double evaluate(bool withLatent, std::span<const unsigned int> classes) const;
 
         GenomePartition<InfectionEventImpl> partition_{};
-        ProposalTarget<GeneticsImpl> child_{};
-        std::vector<GeneticsImpl> latentParent_{};
-        std::vector<std::vector<GeneticsImpl>> classes_{};// [class][locus]
+        ProposalTarget child_{};
+        std::vector<core::datatypes::Genotype> latentParent_{};
+        std::vector<std::vector<core::datatypes::Genotype>> classes_{};// [class][locus]
         std::vector<double> terms_{};
 
         double fnRate_;

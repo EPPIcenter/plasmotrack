@@ -8,7 +8,7 @@
 #include <string>
 
 #include "core/containers/Infection.h"
-#include "core/datatypes/Alleles.h"
+#include "core/datatypes/Genotype.h"
 #include "core/datatypes/Simplex.h"
 #include "core/containers/ParentSet.h"
 
@@ -43,13 +43,7 @@ namespace transmission_nets::core::io {
         return val;
     }
 
-    template<int MAX_COI>
-    std::string serialize(const datatypes::AllelesBitSet<MAX_COI>& val) noexcept {
-        return val.serialize();
-    }
-
-    template<int MAX_COI>
-    std::string serialize(datatypes::AllelesBitSet<MAX_COI>& val) noexcept {
+    inline std::string serialize(const datatypes::Genotype& val) noexcept {
         return val.serialize();
     }
 
@@ -57,8 +51,8 @@ namespace transmission_nets::core::io {
         return val.serialize();
     }
 
-    template<typename GeneticImpl, typename LocusImpl = containers::Locus>
-    std::string serialize(const std::shared_ptr<containers::Infection<GeneticImpl, LocusImpl>> val) {
+    template<typename LocusImpl = containers::Locus>
+    std::string serialize(const std::shared_ptr<containers::Infection<LocusImpl>> val) {
         return val->serialize();
     }
 

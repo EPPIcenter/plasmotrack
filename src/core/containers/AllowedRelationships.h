@@ -20,12 +20,12 @@
 namespace transmission_nets::core::containers {
     template<typename InfectionEvent>
     struct AllowedRelationships {
-        std::vector<std::shared_ptr<InfectionEvent>> allowedParents(const std::shared_ptr<InfectionEvent> infectionEvent) {
-            if (allowedParents_.find(infectionEvent) == allowedParents_.end()) {
+        std::vector<std::shared_ptr<InfectionEvent>> permittedParents(const std::shared_ptr<InfectionEvent> infectionEvent) {
+            if (permittedParents_.find(infectionEvent) == permittedParents_.end()) {
                 return {};
             }
             std::vector<std::shared_ptr<InfectionEvent>> out;
-            for (const auto& parent : allowedParents_.at(infectionEvent)) {
+            for (const auto& parent : permittedParents_.at(infectionEvent)) {
                 out.push_back(infectionEvents_[parent]);
             }
             return out;
@@ -43,10 +43,10 @@ namespace transmission_nets::core::containers {
         }
 
         void addParent(const std::shared_ptr<InfectionEvent> infectionEvent, const std::shared_ptr<InfectionEvent> parent) {
-            if (allowedParents_.find(infectionEvent) == allowedParents_.end()) {
-                allowedParents_.emplace(infectionEvent, std::vector<unsigned short>{});
+            if (permittedParents_.find(infectionEvent) == permittedParents_.end()) {
+                permittedParents_.emplace(infectionEvent, std::vector<unsigned short>{});
             }
-            allowedParents_.at(infectionEvent).push_back(parent->uid());
+            permittedParents_.at(infectionEvent).push_back(parent->uid());
         }
 
         void addChild(const std::shared_ptr<InfectionEvent> infectionEvent, const std::shared_ptr<InfectionEvent> child) {
@@ -65,7 +65,7 @@ namespace transmission_nets::core::containers {
 
     private:
         std::vector<std::shared_ptr<InfectionEvent>> infectionEvents_{};
-        boost::container::flat_map<std::shared_ptr<InfectionEvent>, std::vector<unsigned short>, UidLess> allowedParents_{};
+        boost::container::flat_map<std::shared_ptr<InfectionEvent>, std::vector<unsigned short>, UidLess> permittedParents_{};
         boost::container::flat_map<std::shared_ptr<InfectionEvent>, std::vector<unsigned short>, UidLess> allowedChildren_{};
     };
 }// namespace transmission_nets::core::containers

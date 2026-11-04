@@ -15,6 +15,7 @@
 #include "core/containers/UidLess.h"
 
 #include "core/datatypes/Data.h"
+#include "core/datatypes/Genotype.h"
 
 #include "core/parameters/Parameter.h"
 
@@ -27,23 +28,23 @@
 
 
 namespace transmission_nets::core::containers {
-    template<typename GeneticImpl, typename LocusImpl = Locus>
-    class Infection : public abstract::Observable<Infection<GeneticImpl, LocusImpl>>,
-                      public abstract::UncacheablePassthrough<Infection<GeneticImpl, LocusImpl>>,
-                      public abstract::CheckpointablePassthrough<Infection<GeneticImpl, LocusImpl>> {
+    template<typename LocusImpl = Locus>
+    class Infection : public abstract::Observable<Infection<LocusImpl>>,
+                      public abstract::UncacheablePassthrough<Infection<LocusImpl>>,
+                      public abstract::CheckpointablePassthrough<Infection<LocusImpl>> {
 
         // Fired before a latent genotype changes, with the genotype it is about to replace. Restores do not fire it.
-        using LatentGenotypeChangeCallback = std::function<void(const std::shared_ptr<LocusImpl>& locus, const GeneticImpl& previous)>;
+        using LatentGenotypeChangeCallback = std::function<void(const std::shared_ptr<LocusImpl>& locus, const datatypes::Genotype& previous)>;
         CREATE_EVENT(latent_genotype_pre_change, LatentGenotypeChangeCallback)
 
     public:
-        using GeneticsType = GeneticImpl;
+        using Genotype = datatypes::Genotype;
         using LocusType    = LocusImpl;
 
         template<typename Element>
         using GenotypeMap          = boost::container::flat_map<std::shared_ptr<LocusImpl>, Element, UidLess>;// Maps genetic readout to loci
-        using GenotypeDataMap      = GenotypeMap<std::shared_ptr<datatypes::Data<GeneticImpl>>>;
-        using GenotypeParameterMap = GenotypeMap<std::shared_ptr<parameters::Parameter<GeneticImpl>>>;
+        using GenotypeDataMap      = GenotypeMap<std::shared_ptr<datatypes::Data<datatypes::Genotype>>>;
+        using GenotypeParameterMap = GenotypeMap<std::shared_ptr<parameters::Parameter<datatypes::Genotype>>>;
 
         explicit Infection(std::string id, double observationTime, bool symptomatic = true);
 
@@ -78,7 +79,7 @@ namespace transmission_nets::core::containers {
                     if (!alleleFound) {
                         bitstr[bitstr.size() - 1] = '1';
                     }
-                    addGenetics(locus, GeneticImpl(bitstr), GeneticImpl(bitstr));
+                    addGenetics(locus, datatypes::Genotype(bitstr), datatypes::Genotype(bitstr));
                 }
             }
         }
@@ -101,11 +102,11 @@ namespace transmission_nets::core::containers {
             return observedGenotype_;
         };
 
-        std::shared_ptr<datatypes::Data<GeneticImpl>> observedGenotype(std::shared_ptr<LocusImpl> locus) const {
+        std::shared_ptr<datatypes::Data<datatypes::Genotype>> observedGenotype(std::shared_ptr<LocusImpl> locus) const {
             return observedGenotype_.at(locus);
         };
 
-        std::shared_ptr<datatypes::Data<GeneticImpl>> observedGenotype(std::shared_ptr<LocusImpl> locus) {
+        std::shared_ptr<datatypes::Data<datatypes::Genotype>> observedGenotype(std::shared_ptr<LocusImpl> locus) {
             return observedGenotype_.at(locus);
         };
 
@@ -117,11 +118,11 @@ namespace transmission_nets::core::containers {
             return latentGenotype_;
         };
 
-        std::shared_ptr<parameters::Parameter<GeneticImpl>> latentGenotype(std::shared_ptr<LocusImpl> locus) {
+        std::shared_ptr<parameters::Parameter<datatypes::Genotype>> latentGenotype(std::shared_ptr<LocusImpl> locus) {
             return latentGenotype_.at(locus);
         };
 
-        std::shared_ptr<parameters::Parameter<GeneticImpl>> latentGenotype(std::shared_ptr<LocusImpl> locus) const {
+        std::shared_ptr<parameters::Parameter<datatypes::Genotype>> latentGenotype(std::shared_ptr<LocusImpl> locus) const {
             return latentGenotype_.at(locus);
         };
 
@@ -198,17 +199,17 @@ namespace transmission_nets::core::containers {
 
         // Infections are comparable by their id.
         bool operator<(const Infection& rhs) const {
-            if (static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this) < static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs))
+            if (static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<LocusImpl>>&>(*this) < static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<LocusImpl>>&>(rhs))
                 return true;
-            if (static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs) < static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this))
+            if (static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<LocusImpl>>&>(rhs) < static_cast<const transmission_nets::core::abstract::Observable<transmission_nets::core::containers::Infection<LocusImpl>>&>(*this))
                 return false;
-            if (static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this) < static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs))
+            if (static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<LocusImpl>>&>(*this) < static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<LocusImpl>>&>(rhs))
                 return true;
-            if (static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs) < static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this))
+            if (static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<LocusImpl>>&>(rhs) < static_cast<const transmission_nets::core::abstract::UncacheablePassthrough<transmission_nets::core::containers::Infection<LocusImpl>>&>(*this))
                 return false;
-            if (static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this) < static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs))
+            if (static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<LocusImpl>>&>(*this) < static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<LocusImpl>>&>(rhs))
                 return true;
-            if (static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(rhs) < static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<GeneticImpl, LocusImpl>>&>(*this))
+            if (static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<LocusImpl>>&>(rhs) < static_cast<const transmission_nets::core::abstract::CheckpointablePassthrough<transmission_nets::core::containers::Infection<LocusImpl>>&>(*this))
                 return false;
             return id_ < rhs.id_;
         }
@@ -243,16 +244,16 @@ namespace transmission_nets::core::containers {
         std::string id_;
         int uid_;
         std::uint64_t latentGenomeVersion_ = 0;
-        GenotypeMap<std::shared_ptr<datatypes::Data<GeneticImpl>>> observedGenotype_{};
-        GenotypeMap<std::shared_ptr<parameters::Parameter<GeneticImpl>>> latentGenotype_{};
+        GenotypeMap<std::shared_ptr<datatypes::Data<datatypes::Genotype>>> observedGenotype_{};
+        GenotypeMap<std::shared_ptr<parameters::Parameter<datatypes::Genotype>>> latentGenotype_{};
         std::vector<std::shared_ptr<LocusImpl>> loci_{};
         std::shared_ptr<datatypes::Data<double>> observationTime_;
         std::shared_ptr<parameters::Parameter<double>> infectionDuration_;// default to 100 days? or maybe something else -- look in constructor
         std::shared_ptr<datatypes::Data<bool>> symptomatic_{};
     };
 
-    template<typename GeneticImpl, typename LocusImpl>
-    Infection<GeneticImpl, LocusImpl>::Infection(std::string id, const double observationTime, const bool symptomatic) : id_(std::move(id)), observationTime_(std::make_shared<datatypes::Data<double>>(observationTime)), symptomatic_(std::make_shared<datatypes::Data<bool>>(symptomatic)) {
+    template<typename LocusImpl>
+    Infection<LocusImpl>::Infection(std::string id, const double observationTime, const bool symptomatic) : id_(std::move(id)), observationTime_(std::make_shared<datatypes::Data<double>>(observationTime)), symptomatic_(std::make_shared<datatypes::Data<bool>>(symptomatic)) {
         uid_ = nextUid();
         infectionDuration_ = std::make_shared<parameters::Parameter<double>>(10.0);
         infectionDuration_->initializeValue(10.0);
@@ -268,19 +269,18 @@ namespace transmission_nets::core::containers {
 
     /**
      * @brief Add observed and latent genotypes to the infection.
-     * @tparam GeneticImpl Class implementing the Genetic interface.
      * @tparam LocusImpl Class implementing the Locus interface.
      * @tparam T Class that may be used to initialize the genotypes.
      * @param locus Pointer to the locus.
      * @param obs The observed genotype.
      * @param latent The latent genotype.
      */
-    template<typename GeneticImpl, typename LocusImpl>
+    template<typename LocusImpl>
     template<typename T>
-    void Infection<GeneticImpl, LocusImpl>::addGenetics(std::shared_ptr<LocusImpl> locus, const T& obs, const T& latent) {
+    void Infection<LocusImpl>::addGenetics(std::shared_ptr<LocusImpl> locus, const T& obs, const T& latent) {
         loci_.push_back(locus);
-        auto lat = std::make_shared<parameters::Parameter<GeneticImpl>>(latent);
-        auto ob  = std::make_shared<datatypes::Data<GeneticImpl>>(obs);
+        auto lat = std::make_shared<parameters::Parameter<datatypes::Genotype>>(latent);
+        auto ob  = std::make_shared<datatypes::Data<datatypes::Genotype>>(obs);
         observedGenotype_.insert_or_assign(locus, ob);
         latentGenotype_.insert_or_assign(locus, lat);
         attachLatentGenotype(locus);
@@ -288,18 +288,17 @@ namespace transmission_nets::core::containers {
 
     /**
      * @brief Add observed and latent genotypes to the infection. Latent genotypes are initialized to the observed genotypes.
-     * @tparam GeneticImpl Class implementing the Genetic interface.
      * @tparam LocusImpl Class implementing the Locus interface.
      * @tparam T Class that may be used to initialize the genotypes.
      * @param locus Pointer to the locus.
      * @param obs The observed genotype.
      */
-    template<typename GeneticImpl, typename LocusImpl>
+    template<typename LocusImpl>
     template<typename T>
-    void Infection<GeneticImpl, LocusImpl>::addObservedGenetics(std::shared_ptr<LocusImpl> locus, const T& obs) {
+    void Infection<LocusImpl>::addObservedGenetics(std::shared_ptr<LocusImpl> locus, const T& obs) {
         loci_.push_back(locus);
-        auto ob  = std::make_shared<datatypes::Data<GeneticImpl>>(obs);
-        auto lat = std::make_shared<parameters::Parameter<GeneticImpl>>(obs);
+        auto ob  = std::make_shared<datatypes::Data<datatypes::Genotype>>(obs);
+        auto lat = std::make_shared<parameters::Parameter<datatypes::Genotype>>(obs);
         observedGenotype_.insert_or_assign(locus, ob);
         latentGenotype_.insert_or_assign(locus, lat);
         attachLatentGenotype(locus);
@@ -308,23 +307,22 @@ namespace transmission_nets::core::containers {
 
     /**
      * @brief Add latent genotypes to the infection.
-     * @tparam GeneticImpl Class implementing the Genetic interface.
      * @tparam LocusImpl Class implementing the Locus interface.
      * @tparam T Class that may be used to initialize the genotypes.
      * @param locus Pointer to the locus.
      * @param latent The latent genotype.
      */
-    template<typename GeneticImpl, typename LocusImpl>
+    template<typename LocusImpl>
     template<typename T>
-    void Infection<GeneticImpl, LocusImpl>::addLatentGenetics(std::shared_ptr<LocusImpl> locus, const T& latent) {
+    void Infection<LocusImpl>::addLatentGenetics(std::shared_ptr<LocusImpl> locus, const T& latent) {
         loci_.push_back(locus);
-        auto lat = std::make_shared<parameters::Parameter<GeneticImpl>>(latent);
+        auto lat = std::make_shared<parameters::Parameter<datatypes::Genotype>>(latent);
         latentGenotype_.insert_or_assign(locus, lat);
         attachLatentGenotype(locus);
     }
 
-    template<typename GeneticImpl, typename LocusImpl>
-    void Infection<GeneticImpl, LocusImpl>::attachLatentGenotype(const std::shared_ptr<LocusImpl>& locus) {
+    template<typename LocusImpl>
+    void Infection<LocusImpl>::attachLatentGenotype(const std::shared_ptr<LocusImpl>& locus) {
         const auto& latent = latentGenotype_.at(locus);
         latent->add_pre_change_listener([this, locus, parameter = latent.get()]() { this->notify_latent_genotype_pre_change(locus, parameter->value()); });
         latent->add_post_change_listener([this]() { ++latentGenomeVersion_; });
