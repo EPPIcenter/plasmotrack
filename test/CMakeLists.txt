@@ -33,6 +33,7 @@ set(CORE_SAMPLERS_TESTS
     src/core/samplers/ContinuousRandomWalkTest.cpp
     src/core/samplers/ConstrainedContinuousRandomWalkTest.cpp
     src/core/samplers/SALTSamplerTest.cpp
+    src/core/samplers/DirichletIndependenceSamplerTest.cpp
     src/core/samplers/genetics/RandomAllelesBitSetSampler4Test.cpp
     src/core/samplers/genetics/GenotypeSamplerStationaryTest.cpp
     src/core/samplers/specialized/CloneOrderSwapSamplerTest.cpp
