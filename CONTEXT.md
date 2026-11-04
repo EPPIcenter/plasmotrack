@@ -86,6 +86,50 @@ _Avoid_: Heated chain, auxiliary chain
 One independent execution of the sampler from its own starting state. Convergence diagnostics that compare replicates — R-hat, ESS — compare Runs, never chains within a Run.
 _Avoid_: Chain (in the multi-replicate sense), job, experiment, replicate
 
+**Spread**:
+How far an Analysis's Runs disagree on a quantity: the largest of its per-Run means minus the smallest. An Infection's spread is the largest spread over its possible parents, the Latent parent included.
+_Avoid_: Chain spread, range, divergence
+
+**Disputed Infection**:
+An Infection whose spread exceeds the threshold a convergence check sets: the Runs disagree on who infected it.
+_Avoid_: Stuck infection, unconverged node
+
+**Direction flip**:
+A disagreement in which one Run has Infection A infecting B and another has B infecting A. The commonest way the transmission network fails to mix.
+_Avoid_: Reversal, swap, order flip
+
+**Analysis**:
+The Runs of one input, taken together: what posterior summaries pool over and what convergence checks compare.
+_Avoid_: Cohort (for one input), experiment, fit
+
+**Draw**:
+One sampling-Phase Sampling iteration of one Run that was written to output: one posterior sample. A pooled summary weighs each Run by its Draws.
+_Avoid_: Sample, iteration (when a written posterior sample is meant), step
+
+**Edge marginal**:
+The posterior probability that one Infection infected another: the mean over Draws of the total weight of the recipient's Parent sets that contain the infector. Only Infection-to-Infection, never the Latent parent.
+_Avoid_: Edge probability, edge weight, edge score (except when scoring against truth)
+
+**Latent parent probability**:
+The posterior probability that an Infection's Parent set includes its Latent parent.
+_Avoid_: q, unobserved-source inclusion, importation probability
+
+**Composition class**:
+The kind of a Parent set, by how many observed parents it has and whether it includes the Latent parent: Latent parent only, one observed parent, one observed parent plus the Latent parent, and so on.
+_Avoid_: Set type, parent class
+
+**MAP Parent set**:
+An Infection's most probable Parent set under the posterior pooled over Draws. The MAP Parent sets of every Infection make the MAP graph.
+_Avoid_: Modal set, best set, consensus parents
+
+**Credible collection**:
+The fewest of an Infection's most probable Parent sets whose posterior probability together reaches a level, 80% unless stated.
+_Avoid_: Credible set (one Parent set is a set), HPD set
+
+**Functional**:
+A single number computed from the whole network at each Draw, such as the mean out-degree, so it has a posterior distribution of its own. Reported as a posterior mean with an interval.
+_Avoid_: Statistic, metric, summary (when a functional is meant)
+
 **Phase**:
 Which part of a Run a Sampling iteration belongs to: burn-in or sampling. Only sampling-Phase draws are posterior samples. A property of every iteration, so every output row carries it — never a switch deciding whether a Run produces output at all.
 _Avoid_: Warmup, adaptation period, stage, tuning period
