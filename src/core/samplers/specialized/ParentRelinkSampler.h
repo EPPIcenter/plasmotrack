@@ -55,7 +55,8 @@ namespace transmission_nets::core::samplers::specialized {
                             double fpRate       = 0.01,
                             unsigned int tries = 1,
                             std::shared_ptr<core::parameters::Parameter<double>> expectedFalsePositives = nullptr,
-                            std::shared_ptr<core::parameters::Parameter<double>> expectedFalseNegatives = nullptr);
+                            std::shared_ptr<core::parameters::Parameter<double>> expectedFalseNegatives = nullptr,
+                            double sourceWeightScale = 0.0);
 
         void update() noexcept override;
 
@@ -77,8 +78,9 @@ namespace transmission_nets::core::samplers::specialized {
         // Per-allele rates. The fixed fnRate_ and fpRate_ when this sampler was not given the infection's counts.
         [[nodiscard]] double fpAt(unsigned int nAlleles) const;
         [[nodiscard]] double fnAt(unsigned int nAlleles) const;
-        // How well the source's alleles cover the infection's observations, per observed locus. Zero when nothing
-        // was observed. Depends on the source and the observations, not on the latent genotype being proposed.
+        // How well the source's alleles cover the infection's observations: covered minus missing observed alleles,
+        // averaged over observed loci, or with sourceWeightScale_ > 0 summed over them and scaled by it. Zero when
+        // nothing was observed. Depends on the source and the observations, not on the latent genotype being proposed.
         [[nodiscard]] double sourceLogWeight(size_t s) const;
         [[nodiscard]] double sourceLogNormalizer(const std::vector<std::pair<size_t, double>>& sources) const;
         [[nodiscard]] std::pair<size_t, double> drawSource(const std::vector<std::pair<size_t, double>>& sources);
@@ -96,6 +98,7 @@ namespace transmission_nets::core::samplers::specialized {
         unsigned int tries_;
         std::shared_ptr<core::parameters::Parameter<double>> expectedFp_;
         std::shared_ptr<core::parameters::Parameter<double>> expectedFn_;
+        double sourceWeightScale_;
 
         // One draw of the proposal: a duration and the infection's genotypes by locus, in infection_->loci() order.
         struct Try {
@@ -130,7 +133,8 @@ namespace transmission_nets::core::samplers::specialized {
                                                                            const double fpRate,
                                                                            const unsigned int tries,
                                                                            std::shared_ptr<core::parameters::Parameter<double>> expectedFalsePositives,
-                                                                           std::shared_ptr<core::parameters::Parameter<double>> expectedFalseNegatives)
+                                                                           std::shared_ptr<core::parameters::Parameter<double>> expectedFalseNegatives,
+                                                                           const double sourceWeightScale)
         : infection_(std::move(infection)),
           latentParent_(std::move(latentParent)),
           permittedParents_(std::move(permittedParents)),
@@ -143,7 +147,8 @@ namespace transmission_nets::core::samplers::specialized {
           fpRate_(fpRate),
           tries_(std::max(1u, tries)),
           expectedFp_(std::move(expectedFalsePositives)),
-          expectedFn_(std::move(expectedFalseNegatives)) {}
+          expectedFn_(std::move(expectedFalseNegatives)),
+          sourceWeightScale_(sourceWeightScale) {}
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     std::pair<double, double> ParentRelinkSampler<T, Engine, InfectionEventImpl>::window(const size_t s) const {
@@ -213,7 +218,10 @@ namespace transmission_nets::core::samplers::specialized {
             sum += covered - missing;
             ++observedLoci;
         }
-        return observedLoci == 0 ? 0.0 : sum / static_cast<double>(observedLoci);
+        if (observedLoci == 0) {
+            return 0.0;
+        }
+        return sourceWeightScale_ > 0 ? sourceWeightScale_ * sum : sum / static_cast<double>(observedLoci);
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>

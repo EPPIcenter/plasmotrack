@@ -114,7 +114,7 @@ namespace transmission_nets::impl::Model {
                                             .id = fmt::format("RandomAllelesBitSetSampler3/latent_genotypes/{}", infection_id)});
                 // Move the infection to another source in one step (its latent parent stands for the Source, via its fixed anchor).
                 // The 0.01 rates apply only if the infection's sampled error counts are absent; those counts replace them.
-                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, 1.0, upperBound, durations, 0.01, 0.01, RELINK_TRIES, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex]),
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, 1.0, upperBound, durations, 0.01, 0.01, RELINK_TRIES, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex], RELINK_SOURCE_WEIGHT_SCALE),
                                             .id = fmt::format("ParentRelinkSampler/infection/{}", infection_id)});
                 scheduler_.registerSampler({.sampler = std::make_unique<genetics::StrainCountSampler<T, Engine, InfectionEvent>>(infection, target, r, MAX_COI),
                                             .id = fmt::format("StrainCountSampler/latent_genotypes/{}", infection_id)});

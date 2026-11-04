@@ -129,13 +129,15 @@ namespace transmission_nets::test::reference {
 
     // Log density of ParentRelinkSampler's proposal at the infection's current duration and genotypes: a mixture
     // over the sources (allowed parents, then the latent parent) whose window of durations holds positive shape
-    // mass. A source's weight is how many of the infection's observed alleles it carries, per observed locus, and
-    // is zero when nothing was observed, which makes the mixture uniform. Each source then contributes the shape
+    // mass. A source's log weight scores the infection's observed alleles it carries against those it lacks: the
+    // per-locus mean when sourceWeightScale is zero, otherwise the sum times the scale. It is zero when nothing was
+    // observed, which makes the mixture uniform. Each source then contributes the shape
     // restricted to its window times the probability of drawing every locus from that source alone. A duration d
     // falls in day round(d), and a source's window ends where the infection would no longer be infected after it.
     template<typename InfectionPtr>
     double relinkProposalDensity(const InfectionPtr& infection, const InfectionPtr& latentParent, const std::vector<InfectionPtr>& permittedParents,
-                                 const double minDuration, const double maxDuration, const std::vector<double>& shape, const double fnRate, const double fpRate) {
+                                 const double minDuration, const double maxDuration, const std::vector<double>& shape, const double fnRate, const double fpRate,
+                                 const double sourceWeightScale = 0.0) {
         auto mass = [&](const double first, const double second) {
             double total = 0;
             for (size_t day = 0; day < shape.size(); ++day) {
@@ -161,8 +163,7 @@ namespace transmission_nets::test::reference {
             }
             return total;
         };
-        // Same score as ParentRelinkSampler::sourceLogWeight: covered observed alleles minus missing ones, per
-        // observed locus.
+        // Same score as ParentRelinkSampler::sourceLogWeight.
         auto sourceLogWeight = [&](const InfectionPtr& source) {
             int observedLoci = 0;
             double sum       = 0;
@@ -175,7 +176,10 @@ namespace transmission_nets::test::reference {
                 sum += static_cast<double>(Genotype::truePositiveCount(parent, observed)) - static_cast<double>(Genotype::falsePositiveCount(parent, observed));
                 ++observedLoci;
             }
-            return observedLoci == 0 ? 0.0 : sum / static_cast<double>(observedLoci);
+            if (observedLoci == 0) {
+                return 0.0;
+            }
+            return sourceWeightScale > 0 ? sourceWeightScale * sum : sum / static_cast<double>(observedLoci);
         };
 
         const double duration = infection->infectionDuration()->value();

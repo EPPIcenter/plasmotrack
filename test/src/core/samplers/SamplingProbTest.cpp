@@ -119,6 +119,7 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
     std::vector<std::shared_ptr<FixedOrdering>> parentSets;
     std::vector<std::unique_ptr<Sampler3>> samplers3;
     std::vector<std::unique_ptr<Relink>> relinks;
+    std::vector<std::unique_ptr<Relink>> summedRelinks;
     for (int c = 0; c < numInfections; ++c) {
         std::vector<std::shared_ptr<InfectionEvent>> allowed;
         for (int p = 0; p < numInfections; ++p) {
@@ -129,6 +130,7 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
         parentSets.push_back(std::make_shared<FixedOrdering>());
         samplers3.push_back(std::make_unique<Sampler3>(infections[c], parentSets[c], latentParents[c], nullptr, std::make_shared<Engine>(1), 0.1, 0.1));
         relinks.push_back(std::make_unique<Relink>(infections[c], latentParents[c], allowed, nullptr, std::make_shared<Engine>(1), 1.0, 59.0, shape, 0.05, 0.05));
+        summedRelinks.push_back(std::make_unique<Relink>(infections[c], latentParents[c], allowed, nullptr, std::make_shared<Engine>(1), 1.0, 59.0, shape, 0.05, 0.05, 1, nullptr, nullptr, 1.0));
     }
 
     int comparisons = 0;
@@ -146,7 +148,9 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
         const auto label = where + ", child " + std::to_string(c) + ", parents " + std::to_string(parentSets[c]->parents.size());
         expectSame(expected3, samplers3[c]->calculateSamplingProb(), "Sampler3 " + label);
         expectSame(expectedR, relinks[c]->logProposalDensity(), "Relink " + label);
-        comparisons += 2;
+        const double expectedSummed = transmission_nets::test::reference::relinkProposalDensity(infections[c], latentParents[c], allowed, 1.0, 59.0, shape, 0.05, 0.05, 1.0);
+        expectSame(expectedSummed, summedRelinks[c]->logProposalDensity(), "Summed relink " + label);
+        comparisons += 3;
         finite += std::isfinite(expected3) + std::isfinite(expectedR);
         finiteRelink += std::isfinite(expectedR);
     };
@@ -196,10 +200,11 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
         }
     }
 
-    EXPECT_EQ(comparisons, 2 * numInfections * 8);
+    const int checks = numInfections * 8;
+    EXPECT_EQ(comparisons, 3 * checks);
     // Guard against a test that only ever compares -inf. Many of these random parent sets are impossible: every
     // chosen parent must share an allele with the child at every locus, observed or not, and genotype changes
     // accumulate over the rounds while the latent parents keep their starting genotypes.
-    EXPECT_GT(finite, comparisons / 4);
-    EXPECT_GT(finiteRelink, comparisons / 8);
+    EXPECT_GT(finite, checks / 2);
+    EXPECT_GT(finiteRelink, checks / 4);
 }
