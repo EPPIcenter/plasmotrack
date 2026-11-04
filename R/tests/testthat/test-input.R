@@ -30,7 +30,7 @@ test_that("a gzipped input with the same bytes inside is read when its hash matc
 test_that("an input whose SHA-256 differs from the manifests' errors", {
   dir <- withr::local_tempdir()
   wrong <- file.path(dir, "input.json")
-  writeLines(c(readLines(golden_input()), ""), wrong)
+  writeBin(c(readBin(golden_input(), "raw", file.size(golden_input())), charToRaw("\n")), wrong)
   expect_snapshot(pt_read(golden_store(), input = wrong), error = TRUE,
                   transform = function(x) gsub(dir, "<dir>", x, fixed = TRUE))
   expect_error(pt_read(golden_store(), input = file.path(dir, "absent.json")), "does not exist")
@@ -75,7 +75,7 @@ test_that("a missing or mismatched input in cli_arguments gives NA times and one
 
   run <- local_golden_copy_without_input()
   wrong <- file.path(dirname(run), "input.json")
-  writeLines(c(readLines(golden_input()), ""), wrong)
+  writeBin(c(readBin(golden_input(), "raw", file.size(golden_input())), charToRaw("\n")), wrong)
   set_cli_input(run, wrong)
   expect_message(b <- pt_read(run), "SHA-256 differs", fixed = TRUE)
   expect_identical(pt_infections(b)$observation_time, rep(NA_real_, 3))
@@ -112,7 +112,7 @@ test_that("without input =, pt_read() uses the Store's own copy of the input bef
   run <- local_golden_copy()
   # cli_arguments name a different file: the Store's copy comes first.
   wrong <- file.path(dirname(run), "other.json")
-  writeLines(c(readLines(golden_input()), ""), wrong)
+  writeBin(c(readBin(golden_input(), "raw", file.size(golden_input())), charToRaw("\n")), wrong)
   set_cli_input(run, wrong)
   expect_no_message(a <- pt_read(run))
   on.exit(pt_close(a))

@@ -28,6 +28,9 @@ file_url <- function(path) {
   paste0("file://", if (!startsWith(path, "/")) "/", path)
 }
 
+# The local path of a file URL; on Windows "file:///C:/x" is "C:/x", not "/C:/x".
+url_path <- function(url) sub("^/([A-Za-z]:)", "\\1", sub("^file://", "", url))
+
 local_cache <- function(.local_envir = parent.frame()) {
   cache <- withr::local_tempdir(.local_envir = .local_envir)
   withr::local_envvar(R_USER_CACHE_DIR = cache, .local_envir = .local_envir)
@@ -53,7 +56,7 @@ test_that("pt_example() downloads the asset once, then reuses the cached copy", 
   expect_identical(pt_runs(a)$run, c("replica-exchange", "single-chain"))
   expect_s3_class(pt_read_truth(ex$truth), "pt_truth")
 
-  unlink(sub("^file://", "", url))
+  unlink(url_path(url))
   expect_no_message(again <- pt_example(url = url))
   expect_identical(again, ex)
 })
@@ -64,7 +67,7 @@ test_that("refresh = TRUE downloads the asset again", {
   suppressMessages(pt_example(url = url))
 
   changed <- data.frame(infection = c("1", "2", "3"), district = "East", travel = TRUE)
-  file.copy(sub("^file://", "", local_example_asset(epi = changed)), sub("^file://", "", url), overwrite = TRUE)
+  file.copy(url_path(local_example_asset(epi = changed)), url_path(url), overwrite = TRUE)
   expect_identical(pt_example(url = url)$epi$district, c("North", "North", "South"))
   expect_message(ex <- pt_example(url = url, refresh = TRUE), "Downloading")
   expect_identical(ex$epi$district, rep("East", 3))
