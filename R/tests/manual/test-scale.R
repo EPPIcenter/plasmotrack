@@ -270,6 +270,8 @@ test_that("every exported function completes on a real Store under a 4 GB cap", 
 
   exported <- getNamespaceExports("plasmotrackr")
   called <- unique(sub("\\(.*", "", timings$function_name))
-  expect_equal(setdiff(exported, called), character())
+  # pt_example downloads its data, so it needs the network; it is not a Store operation.
+  excluded <- c("pt_example")
+  expect_equal(setdiff(exported, c(called, excluded)), character())
   expect(length(failures) == 0, paste(c("Scale check failures:", failures), collapse = "\n"))
 })
