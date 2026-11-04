@@ -1,22 +1,15 @@
 //
 // The Run driver advancing a Run to its end or to a stop: when Checkpoints are taken, where a resumed Run picks up, and
-// how a stop request and a forced end take effect. These tests assemble a Run from the example input, drive it with the
-// in-memory store sink and a temporary store directory, and check the committed Windows, the Run events and the
-// Checkpoint files.
+// how a stop request and a forced end take effect. These tests assemble a Run from the example input through the Run
+// assembly (see TestRuns.h), drive it with the in-memory store sink and a temporary store directory, and check the
+// committed Windows, the Run events and the Checkpoint files.
 //
 
 #include "gtest/gtest.h"
 
-#include "core/io/MemoryStoreSink.h"
-#include "impl/model/Model/Checkpoint.h"
-#include "impl/model/Model/Progress.h"
-#include "impl/model/Model/RunDriver.h"
-#include "impl/model/Model/RunRecorder.h"
+#include "TestRuns.h"
 
-#include <boost/random.hpp>
 #include <nlohmann/json.hpp>
-
-#include <unistd.h>
 
 #include <algorithm>
 #include <atomic>
@@ -30,78 +23,9 @@
 #include <thread>
 #include <vector>
 
-using namespace transmission_nets::impl::Model;
-using transmission_nets::core::io::MemoryStoreSink;
-using transmission_nets::core::io::Table;
-using transmission_nets::core::io::WindowMarker;
-namespace fs = std::filesystem;
+using namespace transmission_nets::test::runs;
 
 namespace {
-    using Engine = checkpoint::Engine;
-
-    nlohmann::json exampleInput() {
-        std::ifstream in(EXAMPLE_INPUT_PATH);
-        return nlohmann::json::parse(in);
-    }
-
-    const std::vector<double> IDP(60, 1.0 / 60);
-
-    struct TempDir {
-        fs::path path = fs::temp_directory_path() / ("plasmotrack-run-driver-" + std::to_string(::getpid()) + "-" + ::testing::UnitTest::GetInstance()->current_test_info()->name());
-        TempDir() {
-            fs::remove_all(path);
-            fs::create_directories(path);
-        }
-        ~TempDir() { fs::remove_all(path); }
-    };
-
-    // A store sink that writes to a MemoryStoreSink the test keeps, so one store outlives the Run recorders of a Run
-    // and its resumptions.
-    class SharedSink final : public transmission_nets::core::io::StoreSink {
-    public:
-        explicit SharedSink(MemoryStoreSink& store) : store_(store) {}
-        void writeManifest(const nlohmann::json& manifest) override { store_.writeManifest(manifest); }
-        void writeStructure(const std::string& table, const Table& rows) override { store_.writeStructure(table, rows); }
-        void appendRows(const std::string& table, const Table& rows) override { store_.appendRows(table, rows); }
-        void allowRowGroupEnd() override { store_.allowRowGroupEnd(); }
-        void commitWindow(const WindowMarker& marker) override { store_.commitWindow(marker); }
-        void discardWindowsAfter(const std::int64_t lastKept) override { store_.discardWindowsAfter(lastKept); }
-
-    private:
-        MemoryStoreSink& store_;
-    };
-
-    // What a Run is made from, beside its plan.
-    struct Recipe {
-        int chains            = 1;
-        double gradient       = 0.5;
-        long seed             = 3;
-        unsigned int cores    = 1;
-        RecorderOptions options{.thin = 1, .window = 5};
-    };
-
-    // A Run assembled from parts, as the CLI assembles one: an ensemble, its top-level engine, a Run recorder writing to
-    // `store` and a Run driver checkpointing into `dir`.
-    struct AssembledRun {
-        std::shared_ptr<Engine> rng;
-        std::unique_ptr<Ensemble> ensemble;
-        std::unique_ptr<RunRecorder> recorder;
-        std::unique_ptr<Progress> unread;
-        std::unique_ptr<RunDriver> driver;
-        RunStart start;
-    };
-
-    const checkpoint::Identity IDENTITY{.runId = "run-1", .inputHash = "sha256:input", .engineVersion = "1.0.0"};
-
-    // The Run recorder's clock: fixed, so two stores of the same Run are equal row for row.
-    std::chrono::system_clock::time_point fixedClock() {
-        return std::chrono::sys_days{std::chrono::year{2026} / 10 / 11};
-    }
-
-    RunManifest manifest(const Recipe& recipe, const RunPlan& plan) {
-        return {.runId = IDENTITY.runId, .seed = recipe.seed, .engineVersion = IDENTITY.engineVersion, .chains = recipe.chains, .gradient = recipe.gradient, .burnIn = plan.burnIn, .samples = plan.samples};
-    }
-
     // The progress adapter in tests: records each call, with where the Run stood.
     class RecordingProgress final : public Progress {
     public:
@@ -137,68 +61,6 @@ namespace {
         }
     };
 
-    // Where a Run assembled for a test reports its progress, and the clock its Run recorder and Run driver read.
-    struct Reporting {
-        Progress* progress = nullptr;// none: a recording nobody reads
-        RunRecorder::Clock clock = fixedClock;
-    };
-
-    void assembleDriver(AssembledRun& run, MemoryStoreSink& store, const fs::path& dir, const Recipe& recipe, const RunPlan& plan, const Reporting& reporting) {
-        if (reporting.progress == nullptr) {
-            run.unread   = std::make_unique<RecordingProgress>();
-        }
-        run.recorder = std::make_unique<RunRecorder>(*run.ensemble->hotChain().state, run.ensemble->samplerIds(), std::make_unique<SharedSink>(store), recipe.options, manifest(recipe, plan), reporting.clock);
-        run.driver   = std::make_unique<RunDriver>(*run.ensemble, *run.rng, *run.recorder, dir, IDENTITY, reporting.progress ? *reporting.progress : *run.unread, reporting.clock);
-    }
-
-    // A new Run.
-    AssembledRun freshRun(MemoryStoreSink& store, const fs::path& dir, const Recipe& recipe, const RunPlan& plan, const Reporting& reporting = {}) {
-        AssembledRun run;
-        run.rng      = std::make_shared<Engine>(recipe.seed);
-        run.ensemble = std::make_unique<Ensemble>(recipe.chains, recipe.gradient, run.rng, false, recipe.cores, exampleInput(), IDP, IDP);
-        run.start    = FreshRun{};
-        assembleDriver(run, store, dir, recipe, plan, reporting);
-        return run;
-    }
-
-    // The Run whose store is `store` and `dir`, resumed from the latest Checkpoint in `dir`.
-    AssembledRun resumedRun(MemoryStoreSink& store, const fs::path& dir, const Recipe& recipe, const RunPlan& plan, const Reporting& reporting = {}) {
-        const auto saved = checkpoint::load(dir / "checkpoint.cbor");
-        AssembledRun run;
-        run.rng      = std::make_shared<Engine>();
-        run.ensemble = checkpoint::restore(saved, run.rng, exampleInput(), IDP, IDP, false, recipe.cores);
-        run.start    = ResumedRun{.position = saved.position, .parentSetIds = saved.parentSetIds};
-        assembleDriver(run, store, dir, recipe, plan, reporting);
-        return run;
-    }
-
-    // Never asks the Run to stop.
-    std::optional<std::string> neverStop() {
-        return std::nullopt;
-    }
-
-    // One row of the events table, its payload parsed.
-    struct Event {
-        std::int64_t iteration;
-        std::string type;
-        nlohmann::json payload;
-    };
-
-    std::vector<Event> events(const MemoryStoreSink& store) {
-        const auto t = store.table("events");
-        std::vector<Event> out;
-        for (std::size_t r = 0; r < t.rows(); ++r) {
-            out.push_back({t.column<std::int64_t>("iteration")[r], t.column<std::string>("type")[r], nlohmann::json::parse(t.column<std::string>("payload")[r])});
-        }
-        return out;
-    }
-
-    std::vector<Event> eventsOfType(const MemoryStoreSink& store, const std::string& type) {
-        auto out = events(store);
-        std::erase_if(out, [&](const Event& e) { return e.type != type; });
-        return out;
-    }
-
     std::vector<std::int64_t> windowNumbers(const MemoryStoreSink& store) {
         std::vector<std::int64_t> out;
         for (const auto& w : store.windows()) {
@@ -215,15 +77,6 @@ namespace {
         return out;
     }
 
-    // A run_scalars column at one iteration.
-    double scalarAt(const MemoryStoreSink& store, const std::string& column, const std::int64_t iteration) {
-        const auto t          = store.table("run_scalars");
-        const auto iterations = t.column<std::int64_t>("iteration");
-        const auto at         = std::ranges::find(iterations, iteration);
-        EXPECT_NE(at, iterations.end()) << "no row at iteration " << iteration;
-        return at == iterations.end() ? 0 : t.column<double>(column)[at - iterations.begin()];
-    }
-
     // The replica in the Hot temperature slot.
     const checkpoint::Replica& hotReplica(const checkpoint::Checkpoint& saved) {
         return saved.replicas.at(saved.exchange.replicas.front());
@@ -235,9 +88,10 @@ namespace {
 TEST(RunDriverTest, ACheckpointIsTakenAtEachWindowsEndWithTheStateItEndsAt) {
     TempDir dir;
     MemoryStoreSink store;
-    const Recipe recipe{.chains = 2};
     const RunPlan plan{.burnIn = 13, .samples = 12};
-    auto run = freshRun(store, dir.path, recipe, plan);
+    auto recipe            = newRecipe(dir.path, plan);
+    recipe.manifest.chains = 2;
+    auto run               = freshRun(store, recipe);
 
     std::vector<checkpoint::Checkpoint> seen;
     const auto watchCheckpoints = [&]() -> std::optional<std::string> {
@@ -249,7 +103,7 @@ TEST(RunDriverTest, ACheckpointIsTakenAtEachWindowsEndWithTheStateItEndsAt) {
         }
         return std::nullopt;
     };
-    const auto outcome = run.driver->drive(run.start, plan, watchCheckpoints);
+    const auto outcome = run.drive(watchCheckpoints);
 
     EXPECT_TRUE(std::holds_alternative<Completed>(outcome));
     // Burn-in: Windows 0-1 full, 2 closed short by burn-in end at 13; sampling: 3 and 4 full, 5 closed by the Run's end.
@@ -271,17 +125,18 @@ TEST(RunDriverTest, ACheckpointIsTakenAtEachWindowsEndWithTheStateItEndsAt) {
 TEST(RunDriverTest, TheBurnInCheckpointHoldsTheStateAtBurnInEnd) {
     TempDir dir;
     MemoryStoreSink store;
-    const Recipe recipe{.chains = 2};
     const RunPlan plan{.burnIn = 13, .samples = 12};
-    auto run = freshRun(store, dir.path, recipe, plan);
-    ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+    auto recipe            = newRecipe(dir.path, plan);
+    recipe.manifest.chains = 2;
+    auto run               = freshRun(store, recipe);
+    ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
 
     const auto burnIn = checkpoint::load(dir.path / "checkpoint-burn-in.cbor");
     EXPECT_EQ(burnIn.identity, IDENTITY);
     EXPECT_EQ(burnIn.position, (RunPosition{.iteration = 13, .phase = Phase::Sampling, .lastClosedWindow = 2, .burnInRemaining = 0, .samplingRemaining = 12}));
     EXPECT_EQ(hotReplica(burnIn).state.scalars.at("mean_coi"), scalarAt(store, "mean_coi", 13));
     auto rng            = std::make_shared<Engine>();
-    const auto restored = checkpoint::restore(burnIn, rng, exampleInput(), IDP, IDP, false, 1);
+    const auto restored = checkpoint::restore(burnIn, rng, inputs().input, IDP, IDP, false, 1);
     EXPECT_NEAR(restored->hotChain().model->getLikelihood(), scalarAt(store, "likelihood", 13), 1e-9);
     EXPECT_NEAR(restored->hotChain().model->getPrior(), scalarAt(store, "prior", 13), 1e-9);
 }
@@ -337,28 +192,32 @@ namespace {
 // Trace rows are the ones the Run would have written uncut.
 TEST_P(RunDriverStopTest, AStoppedRunResumesWhereItStopped) {
     const std::int64_t stopAt = GetParam();
-    const Recipe recipe{.chains = 2};
     const RunPlan plan{.burnIn = 13, .samples = 12};
+    const auto twoChains = [&](const fs::path& dir) {
+        auto recipe            = newRecipe(dir, plan);
+        recipe.manifest.chains = 2;
+        return recipe;
+    };
 
     TempDir uncutDir;
     MemoryStoreSink uncut;
     {
-        auto run = freshRun(uncut, uncutDir.path, recipe, plan);
-        ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+        auto run = freshRun(uncut, twoChains(uncutDir.path));
+        ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
     }
 
     TempDir dir;
     MemoryStoreSink store;
     {
-        auto run           = freshRun(store, dir.path, recipe, plan);
-        const auto outcome = run.driver->drive(run.start, plan, stopAfter(stopAt));
+        auto run           = freshRun(store, twoChains(dir.path));
+        const auto outcome = run.drive(stopAfter(stopAt));
         ASSERT_TRUE(std::holds_alternative<Stopped>(outcome));
         EXPECT_EQ(std::get<Stopped>(outcome).signal, "SIGINT");
     }
     EXPECT_EQ(checkpoint::load(dir.path / "checkpoint.cbor").position.iteration, stopAt);
     {
-        auto run = resumedRun(store, dir.path, recipe, plan);
-        ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+        auto run = resumedRun(store, dir.path, plan);
+        ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
     }
 
     expectWindowsCover(store, 25);
@@ -388,17 +247,18 @@ INSTANTIATE_TEST_SUITE_P(EitherPhase, RunDriverStopTest, ::testing::Values(0, 3,
 TEST(RunDriverTest, AResumedRunDiscardsWindowsNewerThanItsCheckpoint) {
     TempDir dir;
     MemoryStoreSink store;
-    const Recipe recipe{.options = {.thin = 5, .window = 10}};
     const RunPlan plan{.burnIn = 10, .samples = 20};
     {
-        auto run = freshRun(store, dir.path, recipe, plan);
-        ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+        auto recipe     = newRecipe(dir.path, plan);
+        recipe.recorder = {.thin = 5, .window = 10};
+        auto run        = freshRun(store, recipe);
+        ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
     }
     ASSERT_EQ(windowNumbers(store), zeroTo(2));
     fs::copy_file(dir.path / "checkpoint-burn-in.cbor", dir.path / "checkpoint.cbor", fs::copy_options::overwrite_existing);
     {
-        auto run = resumedRun(store, dir.path, recipe, plan);
-        ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+        auto run = resumedRun(store, dir.path, plan);
+        ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
     }
 
     expectWindowsCover(store, 30);
@@ -416,16 +276,16 @@ TEST(RunDriverTest, AResumedRunDiscardsWindowsNewerThanItsCheckpoint) {
 TEST(RunDriverTest, ResumingAFinishedRunWithMoreSamplingIterationsExtendsIt) {
     TempDir dir;
     MemoryStoreSink store;
-    const Recipe recipe{.options = {.thin = 5, .window = 10}};
     {
         const RunPlan plan{.burnIn = 10, .samples = 20};
-        auto run = freshRun(store, dir.path, recipe, plan);
-        ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+        auto recipe     = newRecipe(dir.path, plan);
+        recipe.recorder = {.thin = 5, .window = 10};
+        auto run        = freshRun(store, recipe);
+        ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
     }
     {
-        const RunPlan plan{.burnIn = 10, .samples = 40};
-        auto run = resumedRun(store, dir.path, recipe, plan);
-        ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+        auto run = resumedRun(store, dir.path, {.burnIn = 10, .samples = 40});
+        ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
     }
 
     expectWindowsCover(store, 50);
@@ -449,8 +309,13 @@ TEST(RunDriverTest, TheStoreIsTheSameForOneCoreAndFour) {
     const RunPlan plan{.burnIn = 100, .samples = 200};
     const auto withCores = [&](const unsigned int cores, MemoryStoreSink& store) {
         TempDir dir;
-        auto run = freshRun(store, dir.path, {.chains = 4, .gradient = 0.5, .seed = 42, .cores = cores, .options = {.thin = 5, .window = 50}}, plan);
-        ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+        auto recipe            = newRecipe(dir.path, plan);
+        recipe.manifest.chains = 4;
+        recipe.manifest.seed   = 42;
+        recipe.cores           = cores;
+        recipe.recorder        = {.thin = 5, .window = 50};
+        auto run               = freshRun(store, recipe);
+        ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
     };
     MemoryStoreSink one;
     MemoryStoreSink four;
@@ -488,7 +353,9 @@ namespace {
     [[noreturn]] void forceEndMidRun(const fs::path& dir) {
         MemoryStoreSink store;
         const RunPlan plan{.burnIn = 13, .samples = 12};
-        auto run = freshRun(store, dir, {.chains = 2}, plan);
+        auto recipe            = newRecipe(dir, plan);
+        recipe.manifest.chains = 2;
+        auto run               = freshRun(store, recipe);
         std::atomic<bool> reached{false};
         std::atomic<bool> forced{false};
         std::int64_t polls = 0;
@@ -499,7 +366,7 @@ namespace {
             }
             return std::nullopt;
         };
-        std::thread driving([&] { run.driver->drive(run.start, plan, pauseAtEight); });
+        std::thread driving([&] { run.drive(pauseAtEight); });
         waitUntil([&] { return reached.load(); });
         run.driver->forceEnd("SIGINT", "SIGTERM");
         forced = true;
@@ -547,8 +414,8 @@ TEST(RunDriverProgressTest, EachClosedWindowIsReportedOnceBetweenTheStartAndTheE
     MemoryStoreSink store;
     RecordingProgress progress;
     const RunPlan plan{.burnIn = 13, .samples = 12};
-    auto run = freshRun(store, dir.path, {}, plan, {.progress = &progress});
-    ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+    auto run = freshRun(store, newRecipe(dir.path, plan), {.progress = &progress});
+    ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
 
     // Windows 0-2 in burn-in, 2 closed short at 13; 3-5 in sampling.
     EXPECT_EQ(progress.kinds(), (std::vector<std::string>{"started", "windowClosed", "windowClosed", "windowClosed", "windowClosed", "windowClosed", "windowClosed", "ended"}));
@@ -582,8 +449,10 @@ TEST(RunDriverProgressTest, AClosedWindowIsReportedAsTheStoreHoldsIt) {
     MemoryStoreSink store;
     RecordingProgress progress;
     const RunPlan plan{.burnIn = 13, .samples = 12};
-    auto run = freshRun(store, dir.path, {.chains = 3}, plan, {.progress = &progress, .clock = tickingClock(std::chrono::milliseconds{7})});
-    ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+    auto recipe            = newRecipe(dir.path, plan);
+    recipe.manifest.chains = 3;
+    auto run               = freshRun(store, recipe, {.progress = &progress, .clock = tickingClock(std::chrono::milliseconds{7})});
+    ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
 
     const auto reported = progress.of("windowClosed");
     const auto closed   = eventsOfType(store, "window_closed");
@@ -637,8 +506,8 @@ TEST(RunDriverProgressTest, AHeartbeatFollowsTheSamplingIterationThatEndsAMinute
     RecordingProgress progress;
     SteppedClock time{.by = {{3, 61s}}};
     const RunPlan plan{.burnIn = 13, .samples = 12};
-    auto run = freshRun(store, dir.path, {}, plan, {.progress = &progress, .clock = time.clock()});
-    ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, time.stepping())));
+    auto run = freshRun(store, newRecipe(dir.path, plan), {.progress = &progress, .clock = time.clock()});
+    ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(time.stepping())));
 
     const auto beats = progress.of("heartbeat");
     ASSERT_EQ(beats.size(), 1u);
@@ -658,8 +527,8 @@ TEST(RunDriverProgressTest, AClosedWindowPutsTheHeartbeatOff) {
     // Window 0 commits once Sampling iteration 6 is recorded, 100 s in; nothing is reported in the 50 s before 5 or after 6.
     SteppedClock time{.by = {{4, 50s}, {5, 50s}, {6, 50s}}};
     const RunPlan plan{.burnIn = 13, .samples = 12};
-    auto run = freshRun(store, dir.path, {}, plan, {.progress = &progress, .clock = time.clock()});
-    ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, time.stepping())));
+    auto run = freshRun(store, newRecipe(dir.path, plan), {.progress = &progress, .clock = time.clock()});
+    ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(time.stepping())));
 
     EXPECT_TRUE(progress.of("heartbeat").empty());
 }
@@ -673,15 +542,15 @@ TEST(RunDriverProgressTest, AStoppedRunReportsWhereItStoppedAndResumesThere) {
     const RunPosition stoppedAt{.iteration = 16, .phase = Phase::Sampling, .lastClosedWindow = 3, .burnInRemaining = 0, .samplingRemaining = 9};
     {
         RecordingProgress progress;
-        auto run = freshRun(store, dir.path, {}, plan, {.progress = &progress});
-        ASSERT_TRUE(std::holds_alternative<Stopped>(run.driver->drive(run.start, plan, stopAfter(16))));
+        auto run = freshRun(store, newRecipe(dir.path, plan), {.progress = &progress});
+        ASSERT_TRUE(std::holds_alternative<Stopped>(run.drive(stopAfter(16))));
         EXPECT_EQ(progress.kinds(), (std::vector<std::string>{"started", "windowClosed", "windowClosed", "windowClosed", "windowClosed", "stopped"}));
         EXPECT_EQ(progress.calls.back().at, stoppedAt);
         EXPECT_EQ(progress.calls.back().signal, "SIGINT");
     }
     RecordingProgress progress;
-    auto run = resumedRun(store, dir.path, {}, plan, {.progress = &progress});
-    ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+    auto run = resumedRun(store, dir.path, plan, {.progress = &progress});
+    ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
     EXPECT_EQ(progress.calls.front().kind, "started");
     EXPECT_TRUE(progress.calls.front().resumed);
     EXPECT_EQ(progress.calls.front().at, stoppedAt);
@@ -695,8 +564,10 @@ TEST(RunDriverProgressTest, EachLadderAdaptationIsReported) {
     MemoryStoreSink store;
     RecordingProgress progress;
     const RunPlan plan{.burnIn = 22, .samples = 3};
-    auto run = freshRun(store, dir.path, {.chains = 3}, plan, {.progress = &progress});
-    ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, neverStop)));
+    auto recipe            = newRecipe(dir.path, plan);
+    recipe.manifest.chains = 3;
+    auto run               = freshRun(store, recipe, {.progress = &progress});
+    ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(neverStop)));
 
     const auto adapted = eventsOfType(store, "temperatures_adapted");
     const auto reported = progress.of("ladderAdapted");
@@ -721,8 +592,11 @@ TEST(RunDriverProgressTest, AHeartbeatFiresInBurnInThoughTheLadderAdaptsMoreOfte
         time.by[k] = 10s;
     }
     const RunPlan plan{.burnIn = 40, .samples = 5};
-    auto run = freshRun(store, dir.path, {.chains = 3, .options = {.thin = 1, .window = 100}}, plan, {.progress = &progress, .clock = time.clock()});
-    ASSERT_TRUE(std::holds_alternative<Completed>(run.driver->drive(run.start, plan, time.stepping())));
+    auto recipe            = newRecipe(dir.path, plan);
+    recipe.manifest.chains = 3;
+    recipe.recorder        = {.thin = 1, .window = 100};
+    auto run               = freshRun(store, recipe, {.progress = &progress, .clock = time.clock()});
+    ASSERT_TRUE(std::holds_alternative<Completed>(run.drive(time.stepping())));
 
     ASSERT_EQ(progress.of("ladderAdapted").size(), 5u);
     std::vector<std::int64_t> beatsInBurnIn;

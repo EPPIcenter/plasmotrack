@@ -109,6 +109,8 @@ set(IMPL_SOURCES
     impl/model/Model/RunDriver.h
     impl/model/Model/RunRecipe.cpp
     impl/model/Model/RunRecipe.h
+    impl/model/Model/RunAssembly.cpp
+    impl/model/Model/RunAssembly.h
     impl/model/Model/Refusal.h
     impl/model/Model/SamplerSet.h
     impl/model/Model/Ensemble.h
