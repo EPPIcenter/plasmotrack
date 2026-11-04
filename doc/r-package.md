@@ -573,9 +573,9 @@ site builds, so `R CMD check` and installs never download anything. The vignette
 - event payloads read with `jsonlite`
 - low acceptance by sampler type
 
-**Example data.** **`pt_example()`** downloads a GitHub release asset of about 16–20 MB into
+**Example data.** **`pt_example()`** downloads a GitHub release asset of about 23 MB into
 `tools::R_user_dir("plasmotrackr", "cache")`. It holds:
-- one thesis simulation's four full-model Runs (200 Infections, MOI 2, medium diversity, without checkpoints)
+- one thesis simulation's four full-model Runs (214 Infections, MOI 2, medium diversity, without checkpoints)
 - its null-model Run
 - the truth JSON and the input JSON
 - a synthetic epi data frame with district and travel columns

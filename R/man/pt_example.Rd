@@ -23,13 +23,13 @@ A list:
 }
 }
 \description{
-Downloads a simulated outbreak analysed with plasmotrack, about 20 MB, the first time you call it, and returns
+Downloads a simulated outbreak analysed with plasmotrack, about 23 MB, the first time you call it, and returns
 the paths of its files. Later calls reuse the copy in your R user cache directory,
 \code{tools::R_user_dir("plasmotrackr", "cache")}, and download nothing. The articles on the package website use
 this example.
 }
 \details{
-The example is one simulation of 200 Infections with a mean COI of 2 and medium genetic diversity. It holds:
+The example is one simulation of 214 Infections with a mean COI of 2 and medium genetic diversity. It holds:
 \itemize{
 \item four Runs of the full model (\code{full}), which open together as one Analysis.
 \item one Run of the null model (\code{null}), on the same input. Open it as its own Analysis: \code{\link[=pt_read]{pt_read()}} errors when

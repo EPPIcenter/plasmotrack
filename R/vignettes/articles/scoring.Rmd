@@ -46,8 +46,8 @@ The truth covers every case of the simulated outbreak, observed or not. Scoring 
 the Analysis, so one truth serves every fit of a simulation, such as a fit to all cases and a fit to a subsample.
 Ids are strings in both.
 
-Not every case in the truth was observed. The share of true edges with both ends observed bounds what any fit can
-recover:
+In a fit to a subsample, not every case is observed, and the share of true edges with both ends observed bounds what
+any fit can recover. This example fits every case, so the share is 1:
 
 ```{r observed-edges}
 observed <- pt_infections(a)$infection
@@ -76,7 +76,8 @@ The columns are the following:
 - `top_k_precision`: the precision among the *k* highest-scoring pairs, where *k* is the number of true edges.
 
 A true edge whose parent was never observed cannot be recovered directly. With `edges = "transitive"`, a pair also
-counts as true when a path through unobserved cases only joins the two Infections:
+counts as true when a path through unobserved cases only joins the two Infections. This example observes every case, so
+the table matches the one above; the option matters for fits to a subsample:
 
 ```{r score-edges-transitive}
 pt_score_edges(a, truth, edges = "transitive")

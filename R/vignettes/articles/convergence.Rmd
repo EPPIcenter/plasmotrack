@@ -12,8 +12,8 @@ each Run from its own state, so several Runs of one input show whether the sampl
 article shows you how to compare Runs with `pt_convergence()`, find the Infections that the Runs disagree on, and
 decide what to do about them.
 
-The article uses the example simulation from `pt_example()`, which downloads about 20 MB the first time you call it
-and reuses the cached copy afterwards. The example holds four Runs of the full model on one simulated outbreak of 200
+The article uses the example simulation from `pt_example()`, which downloads about 23 MB the first time you call it
+and reuses the cached copy afterwards. The example holds four Runs of the full model on one simulated outbreak of 214
 Infections.
 
 ## Before you begin
