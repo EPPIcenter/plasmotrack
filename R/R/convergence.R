@@ -470,8 +470,8 @@ tree_infections <- function(a, ds, latent_means, quantities, spread) {
   )
 }
 
-# The first rule that matches (classify_stuck.py of the thesis convergence work). `edge(run, child, parent)` is a
-# Run mean; `tops` each Run's top parent, in `runs` order.
+# The first class, in `disagreement_classes` order, whose rule matches (the rules are documented on pt_convergence()).
+# `edge(run, child, parent)` is a Run mean; `tops` each Run's top parent, in `runs` order.
 disagreement_class <- function(child, tops, runs, edge, t) {
   if (length(unique(tops)) == 1) return("same_top")
   observed <- setdiff(unique(tops), latent_key)

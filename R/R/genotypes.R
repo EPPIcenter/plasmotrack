@@ -2,7 +2,7 @@
 #
 # A Latent genotype is an Allele bitstring: character k (0-based, from the left) is Allele k, "1" means present.
 # Only Loci the Infection was genotyped at have rows. Pooled summaries count bitstrings in DuckDB first and expand
-# the few distinct ones in R: joining every row to its Alleles first cost 25 GB on Eswatini.
+# the few distinct ones in R: joining every row to its Alleles first took 25 GB on a real 457-Infection Store.
 
 # The Alleles present in `alleles`, as a DuckDB list of 0-based indices.
 present_alleles_sql <- "list_filter(range(length(alleles)), lambda k: substr(alleles, CAST(k AS INTEGER) + 1, 1) = '1')"
