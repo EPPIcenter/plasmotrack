@@ -288,6 +288,7 @@ Written once at Run start. A resumed Run keeps its manifest, and its `run_resume
 | `burn_in` | `-b` |
 | `samples` | `-s`, as planned at Run start |
 | `null_model` | Whether the Run uses the null model (`--null-model`, which may be abbreviated). `--resume` reads it from here |
+| `transmission_leak` | `--transmission-leak`. A manifest without it reads as 0 |
 | `thin` | `-t` |
 | `window` | `--window` |
 | `parent_set_floor` | `--parent-set-floor` |
@@ -340,7 +341,7 @@ Model caches are not saved; they are rebuilt from the State.
 - Before continuing, it deletes every Window newer than `checkpoint.cbor`, markers first, and any in-flight file.
 - It keeps the store's copies of the Run inputs and writes none.
 - It refuses a different input, IDP, engine version, `-n`, `-t`, `--window`, `-b`, `-g`, `--parent-set-floor`,
-  `--seed` or `--null-model`. Options left out take the Run's values.
+  `--seed`, `--null-model` or model option (`--transmission-leak`). Options left out take the Run's values.
 - `-s` may grow, which extends a finished Run. It may not shrink.
 - Iteration and Window numbering continue, no starting-State row is written, and a `run_resumed` event is recorded.
 - A resumed Run that ends before it records a Sampling iteration (for example, interrupted at once) commits nothing:

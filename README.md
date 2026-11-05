@@ -372,6 +372,9 @@ The `transmission_networks_model` executable is the main CLI tool for running tr
 - `--window <int>`: Sampling iterations per Window, a multiple of `-t` (default: 100). A killed Run loses at most the Window in flight
 - `--parent-set-floor <float>`: Parent sets less probable than this are not written (default: 1e-9)
 
+**Model Options:**
+- `--transmission-leak <float>`: The Transmission process's leak, at least 0 and below 1: each Parent set's allele pool at a Locus is mixed with the Allele frequencies in this proportion, so a child Allele no parent carries is improbable rather than impossible (default: 0, no leak). See section 6 of [doc/marginal-latent-parent.md](doc/marginal-latent-parent.md)
+
 **Replica Exchange Parameters:**
 - `--numchains, -n <int>`: Number of chains to run in replica exchange algorithm (default: 1)
 - `--numcores, -c <int>`: Number of CPU cores to use (default: 1)
