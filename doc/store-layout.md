@@ -120,6 +120,8 @@ Every Trace begins with these three columns:
 | `mean_coi` | double | Mean of the zero-truncated Poisson COI distribution |
 | `mean_strains_tx` | double | Mean number of strains transmitted |
 | `parent_set_size_prob` | double | Parameter of the zero-truncated geometric distribution of Parent set size |
+| `transmission_leak` | double | Only with `--leak-prior`: the sampled transmission leak |
+| `efp_mean`, `efp_shape`, `efn_mean`, `efn_shape` | double | Only with `--error-model hierarchical`: the population mean and shape of the false-positive and false-negative rates |
 | `prior` | double | Log prior of the Hot chain |
 | `likelihood` | double | Log likelihood of the Hot chain. The log posterior is `prior + likelihood` |
 | `observation` | double | Log likelihood of the Observation process, summed over Infections |
@@ -289,6 +291,8 @@ Written once at Run start. A resumed Run keeps its manifest, and its `run_resume
 | `samples` | `-s`, as planned at Run start |
 | `null_model` | Whether the Run uses the null model (`--null-model`, which may be abbreviated). `--resume` reads it from here |
 | `transmission_leak` | `--transmission-leak`. A manifest without it reads as 0 |
+| `leak_prior` | `--leak-prior`, in one form per prior (`loguniform` is recorded as `loguniform:1e-07,0.1`); empty for a fixed leak |
+| `error_model` | `--error-model`; empty for `infection` |
 | `thin` | `-t` |
 | `window` | `--window` |
 | `parent_set_floor` | `--parent-set-floor` |
@@ -341,7 +345,8 @@ Model caches are not saved; they are rebuilt from the State.
 - Before continuing, it deletes every Window newer than `checkpoint.cbor`, markers first, and any in-flight file.
 - It keeps the store's copies of the Run inputs and writes none.
 - It refuses a different input, IDP, engine version, `-n`, `-t`, `--window`, `-b`, `-g`, `--parent-set-floor`,
-  `--seed`, `--null-model` or model option (`--transmission-leak`). Options left out take the Run's values.
+  `--seed` or model option (`--transmission-leak`, `--leak-prior`, `--error-model`), and it refuses `--null-model`
+  when the Run was started without it. Options left out take the Run's values.
 - `-s` may grow, which extends a finished Run. It may not shrink.
 - Iteration and Window numbering continue, no starting-State row is written, and a `run_resumed` event is recorded.
 - A resumed Run that ends before it records a Sampling iteration (for example, interrupted at once) commits nothing:
