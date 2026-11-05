@@ -87,8 +87,8 @@ namespace transmission_nets::impl::Model {
             requireSame("--parent-set-floor", given.parentSetFloor, stored.options.parentSetFloor);
             requireSame("--seed", given.seed, manifest.seed);
             requireSame("--transmission-leak", given.transmissionLeak, manifest.transmissionLeak);
-            requireSame("--leak-prior", given.leakPrior, manifest.leakPrior);
-            requireSame("--error-model", given.errorModel, manifest.errorModel);
+            requireSame("--leak-prior", given.leakPrior ? std::optional(canonicalLeakPrior(*given.leakPrior)) : std::nullopt, canonicalLeakPrior(manifest.leakPrior));
+            requireSame("--error-model", given.errorModel ? std::optional(canonicalErrorModel(*given.errorModel)) : std::nullopt, canonicalErrorModel(manifest.errorModel));
             if (given.nullModel and !manifest.nullModel and !refusal) {
                 refusal = refuse(RefusalKind::RecipeChanged, "the Run was started without --null-model; resuming it needs the same.");
             }
@@ -139,8 +139,8 @@ namespace transmission_nets::impl::Model {
                                .samples       = recipe.plan.samples,
                                .nullModel     = given.nullModel,
                                .transmissionLeak = given.transmissionLeak.value_or(defaults::TRANSMISSION_LEAK),
-                               .leakPrior     = given.leakPrior.value_or(""),
-                               .errorModel    = given.errorModel.value_or("")};
+                               .leakPrior     = given.leakPrior ? canonicalLeakPrior(*given.leakPrior) : std::string{},
+                               .errorModel    = canonicalErrorModel(given.errorModel.value_or(""))};
             return recipe;
         }
 

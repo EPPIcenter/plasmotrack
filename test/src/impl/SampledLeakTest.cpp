@@ -232,7 +232,7 @@ TEST(SampledLeakTest, AFixedLeakAndNoLeakMatchAFreshModel) {
 TEST(SampledLeakTest, WithoutTheLikelihoodTheSamplerSetRecoversThePrior) {
     auto rng         = std::make_shared<boost::random::mt19937>(4242);
     const auto study = leakStudy(*rng, 4);
-    auto state       = std::make_shared<State>(study, rng, ModelChoice{.transmissionLeak = 0.01, .leakReference = LeakReference::Uniform, .leakPrior = "loguniform:1e-4,0.1", .errorModel = "hierarchical"});
+    auto state       = std::make_shared<State>(study, rng, ModelChoice{.transmissionLeak = 0.01, .leakPrior = "loguniform:1e-4,0.1", .errorModel = "hierarchical"});
     auto model       = std::make_shared<Model>(state, 0.0);
     SamplerSet<Model> samplers(state, model, rng);
     std::vector<double> leak, fpMean, fnMean;
@@ -285,4 +285,25 @@ TEST(SampledLeakTest, TheTruncatedRatePriorIsADensityOnTheRatesRange) {
         }
     }
     EXPECT_EQ(truncatedGammaLogDensity(0.6, 0.02, 2.0), -std::numeric_limits<double>::infinity());
+}
+
+// A restored leak from a Run with another prior is moved inside this one's range; one inside stays.
+TEST(SampledLeakTest, ARestoredLeakOutsideThePriorIsMovedInside) {
+    auto rng         = std::make_shared<boost::random::mt19937>(7);
+    const auto study = leakStudy(*rng, 4);
+    State state(study, rng, ModelChoice{.transmissionLeak = 0.01, .leakPrior = "loguniform:1e-4,0.1"});
+    state.leakSize->initializeValue(0.3);
+    state.keepLeakInsidePrior();
+    EXPECT_LT(state.leakSize->value(), 0.1);
+    EXPECT_GT(state.leakSize->value(), 0.099);
+    state.leakSize->initializeValue(0.02);
+    state.keepLeakInsidePrior();
+    EXPECT_EQ(state.leakSize->value(), 0.02);
+    EXPECT_EQ(canonicalLeakPrior("loguniform"), canonicalLeakPrior("loguniform:1e-7,0.1"));
+    EXPECT_EQ(canonicalLeakPrior("exponential"), "exponential:100");
+    EXPECT_EQ(canonicalLeakPrior("sideways"), "sideways");
+    EXPECT_EQ(canonicalErrorModel("infection"), "");
+    EXPECT_EQ(canonicalErrorModel(""), "");
+    EXPECT_EQ(canonicalErrorModel("shared"), "shared");
+    EXPECT_EQ(canonicalErrorModel("pooled"), "pooled");
 }

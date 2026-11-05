@@ -37,6 +37,9 @@ namespace transmission_nets::impl::Model {
     };
     // Throws std::invalid_argument for a description it can't read.
     LeakPrior parseLeakPrior(const std::string& description);
+    // The description in one form for each prior ("loguniform" and "loguniform:1e-07,0.1" give the same), or the
+    // description unchanged if it can't be read.
+    std::string canonicalLeakPrior(const std::string& description);
 
     // How the observation error rates are shared between Infections:
     //   infection    each Infection its own two rates, prior Gamma(10, 0.001) (the original model);
@@ -47,6 +50,8 @@ namespace transmission_nets::impl::Model {
     enum class ErrorModel { Infection, Shared, Hierarchical };
     // Throws std::invalid_argument for a name it doesn't know; "" is `infection`.
     ErrorModel parseErrorModel(const std::string& name);
+    // The name in one form for each model ("" for `infection`, given or not), or the name unchanged if it isn't one.
+    std::string canonicalErrorModel(const std::string& name);
 
     // The Run recipe's choices that shape each chain's State and Sampler set. Not Quantities: never sampled or
     // checkpointed.
@@ -73,6 +78,10 @@ namespace transmission_nets::impl::Model {
         explicit State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, bool null_model = false, double transmission_leak = 0);
 
         void initPriors();
+
+        // Moves a sampled leak strictly inside its prior's range, as a new State starts it; a restored leak may come
+        // from a Run with another prior.
+        void keepLeakInsidePrior();
 
         // The Infection with `id`, and its position in `infections`. Throw std::out_of_range for an unknown id.
         [[nodiscard]] std::shared_ptr<InfectionEvent> infection(const std::string& id) const;

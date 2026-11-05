@@ -214,6 +214,7 @@ namespace transmission_nets::impl::Model::checkpoint {
             ensemble = std::make_unique<Ensemble>(checkpoint.ensemble, runRng, numCores, [&](const size_t, const ChainState& saved, std::shared_ptr<Engine> chainRng) {
                 auto state = std::make_shared<State>(study, std::move(chainRng), choice);
                 restoreState(checkpoint.layout, saved, *state);
+                state->keepLeakInsidePrior();
                 return state;
             });
         } catch (const std::invalid_argument& e) {

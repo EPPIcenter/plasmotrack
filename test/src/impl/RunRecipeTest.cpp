@@ -173,7 +173,7 @@ TEST(RunRecipe, AnUnknownLeakPriorOrErrorModelIsRefused) {
     given.leakPrior    = "loguniform";
     given.errorModel   = "hierarchical";
     const auto recipe  = recipeOf(resolve(given, std::nullopt, std::nullopt));
-    EXPECT_EQ(recipe.manifest.leakPrior, "loguniform");
+    EXPECT_EQ(recipe.manifest.leakPrior, "loguniform:1e-07,0.1");
     EXPECT_EQ(recipe.manifest.errorModel, "hierarchical");
     for (const auto& prior : {"lognormal", "loguniform:0.1", "loguniform:0.1,0.01", "exponential:-1"}) {
         auto bad      = newRun();
@@ -183,6 +183,25 @@ TEST(RunRecipe, AnUnknownLeakPriorOrErrorModelIsRefused) {
     auto bad       = newRun();
     bad.errorModel = "pooled";
     EXPECT_EQ(refusalOf(resolve(bad, std::nullopt, std::nullopt)), RefusalKind::UnknownModelChoice);
+}
+
+// A leak prior is compared by what it means: the default range given explicitly resumes a Run started with the bare
+// name.
+TEST(RunRecipe, ResumingComparesLeakPriorsByMeaning) {
+    auto stored                = storedRun();
+    stored.manifest.leakPrior  = "loguniform";
+    const auto same            = resume([](GivenOptions& g) { g.leakPrior = "loguniform:1e-7,0.1"; }, stored);
+    EXPECT_TRUE(std::holds_alternative<Recipe>(same));
+    EXPECT_EQ(refusalOf(resume([](GivenOptions& g) { g.leakPrior = "loguniform:1e-6,0.1"; }, stored)), RefusalKind::RecipeChanged);
+}
+
+// So is an error model: --error-model infection resumes a Run started without the option.
+TEST(RunRecipe, ResumingComparesErrorModelsByMeaning) {
+    EXPECT_TRUE(std::holds_alternative<Recipe>(resume([](GivenOptions& g) { g.errorModel = "infection"; }, storedRun())));
+    EXPECT_EQ(refusalOf(resume([](GivenOptions& g) { g.errorModel = "shared"; }, storedRun())), RefusalKind::RecipeChanged);
+    auto given       = newRun();
+    given.errorModel = "infection";
+    EXPECT_EQ(recipeOf(resolve(given, std::nullopt, std::nullopt)).manifest.errorModel, "");
 }
 
 TEST(RunRecipe, TheTransmissionLeakMustBeAtLeastZeroAndBelowOne) {

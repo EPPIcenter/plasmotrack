@@ -79,6 +79,29 @@ namespace transmission_nets::impl::Model {
         throw std::invalid_argument(fmt::format("a leak prior is loguniform:LO,HI with 0 < LO < HI < 1, or exponential:RATE with RATE > 0 (got \"{}\")", description));
     }
 
+    std::string canonicalLeakPrior(const std::string& description) {
+        try {
+            const auto prior = parseLeakPrior(description);
+            return prior.kind == LeakPrior::Kind::LogUniform ? fmt::format("loguniform:{},{}", prior.a, prior.b) : fmt::format("exponential:{}", prior.a);
+        } catch (const std::invalid_argument&) {
+            return description;
+        }
+    }
+
+    std::string canonicalErrorModel(const std::string& name) {
+        try {
+            return parseErrorModel(name) == ErrorModel::Infection ? std::string{} : name;
+        } catch (const std::invalid_argument&) {
+            return name;
+        }
+    }
+
+    void State::keepLeakInsidePrior() {
+        if (leakPrior) {
+            leakSize->initializeValue(std::clamp(leakSize->value(), leakPrior->lower() * 1.0001 + 1e-12, leakPrior->upper() * 0.9999));
+        }
+    }
+
     ErrorModel parseErrorModel(const std::string& name) {
         if (name.empty() or name == "infection") {
             return ErrorModel::Infection;
@@ -102,8 +125,7 @@ namespace transmission_nets::impl::Model {
         leakSize         = std::make_shared<core::parameters::Parameter<double>>(choice.transmissionLeak);
         if (not choice.leakPrior.empty()) {
             leakPrior = parseLeakPrior(choice.leakPrior);
-            // A sampled leak starts strictly inside its prior's range.
-            leakSize->initializeValue(std::clamp(choice.transmissionLeak, leakPrior->lower() * 1.0001 + 1e-12, leakPrior->upper() * 0.9999));
+            keepLeakInsidePrior();
         }
         errorModel = parseErrorModel(choice.errorModel);
 
