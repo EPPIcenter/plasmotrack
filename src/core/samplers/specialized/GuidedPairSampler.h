@@ -191,7 +191,18 @@ namespace transmission_nets::core::samplers::specialized {
           maxCOI_(maxCOI) {
         for (auto& pair : pairs) {
             Prepared p{.pair = std::move(pair)};
+            for (const auto& [locus, observed] : p.pair.first.infection->observedGenotype()) {
+                if (p.pair.second.infection->observedGenotype().contains(locus)) {
+                    p.different += observed->value() != p.pair.second.infection->observedGenotype().at(locus)->value();
+                }
+            }
             for (const auto& locus : p.pair.first.infection->loci()) {
+                const bool has1 = p.pair.first.infection->observedGenotype().contains(locus);
+                const bool has2 = p.pair.second.infection->observedGenotype().contains(locus);
+                if (p.different > 0 and has1 and has2 and
+                    p.pair.first.infection->observedGenotype().at(locus)->value() == p.pair.second.infection->observedGenotype().at(locus)->value()) {
+                    continue;
+                }
                 std::set<unsigned int> alleles;
                 for (const auto* member : {&p.pair.first, &p.pair.second}) {
                     if (member->infection->observedGenotype().contains(locus)) {
@@ -205,11 +216,6 @@ namespace transmission_nets::core::samplers::specialized {
                 }
                 for (const auto allele : alleles) {
                     p.units.push_back({locus, allele});
-                }
-            }
-            for (const auto& [locus, observed] : p.pair.first.infection->observedGenotype()) {
-                if (p.pair.second.infection->observedGenotype().contains(locus)) {
-                    p.different += observed->value() != p.pair.second.infection->observedGenotype().at(locus)->value();
                 }
             }
             if (not p.units.empty()) {
