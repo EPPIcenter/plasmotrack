@@ -46,6 +46,74 @@ namespace transmission_nets::model::transmission_process {
         Likelihood totalLlik = 0;
     };
 
+    // A value shared between copies until one of them writes it: copying the box copies a pointer, and mutate() clones
+    // the value first if another box still holds it. Lets a saved state's cache copy share every entry it does not
+    // change. Not thread-safe (a chain's terms are used from one thread).
+    template<typename V>
+    class CowBox {
+        struct Node {
+            V value;
+            std::uint32_t refs;
+        };
+        Node* node_ = nullptr;
+        void release() noexcept {
+            if (node_ != nullptr and --node_->refs == 0) {
+                delete node_;
+            }
+            node_ = nullptr;
+        }
+
+    public:
+        CowBox() = default;
+        CowBox(const CowBox& other) noexcept : node_(other.node_) {
+            if (node_ != nullptr) {
+                ++node_->refs;
+            }
+        }
+        CowBox(CowBox&& other) noexcept : node_(other.node_) { other.node_ = nullptr; }
+        CowBox& operator=(const CowBox& other) noexcept {
+            if (other.node_ != nullptr) {
+                ++other.node_->refs;
+            }
+            release();
+            node_ = other.node_;
+            return *this;
+        }
+        CowBox& operator=(CowBox&& other) noexcept {
+            if (this != &other) {
+                release();
+                node_       = other.node_;
+                other.node_ = nullptr;
+            }
+            return *this;
+        }
+        ~CowBox() { release(); }
+
+        // The value; a default one for a box never set.
+        [[nodiscard]] const V& get() const noexcept {
+            static const V empty{};
+            return node_ != nullptr ? node_->value : empty;
+        }
+        // The value, this box's own.
+        V& mutate() {
+            if (node_ == nullptr) {
+                node_ = new Node{V{}, 1};
+            } else if (node_->refs > 1) {
+                --node_->refs;
+                node_ = new Node{node_->value, 1};
+            }
+            return node_->value;
+        }
+        void set(const V& value) {
+            if (node_ != nullptr and node_->refs == 1) {
+                node_->value = value;
+            } else {
+                release();
+                node_ = new Node{value, 1};
+            }
+        }
+    };
+
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
     class TransmissionTerm : public core::computation::PartialLikelihood {
         static_assert(ParentSetMaxCardinality == 1 or ParentSetMaxCardinality == 2, "parent sets are enumerated for at most two observed parents");
@@ -154,7 +222,7 @@ namespace transmission_nets::model::transmission_process {
             std::vector<std::uint32_t> classSize{};
             std::vector<std::uint32_t> classMember{};
             std::vector<StrainSums> sums{};// entries without the latent parent, odd position p at p / 2
-            std::vector<LatentSums> latentSums{};// entries with it, even position p at p / 2
+            std::vector<CowBox<LatentSums>> latentSums{};// entries with it, even position p at p / 2; shared between saved states until written
             // The id of each child locus' allele frequencies the latent entries (and, with a leak, every entry) were
             // summed with, in child loci order, and the generation of the ids.
             std::vector<FrequencyId> frequencyIds{};
@@ -871,13 +939,14 @@ namespace transmission_nets::model::transmission_process {
                 const std::span<const Genotype* const> previousParents(previousCombination.data(), combination.size());
                 const std::span<const Genotype* const> currentParents(currentCombination.data(), combination.size());
                 if (withLatent) {
-                    auto& sums = current.latentSums[position / 2];
-                    if (sums.stoppedAt != nullptr) {
-                        if (sums.stoppedAt == locus.get() and not memo_->locusTable(frequencyId, currentChild, currentParents).impossible) {
+                    auto& box = current.latentSums[position / 2];
+                    if (const auto* stoppedAt = box.get().stoppedAt; stoppedAt != nullptr) {
+                        if (stoppedAt == locus.get() and not memo_->locusTable(frequencyId, currentChild, currentParents).impossible) {
                             current.valid[position] = INVALID;
                         }
                         return;
                     }
+                    auto& sums = box.mutate();
                     sums.remove(memo_->locusTable(frequencyId, previousChild, previousParents));
                     sums.add(memo_->locusTable(frequencyId, currentChild, currentParents));
                     countLocusSwap(current, position);
@@ -891,7 +960,7 @@ namespace transmission_nets::model::transmission_process {
             std::ranges::sort(changedLoci_, std::less{}, locusAddress);
             forEachAffected([&](const size_t position, std::span<const unsigned int>, const bool withLatent) {
                 // An entry summed only up to a locus that makes it impossible stays impossible if that locus is unchanged.
-                const auto* stoppedAt = withLatent ? static_cast<const void*>(current.latentSums[position / 2].stoppedAt) : static_cast<const void*>(current.sums[position / 2].stoppedAt);
+                const auto* stoppedAt = withLatent ? static_cast<const void*>(current.latentSums[position / 2].get().stoppedAt) : static_cast<const void*>(current.sums[position / 2].stoppedAt);
                 if (current.valid[position] != INVALID and stoppedAt != nullptr and
                     not std::ranges::binary_search(changedLoci_, stoppedAt, std::less{}, [](const LocusPtr& locus) { return static_cast<const void*>(locus.get()); })) {
                     return;
@@ -954,13 +1023,14 @@ namespace transmission_nets::model::transmission_process {
                     combinationGenotypes[t] = &currentClasses_[combination[t]];
                 }
                 const std::span<const Genotype* const> parents(combinationGenotypes.data(), combination.size());
-                auto& sums = current.latentSums[position / 2];
-                if (sums.stoppedAt != nullptr) {
-                    if (sums.stoppedAt == locus.get() and not memo_->locusTable(updated, child, parents).impossible) {
+                auto& box = current.latentSums[position / 2];
+                if (const auto* stoppedAt = box.get().stoppedAt; stoppedAt != nullptr) {
+                    if (stoppedAt == locus.get() and not memo_->locusTable(updated, child, parents).impossible) {
                         current.valid[position] = INVALID;
                     }
                     return;
                 }
+                auto& sums = box.mutate();
                 sums.remove(memo_->locusTable(previous, child, parents));
                 sums.add(memo_->locusTable(updated, child, parents));
                 countLocusSwap(current, position);
@@ -1196,7 +1266,7 @@ namespace transmission_nets::model::transmission_process {
                     current.valid[position]    = SUMS_CHANGED;
                 };
                 auto setLatentSums = [&](const size_t position, const LatentSums& sums) {
-                    current.latentSums[position / 2] = sums;
+                    current.latentSums[position / 2].set(sums);
                     current.updates[position]        = 0;
                     current.valid[position]          = SUMS_CHANGED;
                 };
@@ -1211,7 +1281,7 @@ namespace transmission_nets::model::transmission_process {
                 // computing it from scratch.
                 auto finish = [&](const size_t position, const size_t numParents) {
                     if (current.valid[position] == SUMS_CHANGED) {
-                        current.summed[position] = position % 2 == 0 ? memo_->latentSummedLogLikelihood(current.latentSums[position / 2], numParents, coiLogProbs())
+                        current.summed[position] = position % 2 == 0 ? memo_->latentSummedLogLikelihood(current.latentSums[position / 2].get(), numParents, coiLogProbs())
                                                                      : memo_->strainSummedLogLikelihood(current.sums[position / 2], numParents);
                         current.valid[position]  = OUTER_CHANGED;
                     }
