@@ -131,6 +131,7 @@ namespace transmission_nets::core::samplers::specialized {
         const size_t k = p.group.size();
         Option current(k);
         for (size_t i = 0; i < k; ++i) current[i] = p.group[i].infection->latentGenotype(u.locus)->value();
+        const double currentValue = target_->value();
         options.clear();
         values.clear();
         for (unsigned int bits = 0; bits < (1u << k); ++bits) {
@@ -141,12 +142,16 @@ namespace transmission_nets::core::samplers::specialized {
                 ok = o[i].totalPositiveCount() > 0 and o[i].totalPositiveCount() <= maxCOI_;
             }
             if (not ok) continue;
-            Proposal<T, Engine> move(*target_, *rng_, innerCounts_);
-            for (size_t i = 0; i < k; ++i) {
-                if (o[i] != current[i]) move.change(*p.group[i].infection->latentGenotype(u.locus), o[i]);
+            if (o == current) {
+                values.push_back(currentValue);
+            } else {
+                Proposal<T, Engine> move(*target_, *rng_, innerCounts_);
+                for (size_t i = 0; i < k; ++i) {
+                    if (o[i] != current[i]) move.change(*p.group[i].infection->latentGenotype(u.locus), o[i]);
+                }
+                values.push_back(move.value());
+                move.revert();
             }
-            values.push_back(move.value());
-            move.revert();
             options.push_back(std::move(o));
         }
     }

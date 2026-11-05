@@ -121,12 +121,12 @@ namespace transmission_nets::core::samplers::specialized {
             const std::vector<std::shared_ptr<InfectionEventImpl>>& infections, AllowedRelationships& allowed, MaxDuration&& maxDuration) {
         std::vector<Pair> out;
         for (size_t i = 0; i < infections.size(); ++i) {
-            const auto parents = allowed.permittedParents(infections[i]);
+            const auto& parents = allowed.permittedParents(infections[i]);
             for (size_t j = i + 1; j < infections.size(); ++j) {
                 if (std::ranges::find(parents, infections[j]) == parents.end()) {
                     continue;
                 }
-                if (const auto theirs = allowed.permittedParents(infections[j]); std::ranges::find(theirs, infections[i]) != theirs.end()) {
+                if (const auto& theirs = allowed.permittedParents(infections[j]); std::ranges::find(theirs, infections[i]) != theirs.end()) {
                     out.push_back({{infections[i], maxDuration(i)}, {infections[j], maxDuration(j)}});
                 }
             }
@@ -215,6 +215,7 @@ namespace transmission_nets::core::samplers::specialized {
         const auto& a  = *p.pair.first.infection;
         const auto& b  = *p.pair.second.infection;
         const auto ga  = a.latentGenotype(u.locus)->value(), gb = b.latentGenotype(u.locus)->value();
+        const double currentValue = target_->value();
         auto counted   = [&](const Genotype& g) { return g.totalPositiveCount() > 0 and g.totalPositiveCount() <= maxCOI_; };
         options.clear();
         values.clear();
@@ -226,15 +227,19 @@ namespace transmission_nets::core::samplers::specialized {
                 if (not counted(na) or not counted(nb)) {
                     continue;
                 }
-                Proposal<T, Engine> move(*target_, *rng_, innerCounts_);
-                if (na != ga) {
-                    move.change(*a.latentGenotype(u.locus), na);
+                if (na == ga and nb == gb) {
+                    values.push_back(currentValue);
+                } else {
+                    Proposal<T, Engine> move(*target_, *rng_, innerCounts_);
+                    if (na != ga) {
+                        move.change(*a.latentGenotype(u.locus), na);
+                    }
+                    if (nb != gb) {
+                        move.change(*b.latentGenotype(u.locus), nb);
+                    }
+                    values.push_back(move.value());
+                    move.revert();
                 }
-                if (nb != gb) {
-                    move.change(*b.latentGenotype(u.locus), nb);
-                }
-                values.push_back(move.value());
-                move.revert();
                 options.emplace_back(na, nb);
             }
         }

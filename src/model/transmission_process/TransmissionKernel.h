@@ -350,7 +350,8 @@ namespace transmission_nets::model::transmission_process {
                     ++impossible;
                     return;
                 }
-                for (int i = 0; i < NUM_CELLS; ++i) {
+                const int first = table.kMin * MAX_STRAINS + (table.mMin - 1);
+                for (int i = first; i < NUM_CELLS; ++i) {
                     finite[i] += table.terms[i];
                 }
                 ++kMinCount[table.kMin];
@@ -361,7 +362,8 @@ namespace transmission_nets::model::transmission_process {
                     --impossible;
                     return;
                 }
-                for (int i = 0; i < NUM_CELLS; ++i) {
+                const int first = table.kMin * MAX_STRAINS + (table.mMin - 1);
+                for (int i = first; i < NUM_CELLS; ++i) {
                     finite[i] -= table.terms[i];
                 }
                 --kMinCount[table.kMin];
