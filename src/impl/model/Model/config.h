@@ -38,15 +38,15 @@ namespace transmission_nets::impl::Model {
     // ALLELE_FREQUENCY_DIRICHLET_EVERY-th update, fitted to its own trajectory over these windows of updates and fixed
     // after the last; its SALT sweep then runs every SALT_UPDATE_FREQUENCY-th update.
     constexpr bool ALLELE_FREQUENCY_DIRICHLET_MOVE = true;
-    constexpr int ALLELE_FREQUENCY_DIRICHLET_EVERY = 2;
-    inline const std::vector<int> ALLELE_FREQUENCY_FIT_WINDOWS{20, 50, 100, 200, 400};
+    constexpr int ALLELE_FREQUENCY_DIRICHLET_EVERY = 5;
+    inline const std::vector<int> ALLELE_FREQUENCY_FIT_WINDOWS{5, 45, 100, 200, 400};
     constexpr double ALLELE_FREQUENCY_DIRICHLET_WIDEN = 0.25;
     // A locus of more alleles than this is moved in random blocks of this many; 0 moves the whole locus at once.
     constexpr size_t ALLELE_FREQUENCY_DIRICHLET_BLOCK = 4;
     // CloneOrderSwapSampler also exchanges an infection's infection time with a clone's.
     constexpr bool CLONE_TIME_EXCHANGE = true;
     // Single observed-allele toggles each StrainCountSampler update makes after its strain-count move.
-    constexpr unsigned int OBSERVED_ALLELE_TOGGLES = 8;
+    constexpr unsigned int OBSERVED_ALLELE_TOGGLES = 2;
     // Share of RandomAllelesBitSetSampler3 updates whose parent-set option is uniform; the rest follow the
     // infection's parent-set posterior. 1 makes every option uniform.
     constexpr double PARENT_SET_PROPOSAL_UNIFORM_SHARE = 0.1;
