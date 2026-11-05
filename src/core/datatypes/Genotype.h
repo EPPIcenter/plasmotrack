@@ -1,7 +1,8 @@
 //
 // A Genotype: the set of Alleles at one Locus, as a value. What an Observed genotype and a Latent genotype each hold.
 // Alleles are numbered 0 to totalAlleles() - 1 in the Locus's order; a string of '0' and '1', one per Allele, reads
-// and writes one. The set algebra (shared, any, diff, invert, the pairwise counts) is over the Locus's Alleles, and
+// and writes one. The set algebra (shared, any, diff (symmetric), minus (set difference), invert, the pairwise counts)
+// is over the Locus's Alleles, and
 // the value hashes and compares by its Alleles. Holds at most MAX_ALLELES Alleles, the engine's one limit.
 //
 
@@ -54,6 +55,10 @@ namespace transmission_nets::core::datatypes {
 
         [[nodiscard]] static Genotype
                 diff(const Genotype& lhs, const Genotype& rhs) noexcept;
+
+        // The Alleles in lhs and not in rhs.
+        [[nodiscard]] static Genotype
+                minus(const Genotype& lhs, const Genotype& rhs) noexcept;
 
         [[nodiscard]] static Genotype
                 invert(const Genotype& alleles) noexcept;
@@ -200,6 +205,10 @@ namespace transmission_nets::core::datatypes {
 
     inline Genotype Genotype::diff(const Genotype& lhs, const Genotype& rhs) noexcept {
         return lhs.withAlleles(lhs.alleles_ ^ rhs.alleles_);
+    }
+
+    inline Genotype Genotype::minus(const Genotype& lhs, const Genotype& rhs) noexcept {
+        return lhs.withAlleles(lhs.alleles_ & ~rhs.alleles_);
     }
 
     inline Genotype Genotype::invert(const Genotype& alleles) noexcept {

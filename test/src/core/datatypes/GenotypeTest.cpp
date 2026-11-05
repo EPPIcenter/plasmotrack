@@ -79,6 +79,11 @@ TEST_F(GenotypeTest, DiffTest) {
     ASSERT_EQ(Genotype::diff(a3_diff, a3), Genotype("00100"));
 }
 
+TEST_F(GenotypeTest, MinusIsTheSetDifference) {
+    ASSERT_EQ(Genotype::minus(Genotype("10110"), Genotype("01100")), Genotype("10010"));
+    ASSERT_EQ(Genotype::minus(Genotype("01100"), Genotype("10110")), Genotype("01000"));
+}
+
 TEST_F(GenotypeTest, SharedTest) {
     Genotype a3_shared("10100");
     ASSERT_EQ(Genotype::shared(a3_shared, a3), Genotype("10000"));
