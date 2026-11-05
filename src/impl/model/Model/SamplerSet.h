@@ -182,7 +182,7 @@ namespace transmission_nets::impl::Model {
                     if (i > 0 and rates[i] == rates[0]) {
                         continue;
                     }
-                    scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(rates[i], target, 1e-6, .5, r, 1, .1, 2),
+                    scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(rates[i], target, ERROR_RATE_LOWER, ERROR_RATE_UPPER, r, 1, .1, 2),
                                                 .id = fmt::format("ConstrainedContinuousRandomWalk/{}/{}", name, state->infections[i]->id()),
                                                 .adaptationStart = 20,
                                                 .adaptationEnd = 200});

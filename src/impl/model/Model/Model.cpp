@@ -3,6 +3,7 @@
 //
 
 #include "Model.h"
+#include "ErrorRatePrior.h"
 
 #include "core/abstract/observables/Dependency.h"
 #include "core/distributions/pdfs/DiscretePDF.h"
@@ -41,7 +42,7 @@ namespace transmission_nets::impl::Model {
             prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->expectedFalsePositives.front(), state_->obsFPRPriorShape, state_->obsFPRPriorScale));
             prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->expectedFalseNegatives.front(), state_->obsFNRPriorShape, state_->obsFNRPriorScale));
         } else if (state_->errorModel == ErrorModel::Hierarchical) {
-            // rate_i ~ Gamma(shape, mean / shape); mean ~ Gamma(2, 0.01) for false positives and Gamma(2, 0.02) for
+            // rate_i ~ Gamma(shape, mean / shape) truncated to the rates' range (ErrorRatePrior.h); mean ~ Gamma(2, 0.01) for false positives and Gamma(2, 0.02) for
             // false negatives; shape log-uniform on [0.5, 200].
             const auto gammaMean = [](double x, double mean, double shape) {
                 return (shape - 1) * std::log(x) - x * shape / mean - std::lgamma(shape) - shape * std::log(mean / shape);
@@ -49,7 +50,7 @@ namespace transmission_nets::impl::Model {
             const auto addRates = [&](const std::vector<State::p_Parameterdouble>& rates, const State::p_Parameterdouble& mean, const State::p_Parameterdouble& shape, double meanScale, const std::string& name) {
                 for (const auto& rate : rates) {
                     prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
-                            name, [=]() { return gammaMean(rate->value(), mean->value(), shape->value()); }, rate, mean, shape));
+                            name, [=]() { return truncatedGammaLogDensity(rate->value(), mean->value(), shape->value()); }, rate, mean, shape));
                 }
                 prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
                         name + "_mean", [=]() { return gammaMean(mean->value(), 2 * meanScale, 2); }, mean));

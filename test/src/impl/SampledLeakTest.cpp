@@ -15,6 +15,7 @@
 #include "core/samplers/Proposal.h"
 #include "core/samplers/general/ConstrainedContinuousRandomWalk.h"
 #include "impl/model/Model/EnsembleCheckpoint.h"
+#include "impl/model/Model/ErrorRatePrior.h"
 #include "impl/model/Model/Model.h"
 #include "impl/model/Model/SamplerSet.h"
 #include "impl/model/Model/State.h"
@@ -223,4 +224,65 @@ TEST(SampledLeakTest, TheLeakWalkSamplesItsConditionalPosterior) {
 TEST(SampledLeakTest, AFixedLeakAndNoLeakMatchAFreshModel) {
     checkConsistency({}, 20261035);
     checkConsistency({.transmissionLeak = 0.01}, 20261036);
+}
+
+// Prior recovery: with the likelihood switched off (temperature 0) the whole Sampler set must sample the prior. The
+// leak's log-uniform prior on [1e-4, 0.1] is uniform in log10 ε on [-4, -1]; the hierarchical means have Gamma(2, 0.01)
+// and Gamma(2, 0.02) priors, means 0.02 and 0.04.
+TEST(SampledLeakTest, WithoutTheLikelihoodTheSamplerSetRecoversThePrior) {
+    auto rng         = std::make_shared<boost::random::mt19937>(4242);
+    const auto study = leakStudy(*rng, 4);
+    auto state       = std::make_shared<State>(study, rng, ModelChoice{.transmissionLeak = 0.01, .leakReference = LeakReference::Uniform, .leakPrior = "loguniform:1e-4,0.1", .errorModel = "hierarchical"});
+    auto model       = std::make_shared<Model>(state, 0.0);
+    SamplerSet<Model> samplers(state, model, rng);
+    std::vector<double> leak, fpMean, fnMean;
+    for (int it = 0; it < 3000; ++it) {
+        samplers.step(it < 200);
+        if (it < 500) {
+            continue;
+        }
+        leak.push_back(std::log10(state->leakSize->value()));
+        fpMean.push_back(state->efpMean->value());
+        fnMean.push_back(state->efnMean->value());
+    }
+    // The draws' mean against the prior's, within 4 batch-means standard errors (20 batches).
+    const auto expectMean = [](const std::vector<double>& x, const double expected, const char* what) {
+        constexpr int batches = 20;
+        const size_t size     = x.size() / batches;
+        std::vector<double> means(batches);
+        for (int b = 0; b < batches; ++b) {
+            for (size_t k = 0; k < size; ++k) means[b] += x[b * size + k] / static_cast<double>(size);
+        }
+        double mean = 0, var = 0;
+        for (const double m : means) mean += m / batches;
+        for (const double m : means) var += (m - mean) * (m - mean) / (batches - 1);
+        EXPECT_LT(std::abs(mean - expected), 4 * std::sqrt(var / batches)) << what << ": mean " << mean << ", prior mean " << expected;
+    };
+    expectMean(fpMean, 0.02, "efp_mean");
+    expectMean(fnMean, 0.04, "efn_mean");
+    std::ranges::sort(leak);
+    double maxGap = 0;
+    for (size_t k = 0; k < leak.size(); ++k) {
+        maxGap = std::max(maxGap, std::abs(static_cast<double>(k + 1) / static_cast<double>(leak.size()) - (leak[k] + 4) / 3));
+    }
+    EXPECT_LT(maxGap, 0.1) << "log10 leak against uniform on [-4, -1]";
+}
+
+// The hierarchical rate prior integrates to 1 over the rates' range whatever the mean and shape, so the walk's bounds put
+// no weight on them.
+TEST(SampledLeakTest, TheTruncatedRatePriorIsADensityOnTheRatesRange) {
+    for (const double mean : {0.005, 0.02, 0.2, 0.45}) {
+        for (const double shape : {0.5, 2.0, 10.0, 150.0}) {
+            // Midpoint rule in log x, fine enough for the 1/x-like behaviour near ERROR_RATE_LOWER at small shapes.
+            constexpr int steps = 400000;
+            const double a = std::log(ERROR_RATE_LOWER), b = std::log(ERROR_RATE_UPPER);
+            double total = 0;
+            for (int k = 0; k < steps; ++k) {
+                const double x = std::exp(a + (k + 0.5) * (b - a) / steps);
+                total += std::exp(truncatedGammaLogDensity(x, mean, shape)) * x * (b - a) / steps;
+            }
+            EXPECT_NEAR(total, 1.0, 1e-4) << "mean " << mean << ", shape " << shape;
+        }
+    }
+    EXPECT_EQ(truncatedGammaLogDensity(0.6, 0.02, 2.0), -std::numeric_limits<double>::infinity());
 }

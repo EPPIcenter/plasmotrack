@@ -63,6 +63,9 @@ namespace transmission_nets::impl::Model {
     // Hierarchical error model: walks per Sampling iteration on each population mean and shape. They touch only prior
     // terms, so they are cheap.
     constexpr int HIERARCHICAL_RATE_STEPS = 5;
+    // The range every observation error rate's walk keeps it in; the hierarchical model's rate prior is truncated to it.
+    constexpr double ERROR_RATE_LOWER = 1e-6;
+    constexpr double ERROR_RATE_UPPER = 0.5;
     // Family moves, on the Families of the Mutual pairs: a pair is close when, in the direction where the count is
     // smaller, at most FAMILY_MAX_NOVELTY Loci have an Allele observed in one Infection and not the other (Loci
     // missing in either do not count). Each Sampling iteration makes FAMILY_RELOCATIONS relocations, each moving
