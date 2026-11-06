@@ -21,6 +21,7 @@
     "25"
   ],
   "engine_version": "1.0.0",
+  "error_model": "",
   "git_commit": "<commit>",
   "gradient": 0.0,
   "input_sha256": {
@@ -28,6 +29,7 @@
     "input": "cd84e24b6713ef19bc3e27d4a45b9d579634262c808ee3530375e1ac409774ca",
     "symptomatic_idp": "9f5740f72f02ab6a63d13802062b5a0cb91994b74e6fc4630c3aacb506e6f6e4"
   },
+  "leak_prior": "",
   "null_model": false,
   "parent_set_floor": 1e-09,
   "run_id": "<run id>",

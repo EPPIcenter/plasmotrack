@@ -167,6 +167,24 @@ TEST(RunRecipe, GivenValuesReplaceTheDefaults) {
     EXPECT_EQ(recipe.manifest.transmissionLeak, 0.02);
 }
 
+// A leak prior or error model the State can't read is refused before the Run starts.
+TEST(RunRecipe, AnUnknownLeakPriorOrErrorModelIsRefused) {
+    GivenOptions given = newRun();
+    given.leakPrior    = "loguniform";
+    given.errorModel   = "hierarchical";
+    const auto recipe  = recipeOf(resolve(given, std::nullopt, std::nullopt));
+    EXPECT_EQ(recipe.manifest.leakPrior, "loguniform");
+    EXPECT_EQ(recipe.manifest.errorModel, "hierarchical");
+    for (const auto& prior : {"lognormal", "loguniform:0.1", "loguniform:0.1,0.01", "exponential:-1"}) {
+        auto bad      = newRun();
+        bad.leakPrior = prior;
+        EXPECT_EQ(refusalOf(resolve(bad, std::nullopt, std::nullopt)), RefusalKind::UnknownModelChoice) << prior;
+    }
+    auto bad       = newRun();
+    bad.errorModel = "pooled";
+    EXPECT_EQ(refusalOf(resolve(bad, std::nullopt, std::nullopt)), RefusalKind::UnknownModelChoice);
+}
+
 TEST(RunRecipe, TheTransmissionLeakMustBeAtLeastZeroAndBelowOne) {
     for (const auto leak : {-0.01, 1.0, 2.0}) {
         auto given             = newRun();
@@ -253,6 +271,8 @@ TEST(RunRecipe, ResumingWithAnotherRecipeIsRefused) {
             {"--seed", [](GivenOptions& g) { g.seed = 43; }},
             {"--null-model", [](GivenOptions& g) { g.nullModel = true; }},
             {"--transmission-leak", [](GivenOptions& g) { g.transmissionLeak = 0.02; }},
+            {"--leak-prior", [](GivenOptions& g) { g.leakPrior = "loguniform"; }},
+            {"--error-model", [](GivenOptions& g) { g.errorModel = "shared"; }},
     };
     for (const auto& [option, change] : changes) {
         EXPECT_EQ(refusalOf(resume(change)), RefusalKind::RecipeChanged) << option;

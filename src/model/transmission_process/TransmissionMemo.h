@@ -78,6 +78,23 @@ namespace transmission_nets::model::transmission_process {
         // Whether the transmission leak ε is above 0: the observed-parents terms then depend on the Allele frequencies too.
         [[nodiscard]] bool leaky() const { return kernel_.leak() > 0; }
 
+        // The leak follows `leakSize`, a sampled Run scalar, from its value now; the reference stays. Every kept result
+        // depends on the leak, so a change of size puts the results aside and starts afresh, and a return to the size
+        // before (a rejected proposal, whose terms restore their caches) brings those results back, with their ids
+        // and generation, so neither direction recomputes what a term's restored cache refers to. The results put
+        // aside are dropped when the change is accepted. Call before any result is computed.
+        void followLeak(p_ParameterDouble leakSize) {
+            leakSize_ = std::move(leakSize);
+            kernel_.setLeak(leakSize_->value());
+            const auto sync = [this]() { switchLeak(leakSize_->value()); };
+            leakSize_->add_post_change_listener(sync);
+            // After the restore: listeners hear it before the value goes back.
+            leakSize_->addPostRestoreHook([sync](int) { sync(); });
+            leakSize_->add_accept_state_listener([this]() { aside_ = {}; });
+        }
+        // The sampled leak size, or null when the leak is fixed.
+        [[nodiscard]] const p_ParameterDouble& leakParameter() const { return leakSize_; }
+
         [[nodiscard]] const p_ParameterDouble& meanStrainsTransmitted() const { return meanStrainsTransmitted_; }
         [[nodiscard]] const std::shared_ptr<AlleleFrequencyContainer>& alleleFrequencies() const { return alleleFrequencies_; }
 
@@ -110,7 +127,7 @@ namespace transmission_nets::model::transmission_process {
             lastFrequencies_.clear();
             locusStores_.clear();
             stores_.clear();
-            ++generation_;
+            generation_ = ++generations_;
             if (leaky()) {
                 // Keyed by frequency ids, which now mean nothing.
                 locusTerms_.clear();
@@ -603,6 +620,73 @@ namespace transmission_nets::model::transmission_process {
         std::uint64_t useCounter_ = 0;
         std::unordered_map<GenotypeKey, FTable, GenotypeKeyHash> fTables_{};
         std::unordered_map<GenotypeKey, FTable, GenotypeKeyHash> olderFTables_{};
+        // Every generation handed out so far: generations are never reused, so ids from results put aside never match
+        // those of a fresh start.
+        std::uint64_t generations_ = 0;
+
+        // The followed leak size (followLeak), and the results kept at the size before the last change.
+        p_ParameterDouble leakSize_{};
+        struct Results {
+            bool held   = false;
+            double leak = 0;
+            decltype(locusTerms_) locusTerms{};
+            decltype(strainSums_) strainSums{};
+            decltype(genomeIds_) genomeIds{};
+            decltype(infectionGenomes_) infectionGenomes{};
+#ifndef NDEBUG
+            decltype(genomesById_) genomesById{};
+#endif
+            std::uint64_t generation = 0;
+            decltype(frequencyIds_) frequencyIds{};
+            decltype(frequencies_) frequencies{};
+            decltype(frequencyStore_) frequencyStore{};
+            decltype(lastFrequencies_) lastFrequencies{};
+            decltype(locusStores_) locusStores{};
+            decltype(stores_) stores{};
+            decltype(fTables_) fTables{};
+            decltype(olderFTables_) olderFTables{};
+        };
+        Results aside_{};
+
+        void swapResults(Results& r) {
+            std::swap(locusTerms_, r.locusTerms);
+            std::swap(strainSums_, r.strainSums);
+            std::swap(genomeIds_, r.genomeIds);
+            std::swap(infectionGenomes_, r.infectionGenomes);
+#ifndef NDEBUG
+            std::swap(genomesById_, r.genomesById);
+#endif
+            std::swap(generation_, r.generation);
+            std::swap(frequencyIds_, r.frequencyIds);
+            std::swap(frequencies_, r.frequencies);
+            std::swap(frequencyStore_, r.frequencyStore);
+            std::swap(lastFrequencies_, r.lastFrequencies);
+            std::swap(locusStores_, r.locusStores);
+            std::swap(stores_, r.stores);
+            std::swap(fTables_, r.fTables);
+            std::swap(olderFTables_, r.olderFTables);
+        }
+
+        void switchLeak(const double size) {
+            if (size == kernel_.leak()) {
+                return;
+            }
+            const double before = kernel_.leak();
+            if (aside_.held and aside_.leak == size) {
+                // Back to the results put aside; those at the size left are not needed again.
+                swapResults(aside_);
+                aside_ = {};
+                kernel_.setLeak(size);
+                return;
+            }
+            // Put the current results aside and start empty, under a new generation.
+            aside_ = {};
+            swapResults(aside_);
+            aside_.held = true;
+            aside_.leak = before;
+            generation_ = ++generations_;
+            kernel_.setLeak(size);
+        }
     };
 
 }// namespace transmission_nets::model::transmission_process

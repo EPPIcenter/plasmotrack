@@ -336,6 +336,14 @@ namespace transmission_nets::model::transmission_process {
             degrade(SUMS_CHANGED, false);
         });
 
+        // A sampled transmission leak enters every entry's locus terms; the memo starts afresh at a new leak.
+        if (memo_->leakParameter()) {
+            core::abstract::dependsOn(this, memo_->leakParameter(), [this]() {
+                lastUpdated_ = "transmission leak updated";
+                degrade(INVALID, false);
+            });
+        }
+
         // The latent parent's COI distribution enters the latent entries' sum over its COI.
         core::abstract::dependsOn(this, coiProb_, [this]() {
             lastUpdated_ = "coi distribution updated";

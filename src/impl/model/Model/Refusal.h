@@ -38,6 +38,7 @@ namespace transmission_nets::impl::Model {
         WindowOutOfRange,
         ParentSetFloorOutOfRange,
         TransmissionLeakOutOfRange,
+        UnknownModelChoice,// a leak prior or error model the State can't read
     };
 
     struct Refusal {

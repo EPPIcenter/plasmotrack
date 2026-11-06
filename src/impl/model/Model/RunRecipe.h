@@ -49,6 +49,8 @@ namespace transmission_nets::impl::Model {
         std::optional<long> seed{};
         bool nullModel = false;
         std::optional<double> transmissionLeak{};
+        std::optional<std::string> leakPrior{};
+        std::optional<std::string> errorModel{};
         std::optional<std::filesystem::path> outputDir{};
         std::optional<std::filesystem::path> resume{};
         std::optional<std::filesystem::path> startFrom{};

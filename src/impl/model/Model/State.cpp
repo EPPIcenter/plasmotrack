@@ -9,6 +9,8 @@
 #include <fmt/core.h>
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace transmission_nets::impl::Model {
@@ -41,6 +43,55 @@ namespace transmission_nets::impl::Model {
         }
     }// namespace
 
+    double LeakPrior::logDensity(const double leak) const {
+        if (kind == Kind::LogUniform) {
+            return leak >= a and leak <= b ? -std::log(leak) - std::log(std::log(b / a)) : -std::numeric_limits<double>::infinity();
+        }
+        return leak > 0 and leak < 0.5 ? std::log(a) - a * leak : -std::numeric_limits<double>::infinity();
+    }
+
+    LeakPrior parseLeakPrior(const std::string& description) {
+        const auto colon       = description.find(':');
+        const std::string kind = description.substr(0, colon);
+        const std::string args = colon == std::string::npos ? "" : description.substr(colon + 1);
+        try {
+            if (kind == "loguniform") {
+                LeakPrior prior{.kind = LeakPrior::Kind::LogUniform};
+                if (not args.empty()) {
+                    const auto comma = args.find(',');
+                    if (comma == std::string::npos) {
+                        throw std::invalid_argument("");
+                    }
+                    prior.a = std::stod(args.substr(0, comma));
+                    prior.b = std::stod(args.substr(comma + 1));
+                }
+                if (prior.a > 0 and prior.a < prior.b and prior.b < 1) {
+                    return prior;
+                }
+            } else if (kind == "exponential") {
+                const LeakPrior prior{.kind = LeakPrior::Kind::Exponential, .a = args.empty() ? 100.0 : std::stod(args), .b = 0};
+                if (prior.a > 0) {
+                    return prior;
+                }
+            }
+        } catch (const std::exception&) {
+        }
+        throw std::invalid_argument(fmt::format("a leak prior is loguniform:LO,HI with 0 < LO < HI < 1, or exponential:RATE with RATE > 0 (got \"{}\")", description));
+    }
+
+    ErrorModel parseErrorModel(const std::string& name) {
+        if (name.empty() or name == "infection") {
+            return ErrorModel::Infection;
+        }
+        if (name == "shared") {
+            return ErrorModel::Shared;
+        }
+        if (name == "hierarchical") {
+            return ErrorModel::Hierarchical;
+        }
+        throw std::invalid_argument(fmt::format("an error model is infection, shared or hierarchical (got \"{}\")", name));
+    }
+
     State::State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const bool null_model, const double transmission_leak)
         : State(study, rng, ModelChoice{.nullModel = null_model, .transmissionLeak = transmission_leak}) {}
 
@@ -48,6 +99,13 @@ namespace transmission_nets::impl::Model {
         const bool null_model = choice.nullModel;
         nullModel        = choice.nullModel;
         transmissionLeak = choice.transmissionLeak;
+        leakSize         = std::make_shared<core::parameters::Parameter<double>>(choice.transmissionLeak);
+        if (not choice.leakPrior.empty()) {
+            leakPrior = parseLeakPrior(choice.leakPrior);
+            // A sampled leak starts strictly inside its prior's range.
+            leakSize->initializeValue(std::clamp(choice.transmissionLeak, leakPrior->lower() * 1.0001 + 1e-12, leakPrior->upper() * 0.9999));
+        }
+        errorModel = parseErrorModel(choice.errorModel);
 
         // Loci, in input order, so that their uids follow the input.
         std::vector<std::shared_ptr<LocusImpl>> lociInOrder;
@@ -132,9 +190,17 @@ namespace transmission_nets::impl::Model {
         infectionEventOrdering = std::make_shared<OrderingImpl>();
         infectionEventOrdering->addElements(infections, [&](const auto& infection) { return allowedRelationships->permittedParents(infection); });
 
+        // Under the shared error model every Infection holds the same two rates.
+        const auto sharedFP = std::make_shared<core::parameters::Parameter<double>>(.01);
+        const auto sharedFN = std::make_shared<core::parameters::Parameter<double>>(.01);
         for (const auto& infection : infections) {
-            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
-            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.01));
+            if (errorModel == ErrorModel::Shared) {
+                expectedFalsePositives.push_back(sharedFP);
+                expectedFalseNegatives.push_back(sharedFN);
+            } else {
+                expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
+                expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.01));
+            }
             latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
             // The anchor: at each locus the observed genotype, or every allele where nothing was observed. A function
             // of the data alone, so a resumed Run proposes as the original would.
@@ -160,11 +226,18 @@ namespace transmission_nets::impl::Model {
     }
 
     void State::initPriors() {
-        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.001);
+        // Gamma(10, 0.001) on each Infection's rates; the shared rates' priors are wider (see ErrorModel).
+        const bool shared = errorModel == ErrorModel::Shared;
+        obsFPRPriorShape  = std::make_shared<core::parameters::Parameter<double>>(shared ? 2 : 10);
+        obsFPRPriorScale  = std::make_shared<core::parameters::Parameter<double>>(shared ? .01 : .001);
 
-        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.001);
+        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(shared ? 2 : 10);
+        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(shared ? .02 : .001);
+
+        efpMean  = std::make_shared<core::parameters::Parameter<double>>(.01);
+        efpShape = std::make_shared<core::parameters::Parameter<double>>(10);
+        efnMean  = std::make_shared<core::parameters::Parameter<double>>(.01);
+        efnShape = std::make_shared<core::parameters::Parameter<double>>(10);
 
         meanStrainsTransmittedPriorShape = std::make_shared<core::parameters::Parameter<double>>(20);
         meanStrainsTransmittedPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);

@@ -3,6 +3,7 @@
 //
 
 #include "RunRecipe.h"
+#include "State.h"
 
 #include "core/version.h"
 
@@ -86,6 +87,8 @@ namespace transmission_nets::impl::Model {
             requireSame("--parent-set-floor", given.parentSetFloor, stored.options.parentSetFloor);
             requireSame("--seed", given.seed, manifest.seed);
             requireSame("--transmission-leak", given.transmissionLeak, manifest.transmissionLeak);
+            requireSame("--leak-prior", given.leakPrior, manifest.leakPrior);
+            requireSame("--error-model", given.errorModel, manifest.errorModel);
             if (given.nullModel and !manifest.nullModel and !refusal) {
                 refusal = refuse(RefusalKind::RecipeChanged, "the Run was started without --null-model; resuming it needs the same.");
             }
@@ -135,7 +138,9 @@ namespace transmission_nets::impl::Model {
                                .burnIn        = recipe.plan.burnIn,
                                .samples       = recipe.plan.samples,
                                .nullModel     = given.nullModel,
-                               .transmissionLeak = given.transmissionLeak.value_or(defaults::TRANSMISSION_LEAK)};
+                               .transmissionLeak = given.transmissionLeak.value_or(defaults::TRANSMISSION_LEAK),
+                               .leakPrior     = given.leakPrior.value_or(""),
+                               .errorModel    = given.errorModel.value_or("")};
             return recipe;
         }
 
@@ -177,6 +182,14 @@ namespace transmission_nets::impl::Model {
             }
             if (const double leak = recipe->manifest.transmissionLeak; !(leak >= 0 and leak < 1)) {
                 return refuse(RefusalKind::TransmissionLeakOutOfRange, fmt::format("--transmission-leak must be at least 0 and below 1 (got {}).", leak));
+            }
+            try {
+                if (not recipe->manifest.leakPrior.empty()) {
+                    parseLeakPrior(recipe->manifest.leakPrior);
+                }
+                parseErrorModel(recipe->manifest.errorModel);
+            } catch (const std::invalid_argument& e) {
+                return refuse(RefusalKind::UnknownModelChoice, e.what());
             }
         }
         return resolved;

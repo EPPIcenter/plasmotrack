@@ -8,6 +8,10 @@
 #include "core/distributions/pdfs/DiscretePDF.h"
 #include "core/distributions/pdfs/GammaLogPDF.h"
 #include "core/distributions/pdfs/BetaLogPDF.h"
+#include "core/distributions/pdfs/FunctionLogPDF.h"
+
+#include <cmath>
+#include <limits>
 
 #include <utility>
 
@@ -17,6 +21,12 @@ namespace transmission_nets::impl::Model {
         core::abstract::dependsOn(this, likelihood, prior);
 
         transmissionMemo        = std::make_shared<TransmissionMemoImpl>(state_->meanStrainsTransmitted, state_->alleleFrequencies, state_->transmissionLeak);
+        if (state_->leakPrior) {
+            // The memo follows the sampled leak.
+            transmissionMemo->followLeak(state_->leakSize);
+            prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
+                    "transmission_leak_prior", [leak = state_->leakSize, p = *state_->leakPrior]() { return p.logDensity(leak->value()); }, state_->leakSize));
+        }
         parentSetSizeLikelihood = std::make_shared<ParentSetSizeLikelihoodImpl>(state_->parentSetSizeProb);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
 
@@ -26,11 +36,35 @@ namespace transmission_nets::impl::Model {
         prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanStrainsTransmitted, state_->meanStrainsTransmittedPriorShape, state_->meanStrainsTransmittedPriorScale));
         prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->parentSetSizeProb, state_->parentSetSizePriorAlpha, state_->parentSetSizePriorBeta));
 //        prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
-        for (auto& obs : state_->expectedFalsePositives) {
-            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
-        }
-        for (auto& obs : state_->expectedFalseNegatives) {
-            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFNRPriorShape, state_->obsFNRPriorScale));
+        if (state_->errorModel == ErrorModel::Shared) {
+            // Every Infection holds the same two rates: one prior each.
+            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->expectedFalsePositives.front(), state_->obsFPRPriorShape, state_->obsFPRPriorScale));
+            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->expectedFalseNegatives.front(), state_->obsFNRPriorShape, state_->obsFNRPriorScale));
+        } else if (state_->errorModel == ErrorModel::Hierarchical) {
+            // rate_i ~ Gamma(shape, mean / shape); mean ~ Gamma(2, 0.01) for false positives and Gamma(2, 0.02) for
+            // false negatives; shape log-uniform on [0.5, 200].
+            const auto gammaMean = [](double x, double mean, double shape) {
+                return (shape - 1) * std::log(x) - x * shape / mean - std::lgamma(shape) - shape * std::log(mean / shape);
+            };
+            const auto addRates = [&](const std::vector<State::p_Parameterdouble>& rates, const State::p_Parameterdouble& mean, const State::p_Parameterdouble& shape, double meanScale, const std::string& name) {
+                for (const auto& rate : rates) {
+                    prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
+                            name, [=]() { return gammaMean(rate->value(), mean->value(), shape->value()); }, rate, mean, shape));
+                }
+                prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
+                        name + "_mean", [=]() { return gammaMean(mean->value(), 2 * meanScale, 2); }, mean));
+                prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
+                        name + "_shape", [=]() { return shape->value() >= .5 and shape->value() <= 200 ? -std::log(shape->value()) : -std::numeric_limits<double>::infinity(); }, shape));
+            };
+            addRates(state_->expectedFalsePositives, state_->efpMean, state_->efpShape, .01, "efp");
+            addRates(state_->expectedFalseNegatives, state_->efnMean, state_->efnShape, .02, "efn");
+        } else {
+            for (auto& obs : state_->expectedFalsePositives) {
+                prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
+            }
+            for (auto& obs : state_->expectedFalseNegatives) {
+                prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFNRPriorShape, state_->obsFNRPriorScale));
+            }
         }
 
         int i = 0;

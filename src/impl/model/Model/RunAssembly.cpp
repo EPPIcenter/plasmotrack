@@ -36,7 +36,10 @@ namespace transmission_nets::impl::Model {
         }
 
         run.rng = std::make_shared<checkpoint::Engine>(manifest.seed);
-        const ModelChoice choice{.nullModel = manifest.nullModel, .transmissionLeak = manifest.transmissionLeak};
+        const ModelChoice choice{.nullModel        = manifest.nullModel,
+                                 .transmissionLeak = manifest.transmissionLeak,
+                                 .leakPrior        = manifest.leakPrior,
+                                 .errorModel       = manifest.errorModel};
         if (saved) {
             run.ensemble = checkpoint::restore(*saved, run.rng, study, choice, recipe.cores);
             if (recipe.mode == Mode::StartFrom) {

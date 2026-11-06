@@ -55,6 +55,9 @@ namespace transmission_nets::model::transmission_process {
         // The transmission leak ε.
         [[nodiscard]] double leak() const { return leak_; }
 
+        // A new leak ε. Every term computed before is for the old leak.
+        void setLeak(const double leak) { leak_ = leak; }
+
         using Likelihood  = double;
         using Probability = double;
         static constexpr Likelihood NEG_INF = -std::numeric_limits<Likelihood>::infinity();
