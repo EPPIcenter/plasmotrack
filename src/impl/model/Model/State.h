@@ -23,6 +23,14 @@
 
 
 namespace transmission_nets::impl::Model {
+    // The Run recipe's choices that shape each chain's State and Sampler set. Not Quantities: never sampled or
+    // checkpointed.
+    struct ModelChoice {
+        bool nullModel = false;
+        // The Transmission process's leak ε (see doc/marginal-latent-parent.md, section 6).
+        double transmissionLeak = 0;
+    };
+
     struct State {
         using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
         using p_DiscreteDist = std::shared_ptr<core::distributions::DiscreteDistribution>;
@@ -30,7 +38,8 @@ namespace transmission_nets::impl::Model {
         // Builds the starting State of `study`: each unobserved Locus's Latent genotype is one random Allele drawn
         // from `rng`. Throws Refused for a Study whose Infections name a Locus or a parent it doesn't have, or whose
         // genotypes or frequencies don't fit their Locus.
-        // `transmission_leak` is the Transmission process's leak ε (see doc/marginal-latent-parent.md, section 6).
+        State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const ModelChoice& choice);
+        // The same, for these choices and the rest at their defaults.
         explicit State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, bool null_model = false, double transmission_leak = 0);
 
         void initPriors();
