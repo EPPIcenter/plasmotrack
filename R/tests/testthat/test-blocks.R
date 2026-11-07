@@ -10,9 +10,9 @@ test_that("pt_acceptance() sums each sampler type's sampling counts over Windows
   expect_equal(salt$proposed, 18 + 18 + 27 + 27)
   expect_equal(salt$rate, 35 / 90)
   expect_setequal(acc$type, c(
-    "AlleleSwapSampler", "CloneOrderSwapSampler", "ConstrainedContinuousRandomWalk", "GuidedPairSampler", "InformedOrderJumpSampler",
-    "ParentRelinkSampler", "RandomAllelesBitSetSampler3", "RandomAllelesBitSetSampler4", "SALTSampler",
-    "StrainCountSampler"
+    "AlleleSwapSampler", "CloneOrderSwapSampler", "ConstrainedContinuousRandomWalk", "GuidedGroupSampler", "GuidedPairSampler",
+    "InformedOrderJumpSampler", "PairLocusGibbsSampler", "ParentRelinkSampler", "RandomAllelesBitSetSampler3",
+    "RandomAllelesBitSetSampler4", "SALTSampler", "StrainCountSampler"
   ))
 })
 
@@ -33,7 +33,7 @@ test_that("level = \"sampler\" gives one row per sampler id, after its type", {
   on.exit(pt_close(a))
   acc <- pt_acceptance(a, level = "sampler")
   expect_equal(names(acc), c("type", "sampler", "accepted", "proposed", "rate"))
-  expect_equal(nrow(acc), 37)
+  expect_equal(nrow(acc), 39)
   as11 <- acc[acc$sampler == "SALTSampler/allele_frequencies/AS11", ]
   expect_equal(as11$type, "SALTSampler")
   expect_equal(c(as11$accepted, as11$proposed), c(10 + 12, 27 + 27))
