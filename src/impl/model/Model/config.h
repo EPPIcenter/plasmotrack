@@ -57,6 +57,15 @@ namespace transmission_nets::impl::Model {
     // (every such pair when negative), picked uniformly.
     constexpr int GUIDED_PAIR_SWAPS         = 30;
     constexpr int GUIDED_PAIR_MAX_DIFFERENT = 10;
+    // Family moves: the families are the mutual pairs whose observed genotypes are at most FAMILY_MAX_NOVELTY loci
+    // apart, and their connected triples. Each iteration makes FAMILY_RELOCATE_STEPS relocations, each moving
+    // FAMILY_RELOCATE_MOVERS members to a time uniform over its window or within FAMILY_RELOCATE_JITTER of another
+    // member's, and FAMILY_PAIR_LOCUS_STEPS pair-locus Gibbs steps.
+    constexpr size_t FAMILY_RELOCATE_STEPS       = 5;
+    constexpr int FAMILY_PAIR_LOCUS_STEPS        = 20;
+    constexpr unsigned int FAMILY_MAX_NOVELTY    = 3;
+    constexpr size_t FAMILY_RELOCATE_MOVERS      = 2;
+    constexpr double FAMILY_RELOCATE_JITTER      = 10.0;
 
 
     static constexpr int MAX_COI           = 20;
