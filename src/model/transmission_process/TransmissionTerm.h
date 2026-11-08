@@ -197,6 +197,12 @@ namespace transmission_nets::model::transmission_process {
         // With a leak: an entry's sums over the child's loci without the latent parent, from scratch, at the frequency
         // ids the cache records.
         StrainSums observedSumsFromScratch(const LikelihoodCache& current, std::span<const InfectionEventImpl* const> parents);
+        // Swaps `locus`' term in the sums of the entry at `position`, one without the latent parent: the term of the
+        // genotypes before at frequency id `previousId` out, the term of those now at `currentId` in. An entry summed
+        // only up to `locus` because it was impossible there is marked for recomputing if its term becomes possible.
+        void swapObservedTerm(LikelihoodCache& current, size_t position, const void* locus, const Genotype& previousChild, std::span<const Genotype* const> previousParents, FrequencyId previousId, const Genotype& currentChild, std::span<const Genotype* const> currentParents, FrequencyId currentId);
+        // Counts a locus swap in the entry at `position`, which is recomputed after MAX_LOCUS_UPDATES of them.
+        static void countLocusSwap(LikelihoodCache& current, size_t position);
         // A latent entry's sums over the child's loci, from scratch, for the observed parents given (none for the
         // latent parent alone).
         LatentSums latentSumsFromScratch(const LikelihoodCache& current, std::span<const InfectionEventImpl* const> parents);
@@ -855,22 +861,9 @@ namespace transmission_nets::model::transmission_process {
                     }
                     sums.remove(memo_->locusTable(frequencyId, previousChild, previousParents));
                     sums.add(memo_->locusTable(frequencyId, currentChild, currentParents));
+                    countLocusSwap(current, position);
                 } else {
-                    auto& sums = current.sums[position];
-                    if (sums.stoppedAt != nullptr) {
-                        // Summed only up to a locus that makes the parent set impossible. It stays impossible unless that
-                        // locus' term becomes possible, and is then computed from scratch.
-                        if (sums.stoppedAt == locus.get() and not memo_->locusTerm(Variant::ObservedParents, currentChild, currentParents, nullptr, frequencyId).impossible) {
-                            current.valid[position] = INVALID;
-                        }
-                        return;
-                    }
-                    sums.remove(memo_->locusTerm(Variant::ObservedParents, previousChild, previousParents, nullptr, frequencyId));
-                    sums.add(memo_->locusTerm(Variant::ObservedParents, currentChild, currentParents, nullptr, frequencyId));
-                }
-                current.valid[position] = std::min(current.valid[position], SUMS_CHANGED);
-                if (++current.updates[position] >= MAX_LOCUS_UPDATES) {
-                    current.valid[position] = INVALID;
+                    swapObservedTerm(current, position, locus.get(), previousChild, previousParents, frequencyId, currentChild, currentParents, frequencyId);
                 }
             });
         }
@@ -942,10 +935,7 @@ namespace transmission_nets::model::transmission_process {
                 }
                 sums.remove(memo_->locusTable(previous, child, parents));
                 sums.add(memo_->locusTable(updated, child, parents));
-                current.valid[position] = std::min(current.valid[position], SUMS_CHANGED);
-                if (++current.updates[position] >= MAX_LOCUS_UPDATES) {
-                    current.valid[position] = INVALID;
-                }
+                countLocusSwap(current, position);
             };
             // With a leak, the entries without the latent parent too.
             auto swapObserved = [&](const size_t position, const std::span<const unsigned int> combination) {
@@ -956,19 +946,7 @@ namespace transmission_nets::model::transmission_process {
                     combinationGenotypes[t] = &currentClasses_[combination[t]];
                 }
                 const std::span<const Genotype* const> parents(combinationGenotypes.data(), combination.size());
-                auto& sums = current.sums[position];
-                if (sums.stoppedAt != nullptr) {
-                    if (sums.stoppedAt == locus.get() and not memo_->locusTerm(Variant::ObservedParents, child, parents, nullptr, updated).impossible) {
-                        current.valid[position] = INVALID;
-                    }
-                    return;
-                }
-                sums.remove(memo_->locusTerm(Variant::ObservedParents, child, parents, nullptr, previous));
-                sums.add(memo_->locusTerm(Variant::ObservedParents, child, parents, nullptr, updated));
-                current.valid[position] = std::min(current.valid[position], SUMS_CHANGED);
-                if (++current.updates[position] >= MAX_LOCUS_UPDATES) {
-                    current.valid[position] = INVALID;
-                }
+                swapObservedTerm(current, position, locus.get(), child, parents, previous, child, parents, updated);
             };
             const bool leaky = memo_->leaky();
             swap(0, {});
@@ -980,6 +958,30 @@ namespace transmission_nets::model::transmission_process {
                 swap(position + 1, combination);
                 position += 2;
             });
+        }
+    }
+
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::swapObservedTerm(LikelihoodCache& current, const size_t position, const void* locus, const Genotype& previousChild, const std::span<const Genotype* const> previousParents, const FrequencyId previousId, const Genotype& currentChild, const std::span<const Genotype* const> currentParents, const FrequencyId currentId) {
+        auto& sums = current.sums[position];
+        if (sums.stoppedAt != nullptr) {
+            // Summed only up to a locus that makes the parent set impossible. It stays impossible unless that locus'
+            // term becomes possible, and is then computed from scratch.
+            if (sums.stoppedAt == locus and not memo_->locusTerm(Variant::ObservedParents, currentChild, currentParents, nullptr, currentId).impossible) {
+                current.valid[position] = INVALID;
+            }
+            return;
+        }
+        sums.remove(memo_->locusTerm(Variant::ObservedParents, previousChild, previousParents, nullptr, previousId));
+        sums.add(memo_->locusTerm(Variant::ObservedParents, currentChild, currentParents, nullptr, currentId));
+        countLocusSwap(current, position);
+    }
+
+    template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
+    void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::countLocusSwap(LikelihoodCache& current, const size_t position) {
+        current.valid[position] = std::min(current.valid[position], SUMS_CHANGED);
+        if (++current.updates[position] >= MAX_LOCUS_UPDATES) {
+            current.valid[position] = INVALID;
         }
     }
 
