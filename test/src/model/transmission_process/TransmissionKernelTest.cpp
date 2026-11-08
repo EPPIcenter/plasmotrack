@@ -267,3 +267,12 @@ TEST(TransmissionKernelTest, LeakyLatentLocusTableMatchesThePlainComputation) {
     }
     EXPECT_GT(compared, 10000);
 }
+
+TEST(TransmissionKernelTest, ANewLeakIsCheckedLikeTheFirst) {
+    Kernel kernel(0.01);
+    kernel.setLeak(0.2);
+    EXPECT_EQ(kernel.leak(), 0.2);
+    EXPECT_THROW(kernel.setLeak(1.0), std::invalid_argument);
+    EXPECT_THROW(kernel.setLeak(-0.1), std::invalid_argument);
+    EXPECT_EQ(kernel.leak(), 0.2);
+}
