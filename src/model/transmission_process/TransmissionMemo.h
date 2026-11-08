@@ -97,19 +97,25 @@ namespace transmission_nets::model::transmission_process {
 #endif
             }
             if (frequencies_.size() >= MAX_FREQUENCY_IDS) {
-                frequencyIds_.clear();
-                frequencies_.clear();
-                frequencyStore_.clear();
-                lastFrequencies_.clear();
-                locusStores_.clear();
-                stores_.clear();
-                ++generation_;
-                if (leaky()) {
-                    // Keyed by frequency ids, which now mean nothing.
-                    locusTerms_.clear();
-                    fTables_.clear();
-                    olderFTables_.clear();
-                }
+                forgetFrequencyIds();
+            }
+        }
+
+        // Forgets every frequency id and starts a new generation, with the results keyed by them. beginBatch() calls it
+        // once there are MAX_FREQUENCY_IDS ids; a test can call it to get there without making that many.
+        void forgetFrequencyIds() {
+            frequencyIds_.clear();
+            frequencies_.clear();
+            frequencyStore_.clear();
+            lastFrequencies_.clear();
+            locusStores_.clear();
+            stores_.clear();
+            ++generation_;
+            if (leaky()) {
+                // Keyed by frequency ids, which now mean nothing.
+                locusTerms_.clear();
+                fTables_.clear();
+                olderFTables_.clear();
             }
         }
 
