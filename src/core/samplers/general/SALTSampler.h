@@ -38,19 +38,60 @@ namespace transmission_nets::core::samplers {
 
     using LogPQ = utils::LogPQ;
 
+    namespace dirichlet {
+        inline double logDensity(const std::vector<double>& alpha, const std::vector<double>& f) {
+            double sumAlpha = 0, out = 0;
+            for (size_t a = 0; a < alpha.size(); ++a) {
+                sumAlpha += alpha[a];
+                out += (alpha[a] - 1) * std::log(f[a]) - std::lgamma(alpha[a]);
+            }
+            return out + std::lgamma(sumAlpha);
+        }
+
+        // An equal mixture of Dirichlet(narrow) and Dirichlet(wide).
+        inline double logMixtureDensity(const std::vector<double>& narrow, const std::vector<double>& wide, const std::vector<double>& f) {
+            const double n = logDensity(narrow, f), w = logDensity(wide, f);
+            const double m = std::max(n, w);
+            return m + std::log(0.5 * std::exp(n - m) + 0.5 * std::exp(w - m));
+        }
+
+        // A draw from the mixture into `f`; false when an element falls below `lowerLimit`.
+        template<typename Engine>
+        bool drawMixture(const std::vector<double>& narrow, const std::vector<double>& wide, const double lowerLimit, Engine& rng, std::vector<double>& f) {
+            const auto& alpha = boost::random::uniform_01<>()(rng) < 0.5 ? narrow : wide;
+            f.resize(alpha.size());
+            double total = 0;
+            for (size_t a = 0; a < alpha.size(); ++a) {
+                f[a] = boost::random::gamma_distribution<>(alpha[a])(rng);
+                total += f[a];
+            }
+            bool inBounds = total > 0;
+            for (auto& x : f) {
+                x /= total;
+                inBounds = inBounds and x >= lowerLimit;
+            }
+            return inBounds;
+        }
+    }// namespace dirichlet
+
     /*
      * Optionally, each update also makes a Dirichlet independence move on the whole simplex, fitted to the
      * sampler's own trajectory (enableDirichletMove). The sampler observes the simplex after every update and refits
      * at the end of each fitting span, from that span's observations alone: the mean, and one precision for all
      * frequencies (the median of each frequency's moment estimate). After the last span the fit is fixed. Until the
      * first fit every update runs the SALT sweep; after it, every saltEvery-th update does, and every moveEvery-th
-     * update makes the Dirichlet move (the simplex is observed on every update). The proposal is an equal
-     * mixture of Dirichlet(alpha) and Dirichlet(widen * alpha), as in DirichletIndependenceSampler.
+     * update makes the Dirichlet move (the simplex is observed on every update). The move is an independence
+     * Metropolis-Hastings step: its proposal is an equal mixture of Dirichlet(alpha) and Dirichlet(widen * alpha), the
+     * same mean with a heavier spread, so that a value in alpha's tails is still proposed often enough to be left. A
+     * proposal with any element below the lower limit is rejected, as the target has no mass there.
      *
      * With a block size, a simplex of more frequencies than that is moved in blocks: a uniformly random partition into
      * blocks of blockSize (the last takes the remainder), each proposed in turn by redrawing the block's shares of its
-     * current total from the mixture restricted to the block, which is the conditional of the full proposal. An
-     * independence proposal's acceptance falls with dimension, so this keeps loci with many alleles moving.
+     * current total from the equal mixture of the block's own Dirichlet(alpha) and Dirichlet(widen * alpha). That is an
+     * independence proposal on the block's shares, corrected by its own density. For one Dirichlet it would be the
+     * conditional of the whole-simplex proposal; for the mixture it is not, as the conditional's mixture weights depend
+     * on the frequencies outside the block. An independence proposal's acceptance falls with dimension, so blocks keep
+     * loci with many alleles moving.
      */
     template<typename T, typename Engine = boost::random::mt19937>
     class SALTSampler : public AbstractSampler {
