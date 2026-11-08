@@ -122,7 +122,8 @@ resolve_runs <- function(paths, call = rlang::caller_env()) {
   tibble::tibble(run = labels, label = labels, path = paths)
 }
 
-# Runs of one Analysis must share their input and model: the null model and the transmission leak.
+# Runs of one Analysis must share their input and model: the null model, the Leak prior, the Error model and the
+# transmission leak.
 check_comparable <- function(runs, call = rlang::caller_env()) {
   differs <- function(field, value, describe) {
     values <- vapply(runs$manifest, function(m) jsonlite::toJSON(value(m), auto_unbox = TRUE), character(1))
@@ -140,11 +141,43 @@ check_comparable <- function(runs, call = rlang::caller_env()) {
           function(ms) vapply(ms, function(m) paste0("input ", substr(m$input_sha256$input, 1, 12)), character(1)))
   differs("null_model", function(m) isTRUE(m$null_model),
           function(ms) vapply(ms, function(m) paste0("null_model ", tolower(isTRUE(m$null_model))), character(1)))
-  # A manifest from before the transmission leak is the model without one.
+  # Compared by meaning: a manifest from before the Leak prior and the Error model has a fixed leak and each
+  # Infection's own rates.
+  leak_prior <- function(m) canonical_leak_prior(m$leak_prior)
+  error_model <- function(m) canonical_error_model(m$error_model)
+  differs("leak_prior", leak_prior, function(ms) {
+    vapply(ms, function(m) paste0("leak_prior ", if (nzchar(leak_prior(m))) leak_prior(m) else "none"), character(1))
+  })
+  differs("error_model", error_model, function(ms) {
+    vapply(ms, function(m) paste0("error_model ", if (nzchar(error_model(m))) error_model(m) else "infection"),
+           character(1))
+  })
+  # A manifest from before the transmission leak is the model without one. With a Leak prior the leak recorded is
+  # only where the chains started, so Runs that differ in it still pool.
   leak <- function(m) if (is.null(m$transmission_leak)) 0 else m$transmission_leak
-  differs("transmission_leak", function(m) sprintf("%.17g", leak(m)),
+  sampled <- function(m) nzchar(leak_prior(m))
+  differs("transmission_leak", function(m) if (sampled(m)) "sampled" else sprintf("%.17g", leak(m)),
           function(ms) vapply(ms, function(m) paste0("transmission_leak ", format(leak(m))), character(1)))
 }
+
+# A Leak prior in one form per prior, as the engine records it ("" for none): `loguniform` is
+# `loguniform:1e-07,0.1`, `exponential` is `exponential:100`, and numbers compare by value. One it can't read stays
+# as it is.
+canonical_leak_prior <- function(x) {
+  if (is.null(x) || !nzchar(x)) return("")
+  colon <- regexpr(":", x, fixed = TRUE)
+  kind <- if (colon > 0) substr(x, 1, colon - 1) else x
+  args <- numeric()
+  if (colon > 0) args <- suppressWarnings(as.numeric(strsplit(substring(x, colon + 1), ",", fixed = TRUE)[[1]]))
+  if (!length(args)) {
+    args <- switch(kind, loguniform = c(1e-7, 0.1), exponential = 100, NA_real_)
+  }
+  if (anyNA(args)) return(x)
+  paste0(kind, ":", paste(sprintf("%.15g", args), collapse = ","))
+}
+
+# An Error model's name, "" for `infection` (given or not).
+canonical_error_model <- function(x) if (is.null(x) || x %in% c("", "infection")) "" else x
 
 check_epi <- function(epi, call = rlang::caller_env()) {
   if (is.null(epi)) return(NULL)
