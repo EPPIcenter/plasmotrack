@@ -337,8 +337,8 @@ namespace transmission_nets::model::transmission_process {
         });
 
         // A sampled transmission leak enters every entry's locus terms; the memo starts afresh at a new leak.
-        if (memo_->leakParameter()) {
-            core::abstract::dependsOn(this, memo_->leakParameter(), [this]() {
+        if (memo_->sampledLeak()) {
+            core::abstract::dependsOn(this, memo_->sampledLeak(), [this]() {
                 lastUpdated_ = "transmission leak updated";
                 degrade(INVALID, false);
             });

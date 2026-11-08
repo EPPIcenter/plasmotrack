@@ -110,8 +110,8 @@ namespace {
             for (int k = 0; k < 6; ++k) {
                 // A leak step, accepted or rejected, then a genotype change and a frequency change.
                 if (state->leakPrior) {
-                    const double leak = std::clamp(state->leakSize->value() * std::exp(normal(*rng)), state->leakPrior->lower() * 1.01, state->leakPrior->upper() * 0.99);
-                    perturb(state->leakSize, leak, unif(*rng) < 0.5);
+                    const double leak = std::clamp(state->transmissionLeak->value() * std::exp(normal(*rng)), state->leakPrior->lower() * 1.01, state->leakPrior->upper() * 0.99);
+                    perturb(state->transmissionLeak, leak, unif(*rng) < 0.5);
                 }
                 const auto& infection = state->infections[pickNode(*rng)];
                 const auto& [label, locus] = *std::next(state->loci.begin(), static_cast<long>(unif(*rng) * static_cast<double>(state->loci.size())));
@@ -129,7 +129,7 @@ namespace {
                 for (auto& f : frequencies) f /= total;
                 perturb(state->alleleFrequencies->alleleFrequencies(locus), AlleleFrequencyImpl::exactly(frequencies), unif(*rng) < 0.5);
             }
-            ASSERT_NEAR(model->value(), freshValue(study, choice, *state), 1e-6 * std::max(1.0, std::abs(model->value()))) << "round " << round << ", leak " << state->leakSize->value();
+            ASSERT_NEAR(model->value(), freshValue(study, choice, *state), 1e-6 * std::max(1.0, std::abs(model->value()))) << "round " << round << ", leak " << state->transmissionLeak->value();
         }
     }
 }// namespace
@@ -180,7 +180,7 @@ TEST(SampledLeakTest, TheLeakWalkSamplesItsConditionalPosterior) {
         }
     }
     const auto& prior = *state->leakPrior;
-    transmission_nets::core::samplers::ConstrainedContinuousRandomWalk<Model> walk(state->leakSize, model, prior.lower(), prior.upper(), rng, 1.5);
+    transmission_nets::core::samplers::ConstrainedContinuousRandomWalk<Model> walk(state->transmissionLeak, model, prior.lower(), prior.upper(), rng, 1.5);
 
     // The exact conditional of u = log ε on a grid, from the Model at each ε (its prior term included).
     constexpr int gridSize = 400;
@@ -190,7 +190,7 @@ TEST(SampledLeakTest, TheLeakWalkSamplesItsConditionalPosterior) {
     for (int g = 0; g < gridSize; ++g) {
         u[g] = lo + (hi - lo) * (g + 0.5) / gridSize;
         auto step = transmission_nets::core::samplers::Proposal(*model, *rng, counts);
-        step.change(*state->leakSize, std::exp(u[g]));
+        step.change(*state->transmissionLeak, std::exp(u[g]));
         logDensity[g] = step.value() + u[g];// the Jacobian of ε = exp(u)
         step.accept();
     }
@@ -208,7 +208,7 @@ TEST(SampledLeakTest, TheLeakWalkSamplesItsConditionalPosterior) {
     sampled.reserve(draws);
     for (int d = 0; d < draws; ++d) {
         walk.update();
-        sampled.push_back(std::log(state->leakSize->value()));
+        sampled.push_back(std::log(state->transmissionLeak->value()));
     }
     std::ranges::sort(sampled);
     double maxGap = 0;
@@ -241,7 +241,7 @@ TEST(SampledLeakTest, WithoutTheLikelihoodTheSamplerSetRecoversThePrior) {
         if (it < 500) {
             continue;
         }
-        leak.push_back(std::log10(state->leakSize->value()));
+        leak.push_back(std::log10(state->transmissionLeak->value()));
         fpMean.push_back(state->efpMean->value());
         fnMean.push_back(state->efnMean->value());
     }
@@ -287,18 +287,24 @@ TEST(SampledLeakTest, TheTruncatedRatePriorIsADensityOnTheRatesRange) {
     EXPECT_EQ(truncatedGammaLogDensity(0.6, 0.02, 2.0), -std::numeric_limits<double>::infinity());
 }
 
-// A restored leak from a Run with another prior is moved inside this one's range; one inside stays.
+// A restored leak from a Run with another prior is moved inside this one's range; one the prior holds stays exactly
+// as it is, however close to the range's ends, so a resumed chain goes on as an uninterrupted one would.
 TEST(SampledLeakTest, ARestoredLeakOutsideThePriorIsMovedInside) {
     auto rng         = std::make_shared<boost::random::mt19937>(7);
     const auto study = leakStudy(*rng, 4);
     State state(study, rng, ModelChoice{.transmissionLeak = 0.01, .leakPrior = "loguniform:1e-4,0.1"});
-    state.leakSize->initializeValue(0.3);
+    state.transmissionLeak->initializeValue(0.3);
     state.keepLeakInsidePrior();
-    EXPECT_LT(state.leakSize->value(), 0.1);
-    EXPECT_GT(state.leakSize->value(), 0.099);
-    state.leakSize->initializeValue(0.02);
+    EXPECT_LT(state.transmissionLeak->value(), 0.1);
+    EXPECT_GT(state.transmissionLeak->value(), 0.099);
+    state.transmissionLeak->initializeValue(1e-4);
     state.keepLeakInsidePrior();
-    EXPECT_EQ(state.leakSize->value(), 0.02);
+    EXPECT_GT(state.transmissionLeak->value(), 1e-4) << "the walk needs a leak strictly inside the range";
+    for (const double held : {0.02, std::nextafter(0.1, 0.0), 0.09999999, 1.00000001e-4}) {
+        state.transmissionLeak->initializeValue(held);
+        state.keepLeakInsidePrior();
+        EXPECT_EQ(state.transmissionLeak->value(), held);
+    }
     EXPECT_EQ(canonicalLeakPrior("loguniform"), canonicalLeakPrior("loguniform:1e-7,0.1"));
     EXPECT_EQ(canonicalLeakPrior("exponential"), "exponential:100");
     EXPECT_EQ(canonicalLeakPrior("sideways"), "sideways");
@@ -306,4 +312,60 @@ TEST(SampledLeakTest, ARestoredLeakOutsideThePriorIsMovedInside) {
     EXPECT_EQ(canonicalErrorModel(""), "");
     EXPECT_EQ(canonicalErrorModel("shared"), "shared");
     EXPECT_EQ(canonicalErrorModel("pooled"), "pooled");
+}
+
+// A leak given outside the prior starts just inside it; one the prior holds is the start.
+TEST(SampledLeakTest, ALeakPriorStartsTheLeakInsideItsRange) {
+    const auto logUniform = parseLeakPrior("loguniform");
+    EXPECT_EQ(logUniform.startAt(0.0), 1e-7 * 1.0001 + 1e-12);
+    EXPECT_EQ(logUniform.startAt(0.5), 0.1 * 0.9999);
+    EXPECT_EQ(logUniform.startAt(0.003), 0.003);
+    const auto exponential = parseLeakPrior("exponential:50");
+    EXPECT_EQ(exponential.rate, 50);
+    EXPECT_EQ(exponential.startAt(0.0), 1e-12);
+    EXPECT_EQ(exponential.startAt(0.7), 0.5 * 0.9999);
+    auto rng         = std::make_shared<boost::random::mt19937>(8);
+    const auto study = leakStudy(*rng, 4);
+    EXPECT_EQ(State(study, rng, ModelChoice{.leakPrior = "loguniform"}).transmissionLeak->value(), logUniform.startAt(0.0));
+}
+
+// Every number in a leak prior parses whole.
+TEST(SampledLeakTest, ALeakPriorWithTrailingTextIsRefused) {
+    for (const auto* description : {"loguniform:1e-3x,0.1", "loguniform:1e-3,0.1x", "loguniform:1e-3,0.1,0.2", "exponential:50x", "exponential:5 0", "loguniform:,0.1"}) {
+        EXPECT_THROW(parseLeakPrior(description), std::invalid_argument) << description;
+    }
+    const auto prior = parseLeakPrior("loguniform:1e-3,0.1");
+    EXPECT_EQ(prior.lo, 1e-3);
+    EXPECT_EQ(prior.hi, 0.1);
+}
+
+// Results put aside at the old leak keep their own frequency ids and generation: forgetting the current ids while a
+// leak step is pending leaves them valid when the step is rejected and they come back.
+TEST(SampledLeakTest, ForgettingFrequencyIdsDuringALeakStepKeepsTheResultsPutAside) {
+    auto rng         = std::make_shared<boost::random::mt19937>(20261107);
+    const auto study = leakStudy(*rng);
+    const ModelChoice choice{.transmissionLeak = 0.01, .leakPrior = "loguniform:1e-6,0.2"};
+    auto state = std::make_shared<State>(study, rng, choice);
+    auto model = std::make_shared<Model>(state);
+    model->value();
+    transmission_nets::core::samplers::SamplerCounts counts{};
+    for (const bool accept : {false, true, false}) {
+        const double before = model->value();
+        const auto& locus   = state->loci.begin()->second;
+        auto frequencies    = state->alleleFrequencies->alleleFrequencies(locus)->value().frequencies();
+        std::ranges::reverse(frequencies);
+        auto step = transmission_nets::core::samplers::Proposal(*model, *rng, counts);
+        step.change(*state->transmissionLeak, state->transmissionLeak->value() * 1.7);
+        step.value();
+        model->transmissionMemo->forgetFrequencyIds();
+        step.change(*state->alleleFrequencies->alleleFrequencies(locus), AlleleFrequencyImpl::exactly(frequencies));
+        step.value();
+        if (accept) {
+            step.accept();
+        } else {
+            step.reject();
+            EXPECT_EQ(model->value(), before);
+        }
+        ASSERT_NEAR(model->value(), freshValue(study, choice, *state), 1e-6 * std::max(1.0, std::abs(model->value()))) << "accept " << accept;
+    }
 }

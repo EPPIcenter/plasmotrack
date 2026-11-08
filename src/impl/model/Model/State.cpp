@@ -43,76 +43,12 @@ namespace transmission_nets::impl::Model {
         }
     }// namespace
 
-    double LeakPrior::logDensity(const double leak) const {
-        if (kind == Kind::LogUniform) {
-            return leak >= a and leak <= b ? -std::log(leak) - std::log(std::log(b / a)) : -std::numeric_limits<double>::infinity();
-        }
-        return leak > 0 and leak < 0.5 ? std::log(a) - a * leak : -std::numeric_limits<double>::infinity();
-    }
-
-    LeakPrior parseLeakPrior(const std::string& description) {
-        const auto colon       = description.find(':');
-        const std::string kind = description.substr(0, colon);
-        const std::string args = colon == std::string::npos ? "" : description.substr(colon + 1);
-        try {
-            if (kind == "loguniform") {
-                LeakPrior prior{.kind = LeakPrior::Kind::LogUniform};
-                if (not args.empty()) {
-                    const auto comma = args.find(',');
-                    if (comma == std::string::npos) {
-                        throw std::invalid_argument("");
-                    }
-                    prior.a = std::stod(args.substr(0, comma));
-                    prior.b = std::stod(args.substr(comma + 1));
-                }
-                if (prior.a > 0 and prior.a < prior.b and prior.b < 1) {
-                    return prior;
-                }
-            } else if (kind == "exponential") {
-                const LeakPrior prior{.kind = LeakPrior::Kind::Exponential, .a = args.empty() ? 100.0 : std::stod(args), .b = 0};
-                if (prior.a > 0) {
-                    return prior;
-                }
-            }
-        } catch (const std::exception&) {
-        }
-        throw std::invalid_argument(fmt::format("a leak prior is loguniform:LO,HI with 0 < LO < HI < 1, or exponential:RATE with RATE > 0 (got \"{}\")", description));
-    }
-
-    std::string canonicalLeakPrior(const std::string& description) {
-        try {
-            const auto prior = parseLeakPrior(description);
-            return prior.kind == LeakPrior::Kind::LogUniform ? fmt::format("loguniform:{},{}", prior.a, prior.b) : fmt::format("exponential:{}", prior.a);
-        } catch (const std::invalid_argument&) {
-            return description;
-        }
-    }
-
-    std::string canonicalErrorModel(const std::string& name) {
-        try {
-            return parseErrorModel(name) == ErrorModel::Infection ? std::string{} : name;
-        } catch (const std::invalid_argument&) {
-            return name;
-        }
-    }
-
     void State::keepLeakInsidePrior() {
         if (leakPrior) {
-            leakSize->initializeValue(std::clamp(leakSize->value(), leakPrior->lower() * 1.0001 + 1e-12, leakPrior->upper() * 0.9999));
+            if (const double leak = transmissionLeak->value(); not leakPrior->holds(leak)) {
+                transmissionLeak->initializeValue(leakPrior->startAt(leak));
+            }
         }
-    }
-
-    ErrorModel parseErrorModel(const std::string& name) {
-        if (name.empty() or name == "infection") {
-            return ErrorModel::Infection;
-        }
-        if (name == "shared") {
-            return ErrorModel::Shared;
-        }
-        if (name == "hierarchical") {
-            return ErrorModel::Hierarchical;
-        }
-        throw std::invalid_argument(fmt::format("an error model is infection, shared or hierarchical (got \"{}\")", name));
     }
 
     State::State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const bool null_model, const double transmission_leak)
@@ -121,8 +57,7 @@ namespace transmission_nets::impl::Model {
     State::State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const ModelChoice& choice) {
         const bool null_model = choice.nullModel;
         nullModel        = choice.nullModel;
-        transmissionLeak = choice.transmissionLeak;
-        leakSize         = std::make_shared<core::parameters::Parameter<double>>(choice.transmissionLeak);
+        transmissionLeak = std::make_shared<core::parameters::Parameter<double>>(choice.transmissionLeak);
         if (not choice.leakPrior.empty()) {
             leakPrior = parseLeakPrior(choice.leakPrior);
             keepLeakInsidePrior();

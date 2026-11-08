@@ -78,22 +78,23 @@ namespace transmission_nets::model::transmission_process {
         // Whether the transmission leak ε is above 0: the observed-parents terms then depend on the Allele frequencies too.
         [[nodiscard]] bool leaky() const { return kernel_.leak() > 0; }
 
-        // The leak follows `leakSize`, a sampled Run scalar, from its value now; the reference stays. Every kept result
-        // depends on the leak, so a change of size puts the results aside and starts afresh, and a return to the size
-        // before (a rejected proposal, whose terms restore their caches) brings those results back, with their ids
-        // and generation, so neither direction recomputes what a term's restored cache refers to. The results put
-        // aside are dropped when the change is accepted. Call before any result is computed.
-        void followLeak(p_ParameterDouble leakSize) {
-            leakSize_ = std::move(leakSize);
-            kernel_.setLeak(leakSize_->value());
-            const auto sync = [this]() { switchLeak(leakSize_->value()); };
-            leakSize_->add_post_change_listener(sync);
+        // The kernel's leak follows `leak`, the sampled Transmission leak (a Run scalar), from its value now; the
+        // reference stays. Every kept result depends on the leak, so a change puts the results aside and starts afresh,
+        // and a return to the leak before (a rejected proposal, whose terms restore their caches) brings those results
+        // back, with their ids and generation, so neither direction recomputes what a term's restored cache refers to.
+        // The results put aside are dropped when the change is accepted. They carry their own frequency ids and
+        // generation, so forgetFrequencyIds() in between leaves them valid. Call before any result is computed.
+        void followLeak(p_ParameterDouble leak) {
+            sampledLeak_ = std::move(leak);
+            kernel_.setLeak(sampledLeak_->value());
+            const auto sync = [this]() { switchLeak(sampledLeak_->value()); };
+            sampledLeak_->add_post_change_listener(sync);
             // After the restore: listeners hear it before the value goes back.
-            leakSize_->addPostRestoreHook([sync](int) { sync(); });
-            leakSize_->add_accept_state_listener([this]() { aside_ = {}; });
+            sampledLeak_->addPostRestoreHook([sync](int) { sync(); });
+            sampledLeak_->add_accept_state_listener([this]() { aside_ = {}; });
         }
-        // The sampled leak size, or null when the leak is fixed.
-        [[nodiscard]] const p_ParameterDouble& leakParameter() const { return leakSize_; }
+        // The sampled Transmission leak, or null when the leak is fixed.
+        [[nodiscard]] const p_ParameterDouble& sampledLeak() const { return sampledLeak_; }
 
         [[nodiscard]] const p_ParameterDouble& meanStrainsTransmitted() const { return meanStrainsTransmitted_; }
         [[nodiscard]] const std::shared_ptr<AlleleFrequencyContainer>& alleleFrequencies() const { return alleleFrequencies_; }
@@ -624,8 +625,8 @@ namespace transmission_nets::model::transmission_process {
         // those of a fresh start.
         std::uint64_t generations_ = 0;
 
-        // The followed leak size (followLeak), and the results kept at the size before the last change.
-        p_ParameterDouble leakSize_{};
+        // The followed leak (followLeak), and the results kept at the leak before the last change.
+        p_ParameterDouble sampledLeak_{};
         struct Results {
             bool held   = false;
             double leak = 0;
@@ -667,16 +668,16 @@ namespace transmission_nets::model::transmission_process {
             std::swap(olderFTables_, r.olderFTables);
         }
 
-        void switchLeak(const double size) {
-            if (size == kernel_.leak()) {
+        void switchLeak(const double leak) {
+            if (leak == kernel_.leak()) {
                 return;
             }
             const double before = kernel_.leak();
-            if (aside_.held and aside_.leak == size) {
-                // Back to the results put aside; those at the size left are not needed again.
+            if (aside_.held and aside_.leak == leak) {
+                // Back to the results put aside; those at the leak left are not needed again.
                 swapResults(aside_);
                 aside_ = {};
-                kernel_.setLeak(size);
+                kernel_.setLeak(leak);
                 return;
             }
             // Put the current results aside and start empty, under a new generation.
@@ -685,7 +686,7 @@ namespace transmission_nets::model::transmission_process {
             aside_.held = true;
             aside_.leak = before;
             generation_ = ++generations_;
-            kernel_.setLeak(size);
+            kernel_.setLeak(leak);
         }
     };
 

@@ -248,7 +248,7 @@ namespace transmission_nets::impl::Model {
             }
             if (state->leakPrior) {
                 // Each step recomputes every Transmission term at the proposed leak; a rejected step restores them.
-                scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state->leakSize, target, state->leakPrior->lower(), state->leakPrior->upper(), r, .5, .01, 3),
+                scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state->transmissionLeak, target, state->leakPrior->lower(), state->leakPrior->upper(), r, .5, .01, 3),
                                             .id = "ConstrainedContinuousRandomWalk/transmission_leak",
                                             .adaptationStart = 20,
                                             .adaptationEnd = 200,

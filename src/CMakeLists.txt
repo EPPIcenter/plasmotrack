@@ -94,6 +94,8 @@ set(MODEL_SOURCES
 )
 
 set(IMPL_SOURCES
+    impl/model/Model/ModelChoice.cpp
+    impl/model/Model/ModelChoice.h
     impl/model/Model/State.cpp
     impl/model/Model/State.h
     impl/model/Model/Study.cpp

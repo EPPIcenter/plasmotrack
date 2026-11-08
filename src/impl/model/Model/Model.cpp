@@ -21,12 +21,12 @@ namespace transmission_nets::impl::Model {
     Model::Model(std::shared_ptr<State> state, double temperature) : state_(std::move(state)), temperature(temperature) {
         core::abstract::dependsOn(this, likelihood, prior);
 
-        transmissionMemo        = std::make_shared<TransmissionMemoImpl>(state_->meanStrainsTransmitted, state_->alleleFrequencies, state_->transmissionLeak);
+        transmissionMemo        = std::make_shared<TransmissionMemoImpl>(state_->meanStrainsTransmitted, state_->alleleFrequencies, state_->transmissionLeak->value());
         if (state_->leakPrior) {
             // The memo follows the sampled leak.
-            transmissionMemo->followLeak(state_->leakSize);
+            transmissionMemo->followLeak(state_->transmissionLeak);
             prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
-                    "transmission_leak_prior", [leak = state_->leakSize, p = *state_->leakPrior]() { return p.logDensity(leak->value()); }, state_->leakSize));
+                    "transmission_leak_prior", [leak = state_->transmissionLeak, p = *state_->leakPrior]() { return p.logDensity(leak->value()); }, state_->transmissionLeak));
         }
         parentSetSizeLikelihood = std::make_shared<ParentSetSizeLikelihoodImpl>(state_->parentSetSizeProb);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
