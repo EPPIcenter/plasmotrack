@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -151,4 +152,47 @@ TEST(TransmissionMemoTest, ThePlainObservedParentsTermIsTheKernelsSumOverLoci) {
     }
     const double expected = Kernel::strainSummedLogLikelihood(sums, 1, Kernel::strainCountTable(1.7));
     EXPECT_DOUBLE_EQ(f.memo.observedParentsLogLikelihood(child, ParentSet<InfectionEvent>{parent}), expected);
+}
+
+// With a transmission leak, locus terms and F tables are keyed by frequency id. Once the ids are forgotten the same id
+// names other frequencies, so results kept under the old ids must go: each result after must match a memo that never
+// saw the old frequencies.
+TEST(TransmissionMemoTest, WithALeakResultsFollowFrequenciesAcrossForgottenIds) {
+    constexpr double leak = 0.05;
+    Fixture f;
+    Memo leaky{f.meanStrains, f.frequencies, leak};
+    // Allele 0 is the child's alone: the leak supplies it, so both results depend on its frequency.
+    const Genotype child("110"), parent("010");
+    const std::vector<const Genotype*> parents{&parent};
+    leaky.beginBatch();
+    const auto before        = leaky.frequencyId(f.loci[0]);
+    const auto termBefore    = leaky.locusTerm(Variant::ObservedParents, child, parents, nullptr, before).terms;
+    const auto tableBefore   = leaky.locusTable(before, child, {}).terms;
+
+    leaky.forgetFrequencyIds();
+    f.setFrequencies(f.loci[0], {0.1, 0.3, 0.6});
+    leaky.beginBatch();
+    const auto after = leaky.frequencyId(f.loci[0]);
+    ASSERT_EQ(after, before) << "the test needs the old id to name the new frequencies";
+
+    Memo fresh{f.meanStrains, f.frequencies, leak};
+    fresh.beginBatch();
+    const auto freshId = fresh.frequencyId(f.loci[0]);
+    const auto termAfter  = leaky.locusTerm(Variant::ObservedParents, child, parents, nullptr, after).terms;
+    const auto tableAfter = leaky.locusTable(after, child, {}).terms;
+    EXPECT_NE(termAfter, termBefore);
+    EXPECT_NE(tableAfter, tableBefore);
+    EXPECT_EQ(termAfter, fresh.locusTerm(Variant::ObservedParents, child, parents, nullptr, freshId).terms);
+    EXPECT_EQ(tableAfter, fresh.locusTable(freshId, child, {}).terms);
+}
+
+TEST(TransmissionMemoTest, WithALeakALocusTermNeedsAFrequencyId) {
+    Fixture f;
+    Memo leaky{f.meanStrains, f.frequencies, 0.05};
+    leaky.beginBatch();
+    const Genotype child("110"), parent("010");
+    const std::vector<const Genotype*> parents{&parent};
+    EXPECT_THROW(leaky.locusTerm(Variant::ObservedParents, child, parents, nullptr), std::logic_error);
+    EXPECT_THROW(Memo(f.meanStrains, f.frequencies, 1.0), std::invalid_argument);
+    EXPECT_THROW(Memo(f.meanStrains, f.frequencies, -0.1), std::invalid_argument);
 }

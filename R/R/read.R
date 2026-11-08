@@ -122,7 +122,7 @@ resolve_runs <- function(paths, call = rlang::caller_env()) {
   tibble::tibble(run = labels, label = labels, path = paths)
 }
 
-# Runs of one Analysis must share their input and model.
+# Runs of one Analysis must share their input and model: the null model and the transmission leak.
 check_comparable <- function(runs, call = rlang::caller_env()) {
   differs <- function(field, value, describe) {
     values <- vapply(runs$manifest, function(m) jsonlite::toJSON(value(m), auto_unbox = TRUE), character(1))
@@ -140,6 +140,10 @@ check_comparable <- function(runs, call = rlang::caller_env()) {
           function(ms) vapply(ms, function(m) paste0("input ", substr(m$input_sha256$input, 1, 12)), character(1)))
   differs("null_model", function(m) isTRUE(m$null_model),
           function(ms) vapply(ms, function(m) paste0("null_model ", tolower(isTRUE(m$null_model))), character(1)))
+  # A manifest from before the transmission leak is the model without one.
+  leak <- function(m) if (is.null(m$transmission_leak)) 0 else m$transmission_leak
+  differs("transmission_leak", function(m) sprintf("%.17g", leak(m)),
+          function(ms) vapply(ms, function(m) paste0("transmission_leak ", format(leak(m))), character(1)))
 }
 
 check_epi <- function(epi, call = rlang::caller_env()) {

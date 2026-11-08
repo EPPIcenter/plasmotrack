@@ -170,6 +170,7 @@ TEST_F(RunRecorderTest, ManifestHoldsTheRecipeAndTheRecordersOptions) {
     EXPECT_EQ(m.at("burn_in"), 5);
     EXPECT_EQ(m.at("samples"), 6);
     EXPECT_EQ(m.at("null_model"), false);
+    EXPECT_EQ(m.at("transmission_leak"), 0.0);
     EXPECT_EQ(m.at("thin"), 2);
     EXPECT_EQ(m.at("window"), 4);
     EXPECT_EQ(m.at("parent_set_floor"), 1e-6);
@@ -186,9 +187,18 @@ TEST_F(RunRecorderTest, TheRunManifestRoundTripsThroughItsCodec) {
 
     manifest.gradient    = std::nullopt;
     manifest.nullModel   = true;
+    manifest.transmissionLeak = 0.02;
     manifest.startedFrom = nlohmann::json{{"run_id", "run-0"}, {"engine_version", "0.9.0"}, {"temperatures", {1.0, 0.5}}};
     auto recorder        = makeRecorder(1, 1, 0, manifest);
     EXPECT_EQ(storedRunFromJson(sink->manifest()), (StoredRun{.manifest = manifest, .options = {.thin = 1, .window = 1, .parentSetFloor = 0}}));
+}
+
+// A Run manifest written before the transmission leak existed reads as the model without one.
+TEST_F(RunRecorderTest, ARunManifestWithoutATransmissionLeakReadsAsNone) {
+    auto recorder = makeRecorder(2, 4);
+    auto written  = sink->manifest();
+    written.erase("transmission_leak");
+    EXPECT_EQ(storedRunFromJson(written).manifest.transmissionLeak, 0.0);
 }
 
 TEST_F(RunRecorderTest, ReadingAStoreFindsItsRunManifestOrNone) {

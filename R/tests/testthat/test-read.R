@@ -83,6 +83,19 @@ test_that("pt_read() errors when Runs mix the null and full models", {
   expect_error(read_golden(c(a = golden_store(), b = other)), "null_model")
 })
 
+test_that("pt_read() errors when Runs differ in the transmission leak, a missing one reading as 0", {
+  leaky <- local_golden_copy("replica-exchange")
+  edit_manifest(leaky, transmission_leak = 0.02)
+  expect_error(read_golden(c(a = golden_store(), b = leaky)), "transmission_leak")
+
+  # A manifest written before the leak existed pools with one that records 0.
+  older <- local_golden_copy("replica-exchange")
+  manifest <- jsonlite::read_json(file.path(older, "manifest.json"))
+  manifest$transmission_leak <- NULL
+  jsonlite::write_json(manifest, file.path(older, "manifest.json"), auto_unbox = TRUE, pretty = TRUE, digits = NA)
+  expect_no_error(read_golden(c(a = golden_store(), b = older)))
+})
+
 test_that("pt_read() errors on a missing required table, naming it", {
   store <- local_golden_copy()
   unlink(file.path(store, "parent_sets"), recursive = TRUE)

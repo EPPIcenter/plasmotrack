@@ -30,7 +30,8 @@ namespace transmission_nets::impl::Model {
         // Builds the starting State of `study`: each unobserved Locus's Latent genotype is one random Allele drawn
         // from `rng`. Throws Refused for a Study whose Infections name a Locus or a parent it doesn't have, or whose
         // genotypes or frequencies don't fit their Locus.
-        explicit State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, bool null_model = false);
+        // `transmission_leak` is the Transmission process's leak ε (see doc/marginal-latent-parent.md, section 6).
+        explicit State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, bool null_model = false, double transmission_leak = 0);
 
         void initPriors();
 
@@ -70,6 +71,8 @@ namespace transmission_nets::impl::Model {
         [[nodiscard]] std::vector<std::string> scalarNames() const;
         [[nodiscard]] std::vector<std::string> perInfectionNames() const;
         bool nullModel{};
+        // The transmission leak ε, a model choice of the Run recipe: not a Quantity, never sampled or checkpointed.
+        double transmissionLeak{};
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
         // Each infection's latent parent, summed out of the model. These name it in parent-set output (id `<id>_copy`)

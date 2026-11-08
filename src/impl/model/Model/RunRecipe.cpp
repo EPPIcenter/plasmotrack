@@ -85,6 +85,7 @@ namespace transmission_nets::impl::Model {
             }
             requireSame("--parent-set-floor", given.parentSetFloor, stored.options.parentSetFloor);
             requireSame("--seed", given.seed, manifest.seed);
+            requireSame("--transmission-leak", given.transmissionLeak, manifest.transmissionLeak);
             if (given.nullModel and !manifest.nullModel and !refusal) {
                 refusal = refuse(RefusalKind::RecipeChanged, "the Run was started without --null-model; resuming it needs the same.");
             }
@@ -133,7 +134,8 @@ namespace transmission_nets::impl::Model {
                                .gradient      = given.gradient.value_or(defaults::GRADIENT),
                                .burnIn        = recipe.plan.burnIn,
                                .samples       = recipe.plan.samples,
-                               .nullModel     = given.nullModel};
+                               .nullModel     = given.nullModel,
+                               .transmissionLeak = given.transmissionLeak.value_or(defaults::TRANSMISSION_LEAK)};
             return recipe;
         }
 
@@ -172,6 +174,9 @@ namespace transmission_nets::impl::Model {
         if (const auto* recipe = std::get_if<Recipe>(&resolved)) {
             if (auto refusal = rangeRefusal(recipe->recorder)) {
                 return *refusal;
+            }
+            if (const double leak = recipe->manifest.transmissionLeak; !(leak >= 0 and leak < 1)) {
+                return refuse(RefusalKind::TransmissionLeakOutOfRange, fmt::format("--transmission-leak must be at least 0 and below 1 (got {}).", leak));
             }
         }
         return resolved;

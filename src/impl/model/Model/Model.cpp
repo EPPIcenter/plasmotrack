@@ -16,7 +16,7 @@ namespace transmission_nets::impl::Model {
     Model::Model(std::shared_ptr<State> state, double temperature) : state_(std::move(state)), temperature(temperature) {
         core::abstract::dependsOn(this, likelihood, prior);
 
-        transmissionMemo        = std::make_shared<TransmissionMemoImpl>(state_->meanStrainsTransmitted, state_->alleleFrequencies);
+        transmissionMemo        = std::make_shared<TransmissionMemoImpl>(state_->meanStrainsTransmitted, state_->alleleFrequencies, state_->transmissionLeak);
         parentSetSizeLikelihood = std::make_shared<ParentSetSizeLikelihoodImpl>(state_->parentSetSizeProb);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
 

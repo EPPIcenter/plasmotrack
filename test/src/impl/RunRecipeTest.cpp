@@ -106,6 +106,7 @@ TEST(RunRecipe, ANewRunTakesTheDefaultsForWhatWasNotGiven) {
     EXPECT_EQ(recipe.manifest.burnIn, 5000);
     EXPECT_EQ(recipe.manifest.samples, 10000);
     EXPECT_FALSE(recipe.manifest.nullModel);
+    EXPECT_EQ(recipe.manifest.transmissionLeak, 0.0);
     EXPECT_EQ(recipe.manifest.inputSha256, INPUTS);
     EXPECT_EQ(recipe.cores, 1u);
 }
@@ -150,6 +151,7 @@ TEST(RunRecipe, GivenValuesReplaceTheDefaults) {
     given.gradient       = 0.3;
     given.seed           = 42;
     given.nullModel      = true;
+    given.transmissionLeak = 0.02;
     const auto recipe    = recipeOf(resolve(given, std::nullopt, std::nullopt));
 
     EXPECT_EQ(recipe.plan.burnIn, 2);
@@ -162,6 +164,19 @@ TEST(RunRecipe, GivenValuesReplaceTheDefaults) {
     EXPECT_EQ(recipe.manifest.gradient, 0.3);
     EXPECT_EQ(recipe.manifest.seed, 42);
     EXPECT_TRUE(recipe.manifest.nullModel);
+    EXPECT_EQ(recipe.manifest.transmissionLeak, 0.02);
+}
+
+TEST(RunRecipe, TheTransmissionLeakMustBeAtLeastZeroAndBelowOne) {
+    for (const auto leak : {-0.01, 1.0, 2.0}) {
+        auto given             = newRun();
+        given.transmissionLeak = leak;
+
+        EXPECT_EQ(refusalOf(resolve(given, std::nullopt, std::nullopt)), RefusalKind::TransmissionLeakOutOfRange) << "--transmission-leak " << leak;
+    }
+    auto given             = newRun();
+    given.transmissionLeak = 0.5;
+    EXPECT_EQ(refusalOf(resolve(given, std::nullopt, std::nullopt)), std::nullopt);
 }
 
 TEST(RunRecipe, ThinMustBeAtLeastOne) {
@@ -196,6 +211,7 @@ TEST(RunRecipe, TheParentSetFloorMustBeAtLeastZeroAndBelowOne) {
 TEST(RunRecipe, AResumedRunKeepsItsStoredRecipe) {
     auto stored               = storedRun();
     stored.manifest.nullModel = true;
+    stored.manifest.transmissionLeak = 0.02;
     const auto recipe         = recipeOf(resume([](GivenOptions&) {}, stored));
 
     EXPECT_EQ(recipe.mode, Mode::Resume);
@@ -203,6 +219,7 @@ TEST(RunRecipe, AResumedRunKeepsItsStoredRecipe) {
     EXPECT_EQ(recipe.manifest.runId, "run-1");
     EXPECT_EQ(recipe.manifest.seed, 42);
     EXPECT_TRUE(recipe.manifest.nullModel);
+    EXPECT_EQ(recipe.manifest.transmissionLeak, 0.02);
     EXPECT_EQ(recipe.recorder.thin, 5);
     EXPECT_EQ(recipe.recorder.window, 10);
     EXPECT_EQ(recipe.plan.burnIn, 10);
@@ -235,6 +252,7 @@ TEST(RunRecipe, ResumingWithAnotherRecipeIsRefused) {
             {"--parent-set-floor", [](GivenOptions& g) { g.parentSetFloor = 1e-6; }},
             {"--seed", [](GivenOptions& g) { g.seed = 43; }},
             {"--null-model", [](GivenOptions& g) { g.nullModel = true; }},
+            {"--transmission-leak", [](GivenOptions& g) { g.transmissionLeak = 0.02; }},
     };
     for (const auto& [option, change] : changes) {
         EXPECT_EQ(refusalOf(resume(change)), RefusalKind::RecipeChanged) << option;
@@ -296,11 +314,14 @@ TEST(RunRecipe, StartFromMakesANewRunWithItsOwnOptions) {
     const auto recipe = recipeOf(startFrom([](GivenOptions& g) {
         g.seed   = 9;
         g.burnIn = 5;
+        // A checkpoint holds no model choice: a Run with a leak may start from one made without.
+        g.transmissionLeak = 0.02;
     }));
 
     EXPECT_EQ(recipe.mode, Mode::StartFrom);
     EXPECT_EQ(recipe.store, "from");
     EXPECT_EQ(recipe.manifest.seed, 9);
+    EXPECT_EQ(recipe.manifest.transmissionLeak, 0.02);
     EXPECT_EQ(recipe.plan.burnIn, 5);
     EXPECT_EQ(recipe.plan.samples, 10000);
 }

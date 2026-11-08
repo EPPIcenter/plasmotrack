@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
     const auto study  = studyFromJson(input, sIdp, aIdp);
     const auto saved = checkpoint::load(argv[4]);
     auto runRng      = std::make_shared<checkpoint::Engine>(1);
-    auto ensemble    = checkpoint::restore(saved, runRng, study, false, 1);
+    auto ensemble    = checkpoint::restore(saved, runRng, study, false, 1, 0);
     const auto& hot  = ensemble->hotChain();
     Checker c{hot.state, hot.model};
 

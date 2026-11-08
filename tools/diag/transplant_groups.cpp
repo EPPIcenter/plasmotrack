@@ -55,8 +55,8 @@ int main(int argc, char** argv) {
     const auto sIdp   = core::io::loadVectorFromFile<core::computation::Probability>(argv[2]);
     const auto aIdp   = core::io::loadVectorFromFile<core::computation::Probability>(argv[3]);
     const auto study   = studyFromJson(input, sIdp, aIdp);
-    auto target       = checkpoint::restore(checkpoint::load(argv[4]), std::make_shared<checkpoint::Engine>(1), study, false, 1);
-    auto source       = checkpoint::restore(checkpoint::load(argv[5]), std::make_shared<checkpoint::Engine>(2), study, false, 1);
+    auto target       = checkpoint::restore(checkpoint::load(argv[4]), std::make_shared<checkpoint::Engine>(1), study, false, 1, 0);
+    auto source       = checkpoint::restore(checkpoint::load(argv[5]), std::make_shared<checkpoint::Engine>(2), study, false, 1, 0);
     const auto& t     = *target->hotChain().state;
     const auto& s     = *source->hotChain().state;
     auto& model       = *target->hotChain().model;

@@ -78,7 +78,9 @@ namespace {
 }// namespace
 
 namespace {
-    void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study);
+    // `leak` is the transmission leak ε. With ε > 0 the reference terms are the plain ones of
+    // MarginalLatentParentReference.h rather than the memo's locus terms.
+    void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study, double leak = 0);
 }// namespace
 
 TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation) {
@@ -86,10 +88,19 @@ TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation)
     checkCacheConsistency(rng, makeStudy(*rng));
 }
 
+// With a transmission leak every Parent set's term depends on the Allele frequencies, the observed-parents sets
+// included: a frequency change must reach every term and every entry. The perturbations change allele frequencies
+// among the rest, and every parent set is checked against the plain computation.
+TEST(ModelCacheConsistencyTest, WithATransmissionLeakCachedTermsFollowAlleleFrequencies) {
+    auto rng = std::make_shared<boost::random::mt19937>(20261020);
+    checkCacheConsistency(rng, makeStudy(*rng), 0.03);
+}
+
 namespace {
-void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study) {
-    auto state = std::make_shared<State>(study, rng);
+void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study, const double leak) {
+    auto state = std::make_shared<State>(study, rng, false, leak);
     auto model = std::make_shared<Model>(state);
+    ASSERT_EQ(model->transmissionMemo->leaky(), leak > 0);
     SamplerSet<Model> samplers(state, model, rng);
 
     constexpr int sweeps = 6;
@@ -158,6 +169,11 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
                 parents.push_back(&p->latentGenotype(locus)->value());
             }
             const auto table = marginal::locusTable<MAX_COI, MAX_STRAINS>(marginal::SourceOverlap(frequencies, childAlleles, MAX_COI), locus->totalAlleles(), [&](const Genotype& g) -> std::optional<std::array<double, MAX_STRAINS>> {
+                if (leak > 0) {
+                    auto all = parents;
+                    all.push_back(&g);
+                    return marginal::leakyLocusLogTerm<MAX_STRAINS>(child, all, frequencies, leak, not parents.empty());
+                }
                 const auto& term = memo->locusTerm(variant, child, std::span<const Genotype* const>(parents), &g);
                 if (term.impossible) {
                     return std::nullopt;
@@ -167,6 +183,26 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
             marginal::accumulate<MAX_COI, MAX_STRAINS>(sums, table);
         }
         return marginal::combine<MAX_COI, MAX_STRAINS>(sums, coiProb.value(), [&](const int m, const int np) { return TransmissionMemoImpl::Kernel::probNumStrains(strainTable, m, np); }, n, std::log(psp.value()(n)));
+    };
+    // A parent set without the latent parent, with a leak: the plain locus terms summed over the child's loci.
+    auto leakyObservedTerm = [&](const std::shared_ptr<InfectionEvent>& infection, const std::vector<std::shared_ptr<InfectionEvent>>& observed) {
+        using Kernel = TransmissionMemoImpl::Kernel;
+        Kernel::StrainSums sums{};
+        for (const auto& locus : infection->loci()) {
+            std::vector<const Genotype*> parents;
+            for (const auto& p : observed) {
+                parents.push_back(&p->latentGenotype(locus)->value());
+            }
+            const auto frequencies = state->alleleFrequencies->alleleFrequencies(locus)->value().frequencies();
+            const auto term        = marginal::leakyLocusLogTerm<MAX_STRAINS>(infection->latentGenotype(locus)->value(), parents, frequencies, leak, false);
+            Kernel::LocusTerm locusTerm{};
+            locusTerm.impossible = not term.has_value();
+            if (term) {
+                locusTerm.terms = *term;
+            }
+            sums.add(locusTerm);
+        }
+        return Kernel::strainSummedLogLikelihood(sums, observed.size(), Kernel::strainCountTable(state->meanStrainsTransmitted->value()));
     };
     auto recompute = [&](const size_t j, ParentSetLliks* parentSets = nullptr) {
         const auto& infection = state->infections[j];
@@ -191,7 +227,7 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
                     parentSet.insert(parents.begin()[idx]);
                     observed.push_back(parents.begin()[idx]);
                 }
-                lliks.push_back(memo->observedParentsLogLikelihood(infection, parentSet) + std::log(psp->value()(parentSet.size())));
+                lliks.push_back((leak > 0 ? leakyObservedTerm(infection, observed) : memo->observedParentsLogLikelihood(infection, parentSet)) + std::log(psp->value()(parentSet.size())));
                 if (parentSets != nullptr) {
                     parentSets->emplace_back(lliks.back(), parentSet);
                 }
@@ -371,6 +407,19 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
                         frequency = 0.05 + unif(*rng);
                     }
                     auto parameter = state->alleleFrequencies->alleleFrequencies(locus);
+                    if (leak > 0) {
+                        // Every Infection's term reads the frequencies at each of its loci.
+                        auto proposal = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
+                        proposal.change(*parameter, transmission_nets::core::datatypes::Simplex(frequencies));
+                        for (size_t j = 0; j < state->infections.size(); ++j) {
+                            if (state->infections[j]->latentGenotype().contains(locus)) {
+                                EXPECT_TRUE(model->transmissionProcessList[j]->isDirty()) << "an allele-frequency change, Infection " << state->infections[j]->id();
+                            }
+                        }
+                        proposal.value();
+                        proposal.reject();
+                        model->value();
+                    }
                     perturb(parameter, transmission_nets::core::datatypes::Simplex(frequencies));
                 }
             }

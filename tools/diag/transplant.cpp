@@ -34,8 +34,8 @@ int main(int argc, char** argv) {
     const auto study  = studyFromJson(input, sIdp, aIdp);
     auto rngA        = std::make_shared<checkpoint::Engine>(1);
     auto rngB        = std::make_shared<checkpoint::Engine>(2);
-    auto target      = checkpoint::restore(checkpoint::load(argv[4]), rngA, study, false, 1);
-    auto source      = checkpoint::restore(checkpoint::load(argv[5]), rngB, study, false, 1);
+    auto target      = checkpoint::restore(checkpoint::load(argv[4]), rngA, study, false, 1, 0);
+    auto source      = checkpoint::restore(checkpoint::load(argv[5]), rngB, study, false, 1, 0);
     const auto& t    = target->hotChain();
     const auto& s    = source->hotChain();
 

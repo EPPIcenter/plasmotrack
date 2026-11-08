@@ -41,5 +41,6 @@
   "seed": 42,
   "started_at": "<wall time>",
   "thin": 5,
+  "transmission_leak": 0.0,
   "window": 25
 }

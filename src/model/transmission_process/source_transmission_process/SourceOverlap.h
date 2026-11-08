@@ -22,8 +22,9 @@
 namespace transmission_nets::model::transmission_process::marginal {
 
     // The Source's distribution, at one locus, of how a latent parent's genotype G overlaps a child's genotype C: for
-    // each nonempty U ⊆ C (a bit mask over C's alleles in index order), each w = |G \ C| and each COI k,
-    // P(G ∩ C = U, |G \ C| = w | k). U = ∅ is left out: such a latent parent makes the parent set impossible.
+    // each U ⊆ C (a bit mask over C's alleles in index order), each w = |G \ C| and each COI k,
+    // P(G ∩ C = U, |G \ C| = w | k). U = ∅ is asked for only with a transmission leak, by the latent parent alone:
+    // otherwise such a latent parent makes the parent set impossible.
     class SourceOverlap {
     public:
         SourceOverlap() = default;

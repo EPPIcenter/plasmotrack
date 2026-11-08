@@ -71,6 +71,15 @@ _Avoid_: Node transmission process, likelihood function, core
 **Transmission memo**:
 The per-chain memory of Transmission kernel results, keyed by genome and frequency identity, shared by every Infection's Transmission term. Its one lifetime rule: a term begins a batch before each evaluation, and results from before the batch may be gone.
 _Avoid_: Cache (every module has caches; this is the one that is shared), node process, marginal
+
+**Parent pool**:
+The Allele distribution a Parent set's transmitted strains draw from at one Locus: each parent weighs the same, spread evenly over the Alleles it carries (see `doc/marginal-latent-parent.md`, section 1).
+_Avoid_: Mixture, transmitted frequencies
+
+**Transmission leak**:
+The share ε of every Parent pool that comes from the Allele frequencies instead of the parents: the pool becomes (1 − ε) times the parents' plus ε times the Allele frequencies, so a child Allele no parent carries is improbable rather than impossible. A model choice of the Run recipe (`--transmission-leak`), at least 0 and below 1; 0, the default, is the model without one. See section 6 of `doc/marginal-latent-parent.md`.
+_Avoid_: Leakage, contamination, epsilon (in prose), background noise
+
 **Observation process**:
 The model component giving the probability of an Observed genotype given a Latent genotype — how genotyping introduces false positive and false negative Alleles.
 _Avoid_: Error model, noise model, measurement model
