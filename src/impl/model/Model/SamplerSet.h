@@ -21,6 +21,7 @@
 #include "core/samplers/scheduler/Scheduler.h"
 #include "core/samplers/specialized/CloneOrderSwapSampler.h"
 #include "core/samplers/genetics/PairLocusGibbsSampler.h"
+#include "core/samplers/specialized/Family.h"
 #include "core/samplers/specialized/GuidedGroupSampler.h"
 #include "core/samplers/specialized/GuidedPairSampler.h"
 #include "core/samplers/specialized/InformedOrderJumpSampler.h"
@@ -114,7 +115,7 @@ namespace transmission_nets::impl::Model {
             const auto durations = isSymptomatic ? state->symptomaticInfectionDurationDist->value() : state->asymptomaticInfectionDurationDist->value();
             const double upperBound = durations.size();
 
-            scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target, 1.0, upperBound, r, 1, .1, 2),
+            scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(infection->infectionDuration(), target, MIN_INFECTION_DURATION, upperBound, r, 1, .1, 2),
                                         .id = fmt::format("ConstrainedContinuousRandomWalk/infection_duration/{}", infection_id),
                                         .adaptationStart = 20,
                                         .adaptationEnd = 200});
@@ -127,7 +128,7 @@ namespace transmission_nets::impl::Model {
                                             .id = fmt::format("RandomAllelesBitSetSampler3/latent_genotypes/{}", infection_id)});
                 // Move the infection to another of its candidate parents in one step (its latent parent stands for the Source, via its fixed anchor).
                 // The 0.01 rates apply only if the infection's sampled error counts are absent; those counts replace them.
-                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, 1.0, upperBound, durations, 0.01, 0.01, RELINK_TRIES, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex], RELINK_CANDIDATE_WEIGHT_SCALE),
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, MIN_INFECTION_DURATION, upperBound, durations, 0.01, 0.01, RELINK_TRIES, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex], RELINK_CANDIDATE_WEIGHT_SCALE),
                                             .id = fmt::format("ParentRelinkSampler/infection/{}", infection_id)});
                 auto strainCountSampler = std::make_unique<genetics::StrainCountSampler<T, Engine, InfectionEvent>>(infection, target, r, MAX_COI);
                 strainCountSampler->enableObservedToggles(OBSERVED_ALLELE_TOGGLES);
@@ -141,13 +142,13 @@ namespace transmission_nets::impl::Model {
                     partners.push_back(partner.infection);
                     partner.maxDuration = maxDurationOf(*partner.infection);
                 }
-                auto cloneOrderSwap = std::make_unique<CloneOrderSwap>(infection, std::move(mutualPartners), target, r, 1.0, upperBound, durations);
+                auto cloneOrderSwap = std::make_unique<CloneOrderSwap>(infection, std::move(mutualPartners), target, r, MIN_INFECTION_DURATION, upperBound, durations);
                 if constexpr (CLONE_TIME_EXCHANGE) {
                     cloneOrderSwap->enableTimeExchange();
                 }
                 scheduler_.registerSampler({.sampler = std::move(cloneOrderSwap),
                                             .id = fmt::format("CloneOrderSwapSampler/ordering/{}", infection_id)});
-                scheduler_.registerSampler({.sampler = std::make_unique<specialized::InformedOrderJumpSampler<T, Engine, InfectionEvent>>(infection, std::move(partners), target, r, 1.0, upperBound, durations, INFORMED_JUMP_MAX_TRIES),
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::InformedOrderJumpSampler<T, Engine, InfectionEvent>>(infection, std::move(partners), target, r, MIN_INFECTION_DURATION, upperBound, durations, INFORMED_JUMP_MAX_TRIES),
                                             .id = fmt::format("InformedOrderJumpSampler/ordering/{}", infection_id)});
                 for (const auto& [locus_label, locus] : state->loci) {
                     if (infection->latentGenotype().contains(locus)) {
@@ -206,29 +207,23 @@ namespace transmission_nets::impl::Model {
             }
 
             // After the rest, so that the samplers before them keep their positions in a Checkpoint's record.
-            using GuidedPairs = specialized::GuidedPairSampler<T, Engine, InfectionEvent, LocusImpl>;
-            auto maxDuration  = [&](const size_t i) { return maxDurationOf(*state->infections[i]); };
-            scheduler_.registerSampler({.sampler = std::make_unique<GuidedPairs>(GuidedPairs::mutualPairs(state->infections, *state->allowedRelationships, maxDuration), target, r, 1.0, MAX_COI,
+            using GuidedPairs      = specialized::GuidedPairSampler<T, Engine, InfectionEvent, LocusImpl>;
+            auto maxDuration       = [&](const size_t i) { return maxDurationOf(*state->infections[i]); };
+            const auto mutualPairs = GuidedPairs::mutualPairs(state->infections, *state->allowedRelationships, maxDuration);
+            scheduler_.registerSampler({.sampler = std::make_unique<GuidedPairs>(mutualPairs, target, r, MIN_INFECTION_DURATION, MAX_COI,
                                                                                  typename GuidedPairs::Settings{.moves = GUIDED_PAIR_SWAPS, .maxDifferent = GUIDED_PAIR_MAX_DIFFERENT}),
                                         .id      = "GuidedPairSampler/pairs"});
 
-            // Family moves on the families of the mutual pairs whose observed genotypes are at most FAMILY_MAX_NOVELTY
-            // loci apart: GuidedGroupSampler relocations on the pairs and connected triples, PairLocusGibbsSampler
-            // steps on the pairs.
-            using Groups = specialized::GuidedGroupSampler<T, Engine, InfectionEvent, LocusImpl>;
-            std::vector<std::pair<typename Groups::Member, typename Groups::Member>> familyPairs;
-            for (const auto& pair : GuidedPairs::mutualPairs(state->infections, *state->allowedRelationships, maxDuration)) {
-                familyPairs.push_back({{pair.first.infection, pair.first.maxDuration}, {pair.second.infection, pair.second.maxDuration}});
-            }
-            scheduler_.registerSampler({.sampler = std::make_unique<Groups>(Groups::families(familyPairs, FAMILY_MAX_NOVELTY, true), target, r, 1.0, MAX_COI, FAMILY_RELOCATE_JITTER,
-                                                                            FAMILY_RELOCATE_MOVERS, FAMILY_RELOCATE_STEPS),
+            // Family moves, here and so only outside the null model, which has no transmission. They work on the close
+            // pairs (specialized::close()): GuidedGroupSampler relocations on the pairs and their connected triples,
+            // PairLocusGibbsSampler Proposals on the pairs.
+            const auto closePairs = specialized::closePairs(mutualPairs, FAMILY_MAX_NOVELTY);
+            using Groups          = specialized::GuidedGroupSampler<T, Engine, InfectionEvent, LocusImpl>;
+            scheduler_.registerSampler({.sampler = std::make_unique<Groups>(specialized::families(closePairs), target, r, MIN_INFECTION_DURATION, MAX_COI, FAMILY_RELOCATE_JITTER,
+                                                                            FAMILY_RELOCATE_MOVERS, FAMILY_RELOCATIONS),
                                         .id      = "GuidedGroupSampler/families"});
-            std::vector<std::pair<std::shared_ptr<InfectionEvent>, std::shared_ptr<InfectionEvent>>> closePairs;
-            for (const auto& group : Groups::families(familyPairs, FAMILY_MAX_NOVELTY, false)) {
-                closePairs.emplace_back(group[0].infection, group[1].infection);
-            }
             using PairLocus = genetics::PairLocusGibbsSampler<T, Engine, InfectionEvent, LocusImpl>;
-            scheduler_.registerSampler({.sampler = std::make_unique<PairLocus>(closePairs, target, r, MAX_COI, FAMILY_PAIR_LOCUS_STEPS, FAMILY_MAX_NOVELTY),
+            scheduler_.registerSampler({.sampler = std::make_unique<PairLocus>(closePairs, target, r, MAX_COI, FAMILY_PAIR_LOCUS_PROPOSALS, FAMILY_MAX_NOVELTY),
                                         .id      = "PairLocusGibbsSampler/families"});
         }
 

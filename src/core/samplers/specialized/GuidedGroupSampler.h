@@ -8,13 +8,13 @@
 
 #include "core/samplers/AbstractSampler.h"
 #include "core/samplers/Proposal.h"
+#include "core/samplers/specialized/GuidedPairSampler.h"
 
 #include <boost/random.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <map>
 #include <memory>
 #include <numeric>
 #include <set>
@@ -41,11 +41,8 @@ namespace transmission_nets::core::samplers::specialized {
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     class GuidedGroupSampler : public AbstractSampler {
     public:
-        struct Member {
-            std::shared_ptr<InfectionEventImpl> infection;
-            double maxDuration;
-        };
-        using Group = std::vector<Member>;
+        using Member = typename GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::Member;
+        using Group  = std::vector<Member>;
 
         GuidedGroupSampler(std::vector<Group> groups, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double minDuration, unsigned int maxCOI, double jitter = 10.0,
                            size_t movers = 2, size_t moves = 1);
@@ -54,12 +51,6 @@ namespace transmission_nets::core::samplers::specialized {
         void update() noexcept override {
             for (size_t m = 0; m < moves_; ++m) step();
         }
-
-        // Families from pairs of members: the pairs whose observed genotypes are close (at most `maxNovelty` loci, both
-        // observed, where one holds an allele the other lacks, the fewer of the two directions), and with `triples`
-        // every connected triple of such pairs. Depends on the data only, so the groups are fixed.
-        static std::vector<Group> families(const std::vector<std::pair<Member, Member>>& pairs, unsigned int maxNovelty, bool triples = true);
-        static unsigned int novelty(const InfectionEventImpl& parent, const InfectionEventImpl& child);
 
         [[nodiscard]] size_t groups() const noexcept { return prepared_.size(); }
 
@@ -391,41 +382,6 @@ namespace transmission_nets::core::samplers::specialized {
             logR += std::log(qR);
         }
         return {logF, logR};
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    unsigned int GuidedGroupSampler<T, Engine, InfectionEventImpl, LocusImpl>::novelty(const InfectionEventImpl& parent, const InfectionEventImpl& child) {
-        unsigned int n = 0;
-        for (const auto& locus : child.loci()) {
-            if (not parent.observedGenotype().contains(locus) or not child.observedGenotype().contains(locus)) continue;
-            const auto& p = parent.observedGenotype().at(locus)->value();
-            const auto& c = child.observedGenotype().at(locus)->value();
-            if (p.totalPositiveCount() == 0 or c.totalPositiveCount() == 0) continue;
-            n += Genotype::falsePositiveCount(p, c) > 0;
-        }
-        return n;
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    std::vector<typename GuidedGroupSampler<T, Engine, InfectionEventImpl, LocusImpl>::Group> GuidedGroupSampler<T, Engine, InfectionEventImpl, LocusImpl>::families(
-            const std::vector<std::pair<Member, Member>>& pairs, const unsigned int maxNovelty, const bool triples) {
-        std::vector<Group> out;
-        // Each close pair under both members, keyed by uid so the families come out in the same order every run.
-        std::map<int, std::vector<std::pair<Member, Member>>> around;
-        for (const auto& [a, b] : pairs) {
-            if (std::min(novelty(*a.infection, *b.infection), novelty(*b.infection, *a.infection)) > maxNovelty) continue;
-            out.push_back({a, b});
-            around[a.infection->uid()].push_back({a, b});
-            around[b.infection->uid()].push_back({b, a});
-        }
-        if (not triples) return out;
-        // A connected triple is a centre and two of its close partners.
-        for (const auto& [centre, near] : around) {
-            for (size_t i = 0; i < near.size(); ++i) {
-                for (size_t j = i + 1; j < near.size(); ++j) out.push_back({near[i].first, near[i].second, near[j].second});
-            }
-        }
-        return out;
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>

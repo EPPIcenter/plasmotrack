@@ -7,6 +7,7 @@
 #include "gtest/gtest.h"
 
 #include "core/samplers/genetics/PairLocusGibbsSampler.h"
+#include "core/samplers/specialized/Family.h"
 #include "core/samplers/specialized/GuidedGroupSampler.h"
 #include "impl/model/Model/config.h"
 #include "impl/model/Model/State.h"
@@ -29,6 +30,8 @@ using namespace transmission_nets::impl::Model;
 using namespace transmission_nets::test::studies;
 using transmission_nets::core::samplers::genetics::PairLocusGibbsSampler;
 using transmission_nets::core::samplers::specialized::GuidedGroupSampler;
+using transmission_nets::core::samplers::specialized::closePairs;
+using transmission_nets::core::samplers::specialized::families;
 
 namespace {
     using Engine = boost::random::mt19937;
@@ -198,7 +201,7 @@ namespace {
         return out;
     }
 
-    std::vector<std::pair<Groups::Member, Groups::Member>> thePair(const Fixture& f) {
+    std::vector<PairLocus::Pair> thePair(const Fixture& f) {
         return {{{f.x, DAYS - 0.5}, {f.y, DAYS - 0.5}}};
     }
 }// namespace
@@ -206,9 +209,9 @@ namespace {
 TEST(FamilyMovesTest, GuidedGroupRelocationLeavesTargetInvariant) {
     Fixture f;
     auto target            = std::make_shared<Target>(Target{&f});
-    const auto families    = Groups::families(thePair(f), 3, true);
-    ASSERT_EQ(families.size(), 1u);
-    Groups sampler(families, target, f.rng, 1.0, STRAIN_LIMIT, 10.0, 2);
+    const auto groups      = families(closePairs(thePair(f), 3));
+    ASSERT_EQ(groups.size(), 1u);
+    Groups sampler(groups, target, f.rng, 1.0, STRAIN_LIMIT, 10.0, 2);
     constexpr int draws    = 300000;
     const auto visits      = moveExactDraws(f, [&] { sampler.update(); }, draws);
     EXPECT_GT(sampler.counts().accepted, sampler.counts().proposed / 20);
@@ -220,11 +223,34 @@ TEST(FamilyMovesTest, GuidedGroupRelocationLeavesTargetInvariant) {
 TEST(FamilyMovesTest, PairLocusGibbsLeavesTargetInvariant) {
     Fixture f;
     auto target         = std::make_shared<Target>(Target{&f});
-    PairLocus sampler({{f.x, f.y}}, target, f.rng, STRAIN_LIMIT, 1, 3);
+    PairLocus sampler(thePair(f), target, f.rng, STRAIN_LIMIT, 1, 3);
     ASSERT_EQ(sampler.units(), 1u);
     constexpr int draws = 300000;
     const auto visits   = moveExactDraws(f, [&] { sampler.update(); }, draws);
     EXPECT_GT(visits.changedGenotypes, draws / 20);
     EXPECT_LT(visits.binDistance, 0.01);
     EXPECT_LT(visits.genotypeDistance, 0.01);
+}
+
+// A Locus where either Infection has no Allele observed counts toward neither direction's novelty. x and y differ at
+// L0 only; x is missing at L1 to L4 and y at L5 to L8, which once put both directions over the limit and left the
+// pair without pair-locus units.
+TEST(FamilyMovesTest, MissingLociDoNotCountTowardNovelty) {
+    std::vector<std::shared_ptr<LocusImpl>> loci;
+    auto x = std::make_shared<InfectionEvent>("x", 400, true);
+    auto y = std::make_shared<InfectionEvent>("y", 420, true);
+    for (int l = 0; l < 9; ++l) {
+        loci.push_back(std::make_shared<LocusImpl>("L" + std::to_string(l), 3));
+        const std::string ox = l == 0 ? "110" : (l <= 4 ? "000" : "100");
+        const std::string oy = l == 0 ? "011" : (l <= 4 ? "100" : "000");
+        x->addGenetics(loci.back(), Genotype(ox), Genotype(l == 0 ? ox : "100"));
+        y->addGenetics(loci.back(), Genotype(oy), Genotype(l == 0 ? oy : "100"));
+    }
+    EXPECT_EQ(transmission_nets::core::samplers::specialized::novelty(*x, *y), 1u);
+    EXPECT_EQ(transmission_nets::core::samplers::specialized::novelty(*y, *x), 1u);
+    const std::vector<PairLocus::Pair> pairs{{{x, DAYS - 0.5}, {y, DAYS - 0.5}}};
+    EXPECT_EQ(closePairs(pairs, 0).size(), 0u);
+    EXPECT_EQ(closePairs(pairs, 1).size(), 1u);
+    PairLocus sampler(pairs, nullptr, nullptr, STRAIN_LIMIT, 1, 3);
+    EXPECT_EQ(sampler.units(), 1u);
 }

@@ -8,6 +8,8 @@
 
 #include "core/samplers/AbstractSampler.h"
 #include "core/samplers/Proposal.h"
+#include "core/samplers/specialized/Family.h"
+#include "core/samplers/specialized/GuidedPairSampler.h"
 
 #include <boost/random.hpp>
 
@@ -36,19 +38,15 @@ namespace transmission_nets::core::samplers::genetics {
     class PairLocusGibbsSampler : public AbstractSampler {
     public:
         using Infection = std::shared_ptr<InfectionEventImpl>;
+        using Pair      = typename specialized::GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::Pair;
 
-        PairLocusGibbsSampler(const std::vector<std::pair<Infection, Infection>>& pairs, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, unsigned int maxCOI, int moves = 1, unsigned int maxNovelty = 3)
+        PairLocusGibbsSampler(const std::vector<Pair>& pairs, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, unsigned int maxCOI, int moves = 1, unsigned int maxNovelty = 3)
             : target_(std::move(target)), rng_(std::move(rng)), moves_(moves) {
-            for (const auto& [a, b] : pairs) {
-                unsigned int nab = 0, nba = 0;
-                for (const auto& [locus, oa] : a->observedGenotype()) {
-                    if (b->observedGenotype().contains(locus)) {
-                        const auto& ob = b->observedGenotype().at(locus)->value();
-                        nab += Genotype::falsePositiveCount(oa->value(), ob) > 0;
-                        nba += Genotype::falsePositiveCount(ob, oa->value()) > 0;
-                    }
-                }
-                if (std::min(nab, nba) > maxNovelty) continue;
+            for (const auto& pair : pairs) {
+                const auto& a = pair.first.infection;
+                const auto& b = pair.second.infection;
+                if (not specialized::close(*a, *b, maxNovelty)) continue;
+                const unsigned int nab = specialized::novelty(*a, *b), nba = specialized::novelty(*b, *a);
 
                 for (const auto& locus : a->loci()) {
                     const bool ha = a->observedGenotype().contains(locus) and a->observedGenotype().at(locus)->value().totalPositiveCount() > 0;
@@ -58,8 +56,8 @@ namespace transmission_nets::core::samplers::genetics {
                         const auto& oa = a->observedGenotype().at(locus)->value();
                         const auto& ob = b->observedGenotype().at(locus)->value();
                         if (oa == ob) continue;// nothing to exchange
-                        const bool conflictAB = (nab <= maxNovelty) and (Genotype::falsePositiveCount(oa, ob) > 0);
-                        const bool conflictBA = (nba <= maxNovelty) and (Genotype::falsePositiveCount(ob, oa) > 0);
+                        const bool conflictAB = (nab <= maxNovelty) and specialized::novelAt(oa, ob);
+                        const bool conflictBA = (nba <= maxNovelty) and specialized::novelAt(ob, oa);
                         if (not conflictAB and not conflictBA) continue;
                     }
                     Unit u{.a = a, .b = b, .locus = locus};
