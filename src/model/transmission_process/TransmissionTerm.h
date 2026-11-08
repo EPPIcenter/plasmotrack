@@ -31,6 +31,7 @@
 #include <numeric>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 
@@ -185,7 +186,8 @@ namespace transmission_nets::model::transmission_process {
         static void copyEntry(LikelihoodCache& to, size_t toPosition, const LikelihoodCache& from, size_t fromPosition);
         // Brings each entry's multiplicity up to date with the class sizes.
         static void updateMultiplicities(LikelihoodCache& cache);
-        // Swaps the recorded loci's terms in every affected entry's sums for their current ones.
+        // Swaps the recorded loci's terms in every affected entry's sums for their current ones. Needs every child
+        // locus' frequency id recorded (syncFrequencyGeneration()); throws std::logic_error otherwise.
         void applyChanges(LikelihoodCache& current);
         // Recomputes every latent entry (every entry, with a leak) if its frequency ids are from an earlier generation.
         void syncFrequencyGeneration(LikelihoodCache& current);
@@ -758,6 +760,9 @@ namespace transmission_nets::model::transmission_process {
                 changedLoci_.push_back(change.locus);
             }
         }
+        if (not changedLoci_.empty() and current.frequencyIds.size() != child_->loci().size()) {
+            throw std::logic_error("a Transmission term swaps locus terms before recording its frequency ids");
+        }
         // Swapping costs two locus terms per changed locus, recomputing one per locus of the child.
         const bool recompute = 2 * changedLoci_.size() > child_->loci().size();
 
@@ -828,7 +833,7 @@ namespace transmission_nets::model::transmission_process {
                 continue;// entries are marked once every locus' changes are known
             }
             // The latent entries' tables, and with a leak every entry's terms, are at the frequencies they were summed with.
-            const FrequencyId frequencyId = current.frequencyIds.empty() ? 0 : current.frequencyIds[locusIndex_.at(locus.get())];
+            const FrequencyId frequencyId = current.frequencyIds[locusIndex_.at(locus.get())];
 
             forEachAffected([&](const size_t position, const std::span<const unsigned int> combination, const bool withLatent) {
                 if (current.valid[position] == INVALID) {
