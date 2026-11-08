@@ -63,7 +63,9 @@ namespace transmission_nets::core::samplers::genetics {
         std::shared_ptr<parameters::Parameter<double>> expectedFalsePositives_;
         std::shared_ptr<parameters::Parameter<double>> expectedFalseNegatives_;
         std::vector<std::pair<std::shared_ptr<Parameter>, Genotype>> changes_{};
-        std::vector<const InfectionEventImpl*> potential_children_{};
+        // The Infections the path may step to from the current one: those the Study permits as its children and
+        // infected after it. Points into allowedRelationships_, which does not change during a run.
+        std::vector<const std::shared_ptr<InfectionEventImpl>*> nextInfections_{};
     };
 
 
@@ -109,43 +111,39 @@ namespace transmission_nets::core::samplers::genetics {
         double reverse_log_prob = 0.0;
         // Applied only if some allele changes. A path that proposes the current alleles is not a proposal.
         changes_.clear();
-        const InfectionEventImpl* curr_inf = infection_.get();
-        std::shared_ptr<InfectionEventImpl> curr_inf_ptr = infection_;
+        const std::shared_ptr<InfectionEventImpl>* curr_inf = &infection_;
         bool prev_curr_state = latentParent_->latentGenotype(locus_)->value().allele(allele_idx) == 1;
         bool prev_proposed_state = prev_curr_state;
         int distance = 4;
         bool path_differs = false;
         while (distance > 0) {
             // collect potential children where infection time is greater than current infection
-            potential_children_.clear();
-            const auto& allowedChildren = allowedRelationships_->allowedChildren(curr_inf_ptr);
-            const double curr_time      = curr_inf->infectionTime();
-            for (const auto& inf : allowedChildren) {
+            nextInfections_.clear();
+            const double curr_time = (*curr_inf)->infectionTime();
+            for (const auto& inf : allowedRelationships_->allowedChildren(*curr_inf)) {
                 if (inf->infectionTime() > curr_time) {
-                    potential_children_.push_back(inf.get());
+                    nextInfections_.push_back(&inf);
                 }
             }
 
-            std::shared_ptr<Parameter> curr_param = curr_inf->latentGenotype(locus_);
+            std::shared_ptr<Parameter> curr_param = (*curr_inf)->latentGenotype(locus_);
             auto curr_val = curr_param->value();
 
             // randomly select a child infection
             // (only when there is one: size() - 1 on an empty list wraps to an invalid range)
-            int child_idx = 0;
-            const InfectionEventImpl* child = nullptr;
-            if (!potential_children_.empty()) {
-                categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, static_cast<int>(potential_children_.size()) - 1));
-                child_idx = categorical_dist_(*rng_);
-                child     = potential_children_[child_idx];
+            const std::shared_ptr<InfectionEventImpl>* next = nullptr;
+            if (!nextInfections_.empty()) {
+                categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, static_cast<int>(nextInfections_.size()) - 1));
+                next = nextInfections_[categorical_dist_(*rng_)];
             }
 
             // check if observed in curr infection
-            const bool has_data = curr_inf->observedGenotype().contains(locus_);
-            const bool in_curr  = has_data && curr_inf->observedGenotype(locus_)->value().allele(allele_idx) == 1;
+            const bool has_data = (*curr_inf)->observedGenotype().contains(locus_);
+            const bool in_curr  = has_data && (*curr_inf)->observedGenotype(locus_)->value().allele(allele_idx) == 1;
 
             // Check if observed in child infection
-            const bool child_has_data = child != nullptr && child->observedGenotype().contains(locus_);
-            const bool in_child = child_has_data && child->observedGenotype(locus_)->value().allele(allele_idx) == 1;
+            const bool child_has_data = next != nullptr && (*next)->observedGenotype().contains(locus_);
+            const bool in_child = child_has_data && (*next)->observedGenotype(locus_)->value().allele(allele_idx) == 1;
 
             const bool curr_state = curr_val.allele(allele_idx) == 1;
 
@@ -173,20 +171,13 @@ namespace transmission_nets::core::samplers::genetics {
                 changes_.emplace_back(curr_param, curr_val);
             }
 
-            if (potential_children_.empty()) {
+            if (next == nullptr) {
                 break;
             }
 
             prev_curr_state     = curr_state;
             prev_proposed_state = proposed_state;
-            curr_inf            = child;
-            // Find the shared_ptr in allowedChildren corresponding to child so allowedChildren(curr_inf_ptr) works without constructing a new shared_ptr.
-            for (const auto& inf : allowedChildren) {
-                if (inf.get() == child) {
-                    curr_inf_ptr = inf;
-                    break;
-                }
-            }
+            curr_inf            = next;
             distance--;
         }
 
