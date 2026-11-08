@@ -10,6 +10,7 @@
 #include "core/datatypes/Genotype.h"
 #include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/genetics/ObservationRate.h"
 #include "core/samplers/genetics/ParentSetGenotypeProposal.h"
 #include "core/samplers/genetics/ParentSetProposalProbability.h"
 #include "core/utils/numerics.h"
@@ -104,8 +105,8 @@ namespace transmission_nets::core::samplers::genetics {
                 ++loci;
             }
             const double mean = loci == 0 ? 1.0 : alleles / static_cast<double>(loci);
-            fn_rate_ = std::clamp(expectedFn_->value() / mean, 1e-4, 0.49);
-            fp_rate_ = std::clamp(expectedFp_->value() / mean, 1e-4, 0.49);
+            fn_rate_ = perAlleleRate(expectedFn_->value(), mean);
+            fp_rate_ = perAlleleRate(expectedFp_->value(), mean);
             proposalProbability_.setRates(fn_rate_, fp_rate_);
         }
         const auto& parents = ordering_->candidateParents(infection_);

@@ -99,6 +99,11 @@ namespace transmission_nets::impl::Model {
                                     .adaptationStart = 20,
                                     .adaptationEnd = 200});
 
+        // An Infection's longest duration: the length of its duration prior.
+        const auto maxDurationOf = [&](const InfectionEvent& infection) {
+            return static_cast<double>((infection.isSymptomatic() ? state->symptomaticInfectionDurationDist : state->asymptomaticInfectionDurationDist)->value().size());
+        };
+
         int infectionIndex = 0;
         for (const auto& infection : state->infections) {
 
@@ -132,7 +137,7 @@ namespace transmission_nets::impl::Model {
                 std::vector<std::shared_ptr<InfectionEvent>> partners;
                 for (auto& partner : mutualPartners) {
                     partners.push_back(partner.infection);
-                    partner.maxDuration = static_cast<double>((partner.infection->isSymptomatic() ? state->symptomaticInfectionDurationDist : state->asymptomaticInfectionDurationDist)->value().size());
+                    partner.maxDuration = maxDurationOf(*partner.infection);
                 }
                 auto cloneOrderSwap = std::make_unique<CloneOrderSwap>(infection, std::move(mutualPartners), target, r, 1.0, upperBound, durations);
                 if constexpr (CLONE_TIME_EXCHANGE) {
@@ -200,9 +205,7 @@ namespace transmission_nets::impl::Model {
 
             // Last, so that the samplers before it keep their positions in a Checkpoint's record.
             using GuidedPairs = specialized::GuidedPairSampler<T, Engine, InfectionEvent, LocusImpl>;
-            auto maxDuration  = [&](const size_t i) {
-                return static_cast<double>((state->infections[i]->isSymptomatic() ? state->symptomaticInfectionDurationDist : state->asymptomaticInfectionDurationDist)->value().size());
-            };
+            auto maxDuration  = [&](const size_t i) { return maxDurationOf(*state->infections[i]); };
             scheduler_.registerSampler({.sampler = std::make_unique<GuidedPairs>(GuidedPairs::mutualPairs(state->infections, *state->allowedRelationships, maxDuration), target, r, 1.0, MAX_COI,
                                                                                  typename GuidedPairs::Settings{.moves = GUIDED_PAIR_SWAPS, .maxDifferent = GUIDED_PAIR_MAX_DIFFERENT}),
                                         .id      = "GuidedPairSampler/pairs"});

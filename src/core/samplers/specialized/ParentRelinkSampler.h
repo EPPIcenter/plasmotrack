@@ -9,6 +9,7 @@
 #include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
 #include "core/samplers/genetics/GenomePartition.h"
+#include "core/samplers/genetics/ObservationRate.h"
 #include "core/samplers/genetics/ParentSetGenotypeProposal.h"
 #include "core/samplers/specialized/DurationShape.h"
 #include "core/utils/numerics.h"
@@ -82,6 +83,8 @@ namespace transmission_nets::core::samplers::specialized {
         // averaged over observed loci, or with candidateWeightScale_ > 0 summed over them and scaled by it. Zero when
         // nothing was observed. Depends on the candidate and the Observed genotypes, not on the latent genotype being proposed.
         [[nodiscard]] double candidateLogWeight(size_t s) const;
+        // Every candidate's log weight, in order, into `weights`; the largest.
+        double candidateLogWeights(const std::vector<std::pair<size_t, double>>& candidates, std::vector<double>& weights) const;
         [[nodiscard]] double candidateLogNormalizer(const std::vector<std::pair<size_t, double>>& candidates) const;
         [[nodiscard]] std::pair<size_t, double> drawCandidate(const std::vector<std::pair<size_t, double>>& candidates);
 
@@ -191,7 +194,7 @@ namespace transmission_nets::core::samplers::specialized {
         if (!expectedFp_ or nAlleles == 0) {
             return fpRate_;
         }
-        return std::clamp(expectedFp_->value() / static_cast<double>(nAlleles), 1e-4, 0.49);
+        return genetics::perAlleleRate(expectedFp_->value(), nAlleles);
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
@@ -199,7 +202,7 @@ namespace transmission_nets::core::samplers::specialized {
         if (!expectedFn_ or nAlleles == 0) {
             return fnRate_;
         }
-        return std::clamp(expectedFn_->value() / static_cast<double>(nAlleles), 1e-4, 0.49);
+        return genetics::perAlleleRate(expectedFn_->value(), nAlleles);
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
@@ -225,28 +228,29 @@ namespace transmission_nets::core::samplers::specialized {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
-    double ParentRelinkSampler<T, Engine, InfectionEventImpl>::candidateLogNormalizer(const std::vector<std::pair<size_t, double>>& candidates) const {
+    double ParentRelinkSampler<T, Engine, InfectionEventImpl>::candidateLogWeights(const std::vector<std::pair<size_t, double>>& candidates, std::vector<double>& weights) const {
         double maxWeight = -std::numeric_limits<double>::infinity();
-        std::vector<double> weights;
+        weights.clear();
         weights.reserve(candidates.size());
         for (const auto& [s, mass] : candidates) {
             (void)mass;
             weights.push_back(candidateLogWeight(s));
             maxWeight = std::max(maxWeight, weights.back());
         }
+        return maxWeight;
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    double ParentRelinkSampler<T, Engine, InfectionEventImpl>::candidateLogNormalizer(const std::vector<std::pair<size_t, double>>& candidates) const {
+        std::vector<double> weights;
+        const double maxWeight = candidateLogWeights(candidates, weights);
         return utils::logSumExpKnownMax(weights.begin(), weights.end(), maxWeight);
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     std::pair<size_t, double> ParentRelinkSampler<T, Engine, InfectionEventImpl>::drawCandidate(const std::vector<std::pair<size_t, double>>& candidates) {
-        double maxWeight = -std::numeric_limits<double>::infinity();
         std::vector<double> weights;
-        weights.reserve(candidates.size());
-        for (const auto& [s, mass] : candidates) {
-            (void)mass;
-            weights.push_back(candidateLogWeight(s));
-            maxWeight = std::max(maxWeight, weights.back());
-        }
+        const double maxWeight = candidateLogWeights(candidates, weights);
         double sum = 0;
         for (const double weight : weights) {
             sum += std::exp(weight - maxWeight);

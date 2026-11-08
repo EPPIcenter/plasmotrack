@@ -9,6 +9,7 @@
 #include "core/datatypes/Data.h"
 #include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/genetics/ObservationRate.h"
 
 #include <boost/random.hpp>
 
@@ -93,8 +94,8 @@ namespace transmission_nets::core::samplers::genetics {
         // since this move does not change them.
         if (expectedFalsePositives_ and expectedFalseNegatives_ and locus_->totalAlleles() > 0) {
             const double alleles = static_cast<double>(locus_->totalAlleles());
-            fp_rate = std::clamp(expectedFalsePositives_->value() / alleles, 1e-4, 0.49);
-            fn_rate = std::clamp(expectedFalseNegatives_->value() / alleles, 1e-4, 0.49);
+            fp_rate = perAlleleRate(expectedFalsePositives_->value(), alleles);
+            fn_rate = perAlleleRate(expectedFalseNegatives_->value(), alleles);
         }
         // randomly select an allele state to be propagated through the transmission tree
         categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, locus_->totalAlleles() - 1));
