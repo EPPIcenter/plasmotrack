@@ -157,7 +157,7 @@ TEST(SamplerCountsTest, EachUpdateCountsOneProposalAndAnAcceptedProposalChangesT
             // InformedOrderJumpSampler only when a partner's other side has duration-prior mass, and StrainCountSampler
             // only when its remove has a second strain to remove or its add chooses a locus. RandomAllelesBitSetSampler4
             // skips a path that changes nothing, and most loci update every 10th iteration. GuidedPairSampler makes
-            // GUIDED_PAIR_SWAPS swaps an update, when it has a pair, and the family moves make their steps only when
+            // GUIDED_PAIR_SWAPS swaps an update, when it has a pair, and the family moves make their Proposals only when
             // there are families.
             EXPECT_EQ(counts.proposed, iterations) << id;
         }
