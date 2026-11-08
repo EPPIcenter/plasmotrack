@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 
 #include "gtest/gtest.h"
 
@@ -203,6 +204,44 @@ TEST(SALTSamplerTest, DirichletMoveKeepsDirichletMoments) {
     }
     const auto counts = sampler.dirichletCounts();
     EXPECT_GT(static_cast<double>(counts.accepted - fittedCounts.accepted), 0.5 * static_cast<double>(counts.proposed - fittedCounts.proposed));
+}
+
+// The Dirichlet move alone, from a rough fit to the first 20 updates: with no SALT sweep after the fit, every change is
+// the move's, so the Dirichlet(2, 3, 5) moments hold only if its Hastings correction is right (without it they fail).
+TEST(SALTSamplerTest, DirichletMoveAloneKeepsDirichletMoments) {
+    auto freqs  = std::make_shared<Parameter<Simplex>>(std::vector{1.0 / 3, 1.0 / 3, 1.0 / 3});
+    auto target = std::make_shared<WeakDirichletTarget>(freqs);
+    auto rng    = std::make_shared<boost::random::mt19937>(20261017);
+
+    SALTSampler sampler(freqs, target, rng, 1);
+    sampler.setLowerLimit_(1e-9);
+    sampler.enableDirichletMove({20}, 0.25, std::numeric_limits<int>::max());
+
+    for (int i = 0; i < 10000; ++i) {
+        sampler.update();
+    }
+    ASSERT_EQ(sampler.dirichletAlpha().size(), 3u);
+    const auto saltUpdates = sampler.adaptationState().updates;
+    constexpr int draws    = 400000;
+    std::array<double, 3> sum{};
+    std::array<double, 3> sumSquares{};
+    for (int i = 0; i < draws; ++i) {
+        sampler.update();
+        for (unsigned int j = 0; j < 3; ++j) {
+            const double f = freqs->value().frequencies(j);
+            sum[j] += f;
+            sumSquares[j] += f * f;
+        }
+    }
+    ASSERT_EQ(sampler.adaptationState().updates, saltUpdates);
+    const std::vector<double>& alpha = target->alpha;
+    for (unsigned int j = 0; j < 3; ++j) {
+        const double mean     = sum[j] / draws;
+        const double variance = sumSquares[j] / draws - mean * mean;
+        EXPECT_NEAR(mean, alpha[j] / 10, 0.005) << "frequency " << j;
+        EXPECT_NEAR(variance, alpha[j] * (10 - alpha[j]) / 1100, 0.001) << "frequency " << j;
+    }
+    EXPECT_GT(sampler.dirichletCounts().accepted, sampler.dirichletCounts().proposed / 20);
 }
 
 // Moved in blocks of 3 (3, 3 and 4 of the 10 frequencies, partitioned afresh each move), a Dirichlet target's moments

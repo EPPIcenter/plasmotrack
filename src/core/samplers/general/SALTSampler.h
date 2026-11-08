@@ -6,6 +6,8 @@
 #define TRANSMISSION_NETWORKS_APP_SALTSAMPLER_H
 
 #include <algorithm>
+#include <cmath>
+#include <vector>
 
 #include <boost/math/distributions.hpp>
 #include <boost/random.hpp>
@@ -15,7 +17,6 @@
 #include "core/datatypes/Simplex.h"
 #include "core/io/serialize.h"
 #include "core/samplers/AbstractSampler.h"
-#include "core/samplers/general/DirichletIndependenceSampler.h"
 
 #include "core/utils/generators/RandomSequence.h"
 #include "core/utils/numerics.h"
