@@ -7,6 +7,7 @@
 #define TRANSMISSION_NETWORKS_APP_GUIDEDPAIRSAMPLER_H
 
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/LogWeightedDraw.h"
 
 #include <boost/random.hpp>
 
@@ -295,7 +296,6 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     double GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::walk(const Prepared& p, const Genotypes* towards) noexcept {
-        boost::random::uniform_01<> unit;
         std::vector<Option> options;
         std::vector<double> values;
         double logQ = 0;
@@ -305,13 +305,9 @@ namespace transmission_nets::core::samplers::specialized {
             if (options.empty()) {
                 return -std::numeric_limits<double>::infinity();
             }
-            const double top = *std::ranges::max_element(values);
-            if (not std::isfinite(top)) {
+            const auto weights = logWeights(values);
+            if (not std::isfinite(weights.top)) {
                 return -std::numeric_limits<double>::infinity();
-            }
-            double total = 0;
-            for (const double v : values) {
-                total += std::exp(v - top);
             }
             size_t pick = 0;
             if (towards != nullptr) {
@@ -322,12 +318,9 @@ namespace transmission_nets::core::samplers::specialized {
                     return -std::numeric_limits<double>::infinity();
                 }
             } else {
-                double r = unit(*rng_) * total;
-                while (pick + 1 < options.size() and (r -= std::exp(values[pick] - top)) > 0) {
-                    ++pick;
-                }
+                pick = drawLogWeighted(values, weights, *rng_);
             }
-            logQ += values[pick] - top - std::log(total);
+            logQ += values[pick] - weights.top - std::log(weights.total);
             set(p, p.units[u], options[pick]);
         }
         return logQ;

@@ -57,6 +57,19 @@ namespace transmission_nets::impl::Model {
     // (every such pair when negative), picked uniformly.
     constexpr int GUIDED_PAIR_SWAPS         = 30;
     constexpr int GUIDED_PAIR_MAX_DIFFERENT = 10;
+    // Family moves, on the Families of the Mutual pairs: a pair is close when, in the direction where the count is
+    // smaller, at most FAMILY_MAX_NOVELTY Loci have an Allele observed in one Infection and not the other (Loci
+    // missing in either do not count). Each Sampling iteration makes FAMILY_RELOCATIONS relocations, each moving
+    // FAMILY_RELOCATE_MOVERS members to an infection time drawn uniformly over the times their infection duration
+    // allows or within FAMILY_RELOCATE_JITTER days of another member's, and FAMILY_PAIR_LOCUS_PROPOSALS pair-locus
+    // Gibbs Proposals.
+    constexpr int FAMILY_RELOCATIONS             = 5;
+    constexpr int FAMILY_PAIR_LOCUS_PROPOSALS    = 20;
+    constexpr unsigned int FAMILY_MAX_NOVELTY    = 3;
+    constexpr size_t FAMILY_RELOCATE_MOVERS      = 2;
+    constexpr double FAMILY_RELOCATE_JITTER      = 10.0;
+    // The shortest infection duration, in days, the duration samplers allow.
+    constexpr double MIN_INFECTION_DURATION = 1.0;
 
 
     static constexpr int MAX_COI           = 20;
