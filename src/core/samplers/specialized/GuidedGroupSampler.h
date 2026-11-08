@@ -142,16 +142,11 @@ namespace transmission_nets::core::samplers::specialized {
                 ok = o[i].totalPositiveCount() > 0 and o[i].totalPositiveCount() <= maxCOI_;
             }
             if (not ok) continue;
-            if (o == current) {
-                values.push_back(currentValue);
-            } else {
-                Proposal<T, Engine> move(*target_, *rng_, innerCounts_);
+            values.push_back(optionValue(*target_, *rng_, innerCounts_, o == current, currentValue, [&](auto& move) {
                 for (size_t i = 0; i < k; ++i) {
                     if (o[i] != current[i]) move.change(*p.group[i].infection->latentGenotype(u.locus), o[i]);
                 }
-                values.push_back(move.value());
-                move.revert();
-            }
+            }));
             options.push_back(std::move(o));
         }
     }

@@ -112,15 +112,10 @@ namespace transmission_nets::core::samplers::genetics {
                 values.reserve(u.candidatesA.size() * u.candidatesB.size());
                 for (const auto& ga : u.candidatesA) {
                     for (const auto& gb : u.candidatesB) {
-                        if (ga == currentA and gb == currentB) {
-                            values.push_back(currentVal);
-                        } else {
-                            Proposal<T, Engine> move(*target_, *rng_, inner_);
+                        values.push_back(optionValue(*target_, *rng_, inner_, ga == currentA and gb == currentB, currentVal, [&](auto& move) {
                             if (ga != currentA) move.change(pa, ga);
                             if (gb != currentB) move.change(pb, gb);
-                            values.push_back(move.value());
-                            move.revert();
-                        }
+                        }));
                     }
                 }
                 const size_t pick = drawLogWeighted(values, logWeights(values), *rng_);

@@ -227,19 +227,14 @@ namespace transmission_nets::core::samplers::specialized {
                 if (not counted(na) or not counted(nb)) {
                     continue;
                 }
-                if (na == ga and nb == gb) {
-                    values.push_back(currentValue);
-                } else {
-                    Proposal<T, Engine> move(*target_, *rng_, innerCounts_);
+                values.push_back(optionValue(*target_, *rng_, innerCounts_, na == ga and nb == gb, currentValue, [&](auto& move) {
                     if (na != ga) {
                         move.change(*a.latentGenotype(u.locus), na);
                     }
                     if (nb != gb) {
                         move.change(*b.latentGenotype(u.locus), nb);
                     }
-                    values.push_back(move.value());
-                    move.revert();
-                }
+                }));
                 options.emplace_back(na, nb);
             }
         }
