@@ -80,7 +80,9 @@ namespace {
 namespace {
     // `leak` is the transmission leak ε. With ε > 0 the reference terms are the plain ones of
     // MarginalLatentParentReference.h rather than the memo's locus terms.
-    void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study, double leak = 0);
+    // With `oneGroup`, only changes after which a Transmission term updates one of its two groups of Parent sets (those
+    // with the latent parent and those without) and keeps the other's sum.
+    void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study, double leak = 0, bool oneGroup = false);
 }// namespace
 
 TEST(ModelCacheConsistencyTest, CachedTransmissionLikelihoodsMatchRecomputation) {
@@ -96,8 +98,22 @@ TEST(ModelCacheConsistencyTest, WithATransmissionLeakCachedTermsFollowAlleleFreq
     checkCacheConsistency(rng, makeStudy(*rng), 0.03);
 }
 
+// A Transmission term updates only the group of Parent sets a change reaches: a change to the latent parent's COI
+// distribution, or without a leak to the Allele frequencies, leaves the sets without the latent parent as they were,
+// and their group's sum is kept. The value read after each such change, alone or nested under another, must match
+// the plain computation. With a leak a frequency change reaches both groups.
+TEST(ModelCacheConsistencyTest, AGroupNoChangeReachesKeepsItsSum) {
+    auto rng = std::make_shared<boost::random::mt19937>(20261107);
+    checkCacheConsistency(rng, makeStudy(*rng), 0, true);
+}
+
+TEST(ModelCacheConsistencyTest, WithATransmissionLeakAGroupNoChangeReachesKeepsItsSum) {
+    auto rng = std::make_shared<boost::random::mt19937>(20261108);
+    checkCacheConsistency(rng, makeStudy(*rng), 0.03, true);
+}
+
 namespace {
-void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study, const double leak) {
+void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study, const double leak, const bool oneGroup) {
     auto state = std::make_shared<State>(study, rng, false, leak);
     auto model = std::make_shared<Model>(state);
     ASSERT_EQ(model->transmissionMemo->leaky(), leak > 0);
@@ -374,6 +390,60 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
         }
         model->value();
     };
+
+    if (oneGroup) {
+        auto randomFrequencies = [&](const auto& locus) {
+            std::vector<double> frequencies(locus->totalAlleles());
+            for (auto& frequency : frequencies) {
+                frequency = 0.05 + unif(*rng);
+            }
+            return transmission_nets::core::datatypes::Simplex(frequencies);
+        };
+        for (int k = 0; k < 60; ++k) {
+            const auto locus = std::next(state->loci.begin(), static_cast<long>(k % state->loci.size()))->second;
+            const auto when  = "change " + std::to_string(k);
+            switch (k % 4) {
+                case 0:
+                    perturb(state->meanCOI, 1.0 + 3.0 * unif(*rng));
+                    break;
+                case 1: {
+                    auto frequencies = state->alleleFrequencies->alleleFrequencies(locus);
+                    perturb(frequencies, randomFrequencies(locus));
+                    break;
+                }
+                case 2: {
+                    // Both changes under one Proposal, each evaluated: the second meets the first's kept sums.
+                    auto step = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
+                    step.change(*state->meanCOI, 1.0 + 3.0 * unif(*rng));
+                    model->value();
+                    step.change(*state->alleleFrequencies->alleleFrequencies(locus), randomFrequencies(locus));
+                    if (std::isfinite(step.value()) && unif(*rng) < 0.5) {
+                        step.accept();
+                    } else {
+                        step.reject();
+                    }
+                    model->value();
+                    break;
+                }
+                default: {
+                    // A genotype change reaches both groups; then a COI change inside a saved state that is restored.
+                    const auto& infection = state->infections[pickNode(*rng)];
+                    const auto& at        = infection->loci()[k % infection->loci().size()];
+                    auto genotype         = infection->latentGenotype(at);
+                    perturb(genotype, Genotype(randomBits(at->totalAlleles())));
+                    auto step = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
+                    step.change(*state->meanCOI, 1.0 + 3.0 * unif(*rng));
+                    step.value();
+                    checkAll("inside " + when);
+                    step.reject();
+                    model->value();
+                }
+            }
+            checkAll("after " + when);
+        }
+        EXPECT_GT(finite, 0);
+        return;
+    }
 
     for (int k = 0; k < 500; ++k) {
         if (k % 10 == 0) {
