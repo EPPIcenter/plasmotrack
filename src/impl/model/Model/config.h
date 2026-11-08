@@ -27,9 +27,9 @@
 namespace transmission_nets::impl::Model {
     // Tries per ParentRelinkSampler update (1: a plain independence move; more: a multiple-try move).
     constexpr unsigned int RELINK_TRIES = 1;
-    // ParentRelinkSampler weights a source by exp(scale * (observed alleles it carries - observed alleles it lacks));
-    // 0 averages that score over observed loci instead, which leaves the sources nearly uniform.
-    constexpr double RELINK_SOURCE_WEIGHT_SCALE = 1.0;
+    // ParentRelinkSampler weights a candidate parent by exp(scale * (observed alleles it carries - observed alleles it
+    // lacks)); 0 averages that score over observed loci instead, which leaves the candidates nearly uniform.
+    constexpr double RELINK_CANDIDATE_WEIGHT_SCALE = 1.0;
     // Partners tried per InformedOrderJumpSampler update (a random subset when an infection has more).
     constexpr size_t INFORMED_JUMP_MAX_TRIES = 4;
     // Allele-frequency (SALT) updates run every this many Sampling iterations.

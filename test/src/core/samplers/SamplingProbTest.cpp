@@ -103,7 +103,7 @@ TEST(SamplingProbTest, MatchesReferenceImplementationsExactly) {
         }
     };
 
-    // Durations spread over the duration shape's range, so that the relink sampler's sources have different windows.
+    // Durations spread over the duration shape's range, so that the relink sampler's candidate parents have different windows.
     std::vector<double> shape(60);
     for (size_t day = 1; day < shape.size(); ++day) {
         shape[day] = 1.0 + static_cast<double>(day);

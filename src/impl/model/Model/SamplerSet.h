@@ -123,9 +123,9 @@ namespace transmission_nets::impl::Model {
                 }
                 scheduler_.registerSampler({.sampler = std::make_unique<genetics::RandomAllelesBitSetSampler3<T, Engine, InfectionEvent, OrderingImpl, MAX_PARENTS, MAX_COI>>(infection, state->infectionEventOrdering, state->latentParents[infectionIndex], target, r, 0.01, 0.01, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex], std::move(parentSetLliks), PARENT_SET_PROPOSAL_UNIFORM_SHARE, PARENT_SET_PROPOSAL_LOCI),
                                             .id = fmt::format("RandomAllelesBitSetSampler3/latent_genotypes/{}", infection_id)});
-                // Move the infection to another source in one step (its latent parent stands for the Source, via its fixed anchor).
+                // Move the infection to another of its candidate parents in one step (its latent parent stands for the Source, via its fixed anchor).
                 // The 0.01 rates apply only if the infection's sampled error counts are absent; those counts replace them.
-                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, 1.0, upperBound, durations, 0.01, 0.01, RELINK_TRIES, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex], RELINK_SOURCE_WEIGHT_SCALE),
+                scheduler_.registerSampler({.sampler = std::make_unique<specialized::ParentRelinkSampler<T, Engine, InfectionEvent>>(infection, state->latentParents[infectionIndex], state->allowedRelationships->permittedParents(infection), target, r, 1.0, upperBound, durations, 0.01, 0.01, RELINK_TRIES, state->expectedFalsePositives[infectionIndex], state->expectedFalseNegatives[infectionIndex], RELINK_CANDIDATE_WEIGHT_SCALE),
                                             .id = fmt::format("ParentRelinkSampler/infection/{}", infection_id)});
                 auto strainCountSampler = std::make_unique<genetics::StrainCountSampler<T, Engine, InfectionEvent>>(infection, target, r, MAX_COI);
                 strainCountSampler->enableObservedToggles(OBSERVED_ALLELE_TOGGLES);
