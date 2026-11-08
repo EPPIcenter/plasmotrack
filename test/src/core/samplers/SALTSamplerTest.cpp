@@ -244,7 +244,7 @@ TEST(SALTSamplerTest, DirichletBlockMoveKeepsDirichletMoments) {
     EXPECT_GT(static_cast<double>(counts.accepted - fittedCounts.accepted), 0.5 * static_cast<double>(counts.proposed - fittedCounts.proposed));
 }
 
-// A sampler restored mid-window continues exactly as the original does; a state without a fit restores and fits
+// A sampler restored mid-span continues exactly as the original does; a state without a fit restores and fits
 // afresh, and a fit of the wrong size is refused.
 TEST(SALTSamplerTest, DirichletFitRestores) {
     auto make = [](std::shared_ptr<Parameter<Simplex>> freqs, std::shared_ptr<boost::random::mt19937> rng) {

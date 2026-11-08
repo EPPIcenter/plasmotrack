@@ -40,8 +40,8 @@ namespace transmission_nets::core::samplers {
     /*
      * Optionally, each update also makes a Dirichlet independence move on the whole simplex, fitted to the
      * sampler's own trajectory (enableDirichletMove). The sampler observes the simplex after every update and refits
-     * at the end of each fitting window, from that window's observations alone: the mean, and one precision for all
-     * frequencies (the median of each frequency's moment estimate). After the last window the fit is fixed. Until the
+     * at the end of each fitting span, from that span's observations alone: the mean, and one precision for all
+     * frequencies (the median of each frequency's moment estimate). After the last span the fit is fixed. Until the
      * first fit every update runs the SALT sweep; after it, every saltEvery-th update does, and every moveEvery-th
      * update makes the Dirichlet move (the simplex is observed on every update). The proposal is an equal
      * mixture of Dirichlet(alpha) and Dirichlet(widen * alpha), as in DirichletIndependenceSampler.
@@ -63,7 +63,7 @@ namespace transmission_nets::core::samplers {
         void setLowerLimit_(double lim) noexcept;
 
         // A block size of 0 moves the whole simplex at once.
-        void enableDirichletMove(std::vector<int> fitWindows, double widen, int saltEvery, int moveEvery = 1, size_t blockSize = 0);
+        void enableDirichletMove(std::vector<int> fitSpans, double widen, int saltEvery, int moveEvery = 1, size_t blockSize = 0);
 
         // Accepted and proposed Dirichlet moves.
         [[nodiscard]] SamplerCounts dirichletCounts() const noexcept { return dirichletCounts_; }
@@ -76,7 +76,7 @@ namespace transmission_nets::core::samplers {
 
         // Fixes the Dirichlet move's fit as it stands (no move if it has none yet): what the sampler proposes no longer
         // depends on its trajectory. Called when Sampling iterations stop adapting.
-        void freezeFit() noexcept { window_ = fitWindows_.size(); }
+        void freezeFit() noexcept { span_ = fitSpans_.size(); }
 
         double acceptanceRate(int idx) noexcept;
 
@@ -115,13 +115,13 @@ namespace transmission_nets::core::samplers {
         int totalUpdates_ = 0;
 
         bool dirichletMove_ = false;
-        std::vector<int> fitWindows_{};
+        std::vector<int> fitSpans_{};
         double widen_  = 1;
         int saltEvery_ = 1;
         int moveEvery_ = 1;
         size_t blockSize_ = 0;
-        size_t window_ = 0;// the fitting window being observed; fitWindows_.size() once the fit is fixed
-        int observed_  = 0;// observations in this window
+        size_t span_ = 0;// the fitting span being observed; fitSpans_.size() once the fit is fixed
+        int observed_  = 0;// observations in this span
         std::uint64_t moveUpdates_ = 0;
         std::vector<double> mean_{}, m2_{}, alpha_{}, wide_{}, draw_{}, blockNarrow_{}, blockWide_{}, blockCurrent_{};
         SamplerCounts dirichletCounts_{};
@@ -155,9 +155,9 @@ namespace transmission_nets::core::samplers {
     }
 
     template<typename T, typename Engine>
-    void SALTSampler<T, Engine>::enableDirichletMove(std::vector<int> fitWindows, const double widen, const int saltEvery, const int moveEvery, const size_t blockSize) {
+    void SALTSampler<T, Engine>::enableDirichletMove(std::vector<int> fitSpans, const double widen, const int saltEvery, const int moveEvery, const size_t blockSize) {
         dirichletMove_ = true;
-        fitWindows_    = std::move(fitWindows);
+        fitSpans_    = std::move(fitSpans);
         widen_         = widen;
         saltEvery_     = std::max(1, saltEvery);
         moveEvery_     = std::max(1, moveEvery);
@@ -184,7 +184,7 @@ namespace transmission_nets::core::samplers {
 
     template<typename T, typename Engine>
     void SALTSampler<T, Engine>::observe() noexcept {
-        if (window_ >= fitWindows_.size()) {
+        if (span_ >= fitSpans_.size()) {
             return;
         }
         const auto f = parameter_->value().frequencies();
@@ -194,7 +194,7 @@ namespace transmission_nets::core::samplers {
             mean_[a] += d / observed_;
             m2_[a] += d * (f[a] - mean_[a]);
         }
-        if (observed_ < fitWindows_[window_]) {
+        if (observed_ < fitSpans_[span_]) {
             return;
         }
         std::vector<double> precisions;
@@ -214,7 +214,7 @@ namespace transmission_nets::core::samplers {
                 wide_[a]  = alpha_[a] * widen_;
             }
         }
-        ++window_;
+        ++span_;
         observed_ = 0;
         std::fill(mean_.begin(), mean_.end(), 0.0);
         std::fill(m2_.begin(), m2_.end(), 0.0);
@@ -369,9 +369,9 @@ namespace transmission_nets::core::samplers {
             state.scales.push_back({.variance = variances_[j], .counts = {.accepted = accepted, .proposed = accepted + static_cast<std::uint64_t>(rejections_[j])}});
         }
         if (dirichletMove_) {
-            // window, observations, move updates, Dirichlet accepted and proposed, then per frequency the window's
+            // span, observations, move updates, Dirichlet accepted and proposed, then per frequency the span's
             // running mean and sum of squares and the fitted concentration (0 before the first fit).
-            state.fit = {static_cast<double>(window_), static_cast<double>(observed_), static_cast<double>(moveUpdates_), static_cast<double>(dirichletCounts_.accepted),
+            state.fit = {static_cast<double>(span_), static_cast<double>(observed_), static_cast<double>(moveUpdates_), static_cast<double>(dirichletCounts_.accepted),
                          static_cast<double>(dirichletCounts_.proposed)};
             state.fit.insert(state.fit.end(), mean_.begin(), mean_.end());
             state.fit.insert(state.fit.end(), m2_.begin(), m2_.end());
@@ -400,7 +400,7 @@ namespace transmission_nets::core::samplers {
             throw std::invalid_argument("Dirichlet fit has " + std::to_string(state.fit.size()) + " values, sampler has " + std::to_string(fitSize()));
         }
         const size_t k   = variances_.size();
-        window_          = static_cast<size_t>(state.fit[0]);
+        span_          = static_cast<size_t>(state.fit[0]);
         observed_        = static_cast<int>(state.fit[1]);
         moveUpdates_     = static_cast<std::uint64_t>(state.fit[2]);
         dirichletCounts_ = {.accepted = static_cast<std::uint64_t>(state.fit[3]), .proposed = static_cast<std::uint64_t>(state.fit[4])};
