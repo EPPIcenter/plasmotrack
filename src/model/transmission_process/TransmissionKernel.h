@@ -338,6 +338,9 @@ namespace transmission_nets::model::transmission_process {
             std::uint8_t kMin = 0;
             std::uint8_t mMin = 0;
             std::array<Likelihood, NUM_CELLS> terms;
+
+            // The rectangle's first cell, (kMin, mMin); every cell before it in `terms` is 0.
+            [[nodiscard]] int firstCell() const { return kMin * MAX_STRAINS + (mMin - 1); }
         };
 
         // Locus tables summed over a child's loci, kept so that one locus' table can be swapped for another. The sum's
@@ -356,8 +359,7 @@ namespace transmission_nets::model::transmission_process {
                     ++impossible;
                     return;
                 }
-                const int first = table.kMin * MAX_STRAINS + (table.mMin - 1);
-                for (int i = first; i < NUM_CELLS; ++i) {
+                for (int i = table.firstCell(); i < NUM_CELLS; ++i) {
                     finite[i] += table.terms[i];
                 }
                 ++kMinCount[table.kMin];
@@ -368,8 +370,7 @@ namespace transmission_nets::model::transmission_process {
                     --impossible;
                     return;
                 }
-                const int first = table.kMin * MAX_STRAINS + (table.mMin - 1);
-                for (int i = first; i < NUM_CELLS; ++i) {
+                for (int i = table.firstCell(); i < NUM_CELLS; ++i) {
                     finite[i] -= table.terms[i];
                 }
                 --kMinCount[table.kMin];
@@ -401,15 +402,19 @@ namespace transmission_nets::model::transmission_process {
             std::uint32_t mask = 0;
             std::uint16_t w    = 0;
             std::uint16_t r    = 0;// |U| + w
-            std::uint32_t f    = 0;// index of f(m; U, w) in FTable::fs
+            std::uint32_t row  = 0;// index of its f(m; U, w) in FTable::rows
         };
-        // Entries with the same f share one row of fs (with a leak on latent parent sets f depends on U only through
-        // how many of each kind of child allele it holds; see fTable()). Every entry sharing a row has the same r.
+        // One f(m; U, w) over m, and the r of the entries that share it.
+        struct FRow {
+            std::array<double, MAX_STRAINS> f;
+            std::uint16_t r = 0;
+        };
+        // Entries with the same f share one row (with a leak on latent parent sets f depends on U only through how
+        // many of each kind of child allele it holds; see fTable()). Every entry sharing a row has the same r.
         struct FTable {
             unsigned int maxW = 0;
             std::vector<FEntry> entries{};
-            std::vector<std::array<double, MAX_STRAINS>> fs{};
-            std::vector<std::uint16_t> fR{};// each row's r
+            std::vector<FRow> rows{};
             int rMin = MAX_COI + 1;
             int mMin = MAX_STRAINS + 1;
         };
@@ -495,9 +500,8 @@ namespace transmission_nets::model::transmission_process {
                                 break;
                             }
                         }
-                        entry.f = static_cast<std::uint32_t>(table.fs.size());
-                        table.fs.push_back(f);
-                        table.fR.push_back(entry.r);
+                        entry.row = static_cast<std::uint32_t>(table.rows.size());
+                        table.rows.push_back(FRow{.f = f, .r = entry.r});
                         table.entries.push_back(entry);
                     }
                 }
@@ -507,11 +511,11 @@ namespace transmission_nets::model::transmission_process {
         }
 
         // fTable() with a leak on latent parent sets. f(m; U, w) depends on the latent parent only through the pool on
-        // the child's alleles, p_k = (1 - ε) (o_k + [k in U] / (r n)) + ε π_k, with o_k the observed parents' share
-        // and r = |U| + w; so child alleles with the same (o_k, π_k) are interchangeable, and f depends on U only
-        // through how many of each such kind it holds. Each distinct (counts, w) is computed once, in linear form
-        // (no log and exp), and its entries share it. The pool arithmetic is locusTerm()'s; f differs from
-        // exp(log f) there only by rounding.
+        // the child's alleles, p_k = (1 - ε) (o_k + [k in U] / (r n)) + ε π_k, with o_k the observed parents' share,
+        // π_k the Allele frequency and r = |U| + w; so child alleles with the same (o_k, π_k) are interchangeable,
+        // and f depends on U only through how many of each such kind it holds. Each distinct (counts, w) is computed
+        // once, in linear form (no log and exp), and its entries share it. The pool arithmetic is locusTerm()'s; f
+        // differs from exp(log f) there only by rounding.
         FTable leakyFTable(const Genotype& child, const std::vector<unsigned int>& childAlleles, const std::span<const Genotype* const> parents, const std::vector<double>* frequencies) {
             const unsigned int A = child.totalAlleles();
             const auto c         = static_cast<unsigned int>(childAlleles.size());
@@ -520,9 +524,9 @@ namespace transmission_nets::model::transmission_process {
             const unsigned int numMasks = 1u << c;
             const bool latentOnly       = parents.empty();
             const auto numParents       = static_cast<Probability>(parents.size() + 1);
-            // The observed parents' share and the leak's reference, per child allele.
+            // The observed parents' share and the Allele frequency, per child allele.
             std::array<double, MAX_STRAINS> observed{};
-            std::array<double, MAX_STRAINS> reference{};
+            std::array<double, MAX_STRAINS> frequency{};
             for (unsigned int k = 0; k < c; ++k) {
                 for (const Genotype* parent : parents) {
                     const int totalAllelesPresent = parent->totalPositiveCount();
@@ -530,7 +534,7 @@ namespace transmission_nets::model::transmission_process {
                         observed[k] += (static_cast<Probability>(parent->allele(childAlleles[k])) / totalAllelesPresent / numParents);
                     }
                 }
-                reference[k] = (*frequencies)[childAlleles[k]];
+                frequency[k] = (*frequencies)[childAlleles[k]];
             }
             // Kinds of child allele, and the stride of each kind's count in a combination's code.
             std::array<unsigned int, MAX_STRAINS> kind{};
@@ -539,7 +543,7 @@ namespace transmission_nets::model::transmission_process {
             unsigned int numKinds = 0;
             for (unsigned int k = 0; k < c; ++k) {
                 unsigned int j = 0;
-                while (j < k and (observed[j] != observed[k] or reference[j] != reference[k])) {
+                while (j < k and (observed[j] != observed[k] or frequency[j] != frequency[k])) {
                     ++j;
                 }
                 kind[k] = j < k ? kind[j] : numKinds++;
@@ -551,7 +555,7 @@ namespace transmission_nets::model::transmission_process {
                 codes *= kindSize[j] + 1;
             }
             const unsigned int numW = table.maxW + 1;
-            rowOf_.assign(static_cast<size_t>(codes) * numW, UNSEEN);
+            rowByCountsAndW_.assign(static_cast<size_t>(codes) * numW, UNSEEN);
             std::array<double, MAX_STRAINS> pool{};
             // With observed parents the latent parent shares an allele with the child (U nonempty); alone it may not.
             const unsigned int firstMask = latentOnly ? 0 : 1;
@@ -571,7 +575,7 @@ namespace transmission_nets::model::transmission_process {
                     if (r == 0) {
                         continue;// a latent parent carries at least one allele
                     }
-                    auto& row = rowOf_[static_cast<size_t>(code) * numW + w];
+                    auto& row = rowByCountsAndW_[static_cast<size_t>(code) * numW + w];
                     if (row == UNSEEN) {
                         for (unsigned int k = 0; k < c; ++k) {
                             double p = observed[k];
@@ -580,7 +584,7 @@ namespace transmission_nets::model::transmission_process {
                             } else {
                                 p += (static_cast<Probability>((mask >> k & 1u) != 0) / static_cast<int>(r) / numParents);
                             }
-                            pool[k] = (1.0 - leak_) * p + leak_ * reference[k];
+                            pool[k] = (1.0 - leak_) * p + leak_ * frequency[k];
                         }
                         const auto series = leakySeries(std::span<const double>(pool.data(), c));
                         std::array<double, MAX_STRAINS> f{};
@@ -594,9 +598,8 @@ namespace transmission_nets::model::transmission_process {
                         if (mMin > MAX_STRAINS) {
                             row = IMPOSSIBLE;
                         } else {
-                            row = static_cast<std::uint32_t>(table.fs.size());
-                            table.fs.push_back(f);
-                            table.fR.push_back(static_cast<std::uint16_t>(r));
+                            row = static_cast<std::uint32_t>(table.rows.size());
+                            table.rows.push_back(FRow{.f = f, .r = static_cast<std::uint16_t>(r)});
                             table.mMin = std::min(table.mMin, mMin);
                         }
                     }
@@ -604,7 +607,7 @@ namespace transmission_nets::model::transmission_process {
                         continue;
                     }
                     table.rMin = std::min(table.rMin, static_cast<int>(r));
-                    table.entries.push_back(FEntry{.mask = mask, .w = static_cast<std::uint16_t>(w), .r = static_cast<std::uint16_t>(r), .f = row});
+                    table.entries.push_back(FEntry{.mask = mask, .w = static_cast<std::uint16_t>(w), .r = static_cast<std::uint16_t>(r), .row = row});
                 }
             }
             table.entries.shrink_to_fit();
@@ -625,18 +628,18 @@ namespace transmission_nets::model::transmission_process {
             // Overlap probabilities summed over the entries sharing each f row, then each row times its f. With one
             // entry per row (no leak on latent parent sets) this is the entry-by-entry sum, in the same order.
             thread_local std::vector<std::array<double, MAX_COI + 1>> summed;
-            summed.assign(f.fs.size(), std::array<double, MAX_COI + 1>{});
+            summed.assign(f.rows.size(), std::array<double, MAX_COI + 1>{});
             for (const auto& entry : f.entries) {
                 const double* ps = overlap.row(entry.mask, entry.w);
-                auto& to         = summed[entry.f];
+                auto& to         = summed[entry.row];
                 for (int k = static_cast<int>(entry.r); k <= MAX_COI; ++k) {
                     to[k] += ps[k];
                 }
             }
-            for (size_t i = 0; i < f.fs.size(); ++i) {
-                const auto& fm = f.fs[i];
+            for (size_t i = 0; i < f.rows.size(); ++i) {
+                const auto& fm = f.rows[i].f;
                 const auto& ps = summed[i];
-                for (int k = static_cast<int>(f.fR[i]); k <= MAX_COI; ++k) {
+                for (int k = static_cast<int>(f.rows[i].r); k <= MAX_COI; ++k) {
                     const double p = ps[k];
                     double* row    = g.data() + k * MAX_STRAINS;
                     for (int m = 0; m < MAX_STRAINS; ++m) {
@@ -747,7 +750,7 @@ namespace transmission_nets::model::transmission_process {
         // Scratch buffers reused across locus evaluations.
         static constexpr std::uint32_t UNSEEN     = std::numeric_limits<std::uint32_t>::max();
         static constexpr std::uint32_t IMPOSSIBLE = UNSEEN - 1;
-        std::vector<std::uint32_t> rowOf_{};// leakyFTable(): each (counts, w)'s row of fs
+        std::vector<std::uint32_t> rowByCountsAndW_{};// leakyFTable(): each (counts, w)'s index in FTable::rows
         std::vector<size_t> childAlleles_{};
         std::vector<Probability> parentPopFreqs_{};
         std::vector<Likelihood> prVec_{};
