@@ -248,13 +248,13 @@ namespace transmission_nets::impl::Model {
     }
 
     void State::initPriors() {
-        // Gamma(10, 0.001) on each Infection's rates; the shared rates' priors are wider (see ErrorModel).
+        // Gamma(10, 0.001) on each Infection's rates; the shared rates' priors are the wide ones (see ErrorModel).
         const bool shared = errorModel == ErrorModel::Shared;
-        obsFPRPriorShape  = std::make_shared<core::parameters::Parameter<double>>(shared ? 2 : 10);
-        obsFPRPriorScale  = std::make_shared<core::parameters::Parameter<double>>(shared ? .01 : .001);
+        obsFPRPriorShape  = std::make_shared<core::parameters::Parameter<double>>(shared ? WIDE_RATE_PRIOR_SHAPE : 10);
+        obsFPRPriorScale  = std::make_shared<core::parameters::Parameter<double>>(shared ? WIDE_FALSE_POSITIVE_PRIOR_SCALE : .001);
 
-        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(shared ? 2 : 10);
-        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(shared ? .02 : .001);
+        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(shared ? WIDE_RATE_PRIOR_SHAPE : 10);
+        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(shared ? WIDE_FALSE_NEGATIVE_PRIOR_SCALE : .001);
 
         efpMean  = std::make_shared<core::parameters::Parameter<double>>(.01);
         efpShape = std::make_shared<core::parameters::Parameter<double>>(10);

@@ -66,6 +66,17 @@ namespace transmission_nets::impl::Model {
     // The range every observation error rate's walk keeps it in; the hierarchical model's rate prior is truncated to it.
     constexpr double ERROR_RATE_LOWER = 1e-6;
     constexpr double ERROR_RATE_UPPER = 0.5;
+    // The wide Gamma(shape, scale) priors on an observation error rate: on the shared error model's two rates, and on
+    // the hierarchical error model's population means (Run scalars efp_mean, efn_mean).
+    constexpr double WIDE_RATE_PRIOR_SHAPE           = 2;
+    constexpr double WIDE_FALSE_POSITIVE_PRIOR_SCALE = 0.01;
+    constexpr double WIDE_FALSE_NEGATIVE_PRIOR_SCALE = 0.02;
+    // Hierarchical error model: the range each population mean's walk keeps it in, and the range of each shape, its
+    // walk's and its log-uniform prior's.
+    constexpr double HIERARCHICAL_MEAN_LOWER  = 1e-5;
+    constexpr double HIERARCHICAL_MEAN_UPPER  = 0.5;
+    constexpr double HIERARCHICAL_SHAPE_LOWER = 0.5;
+    constexpr double HIERARCHICAL_SHAPE_UPPER = 200;
     // Family moves, on the Families of the Mutual pairs: a pair is close when, in the direction where the count is
     // smaller, at most FAMILY_MAX_NOVELTY Loci have an Allele observed in one Infection and not the other (Loci
     // missing in either do not count). Each Sampling iteration makes FAMILY_RELOCATIONS relocations, each moving

@@ -240,10 +240,10 @@ namespace transmission_nets::impl::Model {
                                                 .adaptationEnd = 200});
                 };
                 for (int k = 0; k < HIERARCHICAL_RATE_STEPS; ++k) {
-                    walk(state->efpMean, 1e-5, .5, k == 0 ? "efp_mean" : fmt::format("efp_mean/{}", k));
-                    walk(state->efpShape, .5, 200, k == 0 ? "efp_shape" : fmt::format("efp_shape/{}", k));
-                    walk(state->efnMean, 1e-5, .5, k == 0 ? "efn_mean" : fmt::format("efn_mean/{}", k));
-                    walk(state->efnShape, .5, 200, k == 0 ? "efn_shape" : fmt::format("efn_shape/{}", k));
+                    walk(state->efpMean, HIERARCHICAL_MEAN_LOWER, HIERARCHICAL_MEAN_UPPER, k == 0 ? "efp_mean" : fmt::format("efp_mean/{}", k));
+                    walk(state->efpShape, HIERARCHICAL_SHAPE_LOWER, HIERARCHICAL_SHAPE_UPPER, k == 0 ? "efp_shape" : fmt::format("efp_shape/{}", k));
+                    walk(state->efnMean, HIERARCHICAL_MEAN_LOWER, HIERARCHICAL_MEAN_UPPER, k == 0 ? "efn_mean" : fmt::format("efn_mean/{}", k));
+                    walk(state->efnShape, HIERARCHICAL_SHAPE_LOWER, HIERARCHICAL_SHAPE_UPPER, k == 0 ? "efn_shape" : fmt::format("efn_shape/{}", k));
                 }
             }
             if (state->leakPrior) {

@@ -42,23 +42,24 @@ namespace transmission_nets::impl::Model {
             prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->expectedFalsePositives.front(), state_->obsFPRPriorShape, state_->obsFPRPriorScale));
             prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->expectedFalseNegatives.front(), state_->obsFNRPriorShape, state_->obsFNRPriorScale));
         } else if (state_->errorModel == ErrorModel::Hierarchical) {
-            // rate_i ~ Gamma(shape, mean / shape) truncated to the rates' range (ErrorRatePrior.h); mean ~ Gamma(2, 0.01) for false positives and Gamma(2, 0.02) for
-            // false negatives; shape log-uniform on [0.5, 200].
-            const auto gammaMean = [](double x, double mean, double shape) {
-                return (shape - 1) * std::log(x) - x * shape / mean - std::lgamma(shape) - shape * std::log(mean / shape);
-            };
+            // rate_i ~ Gamma(shape, mean / shape) truncated to the rates' range (ErrorRatePrior.h); mean ~ the wide Gamma
+            // prior of its kind of rate; shape log-uniform on [HIERARCHICAL_SHAPE_LOWER, HIERARCHICAL_SHAPE_UPPER].
             const auto addRates = [&](const std::vector<State::p_Parameterdouble>& rates, const State::p_Parameterdouble& mean, const State::p_Parameterdouble& shape, double meanScale, const std::string& name) {
                 for (const auto& rate : rates) {
                     prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
                             name, [=]() { return truncatedGammaLogDensity(rate->value(), mean->value(), shape->value()); }, rate, mean, shape));
                 }
                 prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
-                        name + "_mean", [=]() { return gammaMean(mean->value(), 2 * meanScale, 2); }, mean));
+                        name + "_mean", [=]() { return core::distributions::gammaLogDensity(mean->value(), WIDE_RATE_PRIOR_SHAPE, meanScale); }, mean));
                 prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
-                        name + "_shape", [=]() { return shape->value() >= .5 and shape->value() <= 200 ? -std::log(shape->value()) : -std::numeric_limits<double>::infinity(); }, shape));
+                        name + "_shape", [=]() {
+                            const double s = shape->value();
+                            return s >= HIERARCHICAL_SHAPE_LOWER and s <= HIERARCHICAL_SHAPE_UPPER ? -std::log(s) : -std::numeric_limits<double>::infinity();
+                        },
+                        shape));
             };
-            addRates(state_->expectedFalsePositives, state_->efpMean, state_->efpShape, .01, "efp");
-            addRates(state_->expectedFalseNegatives, state_->efnMean, state_->efnShape, .02, "efn");
+            addRates(state_->expectedFalsePositives, state_->efpMean, state_->efpShape, WIDE_FALSE_POSITIVE_PRIOR_SCALE, "efp");
+            addRates(state_->expectedFalseNegatives, state_->efnMean, state_->efnShape, WIDE_FALSE_NEGATIVE_PRIOR_SCALE, "efn");
         } else {
             for (auto& obs : state_->expectedFalsePositives) {
                 prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));

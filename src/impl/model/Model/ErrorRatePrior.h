@@ -9,6 +9,8 @@
 
 #include "config.h"
 
+#include "core/distributions/pdfs/GammaLogPDF.h"
+
 #include <boost/math/special_functions/gamma.hpp>
 
 #include <cmath>
@@ -23,7 +25,7 @@ namespace transmission_nets::impl::Model {
         }
         const double scale  = mean / shape;
         const double inside = boost::math::gamma_p(shape, upper / scale) - boost::math::gamma_p(shape, lower / scale);
-        return (shape - 1) * std::log(x) - x / scale - std::lgamma(shape) - shape * std::log(scale) - std::log(inside);
+        return core::distributions::gammaLogDensity(x, shape, scale) - std::log(inside);
     }
 
 }// namespace transmission_nets::impl::Model
