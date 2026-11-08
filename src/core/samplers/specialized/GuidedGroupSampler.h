@@ -7,6 +7,7 @@
 #define TRANSMISSION_NETWORKS_APP_GUIDEDGROUPSAMPLER_H
 
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/LogWeightedDraw.h"
 #include "core/samplers/Proposal.h"
 #include "core/samplers/specialized/GuidedPairSampler.h"
 
@@ -228,15 +229,19 @@ namespace transmission_nets::core::samplers::specialized {
             }
             return g;
         };
-        while (true) {
-            const auto g = build(assign);
-            Proposal<T, Engine> move(*target_, *rng_, innerCounts_);
+        // Puts genotypes g (per member, per locus) into a Proposal, leaving out any outside 1 to maxCOI Alleles.
+        auto change = [&](Proposal<T, Engine>& move, const std::vector<std::vector<Genotype>>& g) {
             for (size_t i = 0; i < k; ++i) {
                 for (size_t l = 0; l < loci.size(); ++l) {
                     auto& param = *p.group[i].infection->latentGenotype(loci[l]);
                     if (g[i][l].totalPositiveCount() > 0 and g[i][l].totalPositiveCount() <= maxCOI_ and param.value() != g[i][l]) move.change(param, g[i][l]);
                 }
             }
+        };
+        while (true) {
+            const auto g = build(assign);
+            Proposal<T, Engine> move(*target_, *rng_, innerCounts_);
+            change(move, g);
             const double v = move.value();
             move.revert();
             if (v > bestValue) {
@@ -255,12 +260,7 @@ namespace transmission_nets::core::samplers::specialized {
         }
         if (not bestGenotypes.empty()) {
             Proposal<T, Engine> move(*target_, *rng_, innerCounts_);
-            for (size_t i = 0; i < k; ++i) {
-                for (size_t l = 0; l < loci.size(); ++l) {
-                    auto& param = *p.group[i].infection->latentGenotype(loci[l]);
-                    if (bestGenotypes[i][l].totalPositiveCount() > 0 and bestGenotypes[i][l].totalPositiveCount() <= maxCOI_ and param.value() != bestGenotypes[i][l]) move.change(param, bestGenotypes[i][l]);
-                }
-            }
+            change(move, bestGenotypes);
             move.value();
             move.accept();
         }
@@ -268,7 +268,6 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     double GuidedGroupSampler<T, Engine, InfectionEventImpl, LocusImpl>::walk(const Prepared& p, const Genotypes* towards) noexcept {
-        boost::random::uniform_01<> unit;
         std::vector<Option> options;
         std::vector<double> values;
         double logQ = 0;
@@ -276,10 +275,8 @@ namespace transmission_nets::core::samplers::specialized {
             const auto allele = p.units[u].allele;
             optionsAt(p, p.units[u], options, values);
             if (options.empty()) return -std::numeric_limits<double>::infinity();
-            const double top = *std::ranges::max_element(values);
-            if (not std::isfinite(top)) return -std::numeric_limits<double>::infinity();
-            double total = 0;
-            for (const double v : values) total += std::exp(v - top);
+            const auto weights = logWeights(values);
+            if (not std::isfinite(weights.top)) return -std::numeric_limits<double>::infinity();
             size_t pick = 0;
             if (towards != nullptr) {
                 const auto& want = (*towards)[u];
@@ -291,10 +288,9 @@ namespace transmission_nets::core::samplers::specialized {
                                            }) - options.begin());
                 if (pick == options.size()) return -std::numeric_limits<double>::infinity();
             } else {
-                double r = unit(*rng_) * total;
-                while (pick + 1 < options.size() and (r -= std::exp(values[pick] - top)) > 0) ++pick;
+                pick = drawLogWeighted(values, weights, *rng_);
             }
-            logQ += values[pick] - top - std::log(total);
+            logQ += values[pick] - weights.top - std::log(weights.total);
             set(p, p.units[u], options[pick]);
         }
         return logQ;

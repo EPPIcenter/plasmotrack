@@ -7,6 +7,7 @@
 #define TRANSMISSION_NETWORKS_APP_PAIRLOCUSGIBBSSAMPLER_H
 
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/LogWeightedDraw.h"
 #include "core/samplers/Proposal.h"
 #include "core/samplers/specialized/Family.h"
 #include "core/samplers/specialized/GuidedPairSampler.h"
@@ -113,13 +114,7 @@ namespace transmission_nets::core::samplers::genetics {
                         move.revert();
                     }
                 }
-                const double top = *std::ranges::max_element(values);
-                double total     = 0;
-                for (const double v : values) total += std::exp(v - top);
-                boost::random::uniform_01<> unit;
-                double r    = unit(*rng_) * total;
-                size_t pick = 0;
-                while (pick + 1 < values.size() and (r -= std::exp(values[pick] - top)) > 0) ++pick;
+                const size_t pick = drawLogWeighted(values, logWeights(values), *rng_);
                 const auto& ga = u.ca[pick / u.cb.size()];
                 const auto& gb = u.cb[pick % u.cb.size()];
                 if (ga == ca and gb == cb) {
