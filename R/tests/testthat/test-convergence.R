@@ -117,6 +117,29 @@ test_that("unequal Runs are cut to the shortest Run's first Draws", {
   expect_equal(q$ess_bulk, posterior::ess_bulk(m), tolerance = 1e-12)
 })
 
+test_that("the global group adds the sampled leak and hierarchical rate scalars only when the Runs have them", {
+  parent <- withr::local_tempdir()
+  for (run in c("a", "b")) {
+    rows <- scalar_rows(mean_coi = c(1, 3, 2, 4), parent_set_size_prob = c(0.1, 0.4, 0.2, 0.3))
+    rows$transmission_leak <- if (run == "a") c(1, 2, 3, 4, 5) * 1e-3 else c(5, 4, 3, 2, 1) * 1e-3
+    rows$efp_mean <- 0.01
+    fake_store(file.path(parent, run), infections = "1", samples = 4, tables = list(run_scalars = rows))
+  }
+  a <- pt_read(file.path(parent, c("a", "b")))
+  on.exit(pt_close(a))
+  conv <- pt_convergence(a)
+  global <- conv$quantities$name[conv$quantities$group == "global"]
+  expect_identical(global, c("efp_mean", "mean_coi", "mean_strains_tx", "parent_set_size_prob", "transmission_leak"))
+  m <- cbind(c(2, 3, 4, 5), c(4, 3, 2, 1)) * 1e-3
+  expect_equal(quantity(conv, "transmission_leak")$rhat, posterior::rhat(m), tolerance = 1e-12)
+
+  b <- pt_read(local_status_runs())
+  on.exit(pt_close(b), add = TRUE)
+  conv <- pt_convergence(b)
+  expect_identical(conv$quantities$name[conv$quantities$group == "global"],
+                   c("mean_coi", "mean_strains_tx", "parent_set_size_prob"))
+})
+
 test_that("pt_as_draws() cuts to the shortest Run with a message", {
   expect_warning(a <- pt_read(local_unequal_runs()), "Draw counts differ")
   on.exit(pt_close(a))

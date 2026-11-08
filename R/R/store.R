@@ -52,6 +52,10 @@ column_types <- c(
   temperature = "DOUBLE"
 )
 
+# Run scalars only some Runs have: the Transmission leak with a Leak prior, and the rates' population means and shapes
+# under the hierarchical Error model. Runs pooled in one Analysis have the same ones (check_comparable()).
+model_choice_scalars <- c("transmission_leak", "efp_mean", "efp_shape", "efn_mean", "efn_shape")
+
 structure_tables <- list(
   infections = c("infection", "latent_parent", "symptomatic"),
   loci = c("locus", "allele"),
