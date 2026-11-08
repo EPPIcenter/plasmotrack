@@ -100,7 +100,7 @@ namespace {
 void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, const Study& study, const double leak) {
     auto state = std::make_shared<State>(study, rng, false, leak);
     auto model = std::make_shared<Model>(state);
-    ASSERT_EQ(model->transmissionMemo->leak(), leak);
+    ASSERT_EQ(model->transmissionMemo->leaky(), leak > 0);
     SamplerSet<Model> samplers(state, model, rng);
 
     constexpr int sweeps = 6;
@@ -409,15 +409,15 @@ void checkCacheConsistency(const std::shared_ptr<boost::random::mt19937>& rng, c
                     auto parameter = state->alleleFrequencies->alleleFrequencies(locus);
                     if (leak > 0) {
                         // Every Infection's term reads the frequencies at each of its loci.
-                        auto step = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
-                        step.change(*parameter, transmission_nets::core::datatypes::Simplex(frequencies));
+                        auto proposal = transmission_nets::core::samplers::Proposal(*model, *rng, perturbations);
+                        proposal.change(*parameter, transmission_nets::core::datatypes::Simplex(frequencies));
                         for (size_t j = 0; j < state->infections.size(); ++j) {
                             if (state->infections[j]->latentGenotype().contains(locus)) {
-                                EXPECT_TRUE(model->transmissionProcessList[j]->isDirty()) << "an allele-frequency change, node " << state->infections[j]->id();
+                                EXPECT_TRUE(model->transmissionProcessList[j]->isDirty()) << "an allele-frequency change, Infection " << state->infections[j]->id();
                             }
                         }
-                        step.value();
-                        step.reject();
+                        proposal.value();
+                        proposal.reject();
                         model->value();
                     }
                     perturb(parameter, transmission_nets::core::datatypes::Simplex(frequencies));

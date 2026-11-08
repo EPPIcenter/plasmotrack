@@ -360,7 +360,7 @@ with these changes:
   the value given, since a checkpoint holds no model choice.
 - Samplers that use the subset rule only to build proposals are unchanged. `ParentSetGenotypeProposal` (and through
   it `RandomAllelesBitSetSampler3` and `ParentRelinkSampler`) never proposes an allele no chosen parent carries, so
-  from a state with such an allele its reverse probability can be 0 and those moves are rejected. Such states were
+  from a state with such an allele its reverse probability can be 0 and those Proposals are rejected. Such states were
   already valid through the sets with L; the single-locus, strain-count and allele-swap samplers still leave them.
 
 **Tests.**
@@ -381,7 +381,7 @@ with these changes:
   at ε = 0.03, with the plain leaky terms as reference. It also checks that a frequency change marks every term at
   that locus dirty.
 
-**Cost.** One simulation input (200 nodes, MOI 1, high diversity, `sim_0_s0`), seed 7, instructions retired
+**Cost.** One simulation input (200 Infections, COI 1, high diversity, `sim_0_s0`), seed 7, instructions retired
 (`/usr/bin/time -l`), with start-up and the first two Sampling iterations (a `-b 1 -s 1` run) subtracted from a
 20-iteration run:
 
@@ -392,6 +392,6 @@ with these changes:
 
 Most of the extra time is F tables rebuilt by allele-frequency proposals (`leakyLocusTerms` under `locusTable`).
 With a leak an F table depends on π, so every proposal at a locus rebuilds the F table of every latent entry there,
-where without a leak only the contraction is redone. The pair and order moves also pay more: observed-only sets are
-now finite, and they are summed per locus rather than taken from the genome memo.
+where without a leak only the contraction is redone. `CloneOrderSwapSampler` and `InformedOrderJumpSampler` also pay
+more: observed-only sets are now finite, and they are summed per locus rather than taken from the genome memo.
 
