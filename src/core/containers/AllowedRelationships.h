@@ -39,9 +39,6 @@ namespace transmission_nets::core::containers {
             allowedChildren_[infectionEvent].push_back(child);
         }
 
-        void addInfectionEvent(const std::shared_ptr<InfectionEvent>&) {
-        }
-
     private:
         inline static const std::vector<std::shared_ptr<InfectionEvent>> empty_{};
         boost::container::flat_map<std::shared_ptr<InfectionEvent>, std::vector<std::shared_ptr<InfectionEvent>>, UidLess> permittedParents_{};

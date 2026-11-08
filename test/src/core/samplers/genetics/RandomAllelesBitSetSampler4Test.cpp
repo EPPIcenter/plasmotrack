@@ -41,9 +41,6 @@ TEST(RandomAllelesBitSetSampler4Test, FlatTargetLeavesEveryAlleleEquallyLikely) 
     auto latentParent = std::make_shared<Infection>(*a);
 
     auto relationships = std::make_shared<containers::AllowedRelationships<Infection>>();
-    for (const auto& infection : {a, b, c, latentParent}) {
-        relationships->addInfectionEvent(infection);
-    }
     relationships->addChild(a, b);
     relationships->addChild(b, c);
 
