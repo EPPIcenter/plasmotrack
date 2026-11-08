@@ -34,6 +34,7 @@
 #include <limits>
 #include <memory>
 #include <span>
+#include <stdexcept>
 #include <unordered_map>
 #include <vector>
 
@@ -74,8 +75,7 @@ namespace transmission_nets::model::transmission_process {
         TransmissionMemo(p_ParameterDouble meanStrainsTransmitted, std::shared_ptr<AlleleFrequencyContainer> alleleFrequencies, const double leak = 0)
             : meanStrainsTransmitted_(std::move(meanStrainsTransmitted)), alleleFrequencies_(std::move(alleleFrequencies)), kernel_(leak) {}
 
-        // The transmission leak ε. With ε > 0 the observed-parents terms depend on the Allele frequencies too.
-        [[nodiscard]] double leak() const { return kernel_.leak(); }
+        // Whether the transmission leak ε is above 0: the observed-parents terms then depend on the Allele frequencies too.
         [[nodiscard]] bool leaky() const { return kernel_.leak() > 0; }
 
         [[nodiscard]] const p_ParameterDouble& meanStrainsTransmitted() const { return meanStrainsTransmitted_; }
@@ -202,7 +202,6 @@ namespace transmission_nets::model::transmission_process {
         // latent parent's (null for the observed-parents variant), at the locus' frequencies with the given id (read
         // only with a leak, and required then). Valid until the next beginBatch().
         const LocusTerm& locusTerm(const Variant variant, const core::datatypes::Genotype& child, const std::span<const core::datatypes::Genotype* const> parents, const core::datatypes::Genotype* latentParent, const FrequencyId frequencyId = NO_FREQUENCY) {
-            assert((not leaky() or frequencyId != NO_FREQUENCY) && "a leaky locus term needs a frequency id");
             LocusTermKey key{.variant = variant, .numParents = static_cast<unsigned int>(parents.size() + (latentParent != nullptr ? 1 : 0)), .frequency = leaky() ? frequencyId : 0};
             key.genotypes[0] = child;
             size_t slot      = 1;
@@ -310,8 +309,19 @@ namespace transmission_nets::model::transmission_process {
             for (unsigned int p = 0; p < numObserved; ++p) {
                 parentPointers_[p] = &key.genotypes[p + 1];
             }
-            const std::vector<double>* frequencies = leaky() ? &frequencies_[key.frequency]->values : nullptr;
-            return locusTerms_.emplace(key, kernel_.locusTerm(key.variant, key.genotypes[0], std::span<const core::datatypes::Genotype* const>(parentPointers_.data(), numObserved), latentParent, frequencies)).first->second;
+            return locusTerms_.emplace(key, kernel_.locusTerm(key.variant, key.genotypes[0], std::span<const core::datatypes::Genotype* const>(parentPointers_.data(), numObserved), latentParent, leakyFrequencies(key.frequency))).first->second;
+        }
+
+        // The frequencies with id `frequencyId` when leaky, which a result then needs; null without a leak. Read only
+        // when a result is computed, not when it is found.
+        const std::vector<double>* leakyFrequencies(const FrequencyId frequencyId) const {
+            if (not leaky()) {
+                return nullptr;
+            }
+            if (frequencyId >= frequencies_.size()) {
+                throw std::logic_error("a leaky locus term or F table needs the id of the locus' current Allele frequencies");
+            }
+            return &frequencies_[frequencyId]->values;
         }
 
         // Genome-level memo. Re-evaluating a parent set means summing locus terms over every locus, but in a clonal
@@ -526,10 +536,8 @@ namespace transmission_nets::model::transmission_process {
         // The F table is free of the frequencies without a leak, so shared by every frequency id; with one it is kept
         // per frequency id.
         const FTable& fTable(GenotypeKey key, const FrequencyId frequencyId, const core::datatypes::Genotype& child, const std::span<const core::datatypes::Genotype* const> parents) {
-            const std::vector<double>* frequencies = nullptr;
             if (leaky()) {
                 key.frequency = frequencyId;
-                frequencies   = &frequencies_[frequencyId]->values;
             }
             if (const auto it = fTables_.find(key); it != fTables_.end()) {
                 return it->second;
@@ -544,7 +552,7 @@ namespace transmission_nets::model::transmission_process {
                 olderFTables_ = std::move(fTables_);
                 fTables_      = {};
             }
-            return fTables_.emplace(key, kernel_.fTable(child, parents, frequencies)).first->second;
+            return fTables_.emplace(key, kernel_.fTable(child, parents, leakyFrequencies(frequencyId))).first->second;
         }
 
         // Bounds on cache memory.

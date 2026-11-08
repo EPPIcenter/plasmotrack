@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -151,4 +152,15 @@ TEST(TransmissionMemoTest, ThePlainObservedParentsTermIsTheKernelsSumOverLoci) {
     }
     const double expected = Kernel::strainSummedLogLikelihood(sums, 1, Kernel::strainCountTable(1.7));
     EXPECT_DOUBLE_EQ(f.memo.observedParentsLogLikelihood(child, ParentSet<InfectionEvent>{parent}), expected);
+}
+
+TEST(TransmissionMemoTest, WithALeakALocusTermNeedsAFrequencyId) {
+    Fixture f;
+    Memo leaky{f.meanStrains, f.frequencies, 0.05};
+    leaky.beginBatch();
+    const Genotype child("110"), parent("010");
+    const std::vector<const Genotype*> parents{&parent};
+    EXPECT_THROW(leaky.locusTerm(Variant::ObservedParents, child, parents, nullptr), std::logic_error);
+    EXPECT_THROW(Memo(f.meanStrains, f.frequencies, 1.0), std::invalid_argument);
+    EXPECT_THROW(Memo(f.meanStrains, f.frequencies, -0.1), std::invalid_argument);
 }

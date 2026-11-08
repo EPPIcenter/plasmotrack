@@ -34,11 +34,11 @@
 #include <algorithm>
 #include <array>
 #include <bit>
-#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <limits>
 #include <span>
+#include <stdexcept>
 #include <vector>
 
 namespace transmission_nets::model::transmission_process {
@@ -49,7 +49,8 @@ namespace transmission_nets::model::transmission_process {
         using Genotype = core::datatypes::Genotype;
 
     public:
-        explicit TransmissionKernel(const double leak = 0) : leak_(leak) {}
+        // Throws std::invalid_argument unless 0 <= `leak` < 1.
+        explicit TransmissionKernel(const double leak = 0) : leak_(checkedLeak(leak)) {}
 
         // The transmission leak ε.
         [[nodiscard]] double leak() const { return leak_; }
@@ -215,7 +216,9 @@ namespace transmission_nets::model::transmission_process {
 
             if (leak_ > 0) {
                 // The leaky pool on the child's alleles: (1 - ε) p_j + ε π_j.
-                assert(frequencies != nullptr && "a leaky locus term needs the locus' Allele frequencies");
+                if (frequencies == nullptr) {
+                    throw std::logic_error("a leaky locus term needs the locus' Allele frequencies");
+                }
                 for (size_t k = 0; k < childAlleles_.size(); ++k) {
                     parentPopFreqs_[k] = (1.0 - leak_) * parentPopFreqs_[k] + leak_ * (*frequencies)[childAlleles_[k]];
                 }
@@ -402,6 +405,9 @@ namespace transmission_nets::model::transmission_process {
         // The F table for a child genotype and the observed parents' genotypes (none for the latent parent alone).
         // `frequencies` as for locusTerm(): with a leak the table depends on them.
         FTable fTable(const Genotype& child, const std::span<const Genotype* const> parents, const std::vector<double>* frequencies = nullptr) {
+            if (leak_ > 0 and frequencies == nullptr) {
+                throw std::logic_error("a leaky F table needs the locus' Allele frequencies");
+            }
             const auto childAlleles = allelesOf(child);
             const unsigned int A    = child.totalAlleles();
             const auto c            = static_cast<unsigned int>(childAlleles.size());
@@ -578,6 +584,13 @@ namespace transmission_nets::model::transmission_process {
         }
 
     private:
+        static double checkedLeak(const double leak) {
+            if (not(leak >= 0 and leak < 1)) {
+                throw std::invalid_argument("the transmission leak must be at least 0 and below 1");
+            }
+            return leak;
+        }
+
         static constexpr std::array<double, MAX_STRAINS + 1> FACTORIAL = [] {
             std::array<double, MAX_STRAINS + 1> out{};
             out[0] = 1.0;
