@@ -399,9 +399,11 @@ more: observed-only sets are now finite, and they are summed per locus rather th
 ### 6.1 Sampling the leak (`--leak-prior`)
 
 With `--leak-prior` the leak ε is a Run scalar, `transmission_leak`, sampled by a random walk on the logit of ε within
-the prior's range, starting at `--transmission-leak`. Priors: `loguniform:LO,HI`
+the prior's range, starting at `--transmission-leak` (moved just inside the range if the range doesn't strictly hold
+it; the manifest records the start used). A restored leak the prior holds is left as it is, so a resumed chain goes on
+as an uninterrupted one would. Priors: `loguniform:LO,HI`
 (density 1/ε on [LO, HI]; `loguniform` alone is [1e-7, 0.1]) lets the data choose a leak near 0; `exponential:RATE`
-on (0, 0.5) has mean 1/RATE.
+truncated to (0, 0.5) has mean about 1/RATE.
 
 A change of ε changes every Transmission term, so a step re-evaluates them all. The memo follows the parameter: a
 change puts its results aside and starts afresh under a new generation; a rejected step brings the old results back

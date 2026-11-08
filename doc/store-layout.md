@@ -290,7 +290,7 @@ Written once at Run start. A resumed Run keeps its manifest, and its `run_resume
 | `burn_in` | `-b` |
 | `samples` | `-s`, as planned at Run start |
 | `null_model` | Whether the Run uses the null model (`--null-model`, which may be abbreviated). `--resume` reads it from here |
-| `transmission_leak` | `--transmission-leak`. A manifest without it reads as 0 |
+| `transmission_leak` | `--transmission-leak`. With `--leak-prior`, the leak the Run starts from: the one given, or if the prior's range doesn't strictly hold it, a value just inside the range. A manifest without it reads as 0 |
 | `leak_prior` | `--leak-prior`, in one form per prior (`loguniform` is recorded as `loguniform:1e-07,0.1`); empty for a fixed leak |
 | `error_model` | `--error-model`; empty for `infection` |
 | `thin` | `-t` |
