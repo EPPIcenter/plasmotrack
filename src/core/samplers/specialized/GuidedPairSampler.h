@@ -551,7 +551,7 @@ namespace transmission_nets::core::samplers::specialized {
         const double spent     = evaluations_;
         ++p.stats.swaps;
         if (not exchange(p)) {
-            countMove(false);
+            countProposal(false);
             return;
         }
         p.stats.exchangeAcceptance += std::min(1.0, std::exp(target_->value() - before));
@@ -576,7 +576,7 @@ namespace transmission_nets::core::samplers::specialized {
         } else {
             restore(p, durationA, durationB, current);
         }
-        countMove(accepted);
+        countProposal(accepted);
     }
 
 }// namespace transmission_nets::core::samplers::specialized
