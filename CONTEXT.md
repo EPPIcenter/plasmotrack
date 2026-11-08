@@ -81,7 +81,7 @@ The arithmetic of the Transmission process for one Locus or one Parent set: a pu
 _Avoid_: Node transmission process, likelihood function, core
 
 **Transmission memo**:
-The per-chain memory of Transmission kernel results, keyed by genome and frequency identity, shared by every Infection's Transmission term. Its one lifetime rule: a term begins a batch before each evaluation, and results from before the batch may be gone.
+The per-chain memory of Transmission kernel results, keyed by genome and frequency identity, shared by every Infection's Transmission term. Two lifetime rules: a term begins a batch before each evaluation, and results from before the batch may be gone; and with a sampled Transmission leak, a change of leak puts every result aside and starts afresh, and the Proposal's reject brings them back while its accept drops them.
 _Avoid_: Cache (every module has caches; this is the one that is shared), node process, marginal
 
 **Parent pool**:
@@ -89,12 +89,20 @@ The Allele distribution a Parent set's transmitted strains draw from at one Locu
 _Avoid_: Mixture, transmitted frequencies
 
 **Transmission leak**:
-The share ε of every Parent pool that comes from the Allele frequencies instead of the parents: the pool becomes (1 − ε) times the parents' plus ε times the Allele frequencies, so a child Allele no parent carries is improbable rather than impossible. A model choice of the Run recipe (`--transmission-leak`), at least 0 and below 1; 0, the default, is the model without one. See section 6 of `doc/marginal-latent-parent.md`.
+The share ε of every Parent pool that comes from the Allele frequencies instead of the parents: the pool becomes (1 − ε) times the parents' plus ε times the Allele frequencies, so a child Allele no parent carries is improbable rather than impossible. A model choice of the Run recipe (`--transmission-leak`), at least 0 and below 1; 0, the default, is the model without one. With a Leak prior it is sampled instead: a Run scalar (`transmission_leak`) starting at the leak given, or just inside the prior's range when the range doesn't strictly hold it, and the Run manifest records that start. See section 6 of `doc/marginal-latent-parent.md`.
 _Avoid_: Leakage, contamination, epsilon (in prose), background noise
+
+**Leak prior**:
+The prior a sampled Transmission leak has, and the model choice of the Run recipe that makes the leak sampled (`--leak-prior`): log-uniform on a range (`loguniform:LO,HI`) or exponential truncated to (0, 0.5) (`exponential:RATE`). Without one the leak is fixed. Compared by meaning: `loguniform` is `loguniform:1e-07,0.1`.
+_Avoid_: Leak distribution, leak hyperprior
 
 **Observation process**:
 The model component giving the probability of an Observed genotype given a Latent genotype — how genotyping introduces false positive and false negative Alleles.
-_Avoid_: Error model, noise model, measurement model
+_Avoid_: Noise model, measurement model
+
+**Error model**:
+How the Observation process's two error rates, false positive and false negative, are shared between Infections; a model choice of the Run recipe (`--error-model`). `infection`, the default: each Infection its own rates. `shared`: one pair of rates for every Infection. `hierarchical`: each Infection its own rates, drawn from a Gamma whose mean and shape are sampled Run scalars (`efp_mean`, `efp_shape`, `efn_mean`, `efn_shape`). Not the Observation process itself, which it parameterises.
+_Avoid_: Noise model, error structure, rate pooling
 
 **Allele frequency**:
 The prevalence of an Allele at a Locus in the Source population. Inferred, per Locus.
@@ -178,6 +186,10 @@ _Avoid_: Runner, engine, main loop, sampler (already the MCMC moves)
 Everything that decides how a Run samples and what it records: chain count, temperature ladder, burn-in and sampling lengths, thinning, Window size, Parent-set floor, seed and model choice. Fixed when a Run starts; resuming a Run must keep it, except that sampling may be lengthened. Recorded in the Run manifest.
 _Avoid_: Config, settings, options (those are what was given on the command line, before it resolves to a recipe)
 
+**Model choice**:
+One of the Run recipe's choices that decide which model a chain samples: the null model, the Transmission leak, the Leak prior and the Error model. Fixed for a Run and never sampled themselves; `ModelChoice` carries them to the State, which builds the Quantities they call for.
+_Avoid_: Model options, model config, variant
+
 **Run assembly**:
 The one place that turns a resolved Run recipe, the loaded inputs and the checkpoint if there is one into a Run ready to drive: the engine, the Ensemble, the Run recorder and the Run driver, with where the Run starts. It owns the seed draw, the burn-in reset and reseed of a Run started from a checkpoint, and the Run manifest's identity. main and the tests assemble a Run the same way.
 _Avoid_: Setup, bootstrap, factory, wiring, main
@@ -211,7 +223,7 @@ An Allele frequency Proposal drawn independently of the current frequencies, fro
 _Avoid_: Global move, refresh, Gibbs step
 
 **Quantity**:
-One sampled part of the State, named once. The name is the target in its sampler's id, its Trace column or table, and its Checkpoint key. Five kinds: a Run scalar, a per-Infection value, a Locus's Allele frequencies, an Infection's Latent genotype at a Locus, and the Ordering. The priors' hyperparameters and the input are not Quantities.
+One sampled part of the State, named once. The name is the target in its sampler's id, its Trace column or table, and its Checkpoint key. Five kinds: a Run scalar, a per-Infection value, a Locus's Allele frequencies, an Infection's Latent genotype at a Locus, and the Ordering. The priors' hyperparameters and the input are not Quantities, except those an Error model or Leak prior samples: under the hierarchical Error model the rates' means and shapes are Run scalars, and with a Leak prior so is the Transmission leak.
 _Avoid_: parameter (the class a Quantity's value lives in), field, variable
 ### Output
 

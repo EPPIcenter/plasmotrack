@@ -80,6 +80,10 @@ namespace transmission_nets::impl::Model {
         bool nullModel       = false;
         // The Transmission process's leak ε; 0 is the model without one. A manifest written before it existed reads as 0.
         double transmissionLeak = 0;
+        // With a leak prior the leak is sampled, starting at transmissionLeak (see ModelChoice); the error model. Empty
+        // in a manifest written before these existed.
+        std::string leakPrior{};
+        std::string errorModel{};
         std::optional<nlohmann::json> startedFrom{};
 
         bool operator==(const RunManifest&) const = default;

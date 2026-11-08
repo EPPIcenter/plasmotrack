@@ -94,7 +94,9 @@ int main(int argc, char** argv) {
         opts("resume", po::value<std::string>(), "Continue the Run whose store is this directory from its latest checkpoint, with the same input. Give no output directory. Recipe options default to the Run's; only -s may change, and only grow.");
         opts("start-from", po::value<std::string>(), "Start a new Run from the State and adaptation in this checkpoint (a Run's checkpoint.cbor or checkpoint-burn-in.cbor), with the same input. The new Run has its own seed and -b burn-in, and numbers iterations from 0.");
         opts("null-model", po::bool_switch(&null_model)->default_value(false), "Run the null model (no genetics)");
-        opts("transmission-leak", po::value<double>()->default_value(defaults::TRANSMISSION_LEAK), "The Transmission process's leak, at least 0 and below 1: each Parent set's allele pool at a Locus is mixed with the Allele frequencies in this proportion, so a child Allele no parent carries is improbable rather than impossible. 0 is the model without a leak.");
+        opts("transmission-leak", po::value<double>()->default_value(defaults::TRANSMISSION_LEAK), "The Transmission process's leak, at least 0 and below 1: each Parent set's allele pool at a Locus is mixed with the Allele frequencies in this proportion, so a child Allele no parent carries is improbable rather than impossible. 0 is the model without a leak. With --leak-prior, the starting leak, moved just inside the prior's range if it lies outside (the manifest records the start used).");
+        opts("leak-prior", po::value<std::string>(), "Sample the transmission leak under this prior, starting at --transmission-leak: loguniform:LO,HI (density 1/leak on [LO, HI]; loguniform alone is loguniform:1e-7,0.1) or exponential:RATE, truncated to (0, 0.5) (exponential alone is RATE 100). Not given: the leak is fixed.");
+        opts("error-model", po::value<std::string>(), "How the observation error rates are shared: infection (each Infection its own, the default), shared (one false-positive and one false-negative rate for all), or hierarchical (each Infection its own, drawn from a population with sampled mean and shape).");
 
         po::positional_options_description p;
         p.add("input", 1);
@@ -143,6 +145,8 @@ int main(int argc, char** argv) {
                                   .seed           = givenValue<long>(vm, "seed"),
                                   .nullModel      = null_model,
                                   .transmissionLeak = givenValue<double>(vm, "transmission-leak"),
+                                  .leakPrior      = givenValue<std::string>(vm, "leak-prior"),
+                                  .errorModel     = givenValue<std::string>(vm, "error-model"),
                                   .outputDir      = givenValue<std::string>(vm, "output-dir"),
                                   .resume         = givenValue<std::string>(vm, "resume"),
                                   .startFrom      = givenValue<std::string>(vm, "start-from")};
@@ -185,7 +189,9 @@ int main(int argc, char** argv) {
         if (recipe.manifest.nullModel) {
             progress.notice("Running the null model (no genetics)");
         }
-        if (recipe.manifest.transmissionLeak > 0) {
+        if (not recipe.manifest.leakPrior.empty()) {
+            progress.notice(fmt::format("Transmission leak sampled under {}", recipe.manifest.leakPrior));
+        } else if (recipe.manifest.transmissionLeak > 0) {
             progress.notice(fmt::format("Transmission leak: {}", recipe.manifest.transmissionLeak));
         }
 

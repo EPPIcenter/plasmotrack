@@ -96,6 +96,27 @@ test_that("pt_read() errors when Runs differ in the transmission leak, a missing
   expect_no_error(read_golden(c(a = golden_store(), b = older)))
 })
 
+test_that("pt_read() errors when Runs differ in the Leak prior or Error model, compared by meaning", {
+  logu <- local_golden_copy("replica-exchange")
+  edit_manifest(logu, leak_prior = "loguniform:1e-07,0.1")
+  expect_error(read_golden(c(a = golden_store(), b = logu)), "leak_prior")
+
+  # The bare name means its default range; with a Leak prior the leak recorded is only the start.
+  same <- local_golden_copy("single-chain")
+  edit_manifest(same, leak_prior = "loguniform", transmission_leak = 0.003)
+  expect_no_error(read_golden(c(a = same, b = logu)))
+  other <- local_golden_copy("single-chain")
+  edit_manifest(other, leak_prior = "loguniform:1e-06,0.1")
+  expect_error(read_golden(c(a = other, b = logu)), "leak_prior")
+
+  shared <- local_golden_copy("replica-exchange")
+  edit_manifest(shared, error_model = "shared")
+  expect_error(read_golden(c(a = golden_store(), b = shared)), "error_model")
+  infection <- local_golden_copy("replica-exchange")
+  edit_manifest(infection, error_model = "infection")
+  expect_no_error(read_golden(c(a = golden_store(), b = infection)))
+})
+
 test_that("pt_read() errors on a missing required table, naming it", {
   store <- local_golden_copy()
   unlink(file.path(store, "parent_sets"), recursive = TRUE)

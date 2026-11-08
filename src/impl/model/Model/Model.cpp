@@ -3,11 +3,16 @@
 //
 
 #include "Model.h"
+#include "ErrorRatePrior.h"
 
 #include "core/abstract/observables/Dependency.h"
 #include "core/distributions/pdfs/DiscretePDF.h"
 #include "core/distributions/pdfs/GammaLogPDF.h"
 #include "core/distributions/pdfs/BetaLogPDF.h"
+#include "core/distributions/pdfs/FunctionLogPDF.h"
+
+#include <cmath>
+#include <limits>
 
 #include <utility>
 
@@ -16,7 +21,13 @@ namespace transmission_nets::impl::Model {
     Model::Model(std::shared_ptr<State> state, double temperature) : state_(std::move(state)), temperature(temperature) {
         core::abstract::dependsOn(this, likelihood, prior);
 
-        transmissionMemo        = std::make_shared<TransmissionMemoImpl>(state_->meanStrainsTransmitted, state_->alleleFrequencies, state_->transmissionLeak);
+        transmissionMemo        = std::make_shared<TransmissionMemoImpl>(state_->meanStrainsTransmitted, state_->alleleFrequencies, state_->transmissionLeak->value());
+        if (state_->leakPrior) {
+            // The memo follows the sampled leak.
+            transmissionMemo->followLeak(state_->transmissionLeak);
+            prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
+                    "transmission_leak_prior", [leak = state_->transmissionLeak, p = *state_->leakPrior]() { return p.logDensity(leak->value()); }, state_->transmissionLeak));
+        }
         parentSetSizeLikelihood = std::make_shared<ParentSetSizeLikelihoodImpl>(state_->parentSetSizeProb);
         coiProb                 = std::make_shared<COIProbabilityImpl>(state_->meanCOI);
 
@@ -26,11 +37,36 @@ namespace transmission_nets::impl::Model {
         prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->meanStrainsTransmitted, state_->meanStrainsTransmittedPriorShape, state_->meanStrainsTransmittedPriorScale));
         prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->parentSetSizeProb, state_->parentSetSizePriorAlpha, state_->parentSetSizePriorBeta));
 //        prior.addTarget(std::make_shared<core::distributions::BetaLogPDF>(state_->geometricGenerationProb, state_->geometricGenerationProbPriorAlpha, state_->geometricGenerationProbPriorBeta));
-        for (auto& obs : state_->expectedFalsePositives) {
-            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
-        }
-        for (auto& obs : state_->expectedFalseNegatives) {
-            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFNRPriorShape, state_->obsFNRPriorScale));
+        if (state_->errorModel == ErrorModel::Shared) {
+            // Every Infection holds the same two rates: one prior each.
+            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->expectedFalsePositives.front(), state_->obsFPRPriorShape, state_->obsFPRPriorScale));
+            prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(state_->expectedFalseNegatives.front(), state_->obsFNRPriorShape, state_->obsFNRPriorScale));
+        } else if (state_->errorModel == ErrorModel::Hierarchical) {
+            // rate_i ~ Gamma(shape, mean / shape) truncated to the rates' range (ErrorRatePrior.h); mean ~ the wide Gamma
+            // prior of its kind of rate; shape log-uniform on [HIERARCHICAL_SHAPE_LOWER, HIERARCHICAL_SHAPE_UPPER].
+            const auto addRates = [&](const std::vector<State::p_Parameterdouble>& rates, const State::p_Parameterdouble& mean, const State::p_Parameterdouble& shape, double meanScale, const std::string& name) {
+                for (const auto& rate : rates) {
+                    prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
+                            name, [=]() { return truncatedGammaLogDensity(rate->value(), mean->value(), shape->value()); }, rate, mean, shape));
+                }
+                prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
+                        name + "_mean", [=]() { return core::distributions::gammaLogDensity(mean->value(), WIDE_RATE_PRIOR_SHAPE, meanScale); }, mean));
+                prior.addTarget(std::make_shared<core::distributions::FunctionLogPDF>(
+                        name + "_shape", [=]() {
+                            const double s = shape->value();
+                            return s >= HIERARCHICAL_SHAPE_LOWER and s <= HIERARCHICAL_SHAPE_UPPER ? -std::log(s) : -std::numeric_limits<double>::infinity();
+                        },
+                        shape));
+            };
+            addRates(state_->expectedFalsePositives, state_->efpMean, state_->efpShape, WIDE_FALSE_POSITIVE_PRIOR_SCALE, "efp");
+            addRates(state_->expectedFalseNegatives, state_->efnMean, state_->efnShape, WIDE_FALSE_NEGATIVE_PRIOR_SCALE, "efn");
+        } else {
+            for (auto& obs : state_->expectedFalsePositives) {
+                prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFPRPriorShape, state_->obsFPRPriorScale));
+            }
+            for (auto& obs : state_->expectedFalseNegatives) {
+                prior.addTarget(std::make_shared<core::distributions::GammaLogPDF>(obs, state_->obsFNRPriorShape, state_->obsFNRPriorScale));
+            }
         }
 
         int i = 0;

@@ -19,10 +19,7 @@ namespace transmission_nets::core::distributions {
 
     computation::Likelihood GammaLogPDF::value() {
         if (isDirty()) {
-            logDenominator_ = std::lgamma(shape_->value()) + (shape_->value() * std::log(scale_->value()));
-            value_          = (shape_->value() - 1) * std::log(target_->value()) +
-                     (-target_->value() / scale_->value()) -
-                     logDenominator_;
+            value_ = gammaLogDensity(target_->value(), shape_->value(), scale_->value());
             this->setClean();
         }
         return value_;

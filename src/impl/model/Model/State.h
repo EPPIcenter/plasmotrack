@@ -9,6 +9,7 @@
 #define TRANSMISSION_NETWORKS_APP_STATE_H
 
 #include "config.h"
+#include "ModelChoice.h"
 #include "Refusal.h"
 #include "Study.h"
 #include "core/containers/AllowedRelationships.h"
@@ -18,6 +19,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -30,10 +32,16 @@ namespace transmission_nets::impl::Model {
         // Builds the starting State of `study`: each unobserved Locus's Latent genotype is one random Allele drawn
         // from `rng`. Throws Refused for a Study whose Infections name a Locus or a parent it doesn't have, or whose
         // genotypes or frequencies don't fit their Locus.
-        // `transmission_leak` is the Transmission process's leak ε (see doc/marginal-latent-parent.md, section 6).
+        State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const ModelChoice& choice);
+        // The same, for these choices and the rest at their defaults.
         explicit State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, bool null_model = false, double transmission_leak = 0);
 
         void initPriors();
+
+        // Moves a sampled leak the prior doesn't hold (LeakPrior::holds) just inside its range, as a new State starts
+        // it; a restored leak may come from a Run with another prior. A leak the prior holds stays exactly as it is, so
+        // a resumed chain goes on as an uninterrupted one would.
+        void keepLeakInsidePrior();
 
         // The Infection with `id`, and its position in `infections`. Throw std::out_of_range for an unknown id.
         [[nodiscard]] std::shared_ptr<InfectionEvent> infection(const std::string& id) const;
@@ -49,6 +57,15 @@ namespace transmission_nets::impl::Model {
             v.scalar("mean_coi", meanCOI);
             v.scalar("mean_strains_tx", meanStrainsTransmitted);
             v.scalar("parent_set_size_prob", parentSetSizeProb);
+            if (leakPrior) {
+                v.scalar("transmission_leak", transmissionLeak);
+            }
+            if (errorModel == ErrorModel::Hierarchical) {
+                v.scalar("efp_mean", efpMean);
+                v.scalar("efp_shape", efpShape);
+                v.scalar("efn_mean", efnMean);
+                v.scalar("efn_shape", efnShape);
+            }
             for (size_t i = 0; i < infections.size(); ++i) {
                 v.perInfection("expected_false_positives", i, expectedFalsePositives[i]);
                 v.perInfection("expected_false_negatives", i, expectedFalseNegatives[i]);
@@ -71,8 +88,11 @@ namespace transmission_nets::impl::Model {
         [[nodiscard]] std::vector<std::string> scalarNames() const;
         [[nodiscard]] std::vector<std::string> perInfectionNames() const;
         bool nullModel{};
-        // The transmission leak ε, a model choice of the Run recipe: not a Quantity, never sampled or checkpointed.
-        double transmissionLeak{};
+        // The Transmission leak ε the Transmission memo reads: fixed at the Run recipe's, or with a leak prior a
+        // Quantity (Run scalar transmission_leak) starting at LeakPrior::startAt of the recipe's.
+        p_Parameterdouble transmissionLeak;
+        std::optional<LeakPrior> leakPrior{};
+        ErrorModel errorModel = ErrorModel::Infection;
         std::map<std::string, std::shared_ptr<LocusImpl>> loci{};
         std::vector<std::shared_ptr<InfectionEvent>> infections{};
         // Each infection's latent parent, summed out of the model. These name it in parent-set output (id `<id>_copy`)
@@ -98,6 +118,12 @@ namespace transmission_nets::impl::Model {
         std::vector<p_Parameterdouble> expectedFalseNegatives{};
         p_Parameterdouble obsFNRPriorShape;
         p_Parameterdouble obsFNRPriorScale;
+
+        // ErrorModel::Hierarchical: each rate's population mean and shape, sampled.
+        p_Parameterdouble efpMean;
+        p_Parameterdouble efpShape;
+        p_Parameterdouble efnMean;
+        p_Parameterdouble efnShape;
 
         // Parent Set Size Likelihood
         p_Parameterdouble parentSetSizeProb;

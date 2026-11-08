@@ -3,6 +3,7 @@
 //
 
 #include "RunRecipe.h"
+#include "ModelChoice.h"
 
 #include "core/version.h"
 
@@ -11,6 +12,19 @@
 namespace transmission_nets::impl::Model {
 
     namespace {
+        // The leak a Run with `leakPrior` starts from when given `leak`: `leak` itself without a leak prior or with
+        // one that doesn't parse.
+        double startedLeak(const std::string& leakPrior, const double leak) {
+            if (leakPrior.empty()) {
+                return leak;
+            }
+            try {
+                return parseLeakPrior(leakPrior).startAt(leak);
+            } catch (const std::invalid_argument&) {
+                return leak;
+            }
+        }
+
         std::optional<Refusal> modeRefusal(const GivenOptions& given, const std::optional<StoredRun>& stored) {
             if (given.resume and given.startFrom) {
                 return refuse(RefusalKind::ResumeWithStartFrom, "--resume and --start-from can't be given together.");
@@ -85,7 +99,12 @@ namespace transmission_nets::impl::Model {
             }
             requireSame("--parent-set-floor", given.parentSetFloor, stored.options.parentSetFloor);
             requireSame("--seed", given.seed, manifest.seed);
-            requireSame("--transmission-leak", given.transmissionLeak, manifest.transmissionLeak);
+            requireSame("--leak-prior", given.leakPrior ? std::optional(canonicalLeakPrior(*given.leakPrior)) : std::nullopt, canonicalLeakPrior(manifest.leakPrior));
+            // With a leak prior, the leak given and the one recorded are compared as the starts they make (a new Run
+            // records the start it used, an older one the leak given).
+            const auto leakStart = [&](const double leak) { return leak >= 0 and leak < 1 ? startedLeak(manifest.leakPrior, leak) : leak; };
+            requireSame("--transmission-leak", given.transmissionLeak ? std::optional(leakStart(*given.transmissionLeak)) : std::nullopt, leakStart(manifest.transmissionLeak));
+            requireSame("--error-model", given.errorModel ? std::optional(canonicalErrorModel(*given.errorModel)) : std::nullopt, canonicalErrorModel(manifest.errorModel));
             if (given.nullModel and !manifest.nullModel and !refusal) {
                 refusal = refuse(RefusalKind::RecipeChanged, "the Run was started without --null-model; resuming it needs the same.");
             }
@@ -135,7 +154,9 @@ namespace transmission_nets::impl::Model {
                                .burnIn        = recipe.plan.burnIn,
                                .samples       = recipe.plan.samples,
                                .nullModel     = given.nullModel,
-                               .transmissionLeak = given.transmissionLeak.value_or(defaults::TRANSMISSION_LEAK)};
+                               .transmissionLeak = given.transmissionLeak.value_or(defaults::TRANSMISSION_LEAK),
+                               .leakPrior     = given.leakPrior ? canonicalLeakPrior(*given.leakPrior) : std::string{},
+                               .errorModel    = canonicalErrorModel(given.errorModel.value_or(""))};
             return recipe;
         }
 
@@ -171,12 +192,29 @@ namespace transmission_nets::impl::Model {
         auto resolved = given.resume      ? resumedRun(given, *stored, *saved)
                         : given.startFrom ? startedRun(given, *saved)
                                           : newRun(given);
-        if (const auto* recipe = std::get_if<Recipe>(&resolved)) {
+        if (auto* recipe = std::get_if<Recipe>(&resolved)) {
             if (auto refusal = rangeRefusal(recipe->recorder)) {
                 return *refusal;
             }
             if (const double leak = recipe->manifest.transmissionLeak; !(leak >= 0 and leak < 1)) {
                 return refuse(RefusalKind::TransmissionLeakOutOfRange, fmt::format("--transmission-leak must be at least 0 and below 1 (got {}).", leak));
+            }
+            try {
+                if (not recipe->manifest.leakPrior.empty()) {
+                    parseLeakPrior(recipe->manifest.leakPrior);
+                }
+                parseErrorModel(recipe->manifest.errorModel);
+            } catch (const std::invalid_argument& e) {
+                return refuse(RefusalKind::UnknownModelChoice, e.what());
+            }
+            // A new Run records the leak it starts from, said if it isn't the one given.
+            if (recipe->mode != Mode::Resume) {
+                auto& manifest     = recipe->manifest;
+                const double start = startedLeak(manifest.leakPrior, manifest.transmissionLeak);
+                if (start != manifest.transmissionLeak) {
+                    recipe->notices.push_back(fmt::format("--transmission-leak {} is outside the leak prior {}; the sampled leak starts at {}.", manifest.transmissionLeak, manifest.leakPrior, start));
+                    manifest.transmissionLeak = start;
+                }
             }
         }
         return resolved;

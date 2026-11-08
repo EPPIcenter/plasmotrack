@@ -167,6 +167,83 @@ TEST(RunRecipe, GivenValuesReplaceTheDefaults) {
     EXPECT_EQ(recipe.manifest.transmissionLeak, 0.02);
 }
 
+// A leak prior or error model the State can't read is refused before the Run starts.
+TEST(RunRecipe, AnUnknownLeakPriorOrErrorModelIsRefused) {
+    GivenOptions given = newRun();
+    given.leakPrior    = "loguniform";
+    given.errorModel   = "hierarchical";
+    const auto recipe  = recipeOf(resolve(given, std::nullopt, std::nullopt));
+    EXPECT_EQ(recipe.manifest.leakPrior, "loguniform:1e-07,0.1");
+    EXPECT_EQ(recipe.manifest.errorModel, "hierarchical");
+    for (const auto& prior : {"lognormal", "loguniform:0.1", "loguniform:0.1,0.01", "exponential:-1", "loguniform:1e-3x,0.1", "exponential:50x"}) {
+        auto bad      = newRun();
+        bad.leakPrior = prior;
+        EXPECT_EQ(refusalOf(resolve(bad, std::nullopt, std::nullopt)), RefusalKind::UnknownModelChoice) << prior;
+    }
+    auto bad       = newRun();
+    bad.errorModel = "pooled";
+    EXPECT_EQ(refusalOf(resolve(bad, std::nullopt, std::nullopt)), RefusalKind::UnknownModelChoice);
+}
+
+// A leak prior is compared by what it means: the default range given explicitly resumes a Run started with the bare
+// name.
+TEST(RunRecipe, ResumingComparesLeakPriorsByMeaning) {
+    auto stored                = storedRun();
+    stored.manifest.leakPrior  = "loguniform";
+    const auto same            = resume([](GivenOptions& g) { g.leakPrior = "loguniform:1e-7,0.1"; }, stored);
+    EXPECT_TRUE(std::holds_alternative<Recipe>(same));
+    EXPECT_EQ(refusalOf(resume([](GivenOptions& g) { g.leakPrior = "loguniform:1e-6,0.1"; }, stored)), RefusalKind::RecipeChanged);
+}
+
+// So is an error model: --error-model infection resumes a Run started without the option.
+TEST(RunRecipe, ResumingComparesErrorModelsByMeaning) {
+    EXPECT_TRUE(std::holds_alternative<Recipe>(resume([](GivenOptions& g) { g.errorModel = "infection"; }, storedRun())));
+    EXPECT_EQ(refusalOf(resume([](GivenOptions& g) { g.errorModel = "shared"; }, storedRun())), RefusalKind::RecipeChanged);
+    auto given       = newRun();
+    given.errorModel = "infection";
+    EXPECT_EQ(recipeOf(resolve(given, std::nullopt, std::nullopt)).manifest.errorModel, "");
+}
+
+// With a leak prior, a leak given outside it starts just inside: the manifest records that start, and a notice says so.
+TEST(RunRecipe, ANewRunRecordsTheLeakItStartsFrom) {
+    auto given      = newRun();
+    given.leakPrior = "loguniform";
+    const auto recipe = recipeOf(resolve(given, std::nullopt, std::nullopt));
+    EXPECT_EQ(recipe.manifest.transmissionLeak, 1e-7 * 1.0001 + 1e-12);
+    ASSERT_EQ(recipe.notices.size(), 1u);
+    EXPECT_NE(recipe.notices[0].find("starts at"), std::string::npos) << recipe.notices[0];
+
+    given.transmissionLeak = 0.01;
+    const auto inside      = recipeOf(resolve(given, std::nullopt, std::nullopt));
+    EXPECT_EQ(inside.manifest.transmissionLeak, 0.01);
+    EXPECT_TRUE(inside.notices.empty());
+
+    given.leakPrior        = std::nullopt;
+    given.transmissionLeak = std::nullopt;
+    EXPECT_EQ(recipeOf(resolve(given, std::nullopt, std::nullopt)).manifest.transmissionLeak, 0.0) << "a fixed leak is as given";
+}
+
+// Resuming compares leaks as the starts they make: the leak given at the start resumes the Run whose manifest holds the
+// start used, and an older manifest holding the leak given resumes too.
+TEST(RunRecipe, ResumingComparesTheLeaksStarts) {
+    for (const double recorded : {1e-7 * 1.0001 + 1e-12, 0.0}) {
+        auto stored                      = storedRun();
+        stored.manifest.leakPrior        = "loguniform:1e-07,0.1";
+        stored.manifest.transmissionLeak = recorded;
+        const auto given = [](const double leak) {
+            return [=](GivenOptions& g) {
+                g.leakPrior        = "loguniform";
+                g.transmissionLeak = leak;
+            };
+        };
+        EXPECT_EQ(refusalOf(resume(given(0.0), stored)), std::nullopt) << recorded;
+        EXPECT_EQ(refusalOf(resume(given(1e-9), stored)), std::nullopt) << recorded;
+        EXPECT_EQ(refusalOf(resume(given(0.01), stored)), RefusalKind::RecipeChanged) << recorded;
+        EXPECT_EQ(refusalOf(resume(given(2.0), stored)), RefusalKind::RecipeChanged) << recorded;
+        EXPECT_EQ(recipeOf(resume(given(0.0), stored)).manifest.transmissionLeak, recorded) << "a resumed Run keeps its manifest";
+    }
+}
+
 TEST(RunRecipe, TheTransmissionLeakMustBeAtLeastZeroAndBelowOne) {
     for (const auto leak : {-0.01, 1.0, 2.0}) {
         auto given             = newRun();
@@ -253,6 +330,8 @@ TEST(RunRecipe, ResumingWithAnotherRecipeIsRefused) {
             {"--seed", [](GivenOptions& g) { g.seed = 43; }},
             {"--null-model", [](GivenOptions& g) { g.nullModel = true; }},
             {"--transmission-leak", [](GivenOptions& g) { g.transmissionLeak = 0.02; }},
+            {"--leak-prior", [](GivenOptions& g) { g.leakPrior = "loguniform"; }},
+            {"--error-model", [](GivenOptions& g) { g.errorModel = "shared"; }},
     };
     for (const auto& [option, change] : changes) {
         EXPECT_EQ(refusalOf(resume(change)), RefusalKind::RecipeChanged) << option;

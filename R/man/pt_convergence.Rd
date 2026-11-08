@@ -59,7 +59,9 @@ estimates elsewhere in the package still use every Draw.
 \code{\link[=pt_as_draws]{pt_as_draws()}}:
 \itemize{
 \item \code{log_posterior}: \code{log_posterior}, the log prior plus the log likelihood.
-\item \code{global}: \code{mean_coi}, \code{mean_strains_tx}, \code{parent_set_size_prob}.
+\item \code{global}: \code{mean_coi}, \code{mean_strains_tx}, \code{parent_set_size_prob}, and the Run scalars a Leak prior or the
+hierarchical Error model adds when the Runs have them: \code{transmission_leak}, \code{efp_mean}, \code{efp_shape}, \code{efn_mean},
+\code{efn_shape}.
 \item \code{expected_false_positives}, \code{expected_false_negatives}, \code{infection_duration}: one per Infection, such as
 \code{infection_duration[12]}. The per-Allele error rate is the expected count over the Infection's Alleles, a
 constant factor, so its diagnostics are the count's.

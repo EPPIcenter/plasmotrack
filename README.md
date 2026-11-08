@@ -374,6 +374,10 @@ The `transmission_networks_model` executable is the main CLI tool for running tr
 
 **Model Options:**
 - `--transmission-leak <float>`: The Transmission process's leak, at least 0 and below 1: each Parent set's allele pool at a Locus is mixed with the Allele frequencies in this proportion, so a child Allele no parent carries is improbable rather than impossible (default: 0, no leak). See section 6 of [doc/marginal-latent-parent.md](doc/marginal-latent-parent.md)
+- `--leak-prior <prior>`: Sample the leak under this prior, starting at `--transmission-leak`: `loguniform:LO,HI` (`loguniform` alone is `loguniform:1e-7,0.1`) or `exponential:RATE`, truncated to (0, 0.5). A start outside the prior's range is moved just inside it, with a notice; the manifest records the start used. Not given: the leak is fixed. See section 6.1 of [doc/marginal-latent-parent.md](doc/marginal-latent-parent.md)
+- `--error-model infection|shared|hierarchical`: How the observation error rates are shared: each Infection its own (default), one pair for every Infection, or each Infection's drawn from a population with sampled mean and shape. See section 7 of [doc/marginal-latent-parent.md](doc/marginal-latent-parent.md)
+
+A Run started from a checkpoint needs the Sampler set of the Run that wrote it: `--leak-prior` given or not as there, and an `--error-model` with the same rates (`shared` and `hierarchical` each need their own). Otherwise the checkpoint is refused.
 
 **Replica Exchange Parameters:**
 - `--numchains, -n <int>`: Number of chains to run in replica exchange algorithm (default: 1)

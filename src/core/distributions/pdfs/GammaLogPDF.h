@@ -13,6 +13,12 @@
 
 namespace transmission_nets::core::distributions {
 
+    // log of the Gamma(shape, scale) density at x.
+    inline double gammaLogDensity(const double x, const double shape, const double scale) {
+        const double logDenominator = std::lgamma(shape) + (shape * std::log(scale));
+        return (shape - 1) * std::log(x) + (-x / scale) - logDenominator;
+    }
+
     class GammaLogPDF : public computation::PartialLikelihood {
     public:
         using p_Parameterdouble = std::shared_ptr<core::parameters::Parameter<double>>;
@@ -24,7 +30,6 @@ namespace transmission_nets::core::distributions {
         p_Parameterdouble target_;
         p_Parameterdouble shape_;
         p_Parameterdouble scale_;
-        double logDenominator_ = 0;
     };
 
 }// namespace transmission_nets::core::distributions

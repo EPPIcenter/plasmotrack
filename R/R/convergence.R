@@ -23,7 +23,9 @@ convergence_groups <- c("log_posterior", "global", "expected_false_positives", "
 #' [pt_as_draws()]:
 #'
 #' * `log_posterior`: `log_posterior`, the log prior plus the log likelihood.
-#' * `global`: `mean_coi`, `mean_strains_tx`, `parent_set_size_prob`.
+#' * `global`: `mean_coi`, `mean_strains_tx`, `parent_set_size_prob`, and the Run scalars a Leak prior or the
+#'   hierarchical Error model adds when the Runs have them: `transmission_leak`, `efp_mean`, `efp_shape`, `efn_mean`,
+#'   `efn_shape`.
 #' * `expected_false_positives`, `expected_false_negatives`, `infection_duration`: one per Infection, such as
 #'   `infection_duration[12]`. The per-Allele error rate is the expected count over the Infection's Alleles, a
 #'   constant factor, so its diagnostics are the count's.
@@ -313,8 +315,10 @@ group_values <- function(a, ds, group, edge_floor) {
       "log_posterior"
     ),
     global = {
-      columns <- c("mean_coi", "mean_strains_tx", "parent_set_size_prob")
-      out(long(pt_table(a, "run_scalars", runs = runs), columns), sorted(columns))
+      scalars <- pt_table(a, "run_scalars", runs = runs)
+      columns <- c("mean_coi", "mean_strains_tx", "parent_set_size_prob",
+                   intersect(model_choice_scalars, colnames(scalars)))
+      out(long(scalars, columns), sorted(columns))
     },
     expected_false_positives = ,
     expected_false_negatives = ,

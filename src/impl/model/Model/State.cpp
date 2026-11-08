@@ -9,6 +9,8 @@
 #include <fmt/core.h>
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace transmission_nets::impl::Model {
@@ -41,9 +43,26 @@ namespace transmission_nets::impl::Model {
         }
     }// namespace
 
-    State::State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const bool null_model, const double transmission_leak) {
-        nullModel        = null_model;
-        transmissionLeak = transmission_leak;
+    void State::keepLeakInsidePrior() {
+        if (leakPrior) {
+            if (const double leak = transmissionLeak->value(); not leakPrior->holds(leak)) {
+                transmissionLeak->initializeValue(leakPrior->startAt(leak));
+            }
+        }
+    }
+
+    State::State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const bool null_model, const double transmission_leak)
+        : State(study, rng, ModelChoice{.nullModel = null_model, .transmissionLeak = transmission_leak}) {}
+
+    State::State(const Study& study, const std::shared_ptr<boost::random::mt19937>& rng, const ModelChoice& choice) {
+        const bool null_model = choice.nullModel;
+        nullModel        = choice.nullModel;
+        transmissionLeak = std::make_shared<core::parameters::Parameter<double>>(choice.transmissionLeak);
+        if (not choice.leakPrior.empty()) {
+            leakPrior = parseLeakPrior(choice.leakPrior);
+            keepLeakInsidePrior();
+        }
+        errorModel = parseErrorModel(choice.errorModel);
 
         // Loci, in input order, so that their uids follow the input.
         std::vector<std::shared_ptr<LocusImpl>> lociInOrder;
@@ -128,9 +147,17 @@ namespace transmission_nets::impl::Model {
         infectionEventOrdering = std::make_shared<OrderingImpl>();
         infectionEventOrdering->addElements(infections, [&](const auto& infection) { return allowedRelationships->permittedParents(infection); });
 
+        // Under the shared error model every Infection holds the same two rates.
+        const auto sharedFP = std::make_shared<core::parameters::Parameter<double>>(.01);
+        const auto sharedFN = std::make_shared<core::parameters::Parameter<double>>(.01);
         for (const auto& infection : infections) {
-            expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
-            expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.01));
+            if (errorModel == ErrorModel::Shared) {
+                expectedFalsePositives.push_back(sharedFP);
+                expectedFalseNegatives.push_back(sharedFN);
+            } else {
+                expectedFalsePositives.emplace_back(new core::parameters::Parameter<double>(.01));
+                expectedFalseNegatives.emplace_back(new core::parameters::Parameter<double>(.01));
+            }
             latentParents.push_back(std::make_shared<InfectionEvent>(*infection));
             // The anchor: at each locus the observed genotype, or every allele where nothing was observed. A function
             // of the data alone, so a resumed Run proposes as the original would.
@@ -156,11 +183,18 @@ namespace transmission_nets::impl::Model {
     }
 
     void State::initPriors() {
-        obsFPRPriorShape = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFPRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.001);
+        // Gamma(10, 0.001) on each Infection's rates; the shared rates' priors are the wide ones (see ErrorModel).
+        const bool shared = errorModel == ErrorModel::Shared;
+        obsFPRPriorShape  = std::make_shared<core::parameters::Parameter<double>>(shared ? WIDE_RATE_PRIOR_SHAPE : 10);
+        obsFPRPriorScale  = std::make_shared<core::parameters::Parameter<double>>(shared ? WIDE_FALSE_POSITIVE_PRIOR_SCALE : .001);
 
-        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(10);
-        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(.001);
+        obsFNRPriorShape = std::make_shared<core::parameters::Parameter<double>>(shared ? WIDE_RATE_PRIOR_SHAPE : 10);
+        obsFNRPriorScale = std::make_shared<core::parameters::Parameter<double>>(shared ? WIDE_FALSE_NEGATIVE_PRIOR_SCALE : .001);
+
+        efpMean  = std::make_shared<core::parameters::Parameter<double>>(.01);
+        efpShape = std::make_shared<core::parameters::Parameter<double>>(10);
+        efnMean  = std::make_shared<core::parameters::Parameter<double>>(.01);
+        efnShape = std::make_shared<core::parameters::Parameter<double>>(10);
 
         meanStrainsTransmittedPriorShape = std::make_shared<core::parameters::Parameter<double>>(20);
         meanStrainsTransmittedPriorScale = std::make_shared<core::parameters::Parameter<double>>(.1);

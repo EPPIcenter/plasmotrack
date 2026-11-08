@@ -178,7 +178,11 @@ namespace transmission_nets::impl::Model {
             // One walk per Infection on each observation rate, registered rate by rate.
             const auto walkEachRate = [&](const auto& rates, const std::string& name) {
                 for (size_t i = 0; i < rates.size(); ++i) {
-                    scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(rates[i], target, 1e-6, .5, r, 1, .1, 2),
+                    // A rate every Infection shares (ErrorModel::Shared) has one walk, under the first Infection's id.
+                    if (i > 0 and rates[i] == rates[0]) {
+                        continue;
+                    }
+                    scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(rates[i], target, ERROR_RATE_LOWER, ERROR_RATE_UPPER, r, 1, .1, 2),
                                                 .id = fmt::format("ConstrainedContinuousRandomWalk/{}/{}", name, state->infections[i]->id()),
                                                 .adaptationStart = 20,
                                                 .adaptationEnd = 200});
@@ -225,6 +229,31 @@ namespace transmission_nets::impl::Model {
             using PairLocus = genetics::PairLocusGibbsSampler<T, Engine, InfectionEvent, LocusImpl>;
             scheduler_.registerSampler({.sampler = std::make_unique<PairLocus>(closePairs, target, r, MAX_COI, FAMILY_PAIR_LOCUS_PROPOSALS, FAMILY_MAX_NOVELTY),
                                         .id      = "PairLocusGibbsSampler/families"});
+
+            // Model choices with Run scalars of their own; last, so that the Sampler set of a Run without them is the one
+            // it always was.
+            if (state->errorModel == ErrorModel::Hierarchical) {
+                const auto walk = [&](const auto& parameter, double lower, double upper, const std::string& name) {
+                    scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(parameter, target, lower, upper, r, .5, .01, 3),
+                                                .id = fmt::format("ConstrainedContinuousRandomWalk/{}", name),
+                                                .adaptationStart = 20,
+                                                .adaptationEnd = 200});
+                };
+                for (int k = 0; k < HIERARCHICAL_RATE_STEPS; ++k) {
+                    walk(state->efpMean, HIERARCHICAL_MEAN_LOWER, HIERARCHICAL_MEAN_UPPER, k == 0 ? "efp_mean" : fmt::format("efp_mean/{}", k));
+                    walk(state->efpShape, HIERARCHICAL_SHAPE_LOWER, HIERARCHICAL_SHAPE_UPPER, k == 0 ? "efp_shape" : fmt::format("efp_shape/{}", k));
+                    walk(state->efnMean, HIERARCHICAL_MEAN_LOWER, HIERARCHICAL_MEAN_UPPER, k == 0 ? "efn_mean" : fmt::format("efn_mean/{}", k));
+                    walk(state->efnShape, HIERARCHICAL_SHAPE_LOWER, HIERARCHICAL_SHAPE_UPPER, k == 0 ? "efn_shape" : fmt::format("efn_shape/{}", k));
+                }
+            }
+            if (state->leakPrior) {
+                // Each step recomputes every Transmission term at the proposed leak; a rejected step restores them.
+                scheduler_.registerSampler({.sampler = std::make_unique<ConstrainedContinuousRandomWalk<T, Engine>>(state->transmissionLeak, target, state->leakPrior->lower(), state->leakPrior->upper(), r, .5, .01, 3),
+                                            .id = "ConstrainedContinuousRandomWalk/transmission_leak",
+                                            .adaptationStart = 20,
+                                            .adaptationEnd = 200,
+                                            .updateFrequency = LEAK_UPDATE_FREQUENCY});
+            }
         }
 
     }

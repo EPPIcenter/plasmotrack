@@ -395,3 +395,32 @@ With a leak an F table depends on π, so every proposal at a locus rebuilds the 
 where without a leak only the contraction is redone. `CloneOrderSwapSampler` and `InformedOrderJumpSampler` also pay
 more: observed-only sets are now finite, and they are summed per locus rather than taken from the genome memo.
 
+
+### 6.1 Sampling the leak (`--leak-prior`)
+
+With `--leak-prior` the leak ε is a Run scalar, `transmission_leak`, sampled by a random walk on the logit of ε within
+the prior's range, starting at `--transmission-leak` (moved just inside the range if the range doesn't strictly hold
+it; the manifest records the start used). A restored leak the prior holds is left as it is, so a resumed chain goes on
+as an uninterrupted one would. Priors: `loguniform:LO,HI`
+(density 1/ε on [LO, HI]; `loguniform` alone is [1e-7, 0.1]) lets the data choose a leak near 0; `exponential:RATE`
+truncated to (0, 0.5) has mean about 1/RATE.
+
+A change of ε changes every Transmission term, so a step re-evaluates them all. The memo follows the parameter: a
+change puts its results aside and starts afresh under a new generation; a rejected step brings the old results back
+along with the terms' restored caches, so a rejection recomputes nothing. The two result sets coexist during a step,
+which about doubles the memo's memory at its peak.
+
+Tests (`test/src/impl/SampledLeakTest.cpp`): cached values against a Model built afresh after leak steps accepted and
+rejected between genotype and frequency changes; the leak's walk against its exact conditional on a grid; and with the
+likelihood off, the whole Sampler set against the priors.
+
+## 7. Observation error models (`--error-model`)
+
+The Observation process calls an absent Allele with probability eFP/n and misses a present one with probability eFN/n
+at an n-allele Locus. The rates can be:
+
+- `infection` (default): each Infection its own two rates, prior Gamma(10, 0.001).
+- `shared`: one eFP and one eFN for every Infection, priors Gamma(2, 0.01) and Gamma(2, 0.02).
+- `hierarchical`: each Infection's rates from Gamma(shape, mean/shape), with the mean (Gamma(2, 0.01), Gamma(2, 0.02))
+  and shape (log-uniform on [0.5, 200]) of each sampled: Run scalars `efp_mean`, `efp_shape`, `efn_mean`, `efn_shape`.
+  Every rate's walk keeps it in [1e-6, 0.5], so each rate's Gamma is truncated there and normalised over it.
