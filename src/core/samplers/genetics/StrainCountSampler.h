@@ -38,6 +38,11 @@ namespace transmission_nets::core::samplers::genetics {
      * An infection's strains are shared by its loci, so a strain the data don't need costs little at any one locus
      * once its alleles are present at the others. Removing it one locus at a time then earns almost nothing per step,
      * and the chain keeps it. This move removes, or adds, it at every locus at once.
+     *
+     * Optionally (enableObservedToggles), each update then makes some single-allele moves: an allele observed in the
+     * infection, chosen uniformly among all of them, is toggled in the latent genotype. The candidates are fixed by the
+     * data, so the move is symmetric and accepted with the posterior ratio. Calling an observed allele a false positive,
+     * or not, can change the infection's likely parents, and no other move proposes that change alone.
      */
     template<typename T, typename Engine, typename InfectionEventImpl>
     class StrainCountSampler : public AbstractSampler {
@@ -51,8 +56,13 @@ namespace transmission_nets::core::samplers::genetics {
 
         void update() noexcept override;
 
+        void enableObservedToggles(unsigned int perUpdate);
+
     private:
         static constexpr double NEG_INF = -std::numeric_limits<double>::infinity();
+
+        void addOrRemoveStrain() noexcept;
+        void observedToggle() noexcept;
 
         // The locus' observed alleles, or none.
         [[nodiscard]] Genotype observed(size_t l, const Genotype& like) const;
@@ -70,9 +80,54 @@ namespace transmission_nets::core::samplers::genetics {
         double pObserved_;
         double pOther_;
         double observedWeight_;
+        unsigned int togglesPerUpdate_ = 0;
+        std::vector<std::pair<size_t, unsigned int>> observedAlleles_{};// (locus index, allele)
 
         boost::random::uniform_01<> uniform_{};
     };
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    void StrainCountSampler<T, Engine, InfectionEventImpl>::enableObservedToggles(const unsigned int perUpdate) {
+        togglesPerUpdate_ = perUpdate;
+        observedAlleles_.clear();
+        const auto& loci = infection_->loci();
+        for (size_t l = 0; l < loci.size(); ++l) {
+            const auto obs = observed(l, infection_->latentGenotype(loci[l])->value());
+            for (unsigned int a = 0; a < obs.totalAlleles(); ++a) {
+                if (obs.allele(a)) {
+                    observedAlleles_.emplace_back(l, a);
+                }
+            }
+        }
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    void StrainCountSampler<T, Engine, InfectionEventImpl>::update() noexcept {
+        addOrRemoveStrain();
+        if (observedAlleles_.empty()) {
+            return;
+        }
+        for (unsigned int i = 0; i < togglesPerUpdate_; ++i) {
+            observedToggle();
+        }
+    }
+
+    template<typename T, typename Engine, typename InfectionEventImpl>
+    void StrainCountSampler<T, Engine, InfectionEventImpl>::observedToggle() noexcept {
+        boost::random::uniform_int_distribution<size_t> pick(0, observedAlleles_.size() - 1);
+        const auto [l, a] = observedAlleles_[pick(*rng_)];
+        const auto& param = infection_->latentGenotype(infection_->loci()[l]);
+        auto g            = param->value();
+        g.set(a, not g.allele(a));
+        auto proposal = this->propose(*target_, *rng_);
+        // A locus with no allele, or more than maxCOI, has probability zero.
+        if (g.totalPositiveCount() == 0 or g.totalPositiveCount() > maxCOI_) {
+            proposal.reject();
+            return;
+        }
+        proposal.change(*param, g);
+        proposal.metropolis(0.0);
+    }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     typename StrainCountSampler<T, Engine, InfectionEventImpl>::Genotype StrainCountSampler<T, Engine, InfectionEventImpl>::observed(const size_t l, const Genotype& like) const {
@@ -141,7 +196,7 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
-    void StrainCountSampler<T, Engine, InfectionEventImpl>::update() noexcept {
+    void StrainCountSampler<T, Engine, InfectionEventImpl>::addOrRemoveStrain() noexcept {
         const auto& loci = infection_->loci();
         std::vector<Genotype> current;
         current.reserve(loci.size());

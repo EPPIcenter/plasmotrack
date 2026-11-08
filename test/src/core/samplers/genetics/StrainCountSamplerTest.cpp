@@ -1,6 +1,7 @@
 //
-// StrainCountSampler must leave its target invariant. One infection has two three-allele loci, one with an observed
-// allele and one with nothing observed; the target is an arbitrary function of both genotypes. The move alone does not
+// StrainCountSampler, with and without its observed-allele toggles, must leave its target invariant. One infection has
+// two three-allele loci, one with observed alleles and one with nothing observed; the target is an arbitrary function
+// of both genotypes. The move alone does not
 // reach every genotype pair, so rather than running it as a chain, exact draws from the target are each moved once and
 // must still follow the target.
 //
@@ -13,12 +14,14 @@
 #include "../../../impl/Studies.h"
 
 #include <boost/random.hpp>
+#include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
 #include <cmath>
 #include <map>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 using namespace transmission_nets::impl::Model;
@@ -67,15 +70,21 @@ namespace {
     };
 }// namespace
 
-class StrainCountInvarianceTest : public testing::TestWithParam<unsigned int> {};
-
 // The largest number of alleles a locus may hold: 3 allows every genotype; 2 makes adds to two alleles impossible.
-INSTANTIATE_TEST_SUITE_P(MaxCOI, StrainCountInvarianceTest, testing::Values(3u, 2u), [](const auto& info) { return std::to_string(info.param); });
+// Then the toggles of observed alleles made after each move: none, or two.
+class StrainCountInvarianceTest : public testing::TestWithParam<std::tuple<unsigned int, unsigned int>> {};
+
+INSTANTIATE_TEST_SUITE_P(MaxCOI, StrainCountInvarianceTest, testing::Combine(testing::Values(3u, 2u), testing::Values(0u, 2u)),
+                         [](const auto& info) { return fmt::format("coi{}_toggles{}", std::get<0>(info.param), std::get<1>(info.param)); });
 
 TEST_P(StrainCountInvarianceTest, LeavesTargetInvariant) {
+    const auto [maxCOI, toggles] = GetParam();
     Fixture f;
     auto target = std::make_shared<Target>(Target{&f});
-    StrainCountSampler<Target, Engine, InfectionEvent> sampler(f.x, target, f.rng, GetParam(), 0.5, 0.2, 4.0);
+    StrainCountSampler<Target, Engine, InfectionEvent> sampler(f.x, target, f.rng, maxCOI, 0.5, 0.2, 4.0);
+    if (toggles > 0) {
+        sampler.enableObservedToggles(toggles);
+    }
 
     // Exact draws over genotype pairs allowed by maxCOI.
     std::vector<std::pair<std::string, std::string>> states;
@@ -83,7 +92,7 @@ TEST_P(StrainCountInvarianceTest, LeavesTargetInvariant) {
     double total = 0;
     for (const auto& a : GENOTYPES) {
         for (const auto& b : GENOTYPES) {
-            if (Genotype(a).totalPositiveCount() > GetParam() or Genotype(b).totalPositiveCount() > GetParam()) {
+            if (Genotype(a).totalPositiveCount() > maxCOI or Genotype(b).totalPositiveCount() > maxCOI) {
                 continue;
             }
             total += std::exp(logTarget(Genotype(a), Genotype(b)));
@@ -104,8 +113,8 @@ TEST_P(StrainCountInvarianceTest, LeavesTargetInvariant) {
         sampler.update();
         const auto after = std::pair{f.x->latentGenotype(f.l0)->value().serialize(), f.x->latentGenotype(f.l1)->value().serialize()};
         moved += after != std::pair{a, b};
-        ASSERT_LE(Genotype(after.first).totalPositiveCount(), GetParam());
-        ASSERT_LE(Genotype(after.second).totalPositiveCount(), GetParam());
+        ASSERT_LE(Genotype(after.first).totalPositiveCount(), maxCOI);
+        ASSERT_LE(Genotype(after.second).totalPositiveCount(), maxCOI);
         ++visits[after];
     }
 

@@ -6,11 +6,11 @@ test_that("pt_acceptance() sums each sampler type's sampling counts over Windows
   expect_equal(names(acc), c("type", "accepted", "proposed", "rate"))
   # Hand sums of the golden Store's SALTSampler rows (AS1, AS11) in sampling Windows 1 and 2.
   salt <- acc[acc$type == "SALTSampler", ]
-  expect_equal(salt$accepted, 50 + 44 + 75 + 73)
-  expect_equal(salt$proposed, 72 + 64 + 108 + 96)
-  expect_equal(salt$rate, 242 / 340)
+  expect_equal(salt$accepted, 6 + 7 + 10 + 12)
+  expect_equal(salt$proposed, 18 + 18 + 27 + 27)
+  expect_equal(salt$rate, 35 / 90)
   expect_setequal(acc$type, c(
-    "AlleleSwapSampler", "CloneOrderSwapSampler", "ConstrainedContinuousRandomWalk", "InformedOrderJumpSampler",
+    "AlleleSwapSampler", "CloneOrderSwapSampler", "ConstrainedContinuousRandomWalk", "GuidedPairSampler", "InformedOrderJumpSampler",
     "ParentRelinkSampler", "RandomAllelesBitSetSampler3", "RandomAllelesBitSetSampler4", "SALTSampler",
     "StrainCountSampler"
   ))
@@ -33,49 +33,49 @@ test_that("level = \"sampler\" gives one row per sampler id, after its type", {
   on.exit(pt_close(a))
   acc <- pt_acceptance(a, level = "sampler")
   expect_equal(names(acc), c("type", "sampler", "accepted", "proposed", "rate"))
-  expect_equal(nrow(acc), 36)
+  expect_equal(nrow(acc), 37)
   as11 <- acc[acc$sampler == "SALTSampler/allele_frequencies/AS11", ]
   expect_equal(as11$type, "SALTSampler")
-  expect_equal(c(as11$accepted, as11$proposed), c(75 + 73, 108 + 96))
-  expect_equal(as11$rate, 148 / 204)
+  expect_equal(c(as11$accepted, as11$proposed), c(10 + 12, 27 + 27))
+  expect_equal(as11$rate, 22 / 54)
   coi <- acc[acc$sampler == "ConstrainedContinuousRandomWalk/mean_coi", ]
-  expect_equal(c(coi$accepted, coi$proposed, coi$rate), c(24, 50, 24 / 50))
+  expect_equal(c(coi$accepted, coi$proposed, coi$rate), c(40, 50, 40 / 50))
 })
 
 test_that("counts are summed over Runs, or kept per Run with by_run, Runs in Analysis order", {
   a <- read_golden(c(one = golden_store(), four = golden_store("replica-exchange")))
   on.exit(pt_close(a))
-  # Hand sums of SALTSampler sampling rows: one 242 / 340, four 52 + 43 + 81 + 68 = 244 / 340.
+  # Hand sums of SALTSampler sampling rows: one 35 / 90, four 10 + 10 + 10 + 9 = 39 / 90.
   pooled <- pt_acceptance(a)
   salt <- pooled[pooled$type == "SALTSampler", ]
-  expect_equal(c(salt$accepted, salt$proposed, salt$rate), c(486, 680, 486 / 680))
+  expect_equal(c(salt$accepted, salt$proposed, salt$rate), c(74, 180, 74 / 180))
 
   per_run <- pt_acceptance(a, level = "sampler", by_run = TRUE)
   expect_equal(names(per_run), c("run", "type", "sampler", "accepted", "proposed", "rate"))
   expect_equal(unique(per_run$run), c("one", "four"))
   coi <- per_run[per_run$sampler == "ConstrainedContinuousRandomWalk/mean_coi", ]
   expect_equal(coi$run, c("one", "four"))
-  expect_equal(coi$accepted, c(12 + 12, 13 + 7))
+  expect_equal(coi$accepted, c(22 + 18, 11 + 13))
   expect_equal(coi$proposed, c(50, 50))
-  expect_equal(coi$rate, c(24 / 50, 20 / 50))
+  expect_equal(coi$rate, c(40 / 50, 24 / 50))
 })
 
 test_that("phase picks the Windows summed, and per_window keeps one row per Window", {
   a <- read_golden(c(one = golden_store()))
   on.exit(pt_close(a))
-  # Burn-in Window 0 of the golden Store: SALTSampler AS1 36 / 48, AS11 50 / 72.
+  # Burn-in Window 0 of the golden Store: SALTSampler AS1 34 / 46, AS11 43 / 69.
   burn_in <- pt_acceptance(a, phase = "burn_in")
   salt <- burn_in[burn_in$type == "SALTSampler", ]
-  expect_equal(c(salt$accepted, salt$proposed), c(86, 120))
+  expect_equal(c(salt$accepted, salt$proposed), c(77, 115))
 
   windows <- pt_acceptance(a, phase = c("burn_in", "sampling"), per_window = TRUE)
   expect_equal(names(windows), c("window", "phase", "type", "accepted", "proposed", "rate"))
   salt <- windows[windows$type == "SALTSampler", ]
   expect_equal(salt$window, c(0, 1, 2))
   expect_equal(salt$phase, c("burn_in", "sampling", "sampling"))
-  expect_equal(salt$accepted, c(36 + 50, 50 + 75, 44 + 73))
-  expect_equal(salt$proposed, c(48 + 72, 72 + 108, 64 + 96))
-  expect_equal(salt$rate, c(86 / 120, 125 / 180, 117 / 160))
+  expect_equal(salt$accepted, c(34 + 43, 6 + 10, 7 + 12))
+  expect_equal(salt$proposed, c(46 + 69, 18 + 27, 18 + 27))
+  expect_equal(salt$rate, c(77 / 115, 16 / 45, 19 / 45))
 })
 
 test_that("per_window with by_run keeps run first, then the Window", {
@@ -86,12 +86,12 @@ test_that("per_window with by_run keeps run first, then the Window", {
   coi <- windows[windows$sampler == "ConstrainedContinuousRandomWalk/mean_coi", ]
   expect_equal(coi$run, c("one", "one", "four", "four"))
   expect_equal(coi$window, c(1, 2, 1, 2))
-  expect_equal(coi$accepted, c(12, 12, 13, 7))
-  expect_equal(coi$rate, c(12, 12, 13, 7) / 25)
+  expect_equal(coi$accepted, c(22, 18, 11, 13))
+  expect_equal(coi$rate, c(22, 18, 11, 13) / 25)
   # Pooled over Runs, Windows with the same number are summed.
   pooled <- pt_acceptance(a, level = "sampler", per_window = TRUE)
   coi <- pooled[pooled$sampler == "ConstrainedContinuousRandomWalk/mean_coi", ]
-  expect_equal(c(coi$accepted, coi$proposed), c(25, 19, 50, 50))
+  expect_equal(c(coi$accepted, coi$proposed), c(33, 31, 50, 50))
 })
 
 test_that("pt_swaps() sums each temperature pair's sampling swaps per Run", {
@@ -103,9 +103,9 @@ test_that("pt_swaps() sums each temperature pair's sampling swaps per Run", {
   # Hand sums of the golden Store's sampling Windows 1 and 2.
   expect_equal(swaps$run, rep("four", 3))
   expect_equal(swaps$temperature_pair, c(0, 1, 2))
-  expect_equal(swaps$accepted, c(12 + 11, 10 + 9, 10 + 9))
+  expect_equal(swaps$accepted, c(12 + 10, 9 + 11, 8 + 7))
   expect_equal(swaps$attempted, c(13 + 12, 12 + 13, 13 + 12))
-  expect_equal(swaps$rate, c(23, 19, 19) / 25)
+  expect_equal(swaps$rate, c(22, 20, 15) / 25)
 })
 
 test_that("pt_swaps() is empty for one-chain Runs", {
@@ -124,15 +124,15 @@ test_that("pt_swaps() pools over Runs, skipping one-chain Runs, and keeps Window
   expect_equal(unique(pt_swaps(a)$run), "four")
   pooled <- pt_swaps(a, by_run = FALSE)
   expect_equal(names(pooled), c("temperature_pair", "accepted", "attempted", "rate"))
-  expect_equal(pooled$accepted, c(23, 19, 19))
+  expect_equal(pooled$accepted, c(22, 20, 15))
 
   windows <- pt_swaps(a, phase = c("burn_in", "sampling"), per_window = TRUE)
   expect_equal(names(windows), c("run", "window", "phase", "temperature_pair", "accepted", "attempted", "rate"))
   pair0 <- windows[windows$temperature_pair == 0, ]
   expect_equal(pair0$window, c(0, 1, 2))
   expect_equal(pair0$phase, c("burn_in", "sampling", "sampling"))
-  expect_equal(pair0$accepted, c(8, 12, 11))
-  expect_equal(pair0$rate, c(8 / 10, 12 / 13, 11 / 12))
+  expect_equal(pair0$accepted, c(7, 12, 10))
+  expect_equal(pair0$rate, c(7 / 10, 12 / 13, 10 / 12))
 })
 
 test_that("by_run, per_window and level are checked", {

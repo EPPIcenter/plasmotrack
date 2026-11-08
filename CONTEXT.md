@@ -48,6 +48,14 @@ _Avoid_: Network, topology, tree, permutation, sort order
 For one Infection, the Infections that could have infected it: those that both precede it in the Ordering and are permitted by the study's epidemiological constraints. Changes as the Ordering moves.
 _Avoid_: Allowed parents, possible parents, eligible parents
 
+**Mutual pair**:
+Two Infections each permitted to have infected the other, so either may come first in the Ordering. Some samplers move a mutual pair as one, exchanging their infection times.
+_Avoid_: Reciprocal pair, two-way edge, bidirectional pair
+
+**Clone**:
+Of an Infection: the other member of a Mutual pair with it, when their Latent genotypes are the same at every Locus. Which of two clones came first changes no genotype, only the Ordering.
+_Avoid_: Twin, duplicate, identical infection
+
 **Parent set**:
 A specific subset of an Infection's Candidate parents, hypothesised to be the ones that infected it together. Bounded in size — an Infection can be seeded by only so many sources at once.
 _Avoid_: Parents, sources, ancestors
@@ -185,6 +193,14 @@ _Avoid_: Listener, subscription, observer, checkpoint target
 **Proposal**:
 One Metropolis-Hastings step of a sampler, from the first parameter it changes to its accept or reject. The parameters it touches, the target's value before and after, and whether it was accepted live here; a sampler decides what to change and the Hastings adjustment, nothing else. A multiple-try move evaluates tries as Proposals that are reverted rather than counted.
 _Avoid_: Move, step (the Sampler set's step is a Sampling iteration), transaction, update
+
+**Pilot**:
+The deterministic climb a guided swap (GuidedPairSampler) makes before its random walk: from where the swap leaves the pair, it sets the pair's genotypes one option at a time, best gain first, until none gains. Because it draws nothing, the swap's reverse repeats it rather than correcting for it.
+_Avoid_: Warm start, greedy step, preconditioner
+
+**Dirichlet independence move**:
+An Allele frequency Proposal drawn independently of the current frequencies, from a Dirichlet fitted to the sampler's own past draws over its fitting spans and fixed once burn-in ends. Made by the allele-frequency sampler beside its SALT steps.
+_Avoid_: Global move, refresh, Gibbs step
 
 **Quantity**:
 One sampled part of the State, named once. The name is the target in its sampler's id, its Trace column or table, and its Checkpoint key. Five kinds: a Run scalar, a per-Infection value, a Locus's Allele frequencies, an Infection's Latent genotype at a Locus, and the Ordering. The priors' hyperparameters and the input are not Quantities.

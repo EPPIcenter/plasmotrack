@@ -76,6 +76,7 @@ namespace {
             "ConstrainedContinuousRandomWalk/expected_false_positives/3",
             "SALTSampler/allele_frequencies/AS1",
             "SALTSampler/allele_frequencies/AS11",
+            "GuidedPairSampler/pairs",
     };
 }// namespace
 
@@ -138,16 +139,22 @@ TEST(SamplerCountsTest, EachUpdateCountsOneProposalAndAnAcceptedProposalChangesT
     EXPECT_EQ(meanCoi.accepted, changes);
     EXPECT_GT(changes, 0u);
 
+    std::uint64_t saltUpdates = 0;
+    for (int i = 0; i < iterations; ++i) {
+        saltUpdates += transmission_nets::core::samplers::isUpdateStep(SALT_UPDATE_FREQUENCY, i);
+    }
     for (const auto& id : samplers.ids()) {
         const auto counts = samplers.sampler(id).counts();
         EXPECT_LE(counts.accepted, counts.proposed) << id;
         if (id.starts_with("SALTSampler/")) {
-            // one proposal per Allele frequency visited
-            EXPECT_GE(counts.proposed, iterations) << id;
-        } else if (!id.starts_with("CloneOrderSwapSampler/") and !id.starts_with("InformedOrderJumpSampler/") and !id.starts_with("StrainCountSampler/")) {
-            // CloneOrderSwapSampler proposes only when the Infection has a clone it can move past, and
+            // one proposal per Allele frequency visited, and every locus has at least two
+            EXPECT_GE(counts.proposed, 2 * saltUpdates) << id;
+        } else if (!id.starts_with("CloneOrderSwapSampler/") and !id.starts_with("InformedOrderJumpSampler/") and !id.starts_with("StrainCountSampler/") and !id.starts_with("RandomAllelesBitSetSampler4/") and !id.starts_with("GuidedPairSampler/")) {
+            // CloneOrderSwapSampler proposes only when the Infection has a clone it can move past,
             // InformedOrderJumpSampler only when a partner's other side has duration-prior mass, and StrainCountSampler
-            // only when its remove has a second strain to remove or its add chooses a locus
+            // only when its remove has a second strain to remove or its add chooses a locus. RandomAllelesBitSetSampler4
+            // skips a path that changes nothing, and most loci update every 10th iteration. GuidedPairSampler makes
+            // GUIDED_PAIR_SWAPS swaps an update, when it has a pair.
             EXPECT_EQ(counts.proposed, iterations) << id;
         }
     }

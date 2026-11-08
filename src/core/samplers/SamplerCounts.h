@@ -28,10 +28,12 @@ namespace transmission_nets::core::samplers {
     };
 
     // Everything a sampler's adaptation rule reads: its proposal scales (one for a random walk, one per Allele
-    // frequency for SALT, none for a sampler that doesn't adapt) and its update count, which sets the step size.
+    // frequency for SALT, none for a sampler that doesn't adapt), its update count, which sets the step size, and
+    // any fitted proposal it builds from its own trajectory (SALT's Dirichlet move), in the sampler's own layout.
     struct AdaptationState {
         std::vector<ProposalScale> scales{};
         std::uint64_t updates = 0;
+        std::vector<double> fit{};
 
         bool operator==(const AdaptationState&) const = default;
     };

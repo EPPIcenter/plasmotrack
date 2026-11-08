@@ -86,10 +86,15 @@ namespace transmission_nets::impl::Model::checkpoint {
             const auto& variances = j.at("variances");
             const auto& accepted  = j.at("accepted");
             const auto& proposed  = j.at("proposed");
+            // Absent from checkpoints written before samplers fitted proposals; those samplers fit afresh.
+            const json fits = j.contains("fits") ? j.at("fits") : json::array();
             std::map<std::uint32_t, core::samplers::AdaptationState> adaptation;
             for (size_t ii = 0; ii < samplers.size(); ++ii) {
                 auto& state   = adaptation[samplers.at(ii).get<std::uint32_t>()];
                 state.updates = updates.at(ii);
+                if (ii < fits.size()) {
+                    state.fit = fits.at(ii).get<std::vector<double>>();
+                }
                 for (size_t kk = 0; kk < variances.at(ii).size(); ++kk) {
                     state.scales.push_back({.variance = variances.at(ii).at(kk), .counts = {.accepted = accepted.at(ii).at(kk), .proposed = proposed.at(ii).at(kk)}});
                 }
@@ -226,10 +231,10 @@ namespace transmission_nets::impl::Model::checkpoint {
             }
         }
 
-        // Parallel arrays over the samplers that adapt: which sampler, its update count, and per proposal scale its
-        // variance and counts.
+        // Parallel arrays over the samplers that adapt: which sampler, its update count, per proposal scale its
+        // variance and counts, and its fitted proposal (empty for most).
         void write(CborFile& out, const std::map<std::uint32_t, core::samplers::AdaptationState>& adaptation) {
-            out.map(5);
+            out.map(6);
             out.text("samplers");
             out.array(adaptation.size());
             for (const auto& [sampler, state] : adaptation) {
@@ -253,6 +258,14 @@ namespace transmission_nets::impl::Model::checkpoint {
             scales("variances", [](const core::samplers::ProposalScale& scale) { return scale.variance; });
             scales("accepted", [](const core::samplers::ProposalScale& scale) { return scale.counts.accepted; });
             scales("proposed", [](const core::samplers::ProposalScale& scale) { return scale.counts.proposed; });
+            out.text("fits");
+            out.array(adaptation.size());
+            for (const auto& [sampler, state] : adaptation) {
+                out.array(state.fit.size());
+                for (const double x : state.fit) {
+                    out.number(x);
+                }
+            }
         }
 
         void write(CborFile& out, const Replica& replica) {

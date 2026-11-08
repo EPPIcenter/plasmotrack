@@ -50,9 +50,9 @@ test_that("pt_runs() reports status, lineage, timing and health from the golden 
   expect_equal(runs$resumes, c(0L, 0L))
   expect_equal(runs$started_from, c(NA_character_, NA_character_))
   expect_equal(runs$non_finite, c(0L, 0L))
-  # window_closed seconds of sampling Windows 1 and 2: 0.034737 + 0.024007, and 0.15717 + 0.103418; 25 + 25 iterations.
-  expect_equal(runs$sampling_seconds, c(0.058744, 0.260588), tolerance = 1e-12)
-  expect_equal(runs$iterations_per_second, c(50 / 0.058744, 50 / 0.260588), tolerance = 1e-12)
+  # window_closed seconds of sampling Windows 1 and 2: 0.034737 + 0.024007, and 0.01437 + 0.013433; 25 + 25 iterations.
+  expect_equal(runs$sampling_seconds, c(0.058744, 0.027803), tolerance = 1e-12)
+  expect_equal(runs$iterations_per_second, c(50 / 0.058744, 50 / 0.027803), tolerance = 1e-12)
 })
 
 test_that("pt_read() opens the golden Stores without a warning", {

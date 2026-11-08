@@ -9,18 +9,25 @@
 #include "core/datatypes/Data.h"
 #include "core/parameters/Parameter.h"
 #include "core/samplers/AbstractSampler.h"
+#include "core/samplers/genetics/ObservationRate.h"
 
 #include <boost/random.hpp>
 
+#include <algorithm>
 #include <ranges>
 
 #include <memory>
+#include <utility>
+#include <vector>
 
 namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     class RandomAllelesBitSetSampler4 : public AbstractSampler {
     public:
+        // `expectedFalsePositives` and `expectedFalseNegatives`, when set, are that infection's sampled counts. The
+        // per-allele rates are those counts divided by this locus's allele count, read at each update. Without them
+        // the proposal uses the fixed rates below.
         RandomAllelesBitSetSampler4(
                 std::shared_ptr<InfectionEventImpl> infection,
                 std::shared_ptr<InfectionEventImpl> latentParent,
@@ -28,7 +35,9 @@ namespace transmission_nets::core::samplers::genetics {
                 std::shared_ptr<containers::AllowedRelationships<InfectionEventImpl>> allowedRelationships,
                 std::shared_ptr<T> target,
                 std::shared_ptr<Engine> rng,
-                unsigned int max_coi) noexcept;
+                unsigned int max_coi,
+                std::shared_ptr<parameters::Parameter<double>> expectedFalsePositives = nullptr,
+                std::shared_ptr<parameters::Parameter<double>> expectedFalseNegatives = nullptr) noexcept;
 
         void update() noexcept override;
     private:
@@ -43,11 +52,13 @@ namespace transmission_nets::core::samplers::genetics {
         boost::random::uniform_01<> uniform_dist_{};
         boost::random::uniform_int_distribution<> categorical_dist_{};
 
-        // todo: make this tunable
-        const double fp_rate = 0.05;
-        const double fn_rate = 0.20;
+        // Used when the infection's sampled error counts are not supplied.
+        double fp_rate = 0.05;
+        double fn_rate = 0.20;
         const double tx_from_parent = 0.90;
         const double tx_from_other = 0.20;
+        std::shared_ptr<parameters::Parameter<double>> expectedFalsePositives_;
+        std::shared_ptr<parameters::Parameter<double>> expectedFalseNegatives_;
     };
 
 
@@ -58,23 +69,34 @@ namespace transmission_nets::core::samplers::genetics {
             std::shared_ptr<LocusImpl> locus,
             std::shared_ptr<containers::AllowedRelationships<InfectionEventImpl>> allowedRelationships,
             std::shared_ptr<T> target,
-            std::shared_ptr<Engine> rng,
-            unsigned int max_coi) noexcept
+                std::shared_ptr<Engine> rng,
+                unsigned int max_coi,
+                std::shared_ptr<parameters::Parameter<double>> expectedFalsePositives,
+                std::shared_ptr<parameters::Parameter<double>> expectedFalseNegatives) noexcept
         : infection_(std::move(infection)),
           latentParent_(std::move(latentParent)),
           locus_(std::move(locus)),
           allowedRelationships_(allowedRelationships),
           target_(std::move(target)),
           rng_(std::move(rng)),
-          max_coi_(max_coi){};
+          max_coi_(max_coi),
+          expectedFalsePositives_(std::move(expectedFalsePositives)),
+          expectedFalseNegatives_(std::move(expectedFalseNegatives)){};
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     void RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, LocusImpl>::update() noexcept {
         using Parameter = parameters::Parameter<core::datatypes::Genotype>;
+        using Genotype = core::datatypes::Genotype;
         using Data = datatypes::Data<core::datatypes::Genotype>;
         namespace views = std::ranges::views;
 
-        auto proposal = this->propose(*target_, *rng_);
+        // The observation likelihood uses expected count / alleles at this locus. The same rates in both directions,
+        // since this move does not change them.
+        if (expectedFalsePositives_ and expectedFalseNegatives_ and locus_->totalAlleles() > 0) {
+            const double alleles = static_cast<double>(locus_->totalAlleles());
+            fp_rate = perAlleleRate(expectedFalsePositives_->value(), alleles);
+            fn_rate = perAlleleRate(expectedFalseNegatives_->value(), alleles);
+        }
         // randomly select an allele state to be propagated through the transmission tree
         categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, locus_->totalAlleles() - 1));
         const int allele_idx = categorical_dist_(*rng_);
@@ -85,6 +107,8 @@ namespace transmission_nets::core::samplers::genetics {
         // the reverse move has not.
         double forward_log_prob = 0.0;
         double reverse_log_prob = 0.0;
+        // Applied only if some allele changes. A path that proposes the current alleles is not a proposal.
+        std::vector<std::pair<std::shared_ptr<Parameter>, Genotype>> changes;
         std::shared_ptr<InfectionEventImpl> curr_inf = infection_;
         bool prev_curr_state = latentParent_->latentGenotype(locus_)->value().allele(allele_idx) == 1;
         bool prev_proposed_state = prev_curr_state;
@@ -156,7 +180,7 @@ namespace transmission_nets::core::samplers::genetics {
             if (proposed_state != curr_state) {
                 path_differs = true;
                 curr_val.set(allele_idx, proposed_state);
-                proposal.change(*curr_param, curr_val);
+                changes.emplace_back(curr_param, curr_val);
             }
 
             if (potential_children.empty()) {
@@ -170,8 +194,11 @@ namespace transmission_nets::core::samplers::genetics {
         }
 
         if (!path_differs) {
-            proposal.accept();
             return;
+        }
+        auto proposal = this->propose(*target_, *rng_);
+        for (const auto& [param, value] : changes) {
+            proposal.change(*param, value);
         }
         proposal.metropolis(reverse_log_prob - forward_log_prob);
     }

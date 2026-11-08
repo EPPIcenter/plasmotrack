@@ -208,18 +208,57 @@ namespace transmission_nets::core::samplers::genetics {
      * `change(genotype, value)` is called for each locus whose proposal differs from its current value; the caller's
      * Proposal saves and sets it.
      */
-    template<int MaxParentSetSize, typename InfectionPtr, typename ParentSet, typename Engine, typename Change>
-    void proposeGenotypesFromParentSet(const InfectionPtr& infection, const InfectionPtr& latentParent, const ParentSet& parentSet, Engine& rng, const double fnRate, const double fpRate, Change&& change) {
-        const size_t numParents = parentSet.size();
-        size_t numCombinations  = 0;
+    // T, the number of combinations of up to MaxParentSetSize of `numParents` observed parents.
+    template<int MaxParentSetSize>
+    size_t numParentCombinations(const size_t numParents) {
+        size_t numCombinations = 0;
         for (size_t k = 1; k <= MaxParentSetSize and k <= numParents; ++k) {
             numCombinations += static_cast<size_t>(boost::math::binomial_coefficient<double>(numParents, k));
         }
+        return numCombinations;
+    }
 
+    /*
+     * Options are numbered here as proposeGenotypesFromParentSet() picks them: combination c with the latent parent
+     * at 2c, without it at 2c + 1, and the latent parent alone at 2T. Parent-set distributions
+     * (TransmissionTerm::calcParentSetDist) number the same parent sets as: the latent parent alone at 0, combination
+     * c without it at 1 + 2c and with it at 2 + 2c.
+     */
+    inline size_t parentSetIndexOfOption(const size_t option, const size_t numCombinations) {
+        if (option == 2 * numCombinations) {
+            return 0;
+        }
+        return option % 2 == 0 ? 2 + option : option;
+    }
+
+    inline size_t optionOfParentSetIndex(const size_t index, const size_t numCombinations) {
+        if (index == 0) {
+            return 2 * numCombinations;
+        }
+        return index % 2 == 0 ? index - 2 : index;
+    }
+
+    struct AllLoci {
+        bool operator()(const auto&) const { return true; }
+    };
+
+    // proposeGenotypesFromParentSet() from the given option rather than a uniform one, at the loci `include` accepts.
+    template<int MaxParentSetSize, typename InfectionPtr, typename ParentSet, typename Engine, typename Change, typename Include = AllLoci>
+    void proposeGenotypesFromOption(const InfectionPtr& infection, const InfectionPtr& latentParent, const ParentSet& parentSet, size_t option, Engine& rng, double fnRate, double fpRate, Change&& change, const Include& include = {});
+
+    template<int MaxParentSetSize, typename InfectionPtr, typename ParentSet, typename Engine, typename Change>
+    void proposeGenotypesFromParentSet(const InfectionPtr& infection, const InfectionPtr& latentParent, const ParentSet& parentSet, Engine& rng, const double fnRate, const double fpRate, Change&& change) {
+        const size_t numCombinations = numParentCombinations<MaxParentSetSize>(parentSet.size());
         boost::random::uniform_int_distribution<size_t> pickOption(0, 2 * numCombinations);
-        const size_t option     = pickOption(rng);
-        const bool latentOnly   = option == 2 * numCombinations;
-        const bool withLatent   = latentOnly or option % 2 == 0;
+        proposeGenotypesFromOption<MaxParentSetSize>(infection, latentParent, parentSet, pickOption(rng), rng, fnRate, fpRate, std::forward<Change>(change));
+    }
+
+    template<int MaxParentSetSize, typename InfectionPtr, typename ParentSet, typename Engine, typename Change, typename Include>
+    void proposeGenotypesFromOption(const InfectionPtr& infection, const InfectionPtr& latentParent, const ParentSet& parentSet, const size_t option, Engine& rng, const double fnRate, const double fpRate, Change&& change, const Include& include) {
+        const size_t numParents      = parentSet.size();
+        const size_t numCombinations = numParentCombinations<MaxParentSetSize>(numParents);
+        const bool latentOnly        = option == 2 * numCombinations;
+        const bool withLatent        = latentOnly or option % 2 == 0;
         std::vector<unsigned int> chosen{};
         if (not latentOnly) {
             size_t combination = option / 2;
@@ -239,6 +278,9 @@ namespace transmission_nets::core::samplers::genetics {
         }
 
         for (const auto& locus : infection->loci()) {
+            if (not include(locus)) {
+                continue;
+            }
             auto genotype = infection->latentGenotype(locus);
             using Genotype = std::remove_cvref_t<decltype(genotype->value())>;
             std::array<const Genotype*, MaxParentSetSize + 1> parents{};

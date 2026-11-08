@@ -14,6 +14,7 @@
 #include "../../../impl/Studies.h"
 
 #include <boost/random.hpp>
+#include <fmt/core.h>
 #include <nlohmann/json.hpp>
 
 #include <array>
@@ -141,6 +142,107 @@ TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSampler) {
     EXPECT_LT(distanceFromTarget(visits, draws), 0.01);
 }
 
+// Options drawn mostly from weights that change with the child's genotype, as a parent-set posterior does: the
+// reverse move's weights differ from the forward move's, which the correction must account for.
+TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSamplerWithStateDependentOptionWeights) {
+    Fixture f;
+    const auto c = f.state->indexOf("c");
+    f.setGenotype(f.state->infections[f.state->indexOf("p")], "110");
+    f.setGenotype(f.state->latentParents[c], "011");
+    f.setGenotype(f.state->infections[c], "100");
+
+    const auto& child = f.state->infections[c];
+    ASSERT_EQ(f.state->infectionEventOrdering->candidateParents(child).size(), 1u);
+
+    auto genotype = child->latentGenotype(f.locus);
+    auto target   = std::make_shared<WeightedAllelesTarget>(WeightedAllelesTarget{genotype});
+    // The latent parent alone, p alone, p with the latent parent.
+    auto lliks = [genotype](std::vector<double>& out) {
+        const auto& g = genotype->value();
+        out           = {g.allele(2) ? 1.5 : -1.0, g.allele(0) ? 2.0 : -2.0, g.totalPositiveCount() > 1 ? 0.5 : 0.0};
+        return std::log(std::exp(out[0]) + std::exp(out[1]) + std::exp(out[2]));
+    };
+    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<WeightedAllelesTarget, Engine, InfectionEvent, OrderingImpl, MAX_PARENTS, MAX_COI>
+            sampler(child, f.state->infectionEventOrdering, f.state->latentParents[c], target, f.rng, 0.3, 0.3, nullptr, nullptr, lliks, 0.2);
+
+    constexpr int draws = 400000;
+    const auto visits   = run(sampler, genotype, draws);
+    EXPECT_GE(visits.size(), 3u);
+    EXPECT_LT(distanceFromTarget(visits, draws), 0.01);
+}
+
+namespace {
+    // log target = sum, over both loci, of the weights of the alleles present.
+    struct TwoLocusTarget {
+        std::array<std::shared_ptr<Parameter<Genotype>>, 2> genotypes;
+
+        double value() const {
+            double out = 0;
+            for (const auto& genotype : genotypes) {
+                for (unsigned int j = 0; j < WEIGHTS.size(); ++j) {
+                    out += genotype->value().allele(j) ? WEIGHTS[j] : 0.0;
+                }
+            }
+            return out;
+        }
+
+        [[nodiscard]] bool isDirty() const { return false; }
+    };
+}// namespace
+
+// One locus of two redrawn per update, from posterior-weighted options: the correction counts only the redrawn locus.
+TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSamplerRedrawingOneLocusOfTwo) {
+    Study study{.loci = {uniformLocus("L0", 3), uniformLocus("L1", 3)}, .symptomaticInfectionDurations = flatDurations(), .asymptomaticInfectionDurations = flatDurations()};
+    study.infections.push_back({.id = "p", .observationTime = 400, .observedGenotypes = {{"L0", "110"}, {"L1", "011"}}, .permittedParents = {}});
+    study.infections.push_back({.id = "c", .observationTime = 500, .observedGenotypes = {{"L0", "100"}, {"L1", "010"}}, .permittedParents = {"p"}});
+    auto rng   = std::make_shared<Engine>(20261016);
+    auto state = std::make_shared<State>(study, rng);
+    const auto c = state->indexOf("c");
+    const std::array loci{state->loci.at("L0"), state->loci.at("L1")};
+    const auto& child = state->infections[c];
+    auto set          = [&](const std::shared_ptr<InfectionEvent>& infection, const std::array<std::string, 2>& genotypes) {
+        for (size_t l = 0; l < 2; ++l) {
+            infection->latentGenotype(loci[l])->initializeValue(Genotype(genotypes[l]));
+        }
+    };
+    set(state->infections[state->indexOf("p")], {"110", "011"});
+    set(state->latentParents[c], {"011", "110"});
+    set(child, {"100", "010"});
+    ASSERT_EQ(state->infectionEventOrdering->candidateParents(child).size(), 1u);
+
+    const std::array genotypes{child->latentGenotype(loci[0]), child->latentGenotype(loci[1])};
+    auto target = std::make_shared<TwoLocusTarget>(TwoLocusTarget{genotypes});
+    auto lliks  = [genotypes](std::vector<double>& out) {
+        const auto& g = genotypes[0]->value();
+        const auto& h = genotypes[1]->value();
+        out           = {g.allele(2) ? 1.5 : -1.0, h.allele(1) ? 2.0 : -2.0, g.totalPositiveCount() + h.totalPositiveCount() > 2 ? 0.5 : 0.0};
+        return std::log(std::exp(out[0]) + std::exp(out[1]) + std::exp(out[2]));
+    };
+    transmission_nets::core::samplers::genetics::RandomAllelesBitSetSampler3<TwoLocusTarget, Engine, InfectionEvent, OrderingImpl, MAX_PARENTS, MAX_COI>
+            sampler(child, state->infectionEventOrdering, state->latentParents[c], target, rng, 0.3, 0.3, nullptr, nullptr, lliks, 0.2, 1);
+
+    auto key = [&] { return genotypes[0]->value().serialize() + genotypes[1]->value().serialize(); };
+    for (int i = 0; i < 5000; ++i) {
+        sampler.update();
+    }
+    constexpr int draws = 600000;
+    std::map<std::string, int> visits;
+    for (int i = 0; i < draws; ++i) {
+        sampler.update();
+        ++visits[key()];
+    }
+    double total = 0;
+    for (const auto& [genotype, count] : visits) {
+        total += targetWeight(genotype.substr(0, 3)) * targetWeight(genotype.substr(3));
+    }
+    double distance = 0;
+    for (const auto& [genotype, count] : visits) {
+        distance += std::abs(static_cast<double>(count) / draws - targetWeight(genotype.substr(0, 3)) * targetWeight(genotype.substr(3)) / total) / 2;
+    }
+    EXPECT_GE(visits.size(), 6u);
+    EXPECT_LT(distance, 0.01);
+}
+
 TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSamplerAtUnobservedLocus) {
     Fixture f;
     const auto m = f.state->indexOf("m");
@@ -163,16 +265,27 @@ TEST(GenotypeSamplerStationaryTest, ParentSetGenotypeSamplerAtUnobservedLocus) {
     EXPECT_LT(distanceFromTarget(visits, draws), 0.01);
 }
 
-// One try is a plain Metropolis-Hastings independence move; more tries make it a multiple-try move.
-class ParentRelinkStationaryTest : public testing::TestWithParam<unsigned int> {};
+// One try is a plain Metropolis-Hastings independence move; more tries make it a multiple-try move. Sources are
+// weighted by how well they cover the observation, per locus or (with a scale) summed and sharpened; a latent parent
+// of "001" misses the observed allele, so the sources' weights differ.
+struct RelinkCase {
+    unsigned int tries;
+    double sourceWeightScale;
+    std::string latentParent;
+};
 
-INSTANTIATE_TEST_SUITE_P(Tries, ParentRelinkStationaryTest, testing::Values(1u, 4u), [](const auto& info) { return std::to_string(info.param); });
+class ParentRelinkStationaryTest : public testing::TestWithParam<RelinkCase> {};
+
+INSTANTIATE_TEST_SUITE_P(Cases, ParentRelinkStationaryTest,
+                         testing::Values(RelinkCase{1, 0.0, "011"}, RelinkCase{4, 0.0, "011"}, RelinkCase{1, 0.0, "001"}, RelinkCase{1, 2.0, "001"}, RelinkCase{4, 2.0, "001"}),
+                         [](const auto& info) { return fmt::format("tries{}_scale{}_latent{}", info.param.tries, static_cast<int>(info.param.sourceWeightScale), info.param.latentParent); });
 
 TEST_P(ParentRelinkStationaryTest, LeavesTargetInvariant) {
     Fixture f;
     const auto r = f.state->indexOf("r");
     f.setGenotype(f.state->infections[f.state->indexOf("p")], "110");
-    f.setGenotype(f.state->latentParents[r], "011");
+    const auto& param = GetParam();
+    f.setGenotype(f.state->latentParents[r], param.latentParent);
     f.setGenotype(f.state->infections[r], "010");
 
     const auto& infection = f.state->infections[r];
@@ -184,12 +297,12 @@ TEST_P(ParentRelinkStationaryTest, LeavesTargetInvariant) {
         shape[day] = 1.0 + static_cast<double>(day);
     }
     transmission_nets::core::samplers::specialized::ParentRelinkSampler<WeightedAllelesTarget, Engine, InfectionEvent>
-            sampler(infection, f.state->latentParents[r], f.state->allowedRelationships->permittedParents(infection), target, f.rng, 1.0, 60.0, shape, 0.3, 0.3, GetParam());
+            sampler(infection, f.state->latentParents[r], f.state->allowedRelationships->permittedParents(infection), target, f.rng, 1.0, 60.0, shape, 0.3, 0.3, param.tries, nullptr, nullptr, param.sourceWeightScale);
 
     // A genotype can be drawn from a source if it lies within the source's alleles and shares one of them, at the
     // durations for which the source came first: [1, 30) for p, infected on day 390, and for the latent parent any
     // duration whose day, round(duration), is below 60, so [1, 59.5).
-    const std::vector<std::pair<Genotype, double>> sources{{Genotype("110"), 29.0}, {Genotype("011"), 58.5}};
+    const std::vector<std::pair<Genotype, double>> sources{{Genotype("110"), 29.0}, {Genotype(param.latentParent), 58.5}};
     auto durations = [&](const std::string& genotypeString) {
         const Genotype candidate(genotypeString);
         double longest = 0;
@@ -218,7 +331,11 @@ TEST_P(ParentRelinkStationaryTest, LeavesTargetInvariant) {
         total += targetWeight(genotypeString) * durations(genotypeString);
         totalEarly += targetWeight(genotypeString) * 29.0;
     }
-    EXPECT_EQ(visits.size(), 5u);// every genotype within one source's alleles
+    size_t reachable = 0;
+    for (const std::string g : {"001", "010", "011", "100", "101", "110", "111"}) {
+        reachable += durations(g) > 0;
+    }
+    EXPECT_EQ(visits.size(), reachable);// every genotype within one source's alleles
     EXPECT_NEAR(static_cast<double>(early) / draws, totalEarly / total, 0.01);
     EXPECT_LT(distanceFromTarget(visits, draws, durations), 0.01);
 }

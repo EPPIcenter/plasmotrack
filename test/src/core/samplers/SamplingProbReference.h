@@ -3,7 +3,7 @@
 // (see ParentSetGenotypeProposal.h), written from its description rather than for speed: every parent-set option is
 // enumerated and each locus' probability is found by enumerating the alleles the chosen parents could contribute.
 // Used to check the samplers' calculateSamplingProb(), which reuses work across options and parents. Also the proposal
-// density of ParentRelinkSampler, which evaluates each genome once rather than each source.
+// density of ParentRelinkSampler, which evaluates each genome once rather than each candidate.
 //
 
 #ifndef TRANSMISSION_NETWORKS_TEST_SAMPLINGPROBREFERENCE_H
@@ -127,14 +127,17 @@ namespace transmission_nets::test::reference {
         return core::utils::logSumExpKnownMax(options.begin(), options.end(), maxLogProb) - std::log(static_cast<double>(options.size()));
     }
 
-    // Log density of ParentRelinkSampler's proposal at the infection's current duration and genotypes: a uniform
-    // mixture over the sources (allowed parents, then the latent parent) whose window of durations holds positive
-    // shape mass, each the shape restricted to that window times the probability of drawing every locus from the
-    // source alone. A duration d falls in day round(d), and a source's window ends where the infection would no longer
-    // be infected after it.
+    // Log density of ParentRelinkSampler's proposal at the infection's current duration and genotypes: a mixture
+    // over the candidates (permitted parents, then the latent parent) whose window of durations holds positive shape
+    // mass. A candidate's log weight scores the infection's observed alleles it carries against those it lacks: the
+    // per-locus mean when candidateWeightScale is zero, otherwise the sum times the scale. It is zero when nothing was
+    // observed, which makes the mixture uniform. Each candidate then contributes the shape
+    // restricted to its window times the probability of drawing every locus from that candidate alone. A duration d
+    // falls in day round(d), and a candidate's window ends where the infection would no longer be infected after it.
     template<typename InfectionPtr>
     double relinkProposalDensity(const InfectionPtr& infection, const InfectionPtr& latentParent, const std::vector<InfectionPtr>& permittedParents,
-                                 const double minDuration, const double maxDuration, const std::vector<double>& shape, const double fnRate, const double fpRate) {
+                                 const double minDuration, const double maxDuration, const std::vector<double>& shape, const double fnRate, const double fpRate,
+                                 const double candidateWeightScale = 0.0) {
         auto mass = [&](const double first, const double second) {
             double total = 0;
             for (size_t day = 0; day < shape.size(); ++day) {
@@ -145,11 +148,11 @@ namespace transmission_nets::test::reference {
             }
             return total;
         };
-        auto genomeLogProb = [&](const InfectionPtr& source) {
+        auto genomeLogProb = [&](const InfectionPtr& candidate) {
             double total = 0;
             for (const auto& locus : infection->loci()) {
                 const auto& child = infection->latentGenotype(locus)->value();
-                const std::vector<Genotype> parents{source->latentGenotype(locus)->value()};
+                const std::vector<Genotype> parents{candidate->latentGenotype(locus)->value()};
                 if (infection->observedGenotype().contains(locus)) {
                     total += logLocusProposal(parents, child, infection->observedGenotype(locus)->value(), fnRate, fpRate);
                 } else {
@@ -160,14 +163,37 @@ namespace transmission_nets::test::reference {
             }
             return total;
         };
+        // Same score as ParentRelinkSampler::candidateLogWeight.
+        auto candidateLogWeight = [&](const InfectionPtr& candidate) {
+            int observedLoci = 0;
+            double sum       = 0;
+            for (const auto& locus : infection->loci()) {
+                if (!infection->observedGenotype().contains(locus)) {
+                    continue;
+                }
+                const auto& observed = infection->observedGenotype(locus)->value();
+                const auto& parent   = candidate->latentGenotype(locus)->value();
+                sum += static_cast<double>(Genotype::truePositiveCount(parent, observed)) - static_cast<double>(Genotype::falsePositiveCount(parent, observed));
+                ++observedLoci;
+            }
+            if (observedLoci == 0) {
+                return 0.0;
+            }
+            return candidateWeightScale > 0 ? candidateWeightScale * sum : sum / static_cast<double>(observedLoci);
+        };
 
         const double duration = infection->infectionDuration()->value();
         const long day        = std::lround(duration);
         if (day < 0 or day >= static_cast<long>(shape.size()) or shape[day] <= 0) {
             return -std::numeric_limits<double>::infinity();
         }
-        std::vector<double> terms{};
-        size_t feasible = 0;
+        struct Candidate {
+            InfectionPtr infection;
+            double mass = 0;
+            bool holds  = false;
+            double weight = 0;
+        };
+        std::vector<Candidate> candidates;
         for (size_t s = 0; s <= permittedParents.size(); ++s) {
             const bool latent   = s == permittedParents.size();
             const double first  = minDuration;
@@ -175,20 +201,36 @@ namespace transmission_nets::test::reference {
             if (second <= first) {
                 continue;
             }
-            const double sourceMass = mass(first, second);
-            if (sourceMass <= 0) {
+            const double candidateMass = mass(first, second);
+            if (candidateMass <= 0) {
                 continue;
             }
-            ++feasible;
-            if (duration >= first and duration < second) {
-                terms.push_back(std::log(shape[day] / sourceMass) + genomeLogProb(latent ? latentParent : permittedParents[s]));
+            const auto candidate = latent ? latentParent : permittedParents[s];
+            candidates.push_back({candidate, candidateMass, duration >= first and duration < second, candidateLogWeight(candidate)});
+        }
+        if (candidates.empty()) {
+            return -std::numeric_limits<double>::infinity();
+        }
+        double maxWeight = -std::numeric_limits<double>::infinity();
+        for (const auto& candidate : candidates) {
+            maxWeight = std::max(maxWeight, candidate.weight);
+        }
+        double weightSum = 0;
+        for (const auto& candidate : candidates) {
+            weightSum += std::exp(candidate.weight - maxWeight);
+        }
+        const double logZ = maxWeight + std::log(weightSum);
+        std::vector<double> terms{};
+        for (const auto& candidate : candidates) {
+            if (candidate.holds) {
+                terms.push_back(std::log(shape[day] / candidate.mass) + genomeLogProb(candidate.infection) + candidate.weight - logZ);
             }
         }
         if (terms.empty()) {
             return -std::numeric_limits<double>::infinity();
         }
         const double maxTerm = *std::max_element(terms.begin(), terms.end());
-        return core::utils::logSumExpKnownMax(terms.begin(), terms.end(), maxTerm) - std::log(static_cast<double>(feasible));
+        return core::utils::logSumExpKnownMax(terms.begin(), terms.end(), maxTerm);
     }
 
 }// namespace transmission_nets::test::reference

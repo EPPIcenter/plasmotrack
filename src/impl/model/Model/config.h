@@ -12,6 +12,8 @@
 
 #include "core/datatypes/Genotype.h"
 
+#include <vector>
+
 
 #include "core/distributions/ZTPoisson.h"
 #include "core/distributions/ZTGeometric.h"
@@ -24,11 +26,37 @@
 
 namespace transmission_nets::impl::Model {
     // Tries per ParentRelinkSampler update (1: a plain independence move; more: a multiple-try move).
-    constexpr unsigned int RELINK_TRIES = 2;
+    constexpr unsigned int RELINK_TRIES = 1;
+    // ParentRelinkSampler weights a candidate parent by exp(scale * (observed alleles it carries - observed alleles it
+    // lacks)); 0 averages that score over observed loci instead, which leaves the candidates nearly uniform.
+    constexpr double RELINK_CANDIDATE_WEIGHT_SCALE = 1.0;
     // Partners tried per InformedOrderJumpSampler update (a random subset when an infection has more).
-    constexpr size_t INFORMED_JUMP_MAX_TRIES = 8;
+    constexpr size_t INFORMED_JUMP_MAX_TRIES = 4;
     // Allele-frequency (SALT) updates run every this many Sampling iterations.
-    constexpr int SALT_UPDATE_FREQUENCY = 3;
+    constexpr int SALT_UPDATE_FREQUENCY = 30;
+    // Each allele-frequency sampler, updated every iteration, also makes a Dirichlet move every
+    // ALLELE_FREQUENCY_DIRICHLET_EVERY-th update, fitted to its own trajectory over these spans of updates and fixed
+    // after the last; its SALT sweep then runs every SALT_UPDATE_FREQUENCY-th update.
+    constexpr bool ALLELE_FREQUENCY_DIRICHLET_MOVE = true;
+    constexpr int ALLELE_FREQUENCY_DIRICHLET_EVERY = 5;
+    inline const std::vector<int> ALLELE_FREQUENCY_FIT_SPANS{5, 45, 100, 200, 400};
+    constexpr double ALLELE_FREQUENCY_DIRICHLET_WIDEN = 0.25;
+    // A locus of more alleles than this is moved in random blocks of this many; 0 moves the whole locus at once.
+    constexpr size_t ALLELE_FREQUENCY_DIRICHLET_BLOCK = 4;
+    // CloneOrderSwapSampler also exchanges an infection's infection time with a clone's.
+    constexpr bool CLONE_TIME_EXCHANGE = true;
+    // Single observed-allele toggles each StrainCountSampler update makes after it adds or removes a strain.
+    constexpr unsigned int OBSERVED_ALLELE_TOGGLES = 2;
+    // Share of RandomAllelesBitSetSampler3 updates whose parent-set option is uniform; the rest follow the
+    // infection's parent-set posterior. 1 makes every option uniform.
+    constexpr double PARENT_SET_PROPOSAL_UNIFORM_SHARE = 0.1;
+    // Loci RandomAllelesBitSetSampler3 redraws per update, chosen uniformly; 0 redraws every locus.
+    constexpr size_t PARENT_SET_PROPOSAL_LOCI = 4;
+    // Guided swaps GuidedPairSampler makes per Sampling iteration, each on a pair of infections that can infect each
+    // other whose observed genotypes differ at no more than GUIDED_PAIR_MAX_DIFFERENT of the loci observed in both
+    // (every such pair when negative), picked uniformly.
+    constexpr int GUIDED_PAIR_SWAPS         = 30;
+    constexpr int GUIDED_PAIR_MAX_DIFFERENT = 10;
 
 
     static constexpr int MAX_COI           = 20;
