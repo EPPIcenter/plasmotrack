@@ -17,7 +17,6 @@
 #include <cmath>
 #include <limits>
 #include <map>
-#include <stdexcept>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -192,43 +191,4 @@ TEST(GuidedPairSamplerTest, LeavesTargetInvariant) {
     EXPECT_GT(reordered, draws / 20);
     EXPECT_LT(distance(expectedBins, binVisits), 0.01);
     EXPECT_LT(distance(expectedGenotypes, genotypeVisits), 0.01);
-}
-
-// Adapting sets the swaps an update makes from its evaluation budget, and a restore continues with the same pick
-// probabilities, swaps per update and stats.
-TEST(GuidedPairSamplerTest, RestoresAdaptation) {
-    Fixture f;
-    auto target         = std::make_shared<Target>(Target{&f});
-    const auto pairs    = Sampler::mutualPairs(f.state->infections, *f.state->allowedRelationships, [](size_t) { return DAYS - 0.5; });
-    const auto settings = Sampler::Settings{.moves = 1, .uniformShare = 0.5, .evaluations = 200};
-    // x infected on day 370 and y on day 380, so their infection times can be exchanged.
-    f.x->infectionDuration()->initializeValue(30);
-    f.y->infectionDuration()->initializeValue(40);
-    Sampler sampler(pairs, target, f.rng, 1.0, STRAIN_LIMIT, settings);
-    EXPECT_EQ(sampler.adaptationState(), transmission_nets::core::samplers::AdaptationState{});
-    for (int i = 0; i < 200; ++i) {
-        sampler.update();
-        sampler.adapt();
-    }
-    const auto [pair, different, stats, pick] = sampler.pairs().front();
-    ASSERT_EQ(stats.swaps, sampler.counts().proposed);
-    EXPECT_DOUBLE_EQ(pick, 1.0);
-    EXPECT_GT(sampler.moves(), 1);
-    const double n = static_cast<double>(stats.swaps);
-    EXPECT_EQ(sampler.moves(), static_cast<int>(std::lround(200 / std::max(1.0, (stats.evaluations + 2 * stats.evaluations / n) / (n + 2)))));
-
-    const auto state = sampler.adaptationState();
-    EXPECT_EQ(state.updates, 200U);
-    Sampler restored(pairs, target, f.rng, 1.0, STRAIN_LIMIT, settings);
-    restored.restoreAdaptationState(state);
-    EXPECT_EQ(restored.adaptationState(), state);
-    EXPECT_EQ(restored.moves(), sampler.moves());
-    const auto [rpair, rdifferent, rstats, rpick] = restored.pairs().front();
-    EXPECT_EQ(rstats.swaps, stats.swaps);
-    EXPECT_EQ(rstats.accepted, stats.accepted);
-    EXPECT_DOUBLE_EQ(rpick, pick);
-
-    auto wrong = state;
-    wrong.fit.pop_back();
-    EXPECT_THROW(restored.restoreAdaptationState(wrong), std::invalid_argument);
 }

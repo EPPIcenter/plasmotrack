@@ -54,15 +54,9 @@ namespace transmission_nets::impl::Model {
     constexpr size_t PARENT_SET_PROPOSAL_LOCI = 4;
     // Guided swaps GuidedPairSampler makes per Sampling iteration, each on a pair of infections that can infect each
     // other whose observed genotypes differ at no more than GUIDED_PAIR_MAX_DIFFERENT of the loci observed in both
-    // (every such pair when negative).
+    // (every such pair when negative), picked uniformly.
     constexpr int GUIDED_PAIR_SWAPS         = 30;
     constexpr int GUIDED_PAIR_MAX_DIFFERENT = 10;
-    // GuidedPairSampler adapts its pair weights on Sampling iterations [20, GUIDED_PAIR_ADAPTATION_END), keeping
-    // GUIDED_PAIR_UNIFORM_SHARE of the pick uniform (1 picks uniformly throughout). With GUIDED_PAIR_EVALUATIONS
-    // positive, it also sets its swaps per iteration so they spend about that many target evaluations.
-    constexpr int GUIDED_PAIR_ADAPTATION_END    = 200;
-    constexpr double GUIDED_PAIR_UNIFORM_SHARE  = 1.0;
-    constexpr double GUIDED_PAIR_EVALUATIONS    = 0;
 
 
     static constexpr int MAX_COI           = 20;

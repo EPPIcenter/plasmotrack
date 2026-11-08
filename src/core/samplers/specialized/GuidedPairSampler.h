@@ -12,13 +12,9 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdint>
 #include <limits>
 #include <memory>
 #include <set>
-#include <stdexcept>
-#include <string>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -43,14 +39,7 @@ namespace transmission_nets::core::samplers::specialized {
      * leaves a duration outside its bounds or the target at no probability; a rejected swap puts both infections
      * back as they were.
      *
-     * Pairs are picked uniformly until the sampler adapts. Every accepted swap exchanges a pair's infection times, so a
-     * pair's mean acceptance is how often a swap reorders it. Each adapt() values every pair at its acceptance to the
-     * power `acceptancePower` per target evaluation, both shrunk towards the active pairs' pooled rates by `priorSwaps`
-     * swaps; a power below 1 spends less on pairs that reorder nearly every swap and are mixed already. It picks a pair
-     * with `uniformShare` of the uniform weight and the rest in proportion to its value. With `evaluations` positive,
-     * it also sets `moves` so an update spends about that many evaluations at the current weights. The weights and
-     * `moves` depend only on swaps already made, never on the State an update starts from, so once adaptation stops
-     * the move is an exact Metropolis-Hastings step again.
+     * Each swap picks its pair uniformly among the active pairs.
      */
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     class GuidedPairSampler : public AbstractSampler {
@@ -67,19 +56,6 @@ namespace transmission_nets::core::samplers::specialized {
         struct Settings {
             int moves        = 1;
             int maxDifferent = -1;
-            // Adaptation, see above: the weight kept uniform, the evaluations an update aims at (0 keeps `moves`), the
-            // pooled swaps each pair's rates start from, and the power on acceptance in a pair's value.
-            double uniformShare    = 1;
-            double evaluations     = 0;
-            double priorSwaps      = 2;
-            double acceptancePower = 1;
-        };
-
-        // What the swaps on one pair have seen: the swaps proposed and accepted, their acceptance probabilities and
-        // those of the time exchange alone, summed, and the target evaluations they took.
-        struct PairStats {
-            std::uint64_t swaps = 0, accepted = 0;
-            double acceptance = 0, exchangeAcceptance = 0, evaluations = 0;
         };
 
         // Every pair of infections that can infect each other, each infection's duration bounded by `maxDuration(i)`.
@@ -90,25 +66,7 @@ namespace transmission_nets::core::samplers::specialized {
 
         void update() noexcept override;
 
-        void adapt() noexcept override;
-
-        // The adaptations made, then in `fit`: `moves`, each pair's value (0 before the first adaptation), and each
-        // pair's stats, five values a pair.
-        [[nodiscard]] AdaptationState adaptationState() const override;
-
-        // Throws std::invalid_argument for a fit of another size than this sampler's pairs give.
-        void restoreAdaptationState(const AdaptationState& state) override;
-
-        // Picks the active pairs again under `settings`, weighted by the values already adapted; the pairs' stats stay.
-        void configure(Settings settings);
-
-        [[nodiscard]] size_t activePairs() const noexcept { return active_.size(); }
-
-        [[nodiscard]] int moves() const noexcept { return settings_.moves; }
-
-        // Every pair, active or not, with the loci its observed genotypes differ at, its stats, and the probability
-        // an update's swap picks it (0 when inactive).
-        [[nodiscard]] std::vector<std::tuple<const Pair*, int, PairStats, double>> pairs() const;
+        [[nodiscard]] size_t activePairs() const noexcept { return prepared_.size(); }
 
     private:
         using Genotype  = std::remove_cvref_t<decltype(std::declval<InfectionEventImpl&>().latentGenotype(std::declval<std::shared_ptr<LocusImpl>>())->value())>;
@@ -124,8 +82,6 @@ namespace transmission_nets::core::samplers::specialized {
             Pair pair;
             std::vector<Unit> units;
             int different = 0;
-            PairStats stats{};
-            double value = 0;
         };
 
         // Exchanges the pair's infection times if both durations stay in bounds and the target finite.
@@ -140,22 +96,14 @@ namespace transmission_nets::core::samplers::specialized {
         double walk(const Prepared& p, const Genotypes* towards) noexcept;
         [[nodiscard]] Genotypes snapshot(const Prepared& p) const;
         void restore(const Prepared& p, double durationA, double durationB, const Genotypes& genotypes) noexcept;
-        void swap(Prepared& p) noexcept;
-        // The active pairs' cumulative pick probabilities, from their values; empty when every value is 0.
-        void weigh();
+        void swap(const Prepared& p) noexcept;
 
-        static constexpr size_t STATS_PER_PAIR = 5;
-
-        std::vector<Prepared> prepared_;
-        std::vector<size_t> active_;
-        std::vector<double> cumulative_;
-        std::uint64_t adaptations_ = 0;
+        std::vector<Prepared> prepared_;// the active pairs
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
         double minDuration_;
         unsigned int maxCOI_;
         Settings settings_;
-        double evaluations_ = 0;
         SamplerCounts innerCounts_{};
     };
 
@@ -188,7 +136,8 @@ namespace transmission_nets::core::samplers::specialized {
         : target_(std::move(target)),
           rng_(std::move(rng)),
           minDuration_(minDuration),
-          maxCOI_(maxCOI) {
+          maxCOI_(maxCOI),
+          settings_(settings) {
         for (auto& pair : pairs) {
             Prepared p{.pair = std::move(pair)};
             for (const auto& [locus, observed] : p.pair.first.infection->observedGenotype()) {
@@ -218,147 +167,19 @@ namespace transmission_nets::core::samplers::specialized {
                     p.units.push_back({locus, allele});
                 }
             }
-            if (not p.units.empty()) {
+            if (not p.units.empty() and (settings_.maxDifferent < 0 or p.different <= settings_.maxDifferent)) {
                 prepared_.push_back(std::move(p));
             }
         }
-        configure(settings);
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::configure(const Settings settings) {
-        settings_ = settings;
-        active_.clear();
-        for (size_t i = 0; i < prepared_.size(); ++i) {
-            if (settings_.maxDifferent < 0 or prepared_[i].different <= settings_.maxDifferent) {
-                active_.push_back(i);
-            }
-        }
-        weigh();
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::weigh() {
-        cumulative_.clear();
-        double valued = 0;
-        for (const auto i : active_) {
-            valued += prepared_[i].value;
-        }
-        if (active_.empty() or valued <= 0) {
-            return;
-        }
-        const double u = std::clamp(settings_.uniformShare, 0.0, 1.0);
-        double total   = 0;
-        for (const auto i : active_) {
-            total += u / static_cast<double>(active_.size()) + (1 - u) * prepared_[i].value / valued;
-            cumulative_.push_back(total);
-        }
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::adapt() noexcept {
-        ++adaptations_;
-        double swaps = 0, acceptance = 0, evaluations = 0;
-        for (const auto i : active_) {
-            const auto& st = prepared_[i].stats;
-            swaps += static_cast<double>(st.swaps);
-            acceptance += st.acceptance;
-            evaluations += st.evaluations;
-        }
-        if (swaps == 0) {
-            return;
-        }
-        // A swap the exchange refuses evaluates nothing, so cost has a floor of one evaluation.
-        const double pooledAcceptance = acceptance / swaps, pooledCost = std::max(1.0, evaluations / swaps);
-        const double k                = settings_.priorSwaps;
-        for (const auto i : active_) {
-            auto& p          = prepared_[i];
-            const double n   = static_cast<double>(p.stats.swaps);
-            const double acc = (p.stats.acceptance + k * pooledAcceptance) / (n + k);
-            const double c   = std::max(1.0, (p.stats.evaluations + k * pooledCost) / (n + k));
-            p.value          = std::pow(acc, settings_.acceptancePower) / c;
-        }
-        weigh();
-        if (settings_.evaluations > 0 and not cumulative_.empty()) {
-            double expectedCost = 0, previous = 0;
-            for (size_t a = 0; a < active_.size(); ++a) {
-                const auto& p = prepared_[active_[a]];
-                const double n = static_cast<double>(p.stats.swaps);
-                expectedCost += (cumulative_[a] - previous) / cumulative_.back() * std::max(1.0, (p.stats.evaluations + k * pooledCost) / (n + k));
-                previous = cumulative_[a];
-            }
-            settings_.moves = std::max(1, static_cast<int>(std::lround(settings_.evaluations / expectedCost)));
-        }
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    AdaptationState GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::adaptationState() const {
-        AdaptationState state{.updates = adaptations_};
-        if (adaptations_ == 0) {
-            return state;
-        }
-        state.fit.reserve(1 + prepared_.size() * (1 + STATS_PER_PAIR));
-        state.fit.push_back(settings_.moves);
-        for (const auto& p : prepared_) {
-            state.fit.push_back(p.value);
-        }
-        for (const auto& p : prepared_) {
-            state.fit.insert(state.fit.end(), {static_cast<double>(p.stats.swaps), static_cast<double>(p.stats.accepted), p.stats.acceptance, p.stats.exchangeAcceptance, p.stats.evaluations});
-        }
-        return state;
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::restoreAdaptationState(const AdaptationState& state) {
-        requireScales(state, 0);
-        adaptations_ = state.updates;
-        if (state.fit.empty()) {
-            return;
-        }
-        if (const size_t expected = 1 + prepared_.size() * (1 + STATS_PER_PAIR); state.fit.size() != expected) {
-            throw std::invalid_argument("guided pair fit has " + std::to_string(state.fit.size()) + " values, sampler has " + std::to_string(expected));
-        }
-        if (settings_.evaluations > 0) {
-            settings_.moves = static_cast<int>(state.fit[0]);
-        }
-        const size_t n = prepared_.size();
-        for (size_t i = 0; i < n; ++i) {
-            auto& p           = prepared_[i];
-            p.value           = state.fit[1 + i];
-            const double* st  = &state.fit[1 + n + STATS_PER_PAIR * i];
-            p.stats           = {.swaps = static_cast<std::uint64_t>(st[0]), .accepted = static_cast<std::uint64_t>(st[1]), .acceptance = st[2], .exchangeAcceptance = st[3], .evaluations = st[4]};
-        }
-        weigh();
-    }
-
-    template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    std::vector<std::tuple<const typename GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::Pair*, int, typename GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::PairStats, double>>
-    GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::pairs() const {
-        std::vector<double> pick(prepared_.size(), 0.0);
-        for (size_t a = 0; a < active_.size(); ++a) {
-            pick[active_[a]] = cumulative_.empty() ? 1.0 / static_cast<double>(active_.size()) : (cumulative_[a] - (a == 0 ? 0.0 : cumulative_[a - 1])) / cumulative_.back();
-        }
-        std::vector<std::tuple<const Pair*, int, PairStats, double>> out;
-        for (size_t i = 0; i < prepared_.size(); ++i) {
-            out.emplace_back(&prepared_[i].pair, prepared_[i].different, prepared_[i].stats, pick[i]);
-        }
-        return out;
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::update() noexcept {
-        if (active_.empty()) {
+        if (prepared_.empty()) {
             return;
         }
-        boost::random::uniform_01<> unit;
         for (int m = 0; m < settings_.moves; ++m) {
-            size_t a;
-            if (cumulative_.empty()) {
-                a = boost::random::uniform_int_distribution<size_t>(0, active_.size() - 1)(*rng_);
-            } else {
-                a = std::min(active_.size() - 1, static_cast<size_t>(std::upper_bound(cumulative_.begin(), cumulative_.end(), unit(*rng_) * cumulative_.back()) - cumulative_.begin()));
-            }
-            swap(prepared_[active_[a]]);
+            swap(prepared_[boost::random::uniform_int_distribution<size_t>(0, prepared_.size() - 1)(*rng_)]);
         }
     }
 
@@ -406,7 +227,6 @@ namespace transmission_nets::core::samplers::specialized {
                 }
                 values.push_back(move.value());
                 move.revert();
-                evaluations_ += 1;
                 options.emplace_back(na, nb);
             }
         }
@@ -542,19 +362,16 @@ namespace transmission_nets::core::samplers::specialized {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::swap(Prepared& p) noexcept {
+    void GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::swap(const Prepared& p) noexcept {
         const auto& a = *p.pair.first.infection;
         const auto& b = *p.pair.second.infection;
         const double before    = target_->value();
         const double durationA = a.infectionDuration()->value(), durationB = b.infectionDuration()->value();
         const auto current     = snapshot(p);
-        const double spent     = evaluations_;
-        ++p.stats.swaps;
         if (not exchange(p)) {
             countProposal(false);
             return;
         }
-        p.stats.exchangeAcceptance += std::min(1.0, std::exp(target_->value() - before));
         pilot(p);
         const double logForward = walk(p, nullptr);
         const double after      = target_->value();
@@ -568,9 +385,6 @@ namespace transmission_nets::core::samplers::specialized {
         boost::random::uniform_01<> unit;
         const double logAccept = std::isfinite(logReverse) ? after - before + logReverse - logForward : -std::numeric_limits<double>::infinity();
         const bool accepted    = std::log(unit(*rng_)) < logAccept;
-        p.stats.acceptance += std::min(1.0, std::exp(logAccept));
-        p.stats.accepted += accepted;
-        p.stats.evaluations += evaluations_ - spent;
         if (accepted) {
             restore(p, proposedA, proposedB, proposed);
         } else {
