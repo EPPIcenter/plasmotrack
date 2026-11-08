@@ -144,9 +144,13 @@ namespace transmission_nets::model::transmission_process {
             Likelihood weightMax = std::numeric_limits<Likelihood>::quiet_NaN();
             size_t weightArgmax  = NO_POSITION;// an entry whose term equals weightMax, if known
             Likelihood logSum    = -std::numeric_limits<Likelihood>::infinity();
-            bool stale           = true;
+            bool stale           = true;// an entry changed since logSum was brought up to date
         };
         static constexpr size_t NO_POSITION = std::numeric_limits<size_t>::max();
+        // The groups, by index in LikelihoodCache::groups.
+        static constexpr size_t WITHOUT_LATENT = 0;// odd positions
+        static constexpr size_t WITH_LATENT    = 1;// position 0 and even positions
+        static constexpr size_t groupOf(const size_t position) { return position % 2 == 0 ? WITH_LATENT : WITHOUT_LATENT; }
         struct LikelihoodCache {
             // The parent set the classes partition, in ParentSet order, and each parent's class.
             std::vector<const InfectionEventImpl*> parents{};
@@ -169,8 +173,16 @@ namespace transmission_nets::model::transmission_process {
             // Entries without the latent parent (odd positions), then those with it (position 0 and even positions).
             std::array<LogSumExpGroup, 2> groups{};
             std::vector<GenotypeChange> changes{};
+
             // Something changed since the groups' sums were brought up to date.
-            bool stale = true;
+            [[nodiscard]] bool stale() const { return groups[WITHOUT_LATENT].stale or groups[WITH_LATENT].stale; }
+            // Marks the group of entries with the latent parent for updating, and unless `latentOnly` the other too.
+            void markStale(const bool latentOnly) {
+                groups[WITH_LATENT].stale = true;
+                if (not latentOnly) {
+                    groups[WITHOUT_LATENT].stale = true;
+                }
+            }
         };
         // Entry states, each needing less work than the one before.
         static constexpr unsigned char INVALID       = 0;// sums must be computed from scratch; also any entry standing for no parent set, which is not kept up to date
@@ -660,10 +672,9 @@ namespace transmission_nets::model::transmission_process {
         next.groups = current.groups;
         for (auto& group : next.groups) {
             group.weightArgmax = NO_POSITION;
-            group.stale        = true;
         }
+        next.markStale(false);
         next.changes = current.changes;
-        next.stale   = true;
         auto carry   = [&](const size_t to, const size_t from) { copyEntry(next, to, current, from); };
 
         if (not current.lliks.empty()) {
@@ -701,9 +712,8 @@ namespace transmission_nets::model::transmission_process {
             if (cache.logMultiplicity[position] == logMultiplicity) {
                 return;
             }
-            cache.logMultiplicity[position]          = logMultiplicity;
-            cache.stale                              = true;
-            cache.groups[1 - (position % 2)].stale   = true;
+            cache.logMultiplicity[position]        = logMultiplicity;
+            cache.groups[groupOf(position)].stale = true;
             if (logMultiplicity == -std::numeric_limits<Likelihood>::infinity()) {
                 cache.valid[position] = INVALID;// stands for no parent set, so is not kept up to date
             } else if (cache.valid[position] == VALID) {
@@ -730,12 +740,8 @@ namespace transmission_nets::model::transmission_process {
         if (cache().valid.empty()) {
             return;
         }
-        auto& current            = mutableCache();
-        current.stale            = true;
-        current.groups[1].stale  = true;
-        if (not latentOnly) {
-            current.groups[0].stale = true;
-        }
+        auto& current = mutableCache();
+        current.markStale(latentOnly);
         // The latent-parent entries are position 0 and every even position.
         const size_t step = latentOnly ? 2 : 1;
         current.valid[0]  = std::min(current.valid[0], state);
@@ -764,9 +770,7 @@ namespace transmission_nets::model::transmission_process {
         }
         auto& changed = mutableCache();
         changed.changes.push_back(GenotypeChange{.infection = infection, .locus = locus, .previous = previous});
-        changed.stale           = true;
-        changed.groups[0].stale = true;
-        changed.groups[1].stale = true;
+        changed.markStale(false);
     }
 
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
@@ -918,11 +922,7 @@ namespace transmission_nets::model::transmission_process {
         for (size_t position = 0; position < current.valid.size(); position += step) {
             current.valid[position] = INVALID;
         }
-        current.stale           = true;
-        current.groups[1].stale = true;
-        if (memo_->leaky()) {
-            current.groups[0].stale = true;
-        }
+        current.markStale(not memo_->leaky());
     }
 
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
@@ -938,11 +938,7 @@ namespace transmission_nets::model::transmission_process {
                 continue;
             }
             current.frequencyIds[l] = updated;
-            current.stale           = true;
-            current.groups[1].stale = true;
-            if (leaky) {
-                current.groups[0].stale = true;
-            }
+            current.markStale(not leaky);
             const Genotype& child   = child_->latentGenotype(locus)->value();
             currentClasses_.resize(numClasses);
             for (size_t k = 0; k < numClasses; ++k) {
@@ -1109,8 +1105,8 @@ namespace transmission_nets::model::transmission_process {
     Likelihood TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::combine(const LikelihoodCache& current) {
         // log( W0 + sum_S E_L[ W(S ∪ {L}) ] ): the latent parent is drawn from the Source whether or not it infected
         // the infection, so summing it out leaves the sets without it as they are.
-        const Likelihood withoutLatent = current.groups[0].logSum;
-        const Likelihood withLatent    = current.groups[1].logSum;
+        const Likelihood withoutLatent = current.groups[WITHOUT_LATENT].logSum;
+        const Likelihood withLatent    = current.groups[WITH_LATENT].logSum;
         const Likelihood maxTerm       = std::max(withoutLatent, withLatent);
         if (maxTerm == -std::numeric_limits<Likelihood>::infinity()) {
             return maxTerm;
@@ -1128,7 +1124,7 @@ namespace transmission_nets::model::transmission_process {
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
     Likelihood
     TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::value() {
-        if (this->isDirty() and not cache().stale and not parentsMayHaveChanged_ and not frequenciesMayHaveChanged_) {
+        if (this->isDirty() and not cache().stale() and not parentsMayHaveChanged_ and not frequenciesMayHaveChanged_) {
             // Nothing the entries depend on changed: recombine the groups' sums.
             this->value_ = combine(cache());
             this->setClean();
@@ -1162,8 +1158,7 @@ namespace transmission_nets::model::transmission_process {
                         current.valid[position] = COMPUTED;
                     }
                 }
-                current.groups[0].stale = true;
-                current.groups[1].stale = true;
+                current.markStale(false);
             } else {
                 syncFrequencyGeneration(current);
                 applyChanges(current);
@@ -1288,15 +1283,13 @@ namespace transmission_nets::model::transmission_process {
                 });
             }
 
-            if (current.groups[0].stale) {
-                updateGroup(current, current.groups[0], 1);
-                current.groups[0].stale = false;
+            // A group nothing changed in keeps its sum.
+            for (const size_t g : {WITHOUT_LATENT, WITH_LATENT}) {
+                if (current.groups[g].stale) {
+                    updateGroup(current, current.groups[g], g == WITH_LATENT ? 0 : 1);
+                    current.groups[g].stale = false;
+                }
             }
-            if (current.groups[1].stale) {
-                updateGroup(current, current.groups[1], 0);
-                current.groups[1].stale = false;
-            }
-            current.stale = false;
             this->value_  = combine(current);
             frequenciesMayHaveChanged_ = false;
             for (const size_t l : pendingFrequencyLoci_) {
