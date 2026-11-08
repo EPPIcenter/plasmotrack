@@ -211,7 +211,7 @@ TEST(FamilyMovesTest, GuidedGroupRelocationLeavesTargetInvariant) {
     auto target            = std::make_shared<Target>(Target{&f});
     const auto groups      = families(closePairs(thePair(f), 3));
     ASSERT_EQ(groups.size(), 1u);
-    Groups sampler(groups, target, f.rng, 1.0, STRAIN_LIMIT, 10.0, 2);
+    Groups sampler(groups, target, f.rng, 1.0, STRAIN_LIMIT, 10.0, 2, 1);
     constexpr int draws    = 300000;
     const auto visits      = moveExactDraws(f, [&] { sampler.update(); }, draws);
     EXPECT_GT(sampler.counts().accepted, sampler.counts().proposed / 20);

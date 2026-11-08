@@ -214,9 +214,9 @@ namespace transmission_nets::impl::Model {
                                                                                  typename GuidedPairs::Settings{.moves = GUIDED_PAIR_SWAPS, .maxDifferent = GUIDED_PAIR_MAX_DIFFERENT}),
                                         .id      = "GuidedPairSampler/pairs"});
 
-            // Family moves, here and so only outside the null model, which has no transmission. They work on the close
-            // pairs (specialized::close()): GuidedGroupSampler relocations on the pairs and their connected triples,
-            // PairLocusGibbsSampler Proposals on the pairs.
+            // Family moves, inside `if (!state->nullModel)`: the null model has no transmission, so its Sampler set has
+            // none. GuidedGroupSampler relocations on the close pairs (specialized::close()) and their connected
+            // triples, PairLocusGibbsSampler Proposals on the close pairs.
             const auto closePairs = specialized::closePairs(mutualPairs, FAMILY_MAX_NOVELTY);
             using Groups          = specialized::GuidedGroupSampler<T, Engine, InfectionEvent, LocusImpl>;
             scheduler_.registerSampler({.sampler = std::make_unique<Groups>(specialized::families(closePairs), target, r, MIN_INFECTION_DURATION, MAX_COI, FAMILY_RELOCATE_JITTER,

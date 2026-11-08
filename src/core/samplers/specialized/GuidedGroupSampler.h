@@ -1,6 +1,6 @@
 //
-// Moves a family of infections that can infect one another to new infection times, the family's genotypes following,
-// in one Metropolis-Hastings step: GuidedPairSampler's swap generalised from two infections to a few.
+// Relocates a Family: new infection times for some of its members, the Family's Latent genotypes following, in one
+// Proposal. GuidedPairSampler's swap generalised from two Infections to a few.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_GUIDEDGROUPSAMPLER_H
@@ -26,18 +26,19 @@
 namespace transmission_nets::core::samplers::specialized {
 
     /*
-     * One step picks a group from a fixed list and proposes:
+     * One relocation picks a Family (a group) from a fixed list and proposes:
      * 1. new infection times for `movers` of its members (distinct, in a uniform order), each drawn after the previous
-     *    one moved: with probability 1/2 uniformly over its feasible window, otherwise within `jitter` of another
-     *    member's time (picked uniformly). The other members' times stay, so the density both ways is known.
-     * 2. the group's genotypes at its units, each allele observed in any member at a locus where the members' observed
-     *    genotypes differ. A deterministic pilot first makes the genotypes consistent with the best transmission tree
-     *    inside the group (pilot()); a walk then draws every unit, in a fixed order, among the 2^k ways the members may
-     *    hold it, in proportion to the target.
-     * The reverse move puts the times back in reverse order, runs the pilot from there, and takes the walk's probability
-     * of drawing the current genotypes; a reverse walk that ends anywhere else cannot reach the current state and
-     * rejects. The pilot is a deterministic function of the state it starts from, so the time densities and the walk
-     * probabilities both ways are the whole proposal density.
+     *    one moved: with probability 1/2 uniformly over the times its infection duration allows, otherwise within
+     *    `jitter` of another member's time (picked uniformly). The other members' times stay, so the density both ways
+     *    is known.
+     * 2. the group's Latent genotypes at its units, each an Allele observed in any member at a Locus where the members'
+     *    Observed genotypes differ. A deterministic Pilot first makes the genotypes consistent with the best choice of
+     *    parent inside the group for each member (pilot()); a walk then draws every unit, in a fixed order, among the
+     *    2^k ways the members may hold it, in proportion to the target.
+     * The reverse Proposal puts the times back in reverse order, runs the Pilot from there, and takes the walk's
+     * probability of drawing the current genotypes; a reverse walk that ends anywhere else cannot reach the current
+     * state and rejects. The Pilot is a deterministic function of the state it starts from, so the time densities and
+     * the walk probabilities both ways are the whole proposal density.
      */
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     class GuidedGroupSampler : public AbstractSampler {
@@ -45,12 +46,12 @@ namespace transmission_nets::core::samplers::specialized {
         using Member = typename GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::Member;
         using Group  = std::vector<Member>;
 
-        GuidedGroupSampler(std::vector<Group> groups, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double minDuration, unsigned int maxCOI, double jitter = 10.0,
-                           size_t movers = 2, size_t moves = 1);
+        GuidedGroupSampler(std::vector<Group> groups, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, double minDuration, unsigned int maxCOI, double jitter, size_t movers,
+                           int relocations);
 
-        // `moves` steps.
+        // `relocations` relocations.
         void update() noexcept override {
-            for (size_t m = 0; m < moves_; ++m) step();
+            for (int m = 0; m < relocations_; ++m) relocate();
         }
 
         [[nodiscard]] size_t groups() const noexcept { return prepared_.size(); }
@@ -81,12 +82,13 @@ namespace transmission_nets::core::samplers::specialized {
         std::shared_ptr<Engine> rng_;
         double minDuration_;
         unsigned int maxCOI_;
-        double jitter_ = 10.0;
-        size_t movers_ = 2;
-        size_t moves_  = 1;
+        double jitter_;
+        size_t movers_;
+        int relocations_;
         SamplerCounts innerCounts_{};
 
-        void step() noexcept;
+        // One relocation, accepted or rejected.
+        void relocate() noexcept;
 
         // Relocates `who` in turn to `to`; the log density of the forward draws and of the reverse ones (undoing in
         // reverse order), or -inf when a time is out of bounds or the target infinite (the state then partly moved).
@@ -100,8 +102,8 @@ namespace transmission_nets::core::samplers::specialized {
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     GuidedGroupSampler<T, Engine, InfectionEventImpl, LocusImpl>::GuidedGroupSampler(std::vector<Group> groups, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, const double minDuration,
-                                                                                      const unsigned int maxCOI, const double jitter, const size_t movers, const size_t moves)
-        : target_(std::move(target)), rng_(std::move(rng)), minDuration_(minDuration), maxCOI_(maxCOI), jitter_(jitter), movers_(movers), moves_(moves) {
+                                                                                      const unsigned int maxCOI, const double jitter, const size_t movers, const int relocations)
+        : target_(std::move(target)), rng_(std::move(rng)), minDuration_(minDuration), maxCOI_(maxCOI), jitter_(jitter), movers_(movers), relocations_(relocations) {
         for (auto& group : groups) {
             Prepared p{.group = std::move(group)};
             for (const auto& locus : p.group.front().infection->loci()) {
@@ -167,12 +169,12 @@ namespace transmission_nets::core::samplers::specialized {
         }
     }
 
-    // Genotypes made consistent with a hypothesised tree inside the group. Members in their current time order; each but
-    // the first gets a parent among the earlier members or none (outside the group). For each assignment, at every
-    // unit's locus: a child's observed alleles its parent lacks are called false positives when at most one is and some
-    // remain, otherwise the parent gains them; then hidden alleles (in the latent genotype, not observed) that no child
-    // in the group carries are dropped. The best assignment's genotypes are kept, if better than the current ones.
-    // Deterministic.
+    // The Pilot: Latent genotypes made consistent with a hypothesised parent inside the group for each member. Members in
+    // their current time order; each but the first gets a parent among the earlier members or none (outside the group).
+    // For each assignment, at every unit's Locus: a child's observed Alleles its parent lacks are called false positives
+    // when at most one is and some remain, otherwise the parent gains them; then Alleles a member's Latent genotype holds
+    // and its Observed genotype lacks are dropped unless a child in the group carries them. The best assignment's
+    // genotypes are kept, if better than the current ones. Deterministic.
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     void GuidedGroupSampler<T, Engine, InfectionEventImpl, LocusImpl>::pilot(const Prepared& p) noexcept {
         const size_t k = p.group.size();
@@ -196,29 +198,29 @@ namespace transmission_nets::core::samplers::specialized {
             for (size_t l = 0; l < loci.size(); ++l) {
                 for (size_t pos = 1; pos < k; ++pos) {
                     if (a[pos] == k) continue;
-                    const size_t c = byTime[pos], q = byTime[a[pos]];
-                    const auto& inf = *p.group[c].infection;
+                    const size_t child = byTime[pos], parent = byTime[a[pos]];
+                    const auto& inf    = *p.group[child].infection;
                     if (not inf.observedGenotype().contains(loci[l])) continue;
                     const auto obs = inf.observedGenotype().at(loci[l])->value();
                     if (obs.totalPositiveCount() == 0) continue;
-                    const auto lacking = Genotype::minus(obs, g[q][l]);// observed in the child, absent in the parent
-                    const auto kept    = Genotype::shared(obs, g[q][l]);
+                    const auto lacking = Genotype::minus(obs, g[parent][l]);// observed in the child, absent in the parent
+                    const auto kept    = Genotype::shared(obs, g[parent][l]);
                     if (lacking.totalPositiveCount() == 0) {
-                        g[c][l] = Genotype::any(g[c][l], obs);
+                        g[child][l] = Genotype::any(g[child][l], obs);
                     } else if (lacking.totalPositiveCount() <= 1 and kept.totalPositiveCount() > 0) {
-                        g[c][l] = kept;
+                        g[child][l] = kept;
                     } else {
-                        g[q][l] = Genotype::any(g[q][l], obs);
-                        g[c][l] = Genotype::any(Genotype::shared(g[c][l], g[q][l]), obs);
+                        g[parent][l] = Genotype::any(g[parent][l], obs);
+                        g[child][l]  = Genotype::any(Genotype::shared(g[child][l], g[parent][l]), obs);
                     }
                 }
-                // Drop hidden alleles no group child carries.
+                // Drop the Alleles a member holds unobserved that no child in the group carries.
                 for (size_t i = 0; i < k; ++i) {
                     const auto& inf = *p.group[i].infection;
                     Genotype observed = inf.observedGenotype().contains(loci[l]) ? inf.observedGenotype().at(loci[l])->value() : g[i][l];
                     if (observed.totalPositiveCount() == 0) continue;
-                    auto hidden = Genotype::minus(g[i][l], observed);
-                    if (hidden.totalPositiveCount() == 0) continue;
+                    const auto unobserved = Genotype::minus(g[i][l], observed);
+                    if (unobserved.totalPositiveCount() == 0) continue;
                     Genotype needed = observed;
                     for (size_t pos = 1; pos < k; ++pos) {
                         if (a[pos] != k and byTime[a[pos]] == i) needed = Genotype::any(needed, Genotype::shared(g[i][l], g[byTime[pos]][l]));
@@ -381,7 +383,7 @@ namespace transmission_nets::core::samplers::specialized {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
-    void GuidedGroupSampler<T, Engine, InfectionEventImpl, LocusImpl>::step() noexcept {
+    void GuidedGroupSampler<T, Engine, InfectionEventImpl, LocusImpl>::relocate() noexcept {
         if (prepared_.empty()) return;
         const auto& p  = prepared_[boost::random::uniform_int_distribution<size_t>(0, prepared_.size() - 1)(*rng_)];
         const size_t k = p.group.size();
@@ -423,13 +425,15 @@ namespace transmission_nets::core::samplers::specialized {
         const auto proposed = snapshot(p);
         double logReverse   = -std::numeric_limits<double>::infinity();
         if (std::isfinite(logForward)) {
-            // Undo the moves in reverse order: their draw densities are logTR, computed in the same surroundings.
+            // Undo the time changes in reverse order: their draw densities are logTR, computed in the same surroundings.
             bool back = true;
             for (size_t s = who.size(); s-- > 0 and back;) back = setTime(p, who[s], oldTimes[s]);
             if (back) {
                 pilot(p);
                 logReverse = walk(p, &current);
-                // A reverse walk that ends anywhere but the current state means the reverse move cannot reach it.
+                // A reverse walk that ends anywhere but the current state means the reverse Proposal cannot reach it. The
+                // walk only draws units, Alleles some member observed: when the forward Pilot dropped a latent Allele
+                // no member observed, the reverse walk can never put it back, so such a relocation is always rejected.
                 if (std::isfinite(logReverse) and snapshot(p) != current) logReverse = -std::numeric_limits<double>::infinity();
             }
         }

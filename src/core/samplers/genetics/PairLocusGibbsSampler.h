@@ -1,6 +1,6 @@
 //
-// Changes two related infections' latent genotypes at one locus together, by a Gibbs step over a fixed
-// set of candidates built from the observed data.
+// Changes a close Mutual pair's Latent genotypes at one Locus together, by a Gibbs Proposal over a fixed set of
+// candidates built from the Observed genotypes.
 //
 
 #ifndef TRANSMISSION_NETWORKS_APP_PAIRLOCUSGIBBSSAMPLER_H
@@ -25,15 +25,19 @@ namespace transmission_nets::core::samplers::genetics {
 
     /*
      * Some traps need two infections' genotypes at one locus to change at once: one infection's observed allele
-     * called a false positive while it takes its relative's allele, and the relative dropping a hidden allele it held
+     * called a false positive while it takes its relative's allele, and the relative dropping an allele it held unobserved
      * for the first. Each change alone costs tens of log units.
      *
      * Each (pair, locus) unit has, per member, a fixed candidate set from the observed data only: the member's
      * observed genotype, the partner's observed genotype, their union and their intersection (when not empty), those
      * within the COI bound; a member unobserved at the locus also every single-allele genotype from the partner's
      * observed alleles. An update picks a unit uniformly; if the members' current genotypes are both in their
-     * candidate sets, it draws the pair's genotypes from the target restricted to the product of the sets (a Gibbs step
-     * on a fixed set containing the current state, which leaves the target invariant); otherwise it does nothing.
+     * candidate sets, it draws the pair's genotypes from the target restricted to the product of the sets (a Gibbs
+     * Proposal on a fixed set containing the current state, which leaves the target invariant); otherwise it does
+     * nothing.
+     *
+     * Only close pairs (specialized::close()) get units, and at a Locus both observe differently only when the
+     * Observed genotypes there count toward a direction's novelty that is at most `maxNovelty`.
      */
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     class PairLocusGibbsSampler : public AbstractSampler {
@@ -41,8 +45,8 @@ namespace transmission_nets::core::samplers::genetics {
         using Infection = std::shared_ptr<InfectionEventImpl>;
         using Pair      = typename specialized::GuidedPairSampler<T, Engine, InfectionEventImpl, LocusImpl>::Pair;
 
-        PairLocusGibbsSampler(const std::vector<Pair>& pairs, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, unsigned int maxCOI, int moves = 1, unsigned int maxNovelty = 3)
-            : target_(std::move(target)), rng_(std::move(rng)), moves_(moves) {
+        PairLocusGibbsSampler(const std::vector<Pair>& pairs, std::shared_ptr<T> target, std::shared_ptr<Engine> rng, unsigned int maxCOI, int proposals, unsigned int maxNovelty)
+            : target_(std::move(target)), rng_(std::move(rng)), proposals_(proposals) {
             for (const auto& pair : pairs) {
                 const auto& a = pair.first.infection;
                 const auto& b = pair.second.infection;
@@ -71,8 +75,8 @@ namespace transmission_nets::core::samplers::genetics {
                     }
                     for (const auto& g : base) {
                         if (g.totalPositiveCount() == 0 or g.totalPositiveCount() > maxCOI) continue;
-                        if (std::ranges::find(u.ca, g) == u.ca.end()) u.ca.push_back(g);
-                        if (std::ranges::find(u.cb, g) == u.cb.end()) u.cb.push_back(g);
+                        if (std::ranges::find(u.candidatesA, g) == u.candidatesA.end()) u.candidatesA.push_back(g);
+                        if (std::ranges::find(u.candidatesB, g) == u.candidatesB.end()) u.candidatesB.push_back(g);
                     }
                     // A member unobserved at the locus may also hold any single allele observed in its partner there.
                     if (not ha or not hb) {
@@ -82,11 +86,11 @@ namespace transmission_nets::core::samplers::genetics {
                             Genotype single = any;
                             single.reset();
                             single.set(allele);
-                            if (not ha and std::ranges::find(u.ca, single) == u.ca.end()) u.ca.push_back(single);
-                            if (not hb and std::ranges::find(u.cb, single) == u.cb.end()) u.cb.push_back(single);
+                            if (not ha and std::ranges::find(u.candidatesA, single) == u.candidatesA.end()) u.candidatesA.push_back(single);
+                            if (not hb and std::ranges::find(u.candidatesB, single) == u.candidatesB.end()) u.candidatesB.push_back(single);
                         }
                     }
-                    if (u.ca.size() * u.cb.size() > 1) {
+                    if (u.candidatesA.size() * u.candidatesB.size() > 1) {
                         units_.push_back(std::move(u));
                     }
                 }
@@ -94,36 +98,36 @@ namespace transmission_nets::core::samplers::genetics {
         }
 
         void update() noexcept override {
-            for (int m = 0; m < moves_ and not units_.empty(); ++m) {
+            for (int m = 0; m < proposals_ and not units_.empty(); ++m) {
                 const auto& u = units_[boost::random::uniform_int_distribution<size_t>(0, units_.size() - 1)(*rng_)];
                 auto& pa      = *u.a->latentGenotype(u.locus);
                 auto& pb      = *u.b->latentGenotype(u.locus);
-                const auto ca = pa.value(), cb = pb.value();
-                if (std::ranges::find(u.ca, ca) == u.ca.end() or std::ranges::find(u.cb, cb) == u.cb.end()) {
+                const auto currentA = pa.value(), currentB = pb.value();
+                if (std::ranges::find(u.candidatesA, currentA) == u.candidatesA.end() or std::ranges::find(u.candidatesB, currentB) == u.candidatesB.end()) {
                     countProposal(false);
                     continue;
                 }
                 std::vector<double> values;
-                values.reserve(u.ca.size() * u.cb.size());
-                for (const auto& ga : u.ca) {
-                    for (const auto& gb : u.cb) {
+                values.reserve(u.candidatesA.size() * u.candidatesB.size());
+                for (const auto& ga : u.candidatesA) {
+                    for (const auto& gb : u.candidatesB) {
                         Proposal<T, Engine> move(*target_, *rng_, inner_);
-                        if (ga != ca) move.change(pa, ga);
-                        if (gb != cb) move.change(pb, gb);
+                        if (ga != currentA) move.change(pa, ga);
+                        if (gb != currentB) move.change(pb, gb);
                         values.push_back(move.value());
                         move.revert();
                     }
                 }
                 const size_t pick = drawLogWeighted(values, logWeights(values), *rng_);
-                const auto& ga = u.ca[pick / u.cb.size()];
-                const auto& gb = u.cb[pick % u.cb.size()];
-                if (ga == ca and gb == cb) {
+                const auto& ga = u.candidatesA[pick / u.candidatesB.size()];
+                const auto& gb = u.candidatesB[pick % u.candidatesB.size()];
+                if (ga == currentA and gb == currentB) {
                     countProposal(false);
                     continue;
                 }
                 Proposal<T, Engine> move(*target_, *rng_, inner_);
-                if (ga != ca) move.change(pa, ga);
-                if (gb != cb) move.change(pb, gb);
+                if (ga != currentA) move.change(pa, ga);
+                if (gb != currentB) move.change(pb, gb);
                 move.value();
                 move.accept();
                 countProposal(true);
@@ -137,12 +141,12 @@ namespace transmission_nets::core::samplers::genetics {
         struct Unit {
             Infection a, b;
             std::shared_ptr<LocusImpl> locus;
-            std::vector<Genotype> ca, cb;
+            std::vector<Genotype> candidatesA, candidatesB;
         };
         std::vector<Unit> units_;
         std::shared_ptr<T> target_;
         std::shared_ptr<Engine> rng_;
-        int moves_;
+        int proposals_;
         SamplerCounts inner_{};
     };
 

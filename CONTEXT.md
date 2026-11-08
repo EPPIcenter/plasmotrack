@@ -56,6 +56,10 @@ _Avoid_: Reciprocal pair, two-way edge, bidirectional pair
 Of an Infection: the other member of a Mutual pair with it, when their Latent genotypes are the same at every Locus. Which of two clones came first changes no genotype, only the Ordering.
 _Avoid_: Twin, duplicate, identical infection
 
+**Family**:
+A close Mutual pair, or a connected triple of close pairs (an Infection and two of its close partners). A pair is close when its novelty, in the direction where it is smaller, is at most a fixed limit; the novelty of one Infection over another is the number of Loci, observed in both, where its Observed genotype has an Allele the other's lacks. Built from the data only, so fixed for a Run.
+_Avoid_: Group (the sampler's word for any set it moves), cluster, clique, household
+
 **Parent set**:
 A specific subset of an Infection's Candidate parents, hypothesised to be the ones that infected it together. Bounded in size — an Infection can be seeded by only so many sources at once.
 _Avoid_: Parents, sources, ancestors
@@ -195,8 +199,12 @@ One Metropolis-Hastings step of a sampler, from the first parameter it changes t
 _Avoid_: Move, step (the Sampler set's step is a Sampling iteration), transaction, update
 
 **Pilot**:
-The deterministic climb a guided swap (GuidedPairSampler) makes before its random walk: from where the swap leaves the pair, it sets the pair's genotypes one option at a time, best gain first, until none gains. Because it draws nothing, the swap's reverse repeats it rather than correcting for it.
+The deterministic climb a guided swap (GuidedPairSampler) makes before its random walk: from where the swap leaves the pair, it sets the pair's genotypes one option at a time, best gain first, until none gains. A relocation (see Family move) has its own: it tries each choice of parent inside the Family for each member and keeps the best one's genotypes. Because it draws nothing, the reverse Proposal repeats it rather than correcting for it.
 _Avoid_: Warm start, greedy step, preconditioner
+
+**Family move**:
+A Proposal over a Family as one: a relocation (GuidedGroupSampler), which gives some members new infection times and redraws the Family's Latent genotypes after a Pilot, or a pair-locus Gibbs Proposal (PairLocusGibbsSampler), which redraws a close pair's Latent genotypes at one Locus together. Made in every Sampler set but the null model's, which has no transmission.
+_Avoid_: Group move, family step, cluster update
 
 **Dirichlet independence move**:
 An Allele frequency Proposal drawn independently of the current frequencies, from a Dirichlet fitted to the sampler's own past draws over its fitting spans and fixed once burn-in ends. Made by the allele-frequency sampler beside its SALT steps.
