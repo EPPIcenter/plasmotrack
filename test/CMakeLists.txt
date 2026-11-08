@@ -16,6 +16,7 @@ set(CORE_CONTAINERS_TESTS
     src/core/containers/InfectionTest.cpp
     src/core/containers/UidOrderTest.cpp
     src/core/containers/AlleleFrequencyContainerTest.cpp
+    src/core/containers/CopyOnWriteTest.cpp
 )
 
 set(CORE_DATATYPES_TESTS

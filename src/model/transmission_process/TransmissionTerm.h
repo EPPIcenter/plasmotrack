@@ -9,6 +9,7 @@
 
 
 #include "core/datatypes/Genotype.h"
+#include "core/containers/CopyOnWrite.h"
 #include "core/containers/ParentSet.h"
 #include "core/abstract/observables/Dependency.h"
 #include "core/computation/PartialLikelihood.h"
@@ -44,74 +45,6 @@ namespace transmission_nets::model::transmission_process {
         Likelihood sourceLlik = 0;
         std::vector<std::pair<Likelihood, core::containers::ParentSet<InfectionEventImpl>>> parentSetLliks{};
         Likelihood totalLlik = 0;
-    };
-
-    // A value shared between copies until one of them writes it: copying the box copies a pointer, and mutate() clones
-    // the value first if another box still holds it. Lets a saved state's cache copy share every entry it does not
-    // change. Not thread-safe (a chain's terms are used from one thread).
-    template<typename V>
-    class CowBox {
-        struct Node {
-            V value;
-            std::uint32_t refs;
-        };
-        Node* node_ = nullptr;
-        void release() noexcept {
-            if (node_ != nullptr and --node_->refs == 0) {
-                delete node_;
-            }
-            node_ = nullptr;
-        }
-
-    public:
-        CowBox() = default;
-        CowBox(const CowBox& other) noexcept : node_(other.node_) {
-            if (node_ != nullptr) {
-                ++node_->refs;
-            }
-        }
-        CowBox(CowBox&& other) noexcept : node_(other.node_) { other.node_ = nullptr; }
-        CowBox& operator=(const CowBox& other) noexcept {
-            if (other.node_ != nullptr) {
-                ++other.node_->refs;
-            }
-            release();
-            node_ = other.node_;
-            return *this;
-        }
-        CowBox& operator=(CowBox&& other) noexcept {
-            if (this != &other) {
-                release();
-                node_       = other.node_;
-                other.node_ = nullptr;
-            }
-            return *this;
-        }
-        ~CowBox() { release(); }
-
-        // The value; a default one for a box never set.
-        [[nodiscard]] const V& get() const noexcept {
-            static const V empty{};
-            return node_ != nullptr ? node_->value : empty;
-        }
-        // The value, this box's own.
-        V& mutate() {
-            if (node_ == nullptr) {
-                node_ = new Node{V{}, 1};
-            } else if (node_->refs > 1) {
-                --node_->refs;
-                node_ = new Node{node_->value, 1};
-            }
-            return node_->value;
-        }
-        void set(const V& value) {
-            if (node_ != nullptr and node_->refs == 1) {
-                node_->value = value;
-            } else {
-                release();
-                node_ = new Node{value, 1};
-            }
-        }
     };
 
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
@@ -222,7 +155,7 @@ namespace transmission_nets::model::transmission_process {
             std::vector<std::uint32_t> classSize{};
             std::vector<std::uint32_t> classMember{};
             std::vector<StrainSums> sums{};// entries without the latent parent, odd position p at p / 2
-            std::vector<CowBox<LatentSums>> latentSums{};// entries with it, even position p at p / 2; shared between saved states until written
+            std::vector<core::containers::CopyOnWrite<LatentSums>> latentSums{};// entries with it, even position p at p / 2; shared between saved states until written
             // The id of each child locus' allele frequencies the latent entries (and, with a leak, every entry) were
             // summed with, in child loci order, and the generation of the ids.
             std::vector<FrequencyId> frequencyIds{};
@@ -939,14 +872,14 @@ namespace transmission_nets::model::transmission_process {
                 const std::span<const Genotype* const> previousParents(previousCombination.data(), combination.size());
                 const std::span<const Genotype* const> currentParents(currentCombination.data(), combination.size());
                 if (withLatent) {
-                    auto& box = current.latentSums[position / 2];
-                    if (const auto* stoppedAt = box.get().stoppedAt; stoppedAt != nullptr) {
+                    auto& latentSums = current.latentSums[position / 2];
+                    if (const auto* stoppedAt = latentSums.get().stoppedAt; stoppedAt != nullptr) {
                         if (stoppedAt == locus.get() and not memo_->locusTable(frequencyId, currentChild, currentParents).impossible) {
                             current.valid[position] = INVALID;
                         }
                         return;
                     }
-                    auto& sums = box.mutate();
+                    auto& sums = latentSums.mutate();
                     sums.remove(memo_->locusTable(frequencyId, previousChild, previousParents));
                     sums.add(memo_->locusTable(frequencyId, currentChild, currentParents));
                     countLocusSwap(current, position);
@@ -1023,14 +956,14 @@ namespace transmission_nets::model::transmission_process {
                     combinationGenotypes[t] = &currentClasses_[combination[t]];
                 }
                 const std::span<const Genotype* const> parents(combinationGenotypes.data(), combination.size());
-                auto& box = current.latentSums[position / 2];
-                if (const auto* stoppedAt = box.get().stoppedAt; stoppedAt != nullptr) {
+                auto& latentSums = current.latentSums[position / 2];
+                if (const auto* stoppedAt = latentSums.get().stoppedAt; stoppedAt != nullptr) {
                     if (stoppedAt == locus.get() and not memo_->locusTable(updated, child, parents).impossible) {
                         current.valid[position] = INVALID;
                     }
                     return;
                 }
-                auto& sums = box.mutate();
+                auto& sums = latentSums.mutate();
                 sums.remove(memo_->locusTable(previous, child, parents));
                 sums.add(memo_->locusTable(updated, child, parents));
                 countLocusSwap(current, position);
