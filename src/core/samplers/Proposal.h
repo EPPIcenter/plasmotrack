@@ -180,6 +180,20 @@ namespace transmission_nets::core::samplers {
         boost::container::small_vector<Touched, 8> touched_{};
     };
 
+    // The target's value at one option of a Gibbs choice: `currentValue` when the option is the current state, with
+    // no Proposal opened; otherwise the value with `change(proposal)` applied, then reverted.
+    template<typename Target, typename Engine, typename Change>
+    double optionValue(Target& target, Engine& rng, SamplerCounts& counts, const bool isCurrent, const double currentValue, Change&& change) {
+        if (isCurrent) {
+            return currentValue;
+        }
+        Proposal<Target, Engine> proposal(target, rng, counts);
+        change(proposal);
+        const double value = proposal.value();
+        proposal.revert();
+        return value;
+    }
+
 }// namespace transmission_nets::core::samplers
 
 #endif//TRANSMISSION_NETWORKS_APP_PROPOSAL_H

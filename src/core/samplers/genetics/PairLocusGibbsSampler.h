@@ -107,15 +107,15 @@ namespace transmission_nets::core::samplers::genetics {
                     countProposal(false);
                     continue;
                 }
+                const double currentVal = target_->value();
                 std::vector<double> values;
                 values.reserve(u.candidatesA.size() * u.candidatesB.size());
                 for (const auto& ga : u.candidatesA) {
                     for (const auto& gb : u.candidatesB) {
-                        Proposal<T, Engine> move(*target_, *rng_, inner_);
-                        if (ga != currentA) move.change(pa, ga);
-                        if (gb != currentB) move.change(pb, gb);
-                        values.push_back(move.value());
-                        move.revert();
+                        values.push_back(optionValue(*target_, *rng_, inner_, ga == currentA and gb == currentB, currentVal, [&](auto& move) {
+                            if (ga != currentA) move.change(pa, ga);
+                            if (gb != currentB) move.change(pb, gb);
+                        }));
                     }
                 }
                 const size_t pick = drawLogWeighted(values, logWeights(values), *rng_);

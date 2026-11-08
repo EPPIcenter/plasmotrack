@@ -58,6 +58,10 @@ namespace transmission_nets::core::samplers::genetics {
         template<typename ParentSet, typename Include = AllLoci>
         void evaluate(const InfectionEventImpl& child, const InfectionEventImpl& latentParent, const ParentSet& parentSet, Evaluation& out, const Include& include = {});
 
+        // Re-evaluates the child's genotypes against the groups already built by the preceding evaluate() call when
+        // only the child's latent genotypes have changed.
+        void evaluateChildOnly(const InfectionEventImpl& child, Evaluation& out);
+
         // The log proposal probability of an evaluated state. `optionProbs`, if not empty, gives each option's
         // probability in parent-set-distribution order (see parentSetIndexOfOption()); otherwise options are uniform.
         double combine(const Evaluation& evaluation, std::span<const double> optionProbs);
@@ -81,7 +85,7 @@ namespace transmission_nets::core::samplers::genetics {
         ProposalTarget child_{};
         std::vector<core::datatypes::Genotype> latentParent_{};
         std::vector<std::vector<core::datatypes::Genotype>> classes_{};// [class][locus]
-        std::vector<char> included_{};// [locus]
+        std::vector<size_t> includedLoci_{};
 
         std::vector<Group> groups_{};
         // The group of the options of class c alone with the latent parent (the one without it follows), and of the
@@ -105,9 +109,13 @@ namespace transmission_nets::core::samplers::genetics {
         partition_.update(parentSet);
         numParents_ = parentSet.size();
         child_.gather(child, fnRate_);
-        included_.clear();
+        includedLoci_.clear();
+        size_t l = 0;
         for (const auto& [locus, genotype] : child.latentGenotype()) {
-            included_.push_back(include(locus));
+            if (include(locus)) {
+                includedLoci_.push_back(l);
+            }
+            ++l;
         }
         latentGenotypesAlong(child, latentParent, latentParent_);
         const size_t numClasses = partition_.numClasses();
@@ -143,6 +151,15 @@ namespace transmission_nets::core::samplers::genetics {
             }
         }
 
+        out.clear();
+        for (const auto& group : groups_) {
+            out.push_back(evaluateGroup(group.withLatent, std::span<const unsigned int>(group.classes.data(), group.size)));
+        }
+    }
+
+    template<typename InfectionEventImpl, int MaxParentSetSize>
+    void ParentSetProposalProbability<InfectionEventImpl, MaxParentSetSize>::evaluateChildOnly(const InfectionEventImpl& child, Evaluation& out) {
+        child_.gather(child, fnRate_);
         out.clear();
         for (const auto& group : groups_) {
             out.push_back(evaluateGroup(group.withLatent, std::span<const unsigned int>(group.classes.data(), group.size)));
@@ -194,10 +211,7 @@ namespace transmission_nets::core::samplers::genetics {
     double ParentSetProposalProbability<InfectionEventImpl, MaxParentSetSize>::evaluateGroup(const bool withLatent, const std::span<const unsigned int> classes) const {
         double logProb = 0;
         Members members{};
-        for (size_t l = 0; l < child_.latent.size(); ++l) {
-            if (not included_[l]) {
-                continue;
-            }
+        for (const size_t l : includedLoci_) {
             size_t count = 0;
             if (withLatent) {
                 members[count++] = &latentParent_[l];

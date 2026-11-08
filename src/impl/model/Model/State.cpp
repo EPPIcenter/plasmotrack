@@ -100,7 +100,6 @@ namespace transmission_nets::impl::Model {
         // The parents the study permits each Infection, which with the Ordering give its Candidate parents.
         allowedRelationships = std::make_shared<core::containers::AllowedRelationships<InfectionEvent>>();
         for (size_t i = 0; i < infections.size(); ++i) {
-            allowedRelationships->addInfectionEvent(infections[i]);
             for (const auto& parentId : study.infections[i].permittedParents) {
                 const auto parent = std::ranges::find_if(infections, [&](const auto& candidate) { return candidate->id() == parentId; });
                 if (parent == infections.end()) {

@@ -217,3 +217,53 @@ TEST(TransmissionKernelTest, LatentSumMatchesThePlainCombination) {
         EXPECT_NEAR(Kernel::latentSummedLogLikelihood(sums, 2, coiLogProbs, table), expected, 1e-9 * std::max(1.0, std::abs(expected))) << "trial " << trial;
     }
 }
+
+// With a leak on latent parent sets, fTable() computes f once per kind of overlap and in linear form; the locus table
+// must match the plain sum over every latent genotype of exp(locusTerm()), the per-overlap path, to rounding.
+TEST(TransmissionKernelTest, LeakyLatentLocusTableMatchesThePlainComputation) {
+    Engine rng(20261031);
+    int compared = 0;
+    for (const double leak : {0.0012, 0.02, 0.2, 0.6}) {
+        Kernel kernel(leak);
+        for (int trial = 0; trial < 60; ++trial) {
+            const unsigned int A = 2 + trial % 9;
+            const auto freqs     = randomFrequencies(rng, A);
+            const Genotype child = fromMask(A, randomMask(rng, A, 0.5));
+            std::vector<Genotype> observed;
+            for (unsigned int p = 0; p < static_cast<unsigned int>(trial % 3); ++p) {
+                observed.push_back(fromMask(A, randomMask(rng, A, 0.5)));
+            }
+            const auto parents    = pointers(observed);
+            const Variant variant = observed.empty() ? Variant::LatentParentOnly : Variant::ObservedAndLatentParents;
+            const marginal::SourceOverlap overlap(freqs, Kernel::allelesOf(child), MAX_COI);
+
+            const auto expected = marginal::locusTable<MAX_COI, MAX_STRAINS>(overlap, A, [&](const Genotype& latent) -> std::optional<std::array<double, MAX_STRAINS>> {
+                const auto term = kernel.locusTerm(variant, child, parents, &latent, &freqs);
+                if (term.impossible) {
+                    return std::nullopt;
+                }
+                return term.terms;
+            });
+            Kernel::LocusTable table;
+            Kernel::contract(kernel.fTable(child, parents, &freqs), overlap, table);
+
+            const bool anyPossible = std::ranges::any_of(expected, [](const double x) { return x > NEG_INF; });
+            ASSERT_EQ(table.impossible, not anyPossible) << "leak " << leak << " trial " << trial;
+            if (table.impossible) {
+                continue;
+            }
+            for (int k = 1; k <= MAX_COI; ++k) {
+                for (int m = 1; m <= MAX_STRAINS; ++m) {
+                    const int cell = k * MAX_STRAINS + m - 1;
+                    if (k >= table.kMin and m >= table.mMin) {
+                        EXPECT_NEAR(table.terms[cell], expected[cell], 1e-10 * std::max(1.0, std::abs(expected[cell]))) << "leak " << leak << " trial " << trial << " k=" << k << " m=" << m;
+                        ++compared;
+                    } else {
+                        EXPECT_EQ(expected[cell], NEG_INF) << "leak " << leak << " trial " << trial << " k=" << k << " m=" << m;
+                    }
+                }
+            }
+        }
+    }
+    EXPECT_GT(compared, 10000);
+}

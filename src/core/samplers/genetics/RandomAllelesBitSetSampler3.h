@@ -120,7 +120,8 @@ namespace transmission_nets::core::samplers::genetics {
             // before doing anything, calculate probability of sampling current state for adjustment
             const Likelihood current_state_prob = calculateSamplingProb();
             proposeGenotypesFromParentSet<MaxParentSetSize>(infection_, latent_parent_, parents, *rng_, fn_rate_, fp_rate_, change(proposal));
-            const Likelihood proposed_state_prob = calculateSamplingProb();
+            proposalProbability_.evaluateChildOnly(*infection_, proposedEvaluation_);
+            const Likelihood proposed_state_prob = proposalProbability_.combine(proposedEvaluation_, {});
             proposal.metropolis(current_state_prob - proposed_state_prob);
             return;
         }
@@ -164,7 +165,7 @@ namespace transmission_nets::core::samplers::genetics {
         }
         proposeGenotypesFromOption<MaxParentSetSize>(infection_, latent_parent_, parents, option, *rng_, fn_rate_, fp_rate_, change(proposal), include);
 
-        proposalProbability_.evaluate(*infection_, *latent_parent_, parents, proposedEvaluation_, include);
+        proposalProbability_.evaluateChildOnly(*infection_, proposedEvaluation_);
         if (weighted) {
             optionProbs(proposedProbs_);
         } else {

@@ -24,6 +24,9 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     class RandomAllelesBitSetSampler4 : public AbstractSampler {
+        using Parameter = parameters::Parameter<core::datatypes::Genotype>;
+        using Genotype  = core::datatypes::Genotype;
+
     public:
         // `expectedFalsePositives` and `expectedFalseNegatives`, when set, are that infection's sampled counts. The
         // per-allele rates are those counts divided by this locus's allele count, read at each update. Without them
@@ -59,6 +62,10 @@ namespace transmission_nets::core::samplers::genetics {
         const double tx_from_other = 0.20;
         std::shared_ptr<parameters::Parameter<double>> expectedFalsePositives_;
         std::shared_ptr<parameters::Parameter<double>> expectedFalseNegatives_;
+        std::vector<std::pair<std::shared_ptr<Parameter>, Genotype>> changes_{};
+        // The Infections the path may step to from the current one: those the Study permits as its children and
+        // infected after it. Points into allowedRelationships_, which does not change during a run.
+        std::vector<const std::shared_ptr<InfectionEventImpl>*> nextInfections_{};
     };
 
 
@@ -85,11 +92,6 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename InfectionEventImpl, typename LocusImpl>
     void RandomAllelesBitSetSampler4<T, Engine, InfectionEventImpl, LocusImpl>::update() noexcept {
-        using Parameter = parameters::Parameter<core::datatypes::Genotype>;
-        using Genotype = core::datatypes::Genotype;
-        using Data = datatypes::Data<core::datatypes::Genotype>;
-        namespace views = std::ranges::views;
-
         // The observation likelihood uses expected count / alleles at this locus. The same rates in both directions,
         // since this move does not change them.
         if (expectedFalsePositives_ and expectedFalseNegatives_ and locus_->totalAlleles() > 0) {
@@ -108,52 +110,42 @@ namespace transmission_nets::core::samplers::genetics {
         double forward_log_prob = 0.0;
         double reverse_log_prob = 0.0;
         // Applied only if some allele changes. A path that proposes the current alleles is not a proposal.
-        std::vector<std::pair<std::shared_ptr<Parameter>, Genotype>> changes;
-        std::shared_ptr<InfectionEventImpl> curr_inf = infection_;
+        changes_.clear();
+        const std::shared_ptr<InfectionEventImpl>* curr_inf = &infection_;
         bool prev_curr_state = latentParent_->latentGenotype(locus_)->value().allele(allele_idx) == 1;
         bool prev_proposed_state = prev_curr_state;
         int distance = 4;
-        std::vector<int> path{};
-        std::vector<int> curr_path{};
-        std::vector<int> obs_path{};
         bool path_differs = false;
         while (distance > 0) {
-
             // collect potential children where infection time is greater than current infection
-            std::vector<std::shared_ptr<InfectionEventImpl>> potential_children{};
-            for (const auto& inf : allowedRelationships_->allowedChildren(curr_inf)) {
-                if (inf->infectionTime() > curr_inf->infectionTime()) {
-                    potential_children.push_back(inf);
+            nextInfections_.clear();
+            const double curr_time = (*curr_inf)->infectionTime();
+            for (const auto& inf : allowedRelationships_->allowedChildren(*curr_inf)) {
+                if (inf->infectionTime() > curr_time) {
+                    nextInfections_.push_back(&inf);
                 }
             }
 
-            std::shared_ptr<Parameter> curr_param = curr_inf->latentGenotype(locus_);
+            std::shared_ptr<Parameter> curr_param = (*curr_inf)->latentGenotype(locus_);
             auto curr_val = curr_param->value();
-            std::shared_ptr<Data> curr_data = nullptr;
-            // if the locus is observed, then set curr data
-            if (curr_inf->observedGenotype().contains(locus_)) {
-                curr_data = curr_inf->observedGenotype(locus_);
-            }
 
             // randomly select a child infection
             // (only when there is one: size() - 1 on an empty list wraps to an invalid range)
-            int child_idx = 0;
-            std::shared_ptr<InfectionEventImpl> child;
-            if (!potential_children.empty()) {
-                categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, static_cast<int>(potential_children.size()) - 1));
-                child_idx = categorical_dist_(*rng_);
-                child     = potential_children.at(child_idx);
+            const std::shared_ptr<InfectionEventImpl>* next = nullptr;
+            if (!nextInfections_.empty()) {
+                categorical_dist_.param(boost::random::uniform_int_distribution<>::param_type(0, static_cast<int>(nextInfections_.size()) - 1));
+                next = nextInfections_[categorical_dist_(*rng_)];
             }
 
             // check if observed in curr infection
-            const bool has_data = curr_data != nullptr;
-            const bool in_curr = has_data && curr_inf->observedGenotype(locus_)->value().allele(allele_idx) == 1;
+            const bool has_data = (*curr_inf)->observedGenotype().contains(locus_);
+            const bool in_curr  = has_data && (*curr_inf)->observedGenotype(locus_)->value().allele(allele_idx) == 1;
 
             // Check if observed in child infection
-            const bool child_has_data = child != nullptr && child->observedGenotype().contains(locus_);
-            const bool in_child = child_has_data && child->observedGenotype(locus_)->value().allele(allele_idx) == 1;
+            const bool child_has_data = next != nullptr && (*next)->observedGenotype().contains(locus_);
+            const bool in_child = child_has_data && (*next)->observedGenotype(locus_)->value().allele(allele_idx) == 1;
 
-            const bool curr_state = curr_param->value().allele(allele_idx) == 1;
+            const bool curr_state = curr_val.allele(allele_idx) == 1;
 
             const double obs_data_component = has_data ? (in_curr ? (1 - fp_rate) : (fn_rate)) : 1.0;
             const double child_data_component =
@@ -173,23 +165,19 @@ namespace transmission_nets::core::samplers::genetics {
             forward_log_prob += std::log(proposed_state ? forward_prob_present : 1 - forward_prob_present);
             reverse_log_prob += std::log(curr_state ? reverse_prob_present : 1 - reverse_prob_present);
 
-            path.push_back(proposed_state);
-            curr_path.push_back(curr_state);
-            obs_path.push_back(has_data ? in_curr ? 1 : 0 : -1);
-
             if (proposed_state != curr_state) {
                 path_differs = true;
                 curr_val.set(allele_idx, proposed_state);
-                changes.emplace_back(curr_param, curr_val);
+                changes_.emplace_back(curr_param, curr_val);
             }
 
-            if (potential_children.empty()) {
+            if (next == nullptr) {
                 break;
             }
 
             prev_curr_state     = curr_state;
             prev_proposed_state = proposed_state;
-            curr_inf = potential_children[child_idx];
+            curr_inf            = next;
             distance--;
         }
 
@@ -197,7 +185,7 @@ namespace transmission_nets::core::samplers::genetics {
             return;
         }
         auto proposal = this->propose(*target_, *rng_);
-        for (const auto& [param, value] : changes) {
+        for (const auto& [param, value] : changes_) {
             proposal.change(*param, value);
         }
         proposal.metropolis(reverse_log_prob - forward_log_prob);
