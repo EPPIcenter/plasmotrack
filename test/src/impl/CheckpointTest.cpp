@@ -62,7 +62,7 @@ namespace {
 
     Run restoredFrom(const fs::path& file, const unsigned int seed = 99) {
         auto rng = std::make_shared<Engine>(seed);
-        auto ensemble = checkpoint::restore(checkpoint::load(file), rng, exampleStudy(), false, 1);
+        auto ensemble = checkpoint::restore(checkpoint::load(file), rng, exampleStudy(), false, 1, 0);
         return {rng, std::move(ensemble)};
     }
 }// namespace
@@ -282,7 +282,7 @@ TEST(CheckpointTest, RestoreRefusesAnInputWithOtherLoci) {
         }
     }
 
-    EXPECT_THROW(checkpoint::restore(checkpoint::load(file), std::make_shared<Engine>(1), renamed, false, 1), Refused);
+    EXPECT_THROW(checkpoint::restore(checkpoint::load(file), std::make_shared<Engine>(1), renamed, false, 1, 0), Refused);
 }
 
 // A checkpoint restores the exchange state as saved, pending ladder barriers included, whatever the Phase: a resumed
