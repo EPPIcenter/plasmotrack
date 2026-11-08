@@ -45,7 +45,7 @@ namespace transmission_nets::impl::Model {
     constexpr size_t ALLELE_FREQUENCY_DIRICHLET_BLOCK = 4;
     // CloneOrderSwapSampler also exchanges an infection's infection time with a clone's.
     constexpr bool CLONE_TIME_EXCHANGE = true;
-    // Single observed-allele toggles each StrainCountSampler update makes after its strain-count move.
+    // Single observed-allele toggles each StrainCountSampler update makes after it adds or removes a strain.
     constexpr unsigned int OBSERVED_ALLELE_TOGGLES = 2;
     // Share of RandomAllelesBitSetSampler3 updates whose parent-set option is uniform; the rest follow the
     // infection's parent-set posterior. 1 makes every option uniform.

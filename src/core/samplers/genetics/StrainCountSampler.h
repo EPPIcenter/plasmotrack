@@ -61,7 +61,7 @@ namespace transmission_nets::core::samplers::genetics {
     private:
         static constexpr double NEG_INF = -std::numeric_limits<double>::infinity();
 
-        void strainCountMove() noexcept;
+        void addOrRemoveStrain() noexcept;
         void observedToggle() noexcept;
 
         // The locus' observed alleles, or none.
@@ -103,7 +103,7 @@ namespace transmission_nets::core::samplers::genetics {
 
     template<typename T, typename Engine, typename InfectionEventImpl>
     void StrainCountSampler<T, Engine, InfectionEventImpl>::update() noexcept {
-        strainCountMove();
+        addOrRemoveStrain();
         if (observedAlleles_.empty()) {
             return;
         }
@@ -196,7 +196,7 @@ namespace transmission_nets::core::samplers::genetics {
     }
 
     template<typename T, typename Engine, typename InfectionEventImpl>
-    void StrainCountSampler<T, Engine, InfectionEventImpl>::strainCountMove() noexcept {
+    void StrainCountSampler<T, Engine, InfectionEventImpl>::addOrRemoveStrain() noexcept {
         const auto& loci = infection_->loci();
         std::vector<Genotype> current;
         current.reserve(loci.size());
