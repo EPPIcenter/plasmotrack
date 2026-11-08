@@ -1,7 +1,7 @@
 //
 // The family moves must leave their target invariant. Exact draws from a target over two infections' durations and
-// genotypes are each moved by one GuidedGroupSampler relocation, or one PairLocusGibbsSampler step, and must still
-// follow it. The harness is GuidedPairSamplerTest's.
+// genotypes are each moved by one GuidedGroupSampler relocation, or one PairLocusGibbsSampler Proposal, and must still
+// follow it; a relocation of a triple is checked the same way over three. The harness is GuidedPairSamplerTest's.
 //
 
 #include "gtest/gtest.h"
@@ -253,4 +253,159 @@ TEST(FamilyMovesTest, MissingLociDoNotCountTowardNovelty) {
     EXPECT_EQ(closePairs(pairs, 1).size(), 1u);
     PairLocus sampler(pairs, nullptr, nullptr, STRAIN_LIMIT, 1, 3);
     EXPECT_EQ(sampler.units(), 1u);
+}
+
+namespace {
+    // A triple: x, z and y observed on days 400, 410 and 420, each permitted to infect the others, observed between
+    // them with all three alleles of the locus.
+    const std::array<std::string, 3> TRIPLE{"x", "z", "y"};
+    constexpr std::array<int, 3> OBSERVED_BIN{0, 1, 2};// observation day offsets, in 10-day bins
+
+    Study makeTripleStudy() {
+        Study study{.loci = {uniformLocus("L0", 3)}, .symptomaticInfectionDurations = flatDurations(DAYS), .asymptomaticInfectionDurations = flatDurations(DAYS)};
+        study.infections.push_back({.id = "x", .observationTime = 400, .observedGenotypes = {{"L0", "110"}}, .permittedParents = {"y", "z"}});
+        study.infections.push_back({.id = "z", .observationTime = 410, .observedGenotypes = {{"L0", "101"}}, .permittedParents = {"x", "y"}});
+        study.infections.push_back({.id = "y", .observationTime = 420, .observedGenotypes = {{"L0", "011"}}, .permittedParents = {"x", "z"}});
+        return study;
+    }
+
+    using Bins       = std::array<int, 3>;
+    using Genotypes3 = std::array<int, 3>;
+
+    // Whether member i came before member j, by the bins of their infection times (ties to the earlier index).
+    bool before(const Bins& j, const size_t a, const size_t b) {
+        const int ta = OBSERVED_BIN[a] - j[a], tb = OBSERVED_BIN[b] - j[b];
+        return ta < tb or (ta == tb and a < b);
+    }
+
+    double logTriple(const Bins& j, const Genotypes3& g) {
+        constexpr std::array<std::array<double, 6>, 3> wd{{{0.4, -0.3, 0.8, 0.1, -0.6, 0.2}, {-0.2, 0.5, 0.0, 0.7, -0.4, 0.3}, {0.1, 0.2, -0.5, 0.3, 0.6, -0.1}}};
+        constexpr std::array<std::array<double, 6>, 3> wg{{{0.3, -0.2, 0.1, 0.6, -0.4, 0.0}, {-0.1, 0.4, 0.2, -0.3, 0.5, 0.1}, {0.2, 0.0, -0.3, 0.4, 0.1, -0.2}}};
+        double v = 0;
+        for (size_t i = 0; i < 3; ++i) v += wd[i][j[i]] + wg[i][g[i]];
+        // Whoever came first should carry the other's alleles.
+        for (size_t a = 0; a < 3; ++a) {
+            for (size_t b = a + 1; b < 3; ++b) {
+                v += before(j, a, b) ? (within(g[b], g[a]) ? 1.2 : -1.0) : (within(g[a], g[b]) ? 1.0 : -1.2);
+            }
+        }
+        return v;
+    }
+
+    struct TripleFixture {
+        std::shared_ptr<Engine> rng = std::make_shared<Engine>(20261107);
+        std::shared_ptr<State> state;
+        std::shared_ptr<LocusImpl> locus;
+        std::array<std::shared_ptr<InfectionEvent>, 3> members;
+
+        TripleFixture() {
+            state = std::make_shared<State>(makeTripleStudy(), rng);
+            locus = state->loci.at("L0");
+            for (size_t i = 0; i < 3; ++i) members[i] = state->infection(TRIPLE[i]);
+        }
+
+        [[nodiscard]] Bins bins() const {
+            Bins j{};
+            for (size_t i = 0; i < 3; ++i) j[i] = binOf(members[i]->infectionDuration()->value());
+            return j;
+        }
+        [[nodiscard]] Genotypes3 genotypes() const {
+            Genotypes3 g{};
+            for (size_t i = 0; i < 3; ++i) g[i] = genotypeIndex(members[i]->latentGenotype(locus)->value());
+            return g;
+        }
+    };
+
+    struct TripleTarget {
+        const TripleFixture* f;
+        double value() const {
+            for (const auto& m : f->members) {
+                const double d = m->infectionDuration()->value();
+                if (d < 1 or d >= DAYS - 0.5) return -std::numeric_limits<double>::infinity();
+            }
+            const auto g = f->genotypes();
+            if (std::ranges::any_of(g, [](int k) { return k < 0; })) return -std::numeric_limits<double>::infinity();
+            return logTriple(f->bins(), g);
+        }
+        [[nodiscard]] bool isDirty() const { return false; }
+    };
+}// namespace
+
+// A relocation of a triple: every unit walks among 2^3 options, and a time drawn near another member's has two
+// members to be near. Exact draws over the three durations' bins and genotypes, each relocated once, must still follow
+// the target: by bins, and for each pair by its order and genotypes.
+TEST(FamilyMovesTest, GuidedGroupRelocationOfATripleLeavesTargetInvariant) {
+    TripleFixture f;
+    auto target = std::make_shared<TripleTarget>(TripleTarget{&f});
+    using TripleGroups = GuidedGroupSampler<TripleTarget, Engine, InfectionEvent, LocusImpl>;
+    const std::vector<TripleGroups::Group> groups{{{f.members[0], DAYS - 0.5}, {f.members[1], DAYS - 0.5}, {f.members[2], DAYS - 0.5}}};
+    TripleGroups sampler(groups, target, f.rng, 1.0, STRAIN_LIMIT, 10.0, 2, 1);
+
+    // The exact distribution over bins and genotypes, cell by cell.
+    std::vector<std::pair<Bins, Genotypes3>> cells;
+    std::vector<double> cumulative;
+    double total = 0;
+    for (int c = 0; c < 6 * 6 * 6 * 6 * 6 * 6; ++c) {
+        int r = c;
+        Bins j{};
+        Genotypes3 g{};
+        for (auto& x : j) x = r % 6, r /= 6;
+        for (auto& x : g) x = r % 6, r /= 6;
+        double width = 1;
+        for (const int b : j) width *= binRange(b).second - binRange(b).first;
+        total += std::exp(logTriple(j, g)) * width;
+        cells.emplace_back(j, g);
+        cumulative.push_back(total);
+    }
+    using PairKey = std::tuple<size_t, bool, int, int>;// pair (by its first member), order, genotypes
+    auto pairKeys = [](const Bins& j, const Genotypes3& g) {
+        std::array<PairKey, 3> keys;
+        for (size_t a = 0; a < 3; ++a) {
+            const size_t b = (a + 1) % 3;
+            keys[a]        = {a, before(j, a, b), g[a], g[b]};
+        }
+        return keys;
+    };
+    std::map<Bins, double> expectedBins;
+    std::map<PairKey, double> expectedPairs;
+    for (size_t c = 0; c < cells.size(); ++c) {
+        const double p = (cumulative[c] - (c == 0 ? 0.0 : cumulative[c - 1])) / total;
+        expectedBins[cells[c].first] += p;
+        for (const auto& key : pairKeys(cells[c].first, cells[c].second)) expectedPairs[key] += p;
+    }
+
+    constexpr int draws = 300000;
+    boost::random::uniform_01<> uniform;
+    std::map<Bins, int> binVisits;
+    std::map<PairKey, int> pairVisits;
+    int reordered = 0;
+    for (int i = 0; i < draws; ++i) {
+        const double u     = uniform(*f.rng) * total;
+        const auto& [j, g] = cells[std::min(cells.size() - 1, static_cast<size_t>(std::upper_bound(cumulative.begin(), cumulative.end(), u) - cumulative.begin()))];
+        for (size_t m = 0; m < 3; ++m) {
+            const auto [lo, hi] = binRange(j[m]);
+            f.members[m]->infectionDuration()->initializeValue(lo + uniform(*f.rng) * (hi - lo));
+            f.members[m]->latentGenotype(f.locus)->initializeValue(Genotype(GENOTYPES[g[m]]));
+        }
+
+        sampler.update();
+
+        const auto k = f.bins();
+        const auto h = f.genotypes();
+        ASSERT_TRUE(std::ranges::none_of(h, [](int x) { return x < 0; }));
+        reordered += pairKeys(k, h) != pairKeys(j, h);
+        ++binVisits[k];
+        for (const auto& key : pairKeys(k, h)) ++pairVisits[key];
+    }
+
+    double binDistance = 0, pairDistance = 0;
+    for (const auto& [key, p] : expectedBins) binDistance += std::abs((binVisits.contains(key) ? binVisits.at(key) : 0) / static_cast<double>(draws) - p) / 2;
+    // Each draw counts once for each of the three pairs.
+    for (const auto& [key, p] : expectedPairs) pairDistance += std::abs((pairVisits.contains(key) ? pairVisits.at(key) : 0) / static_cast<double>(draws) - p) / 2 / 3;
+    EXPECT_GT(sampler.counts().accepted, sampler.counts().proposed / 20);
+    EXPECT_GT(reordered, draws / 50);
+    // Sampling noise alone gives about 0.010 and 0.005 here; a jitter density that counts one other member, not two,
+    // gives 0.020 by bins.
+    EXPECT_LT(binDistance, 0.013);
+    EXPECT_LT(pairDistance, 0.0065);
 }
