@@ -271,7 +271,11 @@ namespace transmission_nets::model::transmission_process {
         std::array<LikelihoodCache, core::config::MAX_CACHE_SIZE> caches_{};
         std::array<size_t, core::config::MAX_CACHE_SIZE> slots_{};
         size_t cacheIndex_ = 0;
-        LikelihoodCache scratch_{};
+        // regroup() builds a saved state's new cache here when its slot is its own, then swaps it in.
+        LikelihoodCache regroupBuffer_{};
+        // Lets go of the latent sums of a cache no saved state uses any more, so that the caches still in use hold
+        // them alone and write them in place.
+        static void releaseLatentSums(LikelihoodCache& unused) { unused.latentSums.clear(); }
         // Scratch for value(): each parent's genome id in the current call, resolved when first needed.
         std::vector<std::optional<GenomeId>> parentGenomes_{};
         // Scratch for regroup().
@@ -443,6 +447,12 @@ namespace transmission_nets::model::transmission_process {
         to.valid[toPosition]           = state;
         to.logMultiplicity[toPosition] = from.logMultiplicity[fromPosition];
         if (state == INVALID) {
+            // Computed from scratch before it is read; what the slot held before is let go.
+            if (toPosition % 2 == 0) {
+                to.latentSums[toPosition / 2].reset();
+            } else {
+                to.sums[toPosition / 2] = StrainSums{};
+            }
             return;
         }
         if (toPosition % 2 == 0) {
@@ -657,9 +667,11 @@ namespace transmission_nets::model::transmission_process {
         }
 
         const size_t expected = numEntries(numClasses);
-        LikelihoodCache& next = (slots_[cacheIndex_] != cacheIndex_) ? caches_[cacheIndex_] : scratch_;
+        LikelihoodCache& next = (slots_[cacheIndex_] != cacheIndex_) ? caches_[cacheIndex_] : regroupBuffer_;
         fill(next);
         next.sums.resize(expected / 2);
+        // A recycled cache's latent sums are another saved state's; entries not carried over start empty.
+        releaseLatentSums(next);
         next.latentSums.resize((expected + 1) / 2);
         next.frequencyIds        = current.frequencyIds;
         next.frequencyGeneration = current.frequencyGeneration;
@@ -700,8 +712,9 @@ namespace transmission_nets::model::transmission_process {
             });
         }
         updateMultiplicities(next);
-        if (&next == &scratch_) {
-            std::swap(caches_[cacheIndex_], scratch_);
+        if (&next == &regroupBuffer_) {
+            std::swap(caches_[cacheIndex_], regroupBuffer_);
+            releaseLatentSums(regroupBuffer_);
         }
         slots_[cacheIndex_] = cacheIndex_;
     }
@@ -1318,6 +1331,9 @@ namespace transmission_nets::model::transmission_process {
     template<int ParentSetMaxCardinality, typename MemoImpl, typename COIProbabilityImpl, typename ParentSetSizeLikelihoodImpl, typename InfectionEventImpl, typename OrderingImpl>
     void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::postRestoreState([[maybe_unused]] int savedStateId) {
         cacheIndex_--;
+        if (slots_[cacheIndex_ + 1] == cacheIndex_ + 1) {
+            releaseLatentSums(caches_[cacheIndex_ + 1]);
+        }
     }
 
 
@@ -1325,6 +1341,9 @@ namespace transmission_nets::model::transmission_process {
     void TransmissionTerm<ParentSetMaxCardinality, MemoImpl, COIProbabilityImpl, ParentSetSizeLikelihoodImpl, InfectionEventImpl, OrderingImpl>::postAcceptState() {
         if (slots_[cacheIndex_] != 0) {
             std::swap(caches_[0], caches_[slots_[cacheIndex_]]);
+        }
+        for (size_t i = 1; i <= cacheIndex_; ++i) {
+            releaseLatentSums(caches_[i]);
         }
         cacheIndex_ = 0;
     }
