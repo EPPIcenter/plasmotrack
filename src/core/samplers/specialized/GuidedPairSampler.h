@@ -35,6 +35,13 @@ namespace transmission_nets::core::samplers::specialized {
      * is accepted on the target's change and both walks' probabilities. The pilot is deterministic, so it needs no
      * correction of its own, and the time exchange is its own inverse.
      *
+     * Deterministic up to rounding: the pilot reads its gains from the target's running sums, whose last digits depend
+     * on the changes made before, and compares them with each other (the first unit wins a tie) and with a threshold
+     * of 1e-9. Where two units' gains tie exactly in exact arithmetic, or a gain lies within rounding of the threshold,
+     * the reverse pilot can then take another path than a forward swap from the proposed state would, and that swap's
+     * Hastings ratio is off. Gains that are a pure function of the State would need the target evaluated afresh at
+     * every option.
+     *
      * A genotype with no allele or more than `maxCOI` is not an option. A swap is rejected when either exchange
      * leaves a duration outside its bounds or the target at no probability; a rejected swap puts both infections
      * back as they were.
