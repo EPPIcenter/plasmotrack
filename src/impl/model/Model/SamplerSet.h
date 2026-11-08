@@ -58,11 +58,6 @@ namespace transmission_nets::impl::Model {
             return scheduler_.samplerIds();
         }
 
-        // Every sampler with its update frequency, in update order.
-        [[nodiscard]] const std::vector<core::samplers::ScheduledSampler>& schedule() const noexcept {
-            return scheduler_.samplers();
-        }
-
         // Throws std::out_of_range for an id that isn't registered.
         [[nodiscard]] core::samplers::AbstractSampler& sampler(const std::string& id) const {
             return scheduler_.sampler(id);
